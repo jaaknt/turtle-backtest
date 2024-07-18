@@ -3,17 +3,14 @@ import collections
 import base64
 import uuid
 import yfinance as yf
-import alpaca_trade_api as alpaca
+
+# import alpaca_trade_api as alpaca
+from dotenv import load_dotenv
+import os
 
 # yf.pdr_override()
 # from pandas_datareader import data
 import requests
-
-# Replace YOUR_API_KEY with your actual API key
-vantage_api_key = "1ZTMVZX0N4RZEBTF"
-
-alpaca_api_key = "AKI8X4PEAZE996RQWLJC"
-alpaca_secret_key = "pNB8qPfGkFhwYuBiFRrFDr0u9RT5cCAKlSSwDaaC"
 
 
 # function returns a list of companies in the Nasdaq 100 index
@@ -57,11 +54,21 @@ def generate_base64_from_uuid(uuid_str):
 
     return base64_string
 
+def get_exchange_symbol_list(exchange_code):
+    url = f'https://eodhd.com/api/exchange-symbol-list/{exchange_code}?api_token={os.getenv('EODHD_API_KEY')}&fmt=json&type=stock'
+    data = requests.get(url).json()
+    print(data)
 
 def main():
     # Make a request to the Alpha Vantage API to get a list of companies in the Nasdaq 100 index
-    data = get_nasdaq_100_companies()
-    print(data)
+    
+    # Load environment variables from the .env file (if present)
+    load_dotenv()
+    # print(f'SECRET_KEY: {os.getenv('ALPACA_API_KEY')}')
+    get_exchange_symbol_list('NYSE');
+
+    # data = get_nasdaq_100_companies()
+    # print(data)
 
     # Example usage
     # uuid_str = "550e8400-e29b-41d4-a716-446655440000"
