@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "trade-strategy-backtest"
+version = "0.1.0"
+description = "Backtest different US stocks trading strategies"
+authors = ["Jaak Niit <jaak.niit@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+requests = "^2.32.3"
+alpaca-py = "^0.28.0"
+python-dotenv = "^1.0.1"
+yfinance = "^0.2.40"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
