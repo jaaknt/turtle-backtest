@@ -11,6 +11,7 @@ requests = "^2.32.3"
 alpaca-py = "^0.28.0"
 python-dotenv = "^1.0.1"
 yfinance = "^0.2.40"
+psycopg-binary = "^3.2.1"
 psycopg = "^3.2.1"
 
 
