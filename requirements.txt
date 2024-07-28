@@ -1,7 +1,0 @@
-# python utilities
-requests
-python-dotenv
-
-# finance service providers sdk-s
-alpaca-py
-yfinance

@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "trade-strategy-backtest"
+name = "turtle-backtest"
 version = "0.1.0"
 description = "Backtest different US stocks trading strategies"
 authors = ["Jaak Niit <jaak.niit@gmail.com>"]
@@ -11,6 +11,7 @@ requests = "^2.32.3"
 alpaca-py = "^0.28.0"
 python-dotenv = "^1.0.1"
 yfinance = "^0.2.40"
+psycopg = "^3.2.1"
 
 
 [build-system]
