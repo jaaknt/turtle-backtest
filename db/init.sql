@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS turtle.ticker(
     isin            varchar(30),
     symbol_type     varchar(20) NOT NULL,
     source          varchar(20) NOT NULL,
+    "status"        varchar(20) NOT NULL,
+    reason_code     varchar(50),
     created_at      timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
     modified_at     timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_ticker PRIMARY KEY (symbol)
@@ -40,6 +42,7 @@ CREATE TABLE IF NOT EXISTS turtle.company(
     trailing_pe_ratio numeric(12,6),
     forward_pe_ratio numeric(12,6),
     avg_volume      bigint,  
+    avg_price       numeric(20,10),  
     market_cap      bigint,
     enterprice_value bigint,
     short_ratio     numeric(12,6),
