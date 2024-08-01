@@ -14,12 +14,12 @@ import os
 # import requests
 import psycopg
 
-from datetime import datetime
+# from datetime import datetime
 
-from alpaca.data.enums import DataFeed
-from alpaca.data.timeframe import TimeFrame
-from alpaca.data.requests import StockBarsRequest
-from alpaca.data.historical import StockHistoricalDataClient
+# from alpaca.data.enums import DataFeed
+# from alpaca.data.timeframe import TimeFrame
+# from alpaca.data.requests import StockBarsRequest
+# from alpaca.data.historical import StockHistoricalDataClient
 
 from turtle.data import symbol, company, bars_history
 
@@ -33,15 +33,15 @@ def main():
 
     # Load environment variables from the .env file (if present)
     load_dotenv()
-    # print(symbol.get_symbol_list("USA", conn))
+    print(symbol.get_symbol_list("USA", conn))
 
     # print(f'SECRET_KEY: {os.getenv('ALPACA_API_KEY')}')
     # symbol.update_exchange_symbol_list(conn, os.getenv("EODHD_API_KEY"))
+    company.update_company_list(conn)
     bars_history.update_historal_data(
         conn, os.getenv("ALPACA_API_KEY"), os.getenv("ALPACA_SECRET_KEY"), "A"
     )
     # get_symbol_list('USA')
-    # company.update_company_list(conn)
 
     # place_holders={'symbol': 'XYZZZ', 'name': 'Test', 'exchange': 'NASDAQ', 'country': 'US', 'currency': 'USD', 'isin': 'XYZ'}
     # save_symbol_list(place_holders)
