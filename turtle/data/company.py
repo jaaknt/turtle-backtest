@@ -1,8 +1,11 @@
 # import requests
 from psycopg import connection
 import yfinance as yf
+import logging
 
 from turtle.data import symbol
+
+logger = logging.getLogger("__name__")
 
 
 def map_yahoo_company_data(symbol: str, data: dict) -> dict:
