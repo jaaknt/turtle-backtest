@@ -14,6 +14,11 @@ import os
 # import requests
 import psycopg
 
+import json
+import logging.config
+import logging.handlers
+import pathlib
+
 # from datetime import datetime
 
 # from alpaca.data.enums import DataFeed
@@ -27,13 +32,25 @@ conn = psycopg.connect(
     "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
 )
 
+logger = logging.getLogger("__name__")
+
+
+def setup_logging():
+    config_file = pathlib.Path("config/stdout.json")
+    with open(config_file) as f_in:
+        config = json.load(f_in)
+
+    logging.config.dictConfig(config)
+
 
 def main():
     # Make a request to the Alpha Vantage API to get a list of companies in the Nasdaq 100 index
-
+    setup_logging()
     # Load environment variables from the .env file (if present)
     load_dotenv()
-    print(symbol.get_symbol_list("USA", conn))
+    # logger.info("Test")
+    symbol.get_symbol_list(conn, "USA")
+    return
 
     # print(f'SECRET_KEY: {os.getenv('ALPACA_API_KEY')}')
     # symbol.update_exchange_symbol_list(conn, os.getenv("EODHD_API_KEY"))

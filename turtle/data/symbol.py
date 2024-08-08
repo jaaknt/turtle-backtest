@@ -1,5 +1,8 @@
 import requests
+import logging
 from psycopg import connection
+
+logger = logging.getLogger("__name__")
 
 
 def map_eodhd_symbol_list(ticker: dict) -> dict:
@@ -31,7 +34,11 @@ def get_symbol_list(conn: connection, country: str) -> None:
         (country,),
     )
     result = cursor.fetchall()
-    return list(map(" ".join, result))
+    symbol_list = list(map(" ".join, result))
+
+    logger.info(f"{len(symbol_list)} symbols returned from database")
+
+    return symbol_list
 
 
 def save_symbol_list(conn: connection, place_holders: dict) -> None:

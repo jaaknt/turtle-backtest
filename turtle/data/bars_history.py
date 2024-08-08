@@ -1,5 +1,6 @@
 from psycopg import connection
 from datetime import datetime
+import logging
 
 from alpaca.data.enums import DataFeed
 from alpaca.data.timeframe import TimeFrame
@@ -7,6 +8,8 @@ from alpaca.data.requests import StockBarsRequest
 from alpaca.data.historical import StockHistoricalDataClient
 
 from turtle.data import symbol
+
+logger = logging.getLogger("__name__")
 
 
 def map_alpaca_bars_history(row) -> dict:
