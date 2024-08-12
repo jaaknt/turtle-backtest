@@ -49,12 +49,11 @@ def main():
     # Load environment variables from the .env file (if present)
     load_dotenv()
     # logger.info("Test")
-    symbol.get_symbol_list(conn, "USA")
-    return
+    # symbol.get_symbol_list(conn, "USA")
 
     # print(f'SECRET_KEY: {os.getenv('ALPACA_API_KEY')}')
     # symbol.update_exchange_symbol_list(conn, os.getenv("EODHD_API_KEY"))
-    company.update_company_list(conn)
+    # company.update_company_list(conn)
     bars_history.update_historal_data(
         conn, os.getenv("ALPACA_API_KEY"), os.getenv("ALPACA_SECRET_KEY"), "A"
     )

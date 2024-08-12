@@ -51,20 +51,20 @@ def update_historal_data(
         if _symbol >= starting_symbol:
             request = StockBarsRequest(
                 symbol_or_symbols=_symbol,
-                start=datetime(year=2024, month=7, day=1).date(),
-                end=datetime(year=2024, month=8, day=1).date(),
+                start=datetime(year=2024, month=8, day=1).date(),
+                end=datetime(year=2024, month=8, day=10).date(),
                 limit=10000,
                 timeframe=TimeFrame.Day,
                 feed=DataFeed.SIP,
             )
             data = stock_data_client.get_stock_bars(request_params=request)
             if data.df.empty:
-                print(f"{datetime.now():%c} Unknown symbol: {_symbol}")
+                logger.info(f"{datetime.now():%c} Unknown symbol: {_symbol}")
             else:
-                print(f"{datetime.now():%c} Saving: {_symbol}")
+                logger.info(f"{datetime.now():%c} Saving: {_symbol}")
                 for row in data.df.itertuples(index=True):
                     place_holders = map_alpaca_bars_history(row)
                     save_bars_history(conn, place_holders)
                     # print(row[0][0], row[0][1].to_pydatetime(), row[1], type(row[0][1].to_pydatetime()))
         else:
-            print(f"{datetime.now():%c} Symbol: {_symbol} already exists")
+            logger.info(f"{datetime.now():%c} Symbol: {_symbol} already exists")
