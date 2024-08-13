@@ -56,3 +56,11 @@ CREATE TABLE IF NOT EXISTS turtle.company(
     modified_at     timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_company PRIMARY KEY (symbol)
 );
+
+INSERT INTO turtle.ticker
+(symbol, "name", exchange, country, currency, isin, symbol_type, "source", created_at, modified_at, status, reason_code)
+VALUES('QQQ', 'Nasdaq 100 index ETF', 'NASDAQ', 'USA', 'USD', null, 'ETF', 'special', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'ACTIVE', null);
+
+INSERT INTO turtle.ticker
+(symbol, "name", exchange, country, currency, isin, symbol_type, "source", created_at, modified_at, status, reason_code)
+VALUES('SPY', 'SPX index ETF', 'NASDAQ', 'USA', 'USD', null, 'ETF', 'special', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'ACTIVE', null);
