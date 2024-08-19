@@ -1,5 +1,6 @@
 import requests
 import logging
+from typing import List
 from psycopg import connection
 
 logger = logging.getLogger("__name__")
@@ -20,7 +21,7 @@ def map_eodhd_symbol_list(ticker: dict) -> dict:
     return place_holders
 
 
-def get_symbol_list(conn: connection, country: str) -> None:
+def get_symbol_list(conn: connection, country: str) -> List[str]:
     # Creating a cursor object using the cursor() method
     cursor = conn.cursor()
     cursor.execute(

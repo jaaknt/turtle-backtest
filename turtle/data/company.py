@@ -27,6 +27,8 @@ def map_yahoo_company_data(symbol: str, data: dict) -> dict:
     place_holders["avg_price"] = data.get("fiftyDayAverage")
     place_holders["market_cap"] = data.get("marketCap")
     place_holders["enterprice_value"] = data.get("enterpriseValue")
+    place_holders["beta"] = data.get("beta")
+    place_holders["shares_float"] = data.get("floatShares")
     place_holders["short_ratio"] = data.get("shortRatio")
     place_holders["peg_ratio"] = data.get("pegRatio")
     place_holders["recommodation_mean"] = data.get("recommendationMean")
@@ -46,18 +48,18 @@ def save_company_list(conn: connection, place_holders: dict) -> None:
         """
            INSERT INTO turtle.company
            (symbol, short_name, country, industry_code, sector_code, employees_count, dividend_rate, trailing_pe_ratio, 
-            forward_pe_ratio, avg_volume, avg_price, market_cap, enterprice_value, short_ratio, peg_ratio, recommodation_mean, 
-            number_of_analysyst, roa_value, roe_value, "source")
+            forward_pe_ratio, avg_volume, avg_price, market_cap, enterprice_value, beta, shares_float, short_ratio, 
+            peg_ratio, recommodation_mean, number_of_analysyst, roa_value, roe_value, "source")
            VALUES(%(symbol)s, %(short_name)s, %(country)s, %(industry_code)s, %(sector_code)s, %(employees_count)s, %(dividend_rate)s, %(trailing_pe_ratio)s,
-                  %(forward_pe_ratio)s, %(avg_volume)s, %(avg_price)s, %(market_cap)s, %(enterprice_value)s, %(short_ratio)s, %(peg_ratio)s, %(recommodation_mean)s,
-                  %(number_of_analysyst)s, %(roa_value)s, %(roa_value)s, 'yahoo')   
+                  %(forward_pe_ratio)s, %(avg_volume)s, %(avg_price)s, %(market_cap)s, %(enterprice_value)s, %(beta)s, %(shares_float)s, %(short_ratio)s, 
+                  %(peg_ratio)s, %(recommodation_mean)s, %(number_of_analysyst)s, %(roa_value)s, %(roa_value)s, 'yahoo')   
            ON CONFLICT (symbol) DO UPDATE SET              
            (short_name, country, industry_code, sector_code, employees_count, dividend_rate, trailing_pe_ratio, 
-            forward_pe_ratio, avg_volume, avg_price, market_cap, enterprice_value, short_ratio, peg_ratio, recommodation_mean, 
-            number_of_analysyst, roa_value, roe_value, "source", modified_at) = 
+            forward_pe_ratio, avg_volume, avg_price, market_cap, enterprice_value, beta, shares_float, short_ratio,
+            peg_ratio, recommodation_mean, number_of_analysyst, roa_value, roe_value, "source", modified_at) = 
            (EXCLUDED.short_name, EXCLUDED.country, EXCLUDED.industry_code, EXCLUDED.sector_code, EXCLUDED.employees_count, EXCLUDED.dividend_rate, EXCLUDED.trailing_pe_ratio, 
-            EXCLUDED.forward_pe_ratio, EXCLUDED.avg_volume, EXCLUDED.avg_price, EXCLUDED.market_cap, EXCLUDED.enterprice_value, EXCLUDED.short_ratio, EXCLUDED.peg_ratio, EXCLUDED.recommodation_mean, 
-            EXCLUDED.number_of_analysyst, EXCLUDED.roa_value, EXCLUDED.roe_value, EXCLUDED."source", CURRENT_TIMESTAMP) 
+            EXCLUDED.forward_pe_ratio, EXCLUDED.avg_volume, EXCLUDED.avg_price, EXCLUDED.market_cap, EXCLUDED.enterprice_value, EXCLUDED.beta, EXCLUDED.shares_float, EXCLUDED.short_ratio, 
+            EXCLUDED.peg_ratio, EXCLUDED.recommodation_mean, EXCLUDED.number_of_analysyst, EXCLUDED.roa_value, EXCLUDED.roe_value, EXCLUDED."source", CURRENT_TIMESTAMP) 
                    """,
         place_holders,
     )
