@@ -1,12 +1,14 @@
 from psycopg import connection
 from datetime import datetime, timedelta
+from typing import List
 
 import logging
 
 # import pandas as pd
 import pandas_ta as ta
 
-from turtle.data import bars_history
+from turtle.data import bars_history, symbol
+from turtle.strategy import market
 
 logger = logging.getLogger("__name__")
 
@@ -88,3 +90,14 @@ def weekly_momentum(conn: connection, ticker: str, end_date: datetime) -> bool:
         return False
 
     return True
+
+
+def momentum_stocks(conn: connection, start_date: datetime) -> List[str]:
+    if market.spy_momentum(conn, start_date):
+        symbol_list = symbol.get_symbol_list(conn, "USA")
+        momentum_stock_list = []
+        for ticker in symbol_list:
+            if weekly_momentum(conn, ticker, start_date):
+                momentum_stock_list.append(ticker)
+        return momentum_stock_list
+    return []

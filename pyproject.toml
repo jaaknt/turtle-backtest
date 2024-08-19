@@ -16,6 +16,7 @@ psycopg = "^3.2.1"
 pandas = "^2.2.2"
 ta-lib = "^0.4.32"
 numpy = "^1.26.4"
+streamlit = "^1.37.1"
 
 
 [build-system]

@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS turtle.company(
     avg_price       numeric(20,10),  
     market_cap      bigint,
     enterprice_value bigint,
+    beta            numeric(12,6), 
+    shares_float    bigint,
     short_ratio     numeric(12,6),
     peg_ratio       numeric(12,6),
     recommodation_mean numeric(12,6),

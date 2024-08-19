@@ -87,15 +87,15 @@ def update_historal_data(
             )
             data = stock_data_client.get_stock_bars(request_params=request)
             if data.df.empty:
-                logger.info(f"{datetime.now():%c} Unknown symbol: {_symbol}")
+                logger.info(f"Unknown symbol: {_symbol}")
             else:
-                logger.info(f"{datetime.now():%c} Saving: {_symbol}")
+                logger.info(f"Saving: {_symbol}")
                 for row in data.df.itertuples(index=True):
                     place_holders = map_alpaca_bars_history(row)
                     save_bars_history(conn, place_holders)
                     # print(row[0][0], row[0][1].to_pydatetime(), row[1], type(row[0][1].to_pydatetime()))
         else:
-            logger.info(f"{datetime.now():%c} Symbol: {_symbol} already exists")
+            logger.info(f"Symbol: {_symbol} already exists")
 
 
 def update_ticker_history(
@@ -118,9 +118,9 @@ def update_ticker_history(
     )
     data = stock_data_client.get_stock_bars(request_params=request)
     if data.df.empty:
-        logger.info(f"{datetime.now():%c} Unknown symbol: {ticker}")
+        logger.info(f"Unknown symbol: {ticker}")
     else:
-        logger.info(f"{datetime.now():%c} Saving: {ticker}")
+        logger.info(f"Saving: {ticker}")
         for row in data.df.itertuples(index=True):
             place_holders = map_alpaca_bars_history(row)
             save_bars_history(conn, place_holders)
