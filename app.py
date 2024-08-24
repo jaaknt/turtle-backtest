@@ -4,17 +4,17 @@ import psycopg
 from datetime import datetime
 
 from turtle.strategy import momentum
+from turtle.data import company
 
 conn = psycopg.connect(
     "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
 )
 
-start_date = datetime(year=2024, month=8, day=19).date()
-momentum_stock_list = momentum.momentum_stocks(conn, start_date)
+end_date = datetime(year=2024, month=5, day=5).date()
+# momentum_stock_list = momentum.momentum_stocks(conn, start_date)
+# data = {"Symbol": momentum_stock_list}
 
-data = {"Symbol": momentum_stock_list}
-
-df = pd.DataFrame(data)
+df = company.get_company_data(conn, momentum.momentum_stocks(conn, end_date), "df")
 
 # Streamlit commands to visualize the DataFrame
 st.title("DataFrame Visualization with Streamlit")

@@ -2,6 +2,9 @@
 from psycopg import connection
 import yfinance as yf
 import logging
+import pandas as pd
+
+from typing import List, Tuple
 
 from turtle.data import symbol
 
@@ -80,3 +83,62 @@ def update_company_list(conn: connection) -> None:
         data = ticker.info
         place_holders = map_yahoo_company_data(_symbol, data)
         save_company_list(conn, place_holders)
+
+
+def convert_to_df(result: List[Tuple]) -> pd.DataFrame:
+    dtypes = {
+        "symbol": "string",
+        "short_name": "string",
+        "country": "string",
+        "industry_code": "string",
+        "sector_code": "string",
+        "employees_count": "Int64",
+        "dividend_rate": "Float64",
+        "market_cap": "Float64",
+        "enterprice_value": "Float64",
+        "beta": "Float64",
+        "shares_float": "Float64",
+        "short_ratio": "Float64",
+        "recommodation_mean": "Float64",
+    }
+    columns = [
+        "symbol",
+        "short_name",
+        "country",
+        "industry_code",
+        "sector_code",
+        "employees_count",
+        "dividend_rate",
+        "market_cap",
+        "enterprice_value",
+        "beta",
+        "shares_float",
+        "short_ratio",
+        "recommodation_mean",
+    ]
+
+    # Create a pandas DataFrame from the fetched data
+    df = pd.DataFrame(result, columns=columns).astype(dtypes)
+    df = df.set_index(["symbol"])
+    return df
+
+
+def get_company_data(
+    conn: connection, symbol_list: List[str], format: str
+) -> List[Tuple]:
+    logger.info(f"{tuple(symbol_list)} symbols passed to company table")
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT symbol, short_name, country, industry_code, sector_code, employees_count, dividend_rate,
+                   market_cap, enterprice_value, beta, shares_float, short_ratio, recommodation_mean
+                FROM turtle.company
+                WHERE symbol = ANY(%s)
+                ORDER BY symbol       
+                    """,
+            [symbol_list],
+        )
+        result = cursor.fetchall()
+
+    logger.info(f"{len(result)} symbols returned from company table")
+    return result if format == "list" else convert_to_df(result)
