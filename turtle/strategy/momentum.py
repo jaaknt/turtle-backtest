@@ -26,6 +26,31 @@ def weekly_momentum(conn: connection, ticker: str, end_date: datetime) -> bool:
     df_weekly["sma_20"] = ta.sma(df_weekly["close"], length=20)
     df_weekly["max_last_10"] = df_weekly["close"].rolling(window=10).max()
 
+    df_daily = bars_history.get_ticker_history(
+        conn,
+        ticker,
+        end_date - timedelta(days=2 * PERIOD_LENGTH),
+        end_date,
+        "day",
+    )
+    df_daily["ema_200"] = ta.ema(df_daily["close"], length=200)
+
+    df_daily_filtered = df_daily.loc[
+        end_date - timedelta(days=PERIOD_LENGTH) : end_date
+    ]
+    if df_daily_filtered.shape[0] < 240:
+        logger.debug(f"{ticker} - not enough data, rows: {df_daily_filtered.shape[0]}")
+        return False
+
+    # logger.debug(df_daily_filtered)
+    days_below_200_ema = (
+        df_daily_filtered["close"] < df_daily_filtered["ema_200"]
+    ).sum()
+
+    if days_below_200_ema > 20:
+        logger.debug(f"{ticker} - too many days below 200 EMA: {days_below_200_ema}")
+        return False
+
     # there must be at least 30 records in DataFrame
     if df_weekly.shape[0] < 30:
         logger.debug(f"{ticker} - not enough data, rows: {df_weekly.shape[0]}")

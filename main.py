@@ -107,11 +107,19 @@ def main():
             datetime(year=2016, month=1, day=1).date(),
             datetime(year=2024, month=8, day=12).date(),
         )
-    start_date = datetime(year=2024, month=8, day=19).date()
-    momentum_stocks(start_date)
+    end_date = datetime(year=2024, month=8, day=18).date()
+    df = company.get_company_data(
+        conn, momentum.momentum_stocks(conn, end_date), "df"
+    )
+    logger.info(df)
+
+    logger.info(momentum.weekly_momentum(conn, "PLTR", end_date))
     """
-    start_date = datetime(year=2024, month=8, day=19).date()
-    momentum_stocks(conn, start_date)
+    end_date = datetime(year=2024, month=8, day=18).date()
+    df = company.get_company_data(conn, momentum.momentum_stocks(conn, end_date), "df")
+    logger.info(df)
+
+    # momentum_stocks(conn, start_date)
     # momentum.weekly_momentum(conn, "PLTR", start_date)
 
     # update_stocks_history(
