@@ -10,7 +10,7 @@ conn = psycopg.connect(
     "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
 )
 
-end_date = datetime(year=2024, month=5, day=5).date()
+end_date = datetime(year=2024, month=8, day=25).date()
 # momentum_stock_list = momentum.momentum_stocks(conn, start_date)
 # data = {"Symbol": momentum_stock_list}
 

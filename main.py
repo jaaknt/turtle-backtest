@@ -17,6 +17,7 @@ import json
 import logging.config
 import logging.handlers
 import pathlib
+from contextlib import contextmanager
 
 # from datetime import datetime
 
@@ -27,10 +28,10 @@ import pathlib
 
 from turtle.data import symbol, company, bars_history
 from turtle.strategy import market, momentum
-
-conn = psycopg.connect(
-    "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
-)
+from turtle.strategy.momentum import MomentumStrategy
+# conn = psycopg.connect(
+#    "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
+# )
 
 logger = logging.getLogger("__name__")
 
@@ -41,6 +42,15 @@ def setup_logging():
         config = json.load(f_in)
 
     logging.config.dictConfig(config)
+
+
+@contextmanager
+def get_db_connection(dsn):
+    connection = psycopg.connect(dsn)
+    try:
+        yield connection
+    finally:
+        connection.close()
 
 
 def update_stocks_history(
@@ -65,10 +75,17 @@ def momentum_stocks(conn: psycopg.connection, start_date: datetime) -> None:
 
 
 def main():
+    dsn = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
     # Make a request to the Alpha Vantage API to get a list of companies in the Nasdaq 100 index
     setup_logging()
     # Load environment variables from the .env file (if present)
     load_dotenv()
+
+    with get_db_connection(dsn) as connection:
+        end_date = datetime(year=2024, month=8, day=25).date()
+        momentum_strategy = MomentumStrategy(connection)
+        momentum_stock_list = momentum_strategy.momentum_stocks(end_date)
+        logger.info(momentum_stock_list)
 
     """
     Receive NYSE/NASDAQ symbol list from EODHD
@@ -90,11 +107,6 @@ def main():
     update_stocks_history(conn, datetime(year=2024, month=8, day=5).date(),  datetime(year=2024, month=8, day=17).date())
 
     """
-    # update_stocks_history(
-    #    conn,
-    #    datetime(year=2017, month=1, day=1).date(),
-    #    datetime(year=2024, month=8, day=17).date(),
-    # )
 
     """
     Calculate momentum strategy 
@@ -115,9 +127,9 @@ def main():
 
     logger.info(momentum.weekly_momentum(conn, "PLTR", end_date))
     """
-    end_date = datetime(year=2024, month=8, day=18).date()
-    df = company.get_company_data(conn, momentum.momentum_stocks(conn, end_date), "df")
-    logger.info(df)
+    # end_date = datetime(year=2024, month=8, day=25).date()
+    # df = company.get_company_data(conn, momentum.momentum_stocks(conn, end_date), "df")
+    # logger.info(df)
 
     # momentum_stocks(conn, start_date)
     # momentum.weekly_momentum(conn, "PLTR", start_date)
