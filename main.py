@@ -111,7 +111,7 @@ def main():
     """
     Calculate momentum strategy 
     for ticker in ["SPY", "QQQ"]:
-        bars_history.update_ticker_history(
+        bars_history.update_ssssticker_history(
             conn,
             os.getenv("ALPACA_API_KEY"),
             os.getenv("ALPACA_SECRET_KEY"),
