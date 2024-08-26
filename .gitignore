@@ -32,7 +32,9 @@ MANIFEST
 # poetry virtual environment 
 .venv
 
-
 # Jupiter notebooks if any
 .ipynb_checkpoints
 */.ipynb_checkpoints/*.ipynb
+
+# VS Code configuration
+.vscode
