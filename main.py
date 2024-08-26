@@ -26,14 +26,14 @@ from contextlib import contextmanager
 # from alpaca.data.requests import StockBarsRequest
 # from alpaca.data.historical import StockHistoricalDataClient
 
-from turtle.data import symbol, company, bars_history
-from turtle.strategy import market, momentum
+
 from turtle.strategy.momentum import MomentumStrategy
-# conn = psycopg.connect(
-#    "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
-# )
+from turtle.data.symbol import Ticker
+from turtle.data.company import Company
+from turtle.data.bars_history import BarsHistory
 
 logger = logging.getLogger("__name__")
+DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
 
 
 def setup_logging():
@@ -53,50 +53,71 @@ def get_db_connection(dsn):
         connection.close()
 
 
-def update_stocks_history(
-    conn: psycopg.connection, start_date: datetime, end_date: datetime
-) -> None:
-    symbol_list = symbol.get_symbol_list(conn, "USA")
-    for ticker in symbol_list:
-        bars_history.update_ticker_history(
-            conn,
-            os.getenv("ALPACA_API_KEY"),
-            os.getenv("ALPACA_SECRET_KEY"),
-            ticker,
-            start_date,
-            end_date,
+def update_ticker_list() -> None:
+    with get_db_connection(DSN) as connection:
+        ticker = Ticker(connection, str(os.getenv("EODHD_API_KEY")))
+        ticker.update_exchange_symbol_list()
+
+
+def update_company_list() -> None:
+    with get_db_connection(DSN) as connection:
+        company = Company(connection, str(os.getenv("EODHD_API_KEY")))
+        company.update_company_list()
+
+
+def update_bars_history(start_date: datetime, end_date: datetime) -> None:
+    with get_db_connection(DSN) as connection:
+        ticker = Ticker(connection, str(os.getenv("EODHD_API_KEY")))
+        symbol_list = ticker.get_symbol_list("USA")
+        bars_history = BarsHistory(
+            connection,
+            str(os.getenv("EODHD_API_KEY")),
+            str(os.getenv("ALPACA_API_KEY")),
+            str(os.getenv("ALPACA_SECRET_KEY")),
         )
+        for _symbol in symbol_list:
+            bars_history.update_ticker_history(
+                _symbol,
+                start_date,
+                end_date,
+            )
     logger.info(f"Stocks update: {start_date} - {end_date}")
 
 
-def momentum_stocks(conn: psycopg.connection, start_date: datetime) -> None:
-    momentum_stock_list = momentum.momentum_stocks(conn, start_date)
-    logger.info(f"Momentum stocks {start_date}: {momentum_stock_list}")
+def momentum_stocks(end_date: datetime) -> None:
+    with get_db_connection(DSN) as connection:
+        momentum_strategy = MomentumStrategy(
+            connection,
+            str(os.getenv("EODHD_API_KEY")),
+            str(os.getenv("ALPACA_API_KEY")),
+            str(os.getenv("ALPACA_SECRET_KEY")),
+        )
+        momentum_stock_list = momentum_strategy.momentum_stocks(end_date)
+        logger.info(momentum_stock_list)
 
 
 def main():
-    dsn = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
     # Make a request to the Alpha Vantage API to get a list of companies in the Nasdaq 100 index
     setup_logging()
     # Load environment variables from the .env file (if present)
     load_dotenv()
 
-    with get_db_connection(dsn) as connection:
-        end_date = datetime(year=2024, month=8, day=25).date()
-        momentum_strategy = MomentumStrategy(connection)
-        momentum_stock_list = momentum_strategy.momentum_stocks(end_date)
-        logger.info(momentum_stock_list)
+    # update_ticker_list()
+    # update_company_list()
+    update_bars_history(
+        datetime(year=2024, month=8, day=22), datetime(year=2024, month=8, day=23)
+    )
+    # momentum_stocks(datetime(year=2024, month=8, day=25))
 
     """
     Receive NYSE/NASDAQ symbol list from EODHD
-    symbol.update_exchange_symbol_list(conn, os.getenv("EODHD_API_KEY"))
-
+    update_ticker_list()
     """
-    # symbol.update_exchange_symbol_list(conn, os.getenv("EODHD_API_KEY"))
-
     """
     Get company data from YAHOO
-    company.update_company_list(conn)    
+    with get_db_connection(dsn) as connection:
+        company = Company(connection, str(os.getenv("EODHD_API_KEY")))
+        company.update_company_list()
     
     !! Run database updates after that to update ticker.status values
     """
@@ -119,17 +140,22 @@ def main():
             datetime(year=2016, month=1, day=1).date(),
             datetime(year=2024, month=8, day=12).date(),
         )
-    end_date = datetime(year=2024, month=8, day=18).date()
-    df = company.get_company_data(
-        conn, momentum.momentum_stocks(conn, end_date), "df"
-    )
-    logger.info(df)
+
+    with get_db_connection(dsn) as connection:
+        end_date = datetime(year=2024, month=8, day=25)
+        momentum_strategy = MomentumStrategy(
+            connection, str(os.getenv("EODHD_API_KEY"))
+        )
+        momentum_stock_list = momentum_strategy.momentum_stocks(end_date)
+        logger.info(momentum_stock_list)
 
     logger.info(momentum.weekly_momentum(conn, "PLTR", end_date))
     """
-    # end_date = datetime(year=2024, month=8, day=25).date()
-    # df = company.get_company_data(conn, momentum.momentum_stocks(conn, end_date), "df")
-    # logger.info(df)
+    # with get_db_connection(dsn) as connection:
+    #     end_date = datetime(year=2024, month=8, day=25).date()
+    #     momentum_strategy = MomentumStrategy(connection)
+    #     momentum_stock_list = momentum_strategy.momentum_stocks(end_date)
+    #     logger.info(momentum_stock_list)
 
     # momentum_stocks(conn, start_date)
     # momentum.weekly_momentum(conn, "PLTR", start_date)
