@@ -95,11 +95,11 @@ class BarsHistory:
                     feed=DataFeed.SIP,
                 )
                 data = self.stock_data_client.get_stock_bars(request_params=request)
-                if data.df.empty:
+                if data.df.empty:  # type: ignore
                     logger.info(f"Unknown symbol: {_symbol}")
                 else:
                     logger.info(f"Saving: {_symbol}")
-                    for row in data.df.itertuples(index=True):
+                    for row in data.df.itertuples(index=True):  # type: ignore
                         place_holders = self.map_alpaca_bars_history(row)
                         self.save_bars_history(place_holders)
                         # print(row[0][0], row[0][1].to_pydatetime(), row[1], type(row[0][1].to_pydatetime()))
@@ -123,11 +123,11 @@ class BarsHistory:
             feed=DataFeed.SIP,
         )
         data = self.stock_data_client.get_stock_bars(request_params=request)
-        if data.df.empty:
+        if data.df.empty:  # type: ignore
             logger.info(f"Unknown symbol: {ticker}")
         else:
             logger.info(f"Saving: {ticker}")
-            for row in data.df.itertuples(index=True):
+            for row in data.df.itertuples(index=True):  # type: ignore
                 place_holders = self.map_alpaca_bars_history(row)
                 self.save_bars_history(place_holders)
                 # print(row[0][0], row[0][1].to_pydatetime(), row[1], type(row[0][1].to_pydatetime()))
