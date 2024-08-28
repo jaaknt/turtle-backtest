@@ -28,8 +28,8 @@ from contextlib import contextmanager
 
 
 from turtle.strategy.momentum import MomentumStrategy
-from turtle.data.symbol import Ticker
-from turtle.data.company import Company
+from turtle.data.symbol import SymbolRepo
+from turtle.data.company import CompanyRepo
 from turtle.data.bars_history import BarsHistory
 
 logger = logging.getLogger("__name__")
@@ -55,29 +55,29 @@ def get_db_connection(dsn):
 
 def update_ticker_list() -> None:
     with get_db_connection(DSN) as connection:
-        ticker = Ticker(connection, str(os.getenv("EODHD_API_KEY")))
+        ticker = SymbolRepo(connection, str(os.getenv("EODHD_API_KEY")))
         ticker.update_exchange_symbol_list()
 
 
 def update_company_list() -> None:
     with get_db_connection(DSN) as connection:
-        company = Company(connection, str(os.getenv("EODHD_API_KEY")))
+        company = CompanyRepo(connection, str(os.getenv("EODHD_API_KEY")))
         company.update_company_list()
 
 
 def update_bars_history(start_date: datetime, end_date: datetime) -> None:
     with get_db_connection(DSN) as connection:
-        ticker = Ticker(connection, str(os.getenv("EODHD_API_KEY")))
-        symbol_list = ticker.get_symbol_list("USA")
+        symbol_repo = SymbolRepo(connection, str(os.getenv("EODHD_API_KEY")))
+        symbol_list = symbol_repo.get_symbol_list("USA")
         bars_history = BarsHistory(
             connection,
             str(os.getenv("EODHD_API_KEY")),
             str(os.getenv("ALPACA_API_KEY")),
             str(os.getenv("ALPACA_SECRET_KEY")),
         )
-        for _symbol in symbol_list:
+        for symbol_rec in symbol_list:
             bars_history.update_ticker_history(
-                _symbol,
+                symbol_rec.symbol,
                 start_date,
                 end_date,
             )
@@ -101,12 +101,15 @@ def main():
     setup_logging()
     # Load environment variables from the .env file (if present)
     load_dotenv()
-
+    with get_db_connection(DSN) as connection:
+        symbol_repo = SymbolRepo(connection, str(os.getenv("EODHD_API_KEY")))
+        symbol_list = symbol_repo.get_symbol_list("USA")
+    print(symbol_list)
     # update_ticker_list()
     # update_company_list()
-    update_bars_history(
-        datetime(year=2024, month=8, day=22), datetime(year=2024, month=8, day=23)
-    )
+    # update_bars_history(
+    #    datetime(year=2024, month=8, day=22), datetime(year=2024, month=8, day=23)
+    # )
     # momentum_stocks(datetime(year=2024, month=8, day=25))
 
     """

@@ -3,14 +3,16 @@ import logging
 from typing import List
 import psycopg
 
+from turtle.data.models import Symbol
+
 logger = logging.getLogger("__name__")
 
 
-class Ticker:
+class SymbolRepo:
     def __init__(self, connection: psycopg.Connection, api_key: str):
         self.connection: psycopg.Connection = connection
         self.api_key = api_key
-        self.symbol_list: List[str] = []
+        self.symbol_list: List[Symbol] = []
 
     def map_eodhd_symbol_list(self, ticker: dict) -> dict:
         place_holders = {}
@@ -26,22 +28,21 @@ class Ticker:
 
         return place_holders
 
-    def get_symbol_list(self, country: str) -> List[str]:
+    def get_symbol_list(self, country: str) -> List[Symbol]:
         with self.connection.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT symbol
+                SELECT symbol, name, exchange, country
                     FROM turtle.ticker
                     WHERE country = %s
                     AND status = 'ACTIVE'     
                     ORDER BY symbol       
-                        """,
+                """,
                 (country,),
             )
             result = cursor.fetchall()
-        symbol_list = list(map((" ".join), result))
-        self.symbol_list = [str(ticker) for ticker in symbol_list]
-        logger.debug(f"{len(symbol_list)} symbols returned from database")
+        self.symbol_list = [Symbol(*symbol) for symbol in result]
+        logger.debug(f"{len(self.symbol_list)} symbols returned from database")
 
         return self.symbol_list
 
@@ -55,7 +56,7 @@ class Ticker:
                     ON CONFLICT (symbol) DO UPDATE SET              
                 ("name", exchange, country, currency, isin, symbol_type, source, modified_at) = 
                 (EXCLUDED."name", EXCLUDED.exchange, EXCLUDED.country, EXCLUDED.currency, EXCLUDED.isin, EXCLUDED.symbol_type, EXCLUDED."source", CURRENT_TIMESTAMP)         
-                        """,
+                """,
                 place_holders,
             )
             self.connection.commit()
