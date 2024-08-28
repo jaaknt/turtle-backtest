@@ -9,7 +9,7 @@ import pandas_ta as ta
 
 from turtle.strategy.market import MarketData
 from turtle.data.symbol import SymbolRepo
-from turtle.data.bars_history import BarsHistory
+from turtle.data.bars_history import BarsHistoryRepo
 
 logger = logging.getLogger("__name__")
 
@@ -27,7 +27,7 @@ class MomentumStrategy:
             connection, ticker_api_key, history_api_key, history_api_secret
         )
         self.ticker = SymbolRepo(connection, ticker_api_key)
-        self.bars_history = BarsHistory(
+        self.bars_history = BarsHistoryRepo(
             connection, ticker_api_key, history_api_key, history_api_secret
         )
         self.df_weekly = pd.DataFrame()
@@ -145,8 +145,8 @@ class MomentumStrategy:
         if self.market_data.spy_momentum(start_date):
             symbol_list = self.ticker.get_symbol_list("USA")
             momentum_stock_list = []
-            for ticker in symbol_list:
-                if self.weekly_momentum(ticker, start_date):
-                    momentum_stock_list.append(ticker)
+            for symbol_rec in symbol_list:
+                if self.weekly_momentum(symbol_rec.symbol, start_date):
+                    momentum_stock_list.append(symbol_rec.symbol)
             return momentum_stock_list
         return []

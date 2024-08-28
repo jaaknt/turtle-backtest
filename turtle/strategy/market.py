@@ -5,7 +5,7 @@ import logging
 import pandas as pd
 import pandas_ta as ta
 
-from turtle.data.bars_history import BarsHistory
+from turtle.data.bars_history import BarsHistoryRepo
 
 logger = logging.getLogger("__name__")
 
@@ -19,7 +19,7 @@ class MarketData:
         history_api_secret: str,
     ):
         self.connection = connection
-        self.bars_history = BarsHistory(
+        self.bars_history = BarsHistoryRepo(
             connection, ticker_api_key, history_api_key, history_api_secret
         )
         self.df_weekly = pd.DataFrame()
