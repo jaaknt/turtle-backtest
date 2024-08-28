@@ -20,7 +20,7 @@ class MarketData:
     ):
         self.connection = connection
         self.bars_history = BarsHistoryRepo(
-            connection, ticker_api_key, history_api_key, history_api_secret
+            connection, history_api_key, history_api_secret
         )
         self.df_weekly = pd.DataFrame()
         self.df_daily = pd.DataFrame()

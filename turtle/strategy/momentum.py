@@ -27,9 +27,7 @@ class MomentumStrategy:
             connection, ticker_api_key, history_api_key, history_api_secret
         )
         self.ticker = SymbolRepo(connection, ticker_api_key)
-        self.bars_history = BarsHistoryRepo(
-            connection, ticker_api_key, history_api_key, history_api_secret
-        )
+        self.bars_history = BarsHistoryRepo(connection, ticker_api_key, history_api_key)
         self.df_weekly = pd.DataFrame()
         self.df_daily = pd.DataFrame()
         self.df_daily_filtered = pd.DataFrame()
@@ -43,6 +41,9 @@ class MomentumStrategy:
             "week",
         )
 
+        if self.df_weekly.empty:
+            return False
+
         self.df_weekly["sma_20"] = ta.sma(self.df_weekly["close"], length=20)
         self.df_weekly["max_last_10"] = self.df_weekly["close"].rolling(window=10).max()
 
@@ -52,6 +53,9 @@ class MomentumStrategy:
             end_date,
             "day",
         )
+        if self.df_daily.empty:
+            return False
+
         self.df_daily["ema_200"] = ta.ema(self.df_daily["close"], length=200)
 
         self.df_daily_filtered = self.df_daily.loc[

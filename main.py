@@ -1,36 +1,20 @@
-from datetime import datetime
-# import pandas as pd
-# import collections
-# import base64
-# import uuid
-# import math
-
-from dotenv import load_dotenv
 import os
-
-# yf.pdr_override()
-# from pandas_datareader import data
-# import requests
 import psycopg
-
 import json
 import logging.config
 import logging.handlers
 import pathlib
 from contextlib import contextmanager
-
-# from datetime import datetime
-
-# from alpaca.data.enums import DataFeed
-# from alpaca.data.timeframe import TimeFrame
-# from alpaca.data.requests import StockBarsRequest
-# from alpaca.data.historical import StockHistoricalDataClient
-
+from datetime import datetime
+from dotenv import load_dotenv
+from typing import List
 
 from turtle.strategy.momentum import MomentumStrategy
 from turtle.data.symbol import SymbolRepo
 from turtle.data.company import CompanyRepo
 from turtle.data.bars_history import BarsHistoryRepo
+
+from turtle.data.models import Symbol
 
 logger = logging.getLogger("__name__")
 DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
@@ -61,8 +45,11 @@ def update_symbol_list() -> None:
 
 def update_company_list() -> None:
     with get_db_connection(DSN) as connection:
-        company_repo = CompanyRepo(connection, str(os.getenv("EODHD_API_KEY")))
-        company_repo.update_company_list()
+        company_repo = CompanyRepo(connection)
+        symbol_repo = SymbolRepo(connection, str(os.getenv("EODHD_API_KEY")))
+        symbol_list: List[Symbol] = symbol_repo.get_symbol_list("USA")
+        for symbol_rec in symbol_list:
+            company_repo.update_company_info(symbol_rec.symbol)
 
 
 def update_bars_history(start_date: datetime, end_date: datetime) -> None:
@@ -71,12 +58,11 @@ def update_bars_history(start_date: datetime, end_date: datetime) -> None:
         symbol_list = symbol_repo.get_symbol_list("USA")
         bars_history = BarsHistoryRepo(
             connection,
-            str(os.getenv("EODHD_API_KEY")),
             str(os.getenv("ALPACA_API_KEY")),
             str(os.getenv("ALPACA_SECRET_KEY")),
         )
         for symbol_rec in symbol_list:
-            bars_history.update_ticker_history(
+            bars_history.update_bars_history(
                 symbol_rec.symbol,
                 start_date,
                 end_date,
@@ -96,21 +82,28 @@ def momentum_stocks(end_date: datetime) -> None:
         logger.info(momentum_stock_list)
 
 
+def get_company_data(symbol_list: List[str]) -> None:
+    with get_db_connection(DSN) as connection:
+        company_repo = CompanyRepo(connection)
+        company_repo.get_company_data(symbol_list)
+        _ = company_repo.convert_df()
+        # logger.info(company_repo.company_list)
+        # logger.info(df)
+
+
 def main():
     # Make a request to the Alpha Vantage API to get a list of companies in the Nasdaq 100 index
     setup_logging()
     # Load environment variables from the .env file (if present)
     load_dotenv()
-    with get_db_connection(DSN) as connection:
-        symbol_repo = SymbolRepo(connection, str(os.getenv("EODHD_API_KEY")))
-        symbol_list = symbol_repo.get_symbol_list("USA")
-    print(symbol_list)
+
     # update_ticker_list()
     # update_company_list()
     # update_bars_history(
     #    datetime(year=2024, month=8, day=22), datetime(year=2024, month=8, day=23)
     # )
-    # momentum_stocks(datetime(year=2024, month=8, day=25))
+    momentum_stocks(datetime(year=2024, month=8, day=25))
+    # get_company_data(["AMZN", "TSLA"])
 
     """
     Receive NYSE/NASDAQ symbol list from EODHD
