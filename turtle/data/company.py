@@ -6,16 +6,16 @@ import pandas as pd
 
 from typing import List, Tuple, Union
 
-from turtle.data.symbol import Ticker
+from turtle.data.symbol import SymbolRepo
+from turtle.data.models import Symbol
 
 logger = logging.getLogger("__name__")
 
 
-class Company:
+class CompanyRepo:
     def __init__(self, connection: psycopg.Connection, ticker_api_key: str):
         self.connection: psycopg.Connection = connection
-        self.ticker = Ticker(connection, ticker_api_key)
-        self.symbol_list: List[str] = []
+        self.ticker = SymbolRepo(connection, ticker_api_key)
 
     def map_yahoo_company_data(self, symbol: str, data: dict) -> dict:
         place_holders = {}
@@ -80,11 +80,11 @@ class Company:
         # print(place_holders)
         # print(ticker.info)
         # return
-        self.symbol_list = self.ticker.get_symbol_list("USA")
-        for _symbol in self.symbol_list:
-            ticker = yf.Ticker(_symbol)
+        symbol_list: List[Symbol] = self.ticker.get_symbol_list("USA")
+        for symbol_rec in symbol_list:
+            ticker = yf.Ticker(symbol_rec.symbol)
             data = ticker.info
-            place_holders = self.map_yahoo_company_data(_symbol, data)
+            place_holders = self.map_yahoo_company_data(symbol_rec.symbol, data)
             self.save_company_list(place_holders)
 
     def convert_to_df(self, result: List[Tuple]) -> pd.DataFrame:
@@ -141,5 +141,5 @@ class Company:
             )
             result = cursor.fetchall()
 
-        logger.info(f"{len(result)} symbols returned from company table")
+        logger.debug(f"{len(result)} symbols returned from company table")
         return result if format == "list" else self.convert_to_df(result)

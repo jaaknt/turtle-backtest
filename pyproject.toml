@@ -17,6 +17,7 @@ pandas = "^2.2.2"
 ta-lib = "^0.4.32"
 numpy = "^1.26.4"
 streamlit = "^1.37.1"
+pytest = "^8.3.2"
 
 
 [build-system]

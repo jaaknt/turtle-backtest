@@ -10,7 +10,8 @@ from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.historical import StockHistoricalDataClient
 
-from turtle.data.symbol import Ticker
+from turtle.data.symbol import SymbolRepo
+from turtle.data.models import Symbol
 
 logger = logging.getLogger("__name__")
 
@@ -29,7 +30,7 @@ class BarsHistory:
         self.stock_data_client = StockHistoricalDataClient(
             history_api_key, history_api_secret
         )
-        self.ticker = Ticker(connection, ticker_api_key)
+        self.ticker = SymbolRepo(connection, ticker_api_key)
         self.symbol_list = []
 
     def map_alpaca_bars_history(self, row) -> dict:
@@ -83,11 +84,11 @@ class BarsHistory:
 
     def update_historal_data(self, starting_symbol: str) -> None:
         # stock_data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
-        self.symbol_list = self.ticker.get_symbol_list("USA")
-        for _symbol in self.symbol_list:
-            if _symbol >= starting_symbol:
+        self.symbol_list: List[Symbol] = self.ticker.get_symbol_list("USA")
+        for symbol_rec in self.symbol_list:
+            if symbol_rec.symbol >= starting_symbol:
                 request = StockBarsRequest(
-                    symbol_or_symbols=_symbol,
+                    symbol_or_symbols=symbol_rec.symbol,
                     start=datetime(year=2024, month=8, day=1),
                     end=datetime(year=2024, month=8, day=10),
                     limit=10000,
@@ -96,15 +97,15 @@ class BarsHistory:
                 )
                 data = self.stock_data_client.get_stock_bars(request_params=request)
                 if data.df.empty:  # type: ignore
-                    logger.info(f"Unknown symbol: {_symbol}")
+                    logger.info(f"Unknown symbol: {symbol_rec.symbol}")
                 else:
-                    logger.info(f"Saving: {_symbol}")
+                    logger.info(f"Saving: {symbol_rec.symbol}")
                     for row in data.df.itertuples(index=True):  # type: ignore
                         place_holders = self.map_alpaca_bars_history(row)
                         self.save_bars_history(place_holders)
                         # print(row[0][0], row[0][1].to_pydatetime(), row[1], type(row[0][1].to_pydatetime()))
             else:
-                logger.info(f"Symbol: {_symbol} already exists")
+                logger.info(f"Symbol: {symbol_rec.symbol} already exists")
 
     def update_ticker_history(
         self,

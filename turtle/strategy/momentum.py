@@ -8,7 +8,7 @@ import pandas as pd
 import pandas_ta as ta
 
 from turtle.strategy.market import MarketData
-from turtle.data.symbol import Ticker
+from turtle.data.symbol import SymbolRepo
 from turtle.data.bars_history import BarsHistory
 
 logger = logging.getLogger("__name__")
@@ -26,7 +26,7 @@ class MomentumStrategy:
         self.market_data = MarketData(
             connection, ticker_api_key, history_api_key, history_api_secret
         )
-        self.ticker = Ticker(connection, ticker_api_key)
+        self.ticker = SymbolRepo(connection, ticker_api_key)
         self.bars_history = BarsHistory(
             connection, ticker_api_key, history_api_key, history_api_secret
         )
