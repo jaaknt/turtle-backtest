@@ -16,7 +16,7 @@ from turtle.data.models import Symbol
 logger = logging.getLogger("__name__")
 
 
-class BarsHistory:
+class BarsHistoryRepo:
     def __init__(
         self,
         connection: psycopg.Connection,

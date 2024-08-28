@@ -30,7 +30,7 @@ from contextlib import contextmanager
 from turtle.strategy.momentum import MomentumStrategy
 from turtle.data.symbol import SymbolRepo
 from turtle.data.company import CompanyRepo
-from turtle.data.bars_history import BarsHistory
+from turtle.data.bars_history import BarsHistoryRepo
 
 logger = logging.getLogger("__name__")
 DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
@@ -53,23 +53,23 @@ def get_db_connection(dsn):
         connection.close()
 
 
-def update_ticker_list() -> None:
+def update_symbol_list() -> None:
     with get_db_connection(DSN) as connection:
-        ticker = SymbolRepo(connection, str(os.getenv("EODHD_API_KEY")))
-        ticker.update_exchange_symbol_list()
+        symbol_repo = SymbolRepo(connection, str(os.getenv("EODHD_API_KEY")))
+        symbol_repo.update_exchange_symbol_list()
 
 
 def update_company_list() -> None:
     with get_db_connection(DSN) as connection:
-        company = CompanyRepo(connection, str(os.getenv("EODHD_API_KEY")))
-        company.update_company_list()
+        company_repo = CompanyRepo(connection, str(os.getenv("EODHD_API_KEY")))
+        company_repo.update_company_list()
 
 
 def update_bars_history(start_date: datetime, end_date: datetime) -> None:
     with get_db_connection(DSN) as connection:
         symbol_repo = SymbolRepo(connection, str(os.getenv("EODHD_API_KEY")))
         symbol_list = symbol_repo.get_symbol_list("USA")
-        bars_history = BarsHistory(
+        bars_history = BarsHistoryRepo(
             connection,
             str(os.getenv("EODHD_API_KEY")),
             str(os.getenv("ALPACA_API_KEY")),
