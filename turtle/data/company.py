@@ -3,19 +3,18 @@ import psycopg
 import yfinance as yf
 import logging
 import pandas as pd
+from typing import List
+from dataclasses import asdict
 
-from typing import List, Tuple, Union
-
-from turtle.data.symbol import SymbolRepo
-from turtle.data.models import Symbol
+from turtle.data.models import Company
 
 logger = logging.getLogger("__name__")
 
 
 class CompanyRepo:
-    def __init__(self, connection: psycopg.Connection, ticker_api_key: str):
+    def __init__(self, connection: psycopg.Connection):
         self.connection: psycopg.Connection = connection
-        self.ticker = SymbolRepo(connection, ticker_api_key)
+        self.company_list: List[Company] = []
 
     def map_yahoo_company_data(self, symbol: str, data: dict) -> dict:
         place_holders = {}
@@ -72,22 +71,13 @@ class CompanyRepo:
             )
             self.connection.commit()
 
-    def update_company_list(self) -> None:
-        # data = get_eodhd_exchange_symbol_list('NYSE')
-        # ticker = yf.Ticker("MSFT")
-        # data = ticker.info
-        # place_holders = map_yahoo_company_data("MSFT", data)
-        # print(place_holders)
-        # print(ticker.info)
-        # return
-        symbol_list: List[Symbol] = self.ticker.get_symbol_list("USA")
-        for symbol_rec in symbol_list:
-            ticker = yf.Ticker(symbol_rec.symbol)
-            data = ticker.info
-            place_holders = self.map_yahoo_company_data(symbol_rec.symbol, data)
-            self.save_company_list(place_holders)
+    def update_company_info(self, symbol: str) -> None:
+        ticker = yf.Ticker(symbol)
+        data = ticker.info
+        place_holders = self.map_yahoo_company_data(symbol, data)
+        self.save_company_list(place_holders)
 
-    def convert_to_df(self, result: List[Tuple]) -> pd.DataFrame:
+    def convert_df(self) -> pd.DataFrame:
         dtypes = {
             "symbol": "string",
             "short_name": "string",
@@ -103,31 +93,14 @@ class CompanyRepo:
             "short_ratio": "Float64",
             "recommodation_mean": "Float64",
         }
-        columns = [
-            "symbol",
-            "short_name",
-            "country",
-            "industry_code",
-            "sector_code",
-            "employees_count",
-            "dividend_rate",
-            "market_cap",
-            "enterprice_value",
-            "beta",
-            "shares_float",
-            "short_ratio",
-            "recommodation_mean",
-        ]
-
-        # Create a pandas DataFrame from the fetched data
-        df = pd.DataFrame(result, columns=columns).astype(dtypes)
+        company_dicts = [asdict(company) for company in self.company_list]
+        df = pd.DataFrame(company_dicts).astype(dtypes)
         df = df.set_index(["symbol"])
+        logger.info(df.info())
         return df
 
-    def get_company_data(
-        self, symbol_list: List[str], format: str
-    ) -> Union[List[Tuple], pd.DataFrame]:
-        logger.info(f"{tuple(symbol_list)} symbols passed to company table")
+    def get_company_data(self, symbol_list: List[str]) -> List[Company]:
+        logger.debug(f"{tuple(symbol_list)} symbols passed to company table")
         with self.connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -136,10 +109,10 @@ class CompanyRepo:
                     FROM turtle.company
                     WHERE symbol = ANY(%s)
                     ORDER BY symbol       
-                        """,
+                """,
                 [symbol_list],
             )
             result = cursor.fetchall()
-
+        self.company_list = [Company(*company) for company in result]
         logger.debug(f"{len(result)} symbols returned from company table")
-        return result if format == "list" else self.convert_to_df(result)
+        return self.company_list

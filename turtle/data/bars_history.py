@@ -1,17 +1,16 @@
 import psycopg
-from datetime import datetime
 import logging
 import pandas as pd
-
-from typing import List, Tuple
+from datetime import datetime
+from typing import List
+from dataclasses import asdict
 
 from alpaca.data.enums import DataFeed
 from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.historical import StockHistoricalDataClient
 
-from turtle.data.symbol import SymbolRepo
-from turtle.data.models import Symbol
+from turtle.data.models import Bar
 
 logger = logging.getLogger("__name__")
 
@@ -20,18 +19,13 @@ class BarsHistoryRepo:
     def __init__(
         self,
         connection: psycopg.Connection,
-        ticker_api_key: str,
-        history_api_key: str,
-        history_api_secret: str,
+        alpaca_api_key: str,
+        alpaca_api_secret: str,
     ):
         self.connection: psycopg.Connection = connection
-        self.history_api_key: str = history_api_key
-        self.history_api_secret: str = history_api_secret
         self.stock_data_client = StockHistoricalDataClient(
-            history_api_key, history_api_secret
+            alpaca_api_key, alpaca_api_secret
         )
-        self.ticker = SymbolRepo(connection, ticker_api_key)
-        self.symbol_list = []
 
     def map_alpaca_bars_history(self, row) -> dict:
         place_holders = {}
@@ -49,7 +43,7 @@ class BarsHistoryRepo:
 
     def get_bars_history(
         self, ticker: str, start_date: datetime, end_date: datetime
-    ) -> List[Tuple]:
+    ) -> List[Bar]:
         # Creating a cursor object using the cursor() method
         with self.connection.cursor() as cursor:
             cursor.execute(
@@ -64,7 +58,9 @@ class BarsHistoryRepo:
                 (ticker, start_date, end_date),
             )
             result = cursor.fetchall()
+        bar_list = [Bar(*bar) for bar in result]
         # logger.debug(f"{len(symbol_list)} symbols returned from database")
+        return bar_list
 
         return result
 
@@ -82,32 +78,7 @@ class BarsHistoryRepo:
             )
             self.connection.commit()
 
-    def update_historal_data(self, starting_symbol: str) -> None:
-        # stock_data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
-        self.symbol_list: List[Symbol] = self.ticker.get_symbol_list("USA")
-        for symbol_rec in self.symbol_list:
-            if symbol_rec.symbol >= starting_symbol:
-                request = StockBarsRequest(
-                    symbol_or_symbols=symbol_rec.symbol,
-                    start=datetime(year=2024, month=8, day=1),
-                    end=datetime(year=2024, month=8, day=10),
-                    limit=10000,
-                    timeframe=TimeFrame(1, TimeFrameUnit.Day),
-                    feed=DataFeed.SIP,
-                )
-                data = self.stock_data_client.get_stock_bars(request_params=request)
-                if data.df.empty:  # type: ignore
-                    logger.info(f"Unknown symbol: {symbol_rec.symbol}")
-                else:
-                    logger.info(f"Saving: {symbol_rec.symbol}")
-                    for row in data.df.itertuples(index=True):  # type: ignore
-                        place_holders = self.map_alpaca_bars_history(row)
-                        self.save_bars_history(place_holders)
-                        # print(row[0][0], row[0][1].to_pydatetime(), row[1], type(row[0][1].to_pydatetime()))
-            else:
-                logger.info(f"Symbol: {symbol_rec.symbol} already exists")
-
-    def update_ticker_history(
+    def update_bars_history(
         self,
         ticker: str,
         start_date: datetime,
@@ -125,15 +96,15 @@ class BarsHistoryRepo:
         )
         data = self.stock_data_client.get_stock_bars(request_params=request)
         if data.df.empty:  # type: ignore
-            logger.info(f"Unknown symbol: {ticker}")
+            logger.debug(f"Unknown symbol: {ticker}")
         else:
-            logger.info(f"Saving: {ticker}")
+            logger.debug(f"Saving: {ticker}")
             for row in data.df.itertuples(index=True):  # type: ignore
                 place_holders = self.map_alpaca_bars_history(row)
                 self.save_bars_history(place_holders)
                 # print(row[0][0], row[0][1].to_pydatetime(), row[1], type(row[0][1].to_pydatetime()))
 
-    def convert_df(self, query_result: List[Tuple], timeframe: str) -> pd.DataFrame:
+    def convert_df(self, bar_list: List[Bar], timeframe: str) -> pd.DataFrame:
         dtypes = {
             "hdate": "string",
             "open": "float64",
@@ -143,10 +114,11 @@ class BarsHistoryRepo:
             "volume": "int64",
             "trade_count": "int64",
         }
-        columns = ["hdate", "open", "high", "low", "close", "volume", "trade_count"]
+        # columns = ["hdate", "open", "high", "low", "close", "volume", "trade_count"]
 
         # Create a pandas DataFrame from the fetched data
-        df = pd.DataFrame(query_result, columns=columns).astype(dtypes)
+        bar_dicts = [asdict(bar) for bar in bar_list]
+        df = pd.DataFrame(bar_dicts).astype(dtypes)
         df["hdate"] = pd.to_datetime(df["hdate"])
         df = df.set_index(["hdate"])
 
@@ -174,8 +146,11 @@ class BarsHistoryRepo:
         end_date: datetime,
         timeframe: str,  # day, week
     ) -> pd.DataFrame:
-        query_result = self.get_bars_history(ticker, start_date, end_date)
-        df = self.convert_df(query_result, timeframe)
+        bar_list = self.get_bars_history(ticker, start_date, end_date)
+        df = (
+            self.convert_df(bar_list, timeframe)
+            if len(bar_list) > 0
+            else pd.DataFrame()
+        )
 
-        # logger.info(df.tail(5))
         return df
