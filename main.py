@@ -82,13 +82,13 @@ def momentum_stocks(end_date: datetime) -> None:
         logger.info(momentum_stock_list)
 
 
-def get_company_data(symbol_list: List[str]) -> None:
+def get_company_list(symbol_list: List[str]) -> None:
     with get_db_connection(DSN) as connection:
         company_repo = CompanyRepo(connection)
-        company_repo.get_company_data(symbol_list)
-        _ = company_repo.convert_df()
+        company_repo.get_company_list(symbol_list)
+        df = company_repo.convert_df()
         # logger.info(company_repo.company_list)
-        # logger.info(df)
+        logger.info(df)
 
 
 def main():
@@ -99,11 +99,11 @@ def main():
 
     # update_ticker_list()
     # update_company_list()
-    # update_bars_history(
-    #    datetime(year=2024, month=8, day=22), datetime(year=2024, month=8, day=23)
-    # )
-    momentum_stocks(datetime(year=2024, month=8, day=25))
-    # get_company_data(["AMZN", "TSLA"])
+    update_bars_history(
+        datetime(year=2024, month=8, day=22), datetime(year=2024, month=8, day=23)
+    )
+    # momentum_stocks(datetime(year=2024, month=8, day=25))
+    # get_company_list(["AMZN", "TSLA"])
 
     """
     Receive NYSE/NASDAQ symbol list from EODHD

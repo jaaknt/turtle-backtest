@@ -35,7 +35,7 @@ def momentum_stocks(end_date: datetime) -> List[str]:
 def get_company_data(symbol_list: List[str]) -> pd.DataFrame:
     with get_db_connection(DSN) as connection:
         company_repo = CompanyRepo(connection)
-        company_repo.get_company_data(symbol_list)
+        company_repo.get_company_list(symbol_list)
     return company_repo.convert_df()
 
 

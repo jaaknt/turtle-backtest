@@ -1,6 +1,6 @@
 import requests
 import logging
-from typing import List
+from typing import List, Tuple
 import psycopg
 
 from turtle.data.models import Symbol
@@ -28,7 +28,7 @@ class SymbolRepo:
 
         return place_holders
 
-    def get_symbol_list(self, country: str) -> List[Symbol]:
+    def _get_symbol_list_db(self, country: str) -> List[Tuple]:
         with self.connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -41,6 +41,10 @@ class SymbolRepo:
                 (country,),
             )
             result = cursor.fetchall()
+            return result
+
+    def get_symbol_list(self, country: str) -> List[Symbol]:
+        result = self._get_symbol_list_db(country)
         self.symbol_list = [Symbol(*symbol) for symbol in result]
         logger.debug(f"{len(self.symbol_list)} symbols returned from database")
 
