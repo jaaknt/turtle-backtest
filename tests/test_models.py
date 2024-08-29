@@ -1,5 +1,3 @@
-import pytest
-
 from turtle.data.models import Symbol
 from turtle.data.models import Company
 

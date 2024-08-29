@@ -2,7 +2,7 @@ import psycopg
 import logging
 import pandas as pd
 from datetime import datetime
-from typing import List
+from typing import List, Tuple
 from dataclasses import asdict
 
 from alpaca.data.enums import DataFeed
@@ -41,10 +41,9 @@ class BarsHistoryRepo:
 
         return place_holders
 
-    def get_bars_history(
-        self, ticker: str, start_date: datetime, end_date: datetime
-    ) -> List[Bar]:
-        # Creating a cursor object using the cursor() method
+    def _get_bars_history_db(
+        self, symbol: str, start_date: datetime, end_date: datetime
+    ) -> List[Tuple]:
         with self.connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -55,14 +54,18 @@ class BarsHistoryRepo:
                     AND hdate <= %s     
                     ORDER BY hdate       
                         """,
-                (ticker, start_date, end_date),
+                (symbol, start_date, end_date),
             )
             result = cursor.fetchall()
+        return result
+
+    def get_bars_history(
+        self, symbol: str, start_date: datetime, end_date: datetime
+    ) -> List[Bar]:
+        result = self._get_bars_history_db(symbol, start_date, end_date)
         bar_list = [Bar(*bar) for bar in result]
         # logger.debug(f"{len(symbol_list)} symbols returned from database")
         return bar_list
-
-        return result
 
     def save_bars_history(self, place_holders: dict) -> None:
         # Creating a cursor object using the cursor() method

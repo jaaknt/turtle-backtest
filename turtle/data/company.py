@@ -3,7 +3,7 @@ import psycopg
 import yfinance as yf
 import logging
 import pandas as pd
-from typing import List
+from typing import List, Tuple
 from dataclasses import asdict
 
 from turtle.data.models import Company
@@ -99,8 +99,7 @@ class CompanyRepo:
         logger.info(df.info())
         return df
 
-    def get_company_data(self, symbol_list: List[str]) -> List[Company]:
-        logger.debug(f"{tuple(symbol_list)} symbols passed to company table")
+    def _get_company_list_db(self, symbol_list: List[str]) -> List[Tuple]:
         with self.connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -113,6 +112,11 @@ class CompanyRepo:
                 [symbol_list],
             )
             result = cursor.fetchall()
+        return result
+
+    def get_company_list(self, symbol_list: List[str]) -> List[Company]:
+        # logger.debug(f"{tuple(symbol_list)} symbols passed to company table")
+        result = self._get_company_list_db(symbol_list)
         self.company_list = [Company(*company) for company in result]
         logger.debug(f"{len(result)} symbols returned from company table")
         return self.company_list
