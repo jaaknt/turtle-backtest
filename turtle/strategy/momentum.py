@@ -11,7 +11,7 @@ from turtle.strategy.market import MarketData
 from turtle.data.symbol import SymbolRepo
 from turtle.data.bars_history import BarsHistoryRepo
 
-logger = logging.getLogger("__name__")
+logger = logging.getLogger(__name__)
 
 
 class MomentumStrategy:

@@ -8,7 +8,7 @@ from dataclasses import asdict
 
 from turtle.data.models import Company
 
-logger = logging.getLogger("__name__")
+logger = logging.getLogger(__name__)
 
 
 class CompanyRepo:
@@ -96,7 +96,7 @@ class CompanyRepo:
         company_dicts = [asdict(company) for company in self.company_list]
         df = pd.DataFrame(company_dicts).astype(dtypes)
         df = df.set_index(["symbol"])
-        logger.info(df.info())
+        # logger.info(df.info())
         return df
 
     def _get_company_list_db(self, symbol_list: List[str]) -> List[Tuple]:
@@ -119,4 +119,5 @@ class CompanyRepo:
         result = self._get_company_list_db(symbol_list)
         self.company_list = [Company(*company) for company in result]
         logger.debug(f"{len(result)} symbols returned from company table")
+        logger.info(f"{__name__} is logger name")
         return self.company_list

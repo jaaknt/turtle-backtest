@@ -755,13 +755,13 @@ files = [
 
 [[package]]
 name = "narwhals"
-version = "1.5.5"
+version = "1.6.0"
 description = "Extremely lightweight compatibility layer between dataframe libraries"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "narwhals-1.5.5-py3-none-any.whl", hash = "sha256:b0cee9a1cfdf88fa1c85720953946b27e7d56629dd0637021efe708cdb59c891"},
-    {file = "narwhals-1.5.5.tar.gz", hash = "sha256:2da2f9388f5bfbc11dd6e82fcea1fc15ac2060a2e6a585d7d3a866a73ad2e357"},
+    {file = "narwhals-1.6.0-py3-none-any.whl", hash = "sha256:4ec5b248998ae552491bc1f497448e94f0f539f5664428a31ddf662c5d46c244"},
+    {file = "narwhals-1.6.0.tar.gz", hash = "sha256:0b0d12f994ac7832c70af29241c32a4f7afddc1cf669f40f6318533d52204595"},
 ]
 
 [package.extras]
