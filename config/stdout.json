@@ -20,6 +20,20 @@
             "handlers": [
                 "stdout"
             ]
+        },
+        "urllib3": {
+            "level": "INFO",
+            "handlers": [
+                "stdout"
+            ],
+            "propagate": false
+        },
+        "turtle": {
+            "level": "DEBUG",
+            "handlers": [
+                "stdout"
+            ],
+            "propagate": false
         }
     }
 }

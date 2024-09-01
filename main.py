@@ -16,7 +16,7 @@ from turtle.data.bars_history import BarsHistoryRepo
 
 from turtle.data.models import Symbol
 
-logger = logging.getLogger("__name__")
+logger = logging.getLogger(__name__)
 DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
 
 
@@ -88,7 +88,7 @@ def get_company_list(symbol_list: List[str]) -> None:
         company_repo.get_company_list(symbol_list)
         df = company_repo.convert_df()
         # logger.info(company_repo.company_list)
-        logger.info(df)
+        # logger.info(df)
 
 
 def main():

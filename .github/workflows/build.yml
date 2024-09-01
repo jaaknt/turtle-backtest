@@ -40,8 +40,5 @@ jobs:
     - name: Install dependencies
       run: poetry install
 
-    - name: Install ta-lib
-      run: poetry run pip install ta-lib
-
     - name: Run tests
       run: poetry run pytest

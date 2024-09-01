@@ -5,7 +5,7 @@ import psycopg
 
 from turtle.data.models import Symbol
 
-logger = logging.getLogger("__name__")
+logger = logging.getLogger(__name__)
 
 
 class SymbolRepo:

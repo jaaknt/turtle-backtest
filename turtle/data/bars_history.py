@@ -12,7 +12,7 @@ from alpaca.data.historical import StockHistoricalDataClient
 
 from turtle.data.models import Bar
 
-logger = logging.getLogger("__name__")
+logger = logging.getLogger(__name__)
 
 
 class BarsHistoryRepo:
