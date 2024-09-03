@@ -1,9 +1,9 @@
-import psycopg
 import logging
 import pandas as pd
 from datetime import datetime
 from typing import List, Tuple
 from dataclasses import asdict
+from psycopg_pool import ConnectionPool
 
 from alpaca.data.enums import DataFeed
 from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
@@ -18,11 +18,11 @@ logger = logging.getLogger(__name__)
 class BarsHistoryRepo:
     def __init__(
         self,
-        connection: psycopg.Connection,
+        pool: ConnectionPool,
         alpaca_api_key: str,
         alpaca_api_secret: str,
     ):
-        self.connection: psycopg.Connection = connection
+        self.pool = pool
         self.stock_data_client = StockHistoricalDataClient(
             alpaca_api_key, alpaca_api_secret
         )
@@ -44,19 +44,20 @@ class BarsHistoryRepo:
     def _get_bars_history_db(
         self, symbol: str, start_date: datetime, end_date: datetime
     ) -> List[Tuple]:
-        with self.connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT hdate, open, high, low, close, volume, trade_count
-                    FROM turtle.bars_history
-                    WHERE symbol = %s
-                    AND hdate >= %s
-                    AND hdate <= %s     
-                    ORDER BY hdate       
-                        """,
-                (symbol, start_date, end_date),
-            )
-            result = cursor.fetchall()
+        with self.pool.connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT hdate, open, high, low, close, volume, trade_count
+                        FROM turtle.bars_history
+                        WHERE symbol = %s
+                        AND hdate >= %s
+                        AND hdate <= %s     
+                        ORDER BY hdate       
+                    """,
+                    (symbol, start_date, end_date),
+                )
+                result = cursor.fetchall()
         return result
 
     def get_bars_history(
@@ -69,17 +70,18 @@ class BarsHistoryRepo:
 
     def save_bars_history(self, place_holders: dict) -> None:
         # Creating a cursor object using the cursor() method
-        with self.connection.cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO turtle.bars_history
-                (symbol, hdate, open, high, low, close, volume, trade_count, source)
-                VALUES(%(symbol)s, %(hdate)s, %(open)s, %(high)s, %(low)s, %(close)s, %(volume)s, %(trade_count)s, %(source)s) 
-                ON CONFLICT (symbol, hdate) DO NOTHING                
-                        """,
-                place_holders,
-            )
-            self.connection.commit()
+        with self.pool.connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO turtle.bars_history
+                    (symbol, hdate, open, high, low, close, volume, trade_count, source)
+                    VALUES(%(symbol)s, %(hdate)s, %(open)s, %(high)s, %(low)s, %(close)s, %(volume)s, %(trade_count)s, %(source)s) 
+                    ON CONFLICT (symbol, hdate) DO NOTHING                
+                            """,
+                    place_holders,
+                )
+            connection.commit()
 
     def update_bars_history(
         self,
@@ -97,6 +99,7 @@ class BarsHistoryRepo:
             timeframe=TimeFrame(1, TimeFrameUnit.Day),
             feed=DataFeed.SIP,
         )
+        # logger.debug(f"Stocks update: {ticker}")
         data = self.stock_data_client.get_stock_bars(request_params=request)
         if data.df.empty:  # type: ignore
             logger.debug(f"Unknown symbol: {ticker}")

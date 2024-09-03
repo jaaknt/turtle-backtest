@@ -18,7 +18,7 @@ def test_get_bars_history(mocker):
 
     # Instantiate BarsHistoryRepo with the mock connection
     repo = BarsHistoryRepo(
-        connection=mocker.Mock(),
+        pool=mocker.Mock(),
         alpaca_api_key="dummy_key",
         alpaca_api_secret="dummy_secret",
     )

@@ -1,4 +1,3 @@
-import psycopg
 from datetime import datetime, timedelta
 
 import logging
@@ -11,19 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 class MarketData:
-    def __init__(
-        self,
-        connection: psycopg.Connection,
-        ticker_api_key: str,
-        history_api_key: str,
-        history_api_secret: str,
-    ):
-        self.connection = connection
-        self.bars_history = BarsHistoryRepo(
-            connection, history_api_key, history_api_secret
-        )
+    def __init__(self, bars_history: BarsHistoryRepo):
+        self.bars_history = bars_history
         self.df_weekly = pd.DataFrame()
-        self.df_daily = pd.DataFrame()
+        # self.df_daily = pd.DataFrame()
 
     def spy_momentum(self, end_date: datetime) -> bool:
         PERIOD_LENGTH: int = 360

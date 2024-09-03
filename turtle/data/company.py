@@ -1,10 +1,12 @@
 # import requests
-import psycopg
 import yfinance as yf
 import logging
 import pandas as pd
 from typing import List, Tuple
 from dataclasses import asdict
+from psycopg import Connection
+from psycopg_pool import ConnectionPool
+
 
 from turtle.data.models import Company
 
@@ -12,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 class CompanyRepo:
-    def __init__(self, connection: psycopg.Connection):
-        self.connection: psycopg.Connection = connection
+    def __init__(self, pool: ConnectionPool):
+        self.pool = pool
         self.company_list: List[Company] = []
 
     def map_yahoo_company_data(self, symbol: str, data: dict) -> dict:
@@ -48,28 +50,28 @@ class CompanyRepo:
         return place_holders
 
     def save_company_list(self, place_holders: dict) -> None:
-        # Creating a cursor object using the cursor() method
-        with self.connection.cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO turtle.company
-                (symbol, short_name, country, industry_code, sector_code, employees_count, dividend_rate, trailing_pe_ratio, 
-                    forward_pe_ratio, avg_volume, avg_price, market_cap, enterprice_value, beta, shares_float, short_ratio, 
-                    peg_ratio, recommodation_mean, number_of_analysyst, roa_value, roe_value, "source")
-                VALUES(%(symbol)s, %(short_name)s, %(country)s, %(industry_code)s, %(sector_code)s, %(employees_count)s, %(dividend_rate)s, %(trailing_pe_ratio)s,
-                        %(forward_pe_ratio)s, %(avg_volume)s, %(avg_price)s, %(market_cap)s, %(enterprice_value)s, %(beta)s, %(shares_float)s, %(short_ratio)s, 
-                        %(peg_ratio)s, %(recommodation_mean)s, %(number_of_analysyst)s, %(roa_value)s, %(roa_value)s, 'yahoo')   
-                ON CONFLICT (symbol) DO UPDATE SET              
-                (short_name, country, industry_code, sector_code, employees_count, dividend_rate, trailing_pe_ratio, 
-                    forward_pe_ratio, avg_volume, avg_price, market_cap, enterprice_value, beta, shares_float, short_ratio,
-                    peg_ratio, recommodation_mean, number_of_analysyst, roa_value, roe_value, "source", modified_at) = 
-                (EXCLUDED.short_name, EXCLUDED.country, EXCLUDED.industry_code, EXCLUDED.sector_code, EXCLUDED.employees_count, EXCLUDED.dividend_rate, EXCLUDED.trailing_pe_ratio, 
-                    EXCLUDED.forward_pe_ratio, EXCLUDED.avg_volume, EXCLUDED.avg_price, EXCLUDED.market_cap, EXCLUDED.enterprice_value, EXCLUDED.beta, EXCLUDED.shares_float, EXCLUDED.short_ratio, 
-                    EXCLUDED.peg_ratio, EXCLUDED.recommodation_mean, EXCLUDED.number_of_analysyst, EXCLUDED.roa_value, EXCLUDED.roe_value, EXCLUDED."source", CURRENT_TIMESTAMP) 
-                        """,
-                place_holders,
-            )
-            self.connection.commit()
+        with self.pool.connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO turtle.company
+                    (symbol, short_name, country, industry_code, sector_code, employees_count, dividend_rate, trailing_pe_ratio, 
+                        forward_pe_ratio, avg_volume, avg_price, market_cap, enterprice_value, beta, shares_float, short_ratio, 
+                        peg_ratio, recommodation_mean, number_of_analysyst, roa_value, roe_value, "source")
+                    VALUES(%(symbol)s, %(short_name)s, %(country)s, %(industry_code)s, %(sector_code)s, %(employees_count)s, %(dividend_rate)s, %(trailing_pe_ratio)s,
+                            %(forward_pe_ratio)s, %(avg_volume)s, %(avg_price)s, %(market_cap)s, %(enterprice_value)s, %(beta)s, %(shares_float)s, %(short_ratio)s, 
+                            %(peg_ratio)s, %(recommodation_mean)s, %(number_of_analysyst)s, %(roa_value)s, %(roa_value)s, 'yahoo')   
+                    ON CONFLICT (symbol) DO UPDATE SET              
+                    (short_name, country, industry_code, sector_code, employees_count, dividend_rate, trailing_pe_ratio, 
+                        forward_pe_ratio, avg_volume, avg_price, market_cap, enterprice_value, beta, shares_float, short_ratio,
+                        peg_ratio, recommodation_mean, number_of_analysyst, roa_value, roe_value, "source", modified_at) = 
+                    (EXCLUDED.short_name, EXCLUDED.country, EXCLUDED.industry_code, EXCLUDED.sector_code, EXCLUDED.employees_count, EXCLUDED.dividend_rate, EXCLUDED.trailing_pe_ratio, 
+                        EXCLUDED.forward_pe_ratio, EXCLUDED.avg_volume, EXCLUDED.avg_price, EXCLUDED.market_cap, EXCLUDED.enterprice_value, EXCLUDED.beta, EXCLUDED.shares_float, EXCLUDED.short_ratio, 
+                        EXCLUDED.peg_ratio, EXCLUDED.recommodation_mean, EXCLUDED.number_of_analysyst, EXCLUDED.roa_value, EXCLUDED.roe_value, EXCLUDED."source", CURRENT_TIMESTAMP) 
+                            """,
+                    place_holders,
+                )
+                connection.commit()
 
     def update_company_info(self, symbol: str) -> None:
         ticker = yf.Ticker(symbol)
@@ -100,18 +102,19 @@ class CompanyRepo:
         return df
 
     def _get_company_list_db(self, symbol_list: List[str]) -> List[Tuple]:
-        with self.connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT symbol, short_name, country, industry_code, sector_code, employees_count, dividend_rate,
-                    market_cap, enterprice_value, beta, shares_float, short_ratio, recommodation_mean
-                    FROM turtle.company
-                    WHERE symbol = ANY(%s)
-                    ORDER BY symbol       
-                """,
-                [symbol_list],
-            )
-            result = cursor.fetchall()
+        with self.pool.connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT symbol, short_name, country, industry_code, sector_code, employees_count, dividend_rate,
+                        market_cap, enterprice_value, beta, shares_float, short_ratio, recommodation_mean
+                        FROM turtle.company
+                        WHERE symbol = ANY(%s)
+                        ORDER BY symbol       
+                    """,
+                    [symbol_list],
+                )
+                result = cursor.fetchall()
         return result
 
     def get_company_list(self, symbol_list: List[str]) -> List[Company]:
