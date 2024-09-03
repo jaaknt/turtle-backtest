@@ -16,20 +16,27 @@
     },
     "loggers": {
         "root": {
-            "level": "DEBUG",
+            "level": "INFO",
             "handlers": [
                 "stdout"
             ]
         },
-        "urllib3": {
-            "level": "INFO",
+        "turtle": {
+            "level": "DEBUG",
             "handlers": [
                 "stdout"
             ],
             "propagate": false
         },
-        "turtle": {
+        "yfinance": {
             "level": "DEBUG",
+            "handlers": [
+                "stdout"
+            ],
+            "propagate": false
+        },
+        "urllib3": {
+            "level": "INFO",
             "handlers": [
                 "stdout"
             ],

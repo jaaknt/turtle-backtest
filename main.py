@@ -1,20 +1,12 @@
-import os
-import psycopg
 import json
 import logging.config
 import logging.handlers
 import pathlib
-from contextlib import contextmanager
 from datetime import datetime
 from dotenv import load_dotenv
-from typing import List
 
-from turtle.strategy.momentum import MomentumStrategy
-from turtle.data.symbol import SymbolRepo
-from turtle.data.company import CompanyRepo
-from turtle.data.bars_history import BarsHistoryRepo
+from turtle.service.data_update import DataUpdate
 
-from turtle.data.models import Symbol
 
 logger = logging.getLogger(__name__)
 DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
@@ -28,80 +20,34 @@ def setup_logging():
     logging.config.dictConfig(config)
 
 
-@contextmanager
-def get_db_connection(dsn):
-    connection = psycopg.connect(dsn)
-    try:
-        yield connection
-    finally:
-        connection.close()
-
-
-def update_symbol_list() -> None:
-    with get_db_connection(DSN) as connection:
-        symbol_repo = SymbolRepo(connection, str(os.getenv("EODHD_API_KEY")))
-        symbol_repo.update_exchange_symbol_list()
-
-
-def update_company_list() -> None:
-    with get_db_connection(DSN) as connection:
-        company_repo = CompanyRepo(connection)
-        symbol_repo = SymbolRepo(connection, str(os.getenv("EODHD_API_KEY")))
-        symbol_list: List[Symbol] = symbol_repo.get_symbol_list("USA")
-        for symbol_rec in symbol_list:
-            company_repo.update_company_info(symbol_rec.symbol)
-
-
-def update_bars_history(start_date: datetime, end_date: datetime) -> None:
-    with get_db_connection(DSN) as connection:
-        symbol_repo = SymbolRepo(connection, str(os.getenv("EODHD_API_KEY")))
-        symbol_list = symbol_repo.get_symbol_list("USA")
-        bars_history = BarsHistoryRepo(
-            connection,
-            str(os.getenv("ALPACA_API_KEY")),
-            str(os.getenv("ALPACA_SECRET_KEY")),
-        )
-        for symbol_rec in symbol_list:
-            bars_history.update_bars_history(
-                symbol_rec.symbol,
-                start_date,
-                end_date,
-            )
-    logger.info(f"Stocks update: {start_date} - {end_date}")
-
-
-def momentum_stocks(end_date: datetime) -> None:
-    with get_db_connection(DSN) as connection:
-        momentum_strategy = MomentumStrategy(
-            connection,
-            str(os.getenv("EODHD_API_KEY")),
-            str(os.getenv("ALPACA_API_KEY")),
-            str(os.getenv("ALPACA_SECRET_KEY")),
-        )
-        momentum_stock_list = momentum_strategy.momentum_stocks(end_date)
-        logger.info(momentum_stock_list)
-
-
-def get_company_list(symbol_list: List[str]) -> None:
-    with get_db_connection(DSN) as connection:
-        company_repo = CompanyRepo(connection)
-        company_repo.get_company_list(symbol_list)
-        df = company_repo.convert_df()
-        # logger.info(company_repo.company_list)
-        # logger.info(df)
-
-
 def main():
-    # Make a request to the Alpha Vantage API to get a list of companies in the Nasdaq 100 index
+    # Setup logging configuration
     setup_logging()
     # Load environment variables from the .env file (if present)
     load_dotenv()
 
+    data_updater = DataUpdate()
+    start_date: datetime = datetime(year=2024, month=8, day=23)  # noqa: F841
+    end_date: datetime = datetime(year=2024, month=8, day=30)  # noqa: F841
+    # data_updater.update_symbol_list()
+    # data_updater.update_company_list()
+    # data_updater.update_bars_history(start_date, end_date)
+
+    symbol_list = data_updater.momentum_stocks(end_date)
+    logger.info(symbol_list)
+
+    df = data_updater.get_company_list(symbol_list)
+    logger.info(df)
+
+    # data_updater.update_bars_history(
+    #    datetime(year=2024, month=8, day=23), datetime(year=2024, month=8, day=30)
+    # )
+
     # update_ticker_list()
     # update_company_list()
-    update_bars_history(
-        datetime(year=2024, month=8, day=22), datetime(year=2024, month=8, day=23)
-    )
+    # update_bars_history(
+    #    datetime(year=2024, month=8, day=22), datetime(year=2024, month=8, day=23)
+    # )
     # momentum_stocks(datetime(year=2024, month=8, day=25))
     # get_company_list(["AMZN", "TSLA"])
 
@@ -128,7 +74,7 @@ def main():
     """
     Calculate momentum strategy 
     for ticker in ["SPY", "QQQ"]:
-        bars_history.update_ssssticker_history(
+        bars_history.update_ticker_history(
             conn,
             os.getenv("ALPACA_API_KEY"),
             os.getenv("ALPACA_SECRET_KEY"),

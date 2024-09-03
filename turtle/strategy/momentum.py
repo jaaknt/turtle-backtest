@@ -1,14 +1,8 @@
-import psycopg
 from datetime import datetime, timedelta
-from typing import List
-
 import logging
-
 import pandas as pd
 import pandas_ta as ta
 
-from turtle.strategy.market import MarketData
-from turtle.data.symbol import SymbolRepo
 from turtle.data.bars_history import BarsHistoryRepo
 
 logger = logging.getLogger(__name__)
@@ -17,17 +11,13 @@ logger = logging.getLogger(__name__)
 class MomentumStrategy:
     def __init__(
         self,
-        connection: psycopg.Connection,
-        ticker_api_key: str,
-        history_api_key: str,
-        history_api_secret: str,
+        bars_history: BarsHistoryRepo,
     ):
-        self.connection = connection
-        self.market_data = MarketData(
-            connection, ticker_api_key, history_api_key, history_api_secret
-        )
-        self.ticker = SymbolRepo(connection, ticker_api_key)
-        self.bars_history = BarsHistoryRepo(connection, ticker_api_key, history_api_key)
+        # self.connection = connection
+        # self.ticker = SymbolRepo(connection, ticker_api_key)
+        self.bars_history = bars_history
+        # self.market_data = MarketData(self.bars_history)
+
         self.df_weekly = pd.DataFrame()
         self.df_daily = pd.DataFrame()
         self.df_daily_filtered = pd.DataFrame()
@@ -144,13 +134,3 @@ class MomentumStrategy:
             return False
 
         return True
-
-    def momentum_stocks(self, start_date: datetime) -> List[str]:
-        if self.market_data.spy_momentum(start_date):
-            symbol_list = self.ticker.get_symbol_list("USA")
-            momentum_stock_list = []
-            for symbol_rec in symbol_list:
-                if self.weekly_momentum(symbol_rec.symbol, start_date):
-                    momentum_stock_list.append(symbol_rec.symbol)
-            return momentum_stock_list
-        return []

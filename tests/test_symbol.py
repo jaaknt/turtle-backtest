@@ -15,7 +15,7 @@ def test_get_symbol_list(mocker):
         SymbolRepo, "_get_symbol_list_db", return_value=mocked_data
     )
 
-    repo = SymbolRepo(connection=mocker.Mock(), api_key="dummy_key")
+    repo = SymbolRepo(pool=mocker.Mock(), api_key="dummy_key")
 
     # Call the method you want to test
     symbols = repo.get_symbol_list(country="USA")
@@ -38,7 +38,7 @@ def test_get_symbol_list_empty(mocker):
     )
 
     # Instantiate SymbolRepo with the mock connection
-    repo = SymbolRepo(connection=mocker.Mock(), api_key="dummy_key")
+    repo = SymbolRepo(pool=mocker.Mock(), api_key="dummy_key")
 
     # Call the method you want to test
     symbols = repo.get_symbol_list(country="USA")

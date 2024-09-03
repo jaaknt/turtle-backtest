@@ -755,13 +755,13 @@ files = [
 
 [[package]]
 name = "narwhals"
-version = "1.6.0"
+version = "1.6.2"
 description = "Extremely lightweight compatibility layer between dataframe libraries"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "narwhals-1.6.0-py3-none-any.whl", hash = "sha256:4ec5b248998ae552491bc1f497448e94f0f539f5664428a31ddf662c5d46c244"},
-    {file = "narwhals-1.6.0.tar.gz", hash = "sha256:0b0d12f994ac7832c70af29241c32a4f7afddc1cf669f40f6318533d52204595"},
+    {file = "narwhals-1.6.2-py3-none-any.whl", hash = "sha256:f236fe14300dd85d877a8c05eb861805e2e0076c14b1d24af66d02fa98c245b6"},
+    {file = "narwhals-1.6.2.tar.gz", hash = "sha256:caee5b13a62740787fa69fc7f13fb119e0d36a7a1f8797a70c2ec19bcecc0b5a"},
 ]
 
 [package.extras]
@@ -1067,6 +1067,8 @@ files = [
 ]
 
 [package.dependencies]
+psycopg-binary = {version = "3.2.1", optional = true, markers = "implementation_name != \"pypy\" and extra == \"binary\""}
+psycopg-pool = {version = "*", optional = true, markers = "extra == \"pool\""}
 typing-extensions = ">=4.4"
 tzdata = {version = "*", markers = "sys_platform == \"win32\""}
 
@@ -1139,6 +1141,20 @@ files = [
     {file = "psycopg_binary-3.2.1-cp39-cp39-musllinux_1_2_x86_64.whl", hash = "sha256:21927f41c4d722ae8eb30d62a6ce732c398eac230509af5ba1749a337f8a63e2"},
     {file = "psycopg_binary-3.2.1-cp39-cp39-win_amd64.whl", hash = "sha256:921f0c7f39590763d64a619de84d1b142587acc70fd11cbb5ba8fa39786f3073"},
 ]
+
+[[package]]
+name = "psycopg-pool"
+version = "3.2.2"
+description = "Connection Pool for Psycopg"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "psycopg_pool-3.2.2-py3-none-any.whl", hash = "sha256:273081d0fbfaced4f35e69200c89cb8fbddfe277c38cc86c235b90a2ec2c8153"},
+    {file = "psycopg_pool-3.2.2.tar.gz", hash = "sha256:9e22c370045f6d7f2666a5ad1b0caf345f9f1912195b0b25d0d3bcc4f3a7389c"},
+]
+
+[package.dependencies]
+typing-extensions = ">=4.4"
 
 [[package]]
 name = "pyarrow"
@@ -1950,4 +1966,4 @@ repair = ["scipy (>=1.6.3)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "76bb7f6db31260e43db162421b83701c1184fb026c1fcc1da45227f879813b42"
+content-hash = "782a5353bd451eaf0e35350c5806b71e5eabe023a3c9ee9c8ee50b0fb01be822"
