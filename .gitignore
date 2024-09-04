@@ -38,3 +38,9 @@ MANIFEST
 
 # VS Code configuration
 .vscode
+
+# Mypy cache
+.mypy_cache/
+
+# Pytest cache
+.pytest_cache/
