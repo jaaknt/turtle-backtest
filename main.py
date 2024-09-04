@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
 
 
-def setup_logging():
+def setup_logging() -> None:
     config_file = pathlib.Path("config/stdout.json")
     with open(config_file) as f_in:
         config = json.load(f_in)
@@ -20,7 +20,7 @@ def setup_logging():
     logging.config.dictConfig(config)
 
 
-def main():
+def main() -> None:
     # Setup logging configuration
     setup_logging()
     # Load environment variables from the .env file (if present)

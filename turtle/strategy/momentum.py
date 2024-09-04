@@ -48,9 +48,8 @@ class MomentumStrategy:
 
         self.df_daily["ema_200"] = ta.ema(self.df_daily["close"], length=200)
 
-        self.df_daily_filtered = self.df_daily.loc[
-            end_date - timedelta(days=PERIOD_LENGTH) : end_date
-        ]
+        start_date: datetime = end_date - timedelta(days=PERIOD_LENGTH)
+        self.df_daily_filtered = self.df_daily.loc[start_date:end_date]  # type: ignore[misc]
         if self.df_daily_filtered.shape[0] < 240:
             logger.debug(
                 f"{ticker} - not enough data, rows: {self.df_daily_filtered.shape[0]}"

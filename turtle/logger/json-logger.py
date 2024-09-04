@@ -4,7 +4,7 @@
 import datetime as dt
 import json
 import logging
-from typing import override
+from typing import override, Any
 
 LOG_RECORD_BUILTIN_ATTRS = {
     "args",
@@ -47,7 +47,7 @@ class MyJSONFormatter(logging.Formatter):
         message = self._prepare_log_dict(record)
         return json.dumps(message, default=str)
 
-    def _prepare_log_dict(self, record: logging.LogRecord):
+    def _prepare_log_dict(self, record: logging.LogRecord) -> dict[str, str | Any]:
         always_fields = {
             "message": record.getMessage(),
             "timestamp": dt.datetime.fromtimestamp(

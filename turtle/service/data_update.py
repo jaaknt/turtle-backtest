@@ -21,7 +21,7 @@ DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
 
 
 class DataUpdate:
-    def __init__(self):
+    def __init__(self) -> None:
         self.pool: ConnectionPool = ConnectionPool(
             conninfo=DSN, min_size=5, max_size=10, max_idle=600
         )
