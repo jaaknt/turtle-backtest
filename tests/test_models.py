@@ -2,7 +2,7 @@ from turtle.data.models import Symbol
 from turtle.data.models import Company
 
 
-def test_symbol_instantiation():
+def test_symbol_instantiation() -> None:
     symbol_rec = Symbol("AAPL", "Apple", "NASDAQ", "USA")
     assert symbol_rec.symbol == "AAPL"
     assert symbol_rec.name == "Apple"
@@ -10,7 +10,7 @@ def test_symbol_instantiation():
     assert symbol_rec.country == "USA"
 
 
-def test_company_instantiation():
+def test_company_instantiation() -> None:
     # Instantiate the Company dataclass
     company = Company(
         symbol="AAPL",
@@ -43,7 +43,7 @@ def test_company_instantiation():
     assert company.recommodation_mean == 1.5
 
 
-def test_company_field_types():
+def test_company_field_types() -> None:
     # Instantiate with correct types
     company = Company(
         symbol="AAPL",

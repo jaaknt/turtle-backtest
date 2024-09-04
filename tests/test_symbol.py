@@ -1,3 +1,5 @@
+from pytest_mock import MockerFixture
+
 from turtle.data.symbol import SymbolRepo
 from turtle.data.models import Symbol
 
@@ -9,7 +11,7 @@ mocked_data = [
 ]
 
 
-def test_get_symbol_list(mocker):
+def test_get_symbol_list(mocker: MockerFixture) -> None:
     # Mock the _get_symbol_list_db method
     mock_get_symbol_list_db = mocker.patch.object(
         SymbolRepo, "_get_symbol_list_db", return_value=mocked_data
@@ -31,7 +33,7 @@ def test_get_symbol_list(mocker):
     mock_get_symbol_list_db.assert_called_once_with("USA")
 
 
-def test_get_symbol_list_empty(mocker):
+def test_get_symbol_list_empty(mocker: MockerFixture) -> None:
     # Mock the _get_symbol_list_db method to return an empty list
     mock_get_symbol_list_db = mocker.patch.object(
         SymbolRepo, "_get_symbol_list_db", return_value=[]

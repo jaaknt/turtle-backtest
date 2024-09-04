@@ -1,7 +1,8 @@
 import logging
 import pandas as pd
 from datetime import datetime
-from typing import List, Tuple
+from typing import List, Dict, Any
+from psycopg.rows import TupleRow
 from dataclasses import asdict
 from psycopg_pool import ConnectionPool
 
@@ -27,7 +28,7 @@ class BarsHistoryRepo:
             alpaca_api_key, alpaca_api_secret
         )
 
-    def map_alpaca_bars_history(self, row) -> dict:
+    def map_alpaca_bars_history(self, row) -> Dict[str, Any]:  # type: ignore[no-untyped-def]
         place_holders = {}
         place_holders["symbol"] = row[0][0]
         place_holders["hdate"] = row[0][1].to_pydatetime().date()
@@ -43,7 +44,7 @@ class BarsHistoryRepo:
 
     def _get_bars_history_db(
         self, symbol: str, start_date: datetime, end_date: datetime
-    ) -> List[Tuple]:
+    ) -> List[TupleRow]:
         with self.pool.connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -68,8 +69,7 @@ class BarsHistoryRepo:
         # logger.debug(f"{len(symbol_list)} symbols returned from database")
         return bar_list
 
-    def save_bars_history(self, place_holders: dict) -> None:
-        # Creating a cursor object using the cursor() method
+    def save_bars_history(self, place_holders: Dict[str, Any]) -> None:
         with self.pool.connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(

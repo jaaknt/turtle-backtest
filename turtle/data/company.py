@@ -2,11 +2,10 @@
 import yfinance as yf
 import logging
 import pandas as pd
-from typing import List, Tuple
+from typing import List, Dict, Any
 from dataclasses import asdict
-from psycopg import Connection
 from psycopg_pool import ConnectionPool
-
+from psycopg.rows import TupleRow
 
 from turtle.data.models import Company
 
@@ -18,8 +17,10 @@ class CompanyRepo:
         self.pool = pool
         self.company_list: List[Company] = []
 
-    def map_yahoo_company_data(self, symbol: str, data: dict) -> dict:
-        place_holders = {}
+    def map_yahoo_company_data(
+        self, symbol: str, data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        place_holders: Dict[str, str | int | float | None] = {}
         place_holders["symbol"] = symbol
         place_holders["short_name"] = data.get("shortName")
         place_holders["country"] = data.get("country")
@@ -49,7 +50,9 @@ class CompanyRepo:
 
         return place_holders
 
-    def save_company_list(self, place_holders: dict) -> None:
+    def save_company_list(
+        self, place_holders: Dict[str, str | int | float | None]
+    ) -> None:
         with self.pool.connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -101,7 +104,7 @@ class CompanyRepo:
         # logger.info(df.info())
         return df
 
-    def _get_company_list_db(self, symbol_list: List[str]) -> List[Tuple]:
+    def _get_company_list_db(self, symbol_list: List[str]) -> List[TupleRow]:
         with self.pool.connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(

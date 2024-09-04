@@ -1,10 +1,11 @@
 from datetime import datetime
+from pytest_mock import MockerFixture
 
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.data.models import Bar
 
 
-def test_get_bars_history(mocker):
+def test_get_bars_history(mocker: MockerFixture) -> None:
     # Mock data for META daily bars
     mock_data = [
         (str(datetime(2023, 8, 1)), 100.0, 105.0, 95.0, 102.0, 1000000, 10000),

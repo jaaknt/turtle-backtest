@@ -1,8 +1,10 @@
+from pytest_mock import MockerFixture
+
 from turtle.data.company import CompanyRepo
 from turtle.data.models import Company
 
 
-def test_get_company_list(mocker):
+def test_get_company_list(mocker: MockerFixture) -> None:
     # Mock data to return for MSFT and GOOG companies
     mock_data = [
         (
