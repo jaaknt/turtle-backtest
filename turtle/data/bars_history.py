@@ -1,12 +1,13 @@
 import logging
 import pandas as pd
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import Optional, List, Dict, Any
 from psycopg.rows import TupleRow
 from dataclasses import asdict
 from psycopg_pool import ConnectionPool
 
 from alpaca.data.enums import DataFeed
+from alpaca.data.models.bars import Bar as AlpacaBar
 from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.historical import StockHistoricalDataClient
@@ -28,16 +29,16 @@ class BarsHistoryRepo:
             alpaca_api_key, alpaca_api_secret
         )
 
-    def map_alpaca_bars_history(self, row) -> Dict[str, Any]:  # type: ignore[no-untyped-def]
+    def map_alpaca_bars_history(self, symbol: str, bar: AlpacaBar) -> Dict[str, Any]:
         place_holders = {}
-        place_holders["symbol"] = row[0][0]
-        place_holders["hdate"] = row[0][1].to_pydatetime().date()
-        place_holders["open"] = row[1]
-        place_holders["high"] = row[2]
-        place_holders["low"] = row[3]
-        place_holders["close"] = row[4]
-        place_holders["volume"] = row[5]
-        place_holders["trade_count"] = row[6]
+        place_holders["symbol"] = symbol
+        place_holders["hdate"] = bar.timestamp
+        place_holders["open"] = bar.open
+        place_holders["high"] = bar.high
+        place_holders["low"] = bar.low
+        place_holders["close"] = bar.close
+        place_holders["volume"] = bar.volume
+        place_holders["trade_count"] = bar.trade_count
         place_holders["source"] = "alpaca"
 
         return place_holders
@@ -85,14 +86,14 @@ class BarsHistoryRepo:
 
     def update_bars_history(
         self,
-        ticker: str,
+        symbol: str,
         start_date: datetime,
-        end_date: datetime,
+        end_date: Optional[datetime] = None,
     ) -> None:
         # stock_data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
 
         request = StockBarsRequest(
-            symbol_or_symbols=ticker,
+            symbol_or_symbols=symbol,
             start=start_date,
             end=end_date,
             limit=10000,
@@ -101,12 +102,13 @@ class BarsHistoryRepo:
         )
         # logger.debug(f"Stocks update: {ticker}")
         data = self.stock_data_client.get_stock_bars(request_params=request)
-        if data.df.empty:  # type: ignore
-            logger.debug(f"Unknown symbol: {ticker}")
+        bars = data[symbol]
+        if not bars:  # empty list
+            logger.debug(f"Unknown symbol: {symbol}")
         else:
-            logger.debug(f"Saving: {ticker}")
-            for row in data.df.itertuples(index=True):  # type: ignore
-                place_holders = self.map_alpaca_bars_history(row)
+            logger.debug(f"Saving: {symbol}")
+            for bar in bars:
+                place_holders = self.map_alpaca_bars_history(symbol, bar)
                 self.save_bars_history(place_holders)
                 # print(row[0][0], row[0][1].to_pydatetime(), row[1], type(row[0][1].to_pydatetime()))
 
