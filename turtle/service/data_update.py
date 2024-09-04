@@ -5,7 +5,7 @@ from datetime import datetime
 
 import logging.config
 import logging.handlers
-from typing import List
+from typing import Optional, List
 
 from turtle.data.symbol import SymbolRepo
 from turtle.data.company import CompanyRepo
@@ -43,7 +43,9 @@ class DataUpdate:
         for symbol_rec in symbol_list:
             self.company_repo.update_company_info(symbol_rec.symbol)
 
-    def update_bars_history(self, start_date: datetime, end_date: datetime) -> None:
+    def update_bars_history(
+        self, start_date: datetime, end_date: Optional[datetime]
+    ) -> None:
         symbol_list = self.symbol_repo.get_symbol_list("USA")
         for symbol_rec in symbol_list:
             self.bars_history.update_bars_history(
