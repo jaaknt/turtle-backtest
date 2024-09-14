@@ -139,8 +139,8 @@ class BarsHistoryRepo:
                     "high": "max",  # Highest price of the week
                     "low": "min",  # Lowest price of the week
                     "close": "last",  # Last day's close price
-                    "volume": "sum",  # Last day's close price
-                    "trade_count": "sum",  # Last day's close price
+                    "volume": "sum",  # Sum of weekly volume
+                    "trade_count": "sum",  # Sum of weekly trade count
                 }
             )
             return df_weekly

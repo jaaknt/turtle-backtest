@@ -1,9 +1,14 @@
 [tool.poetry]
-name = "turtle-backtest"
+name = "turtle"
 version = "0.1.0"
 description = "Backtest different US stocks trading strategies"
 authors = ["Jaak Niit <jaak.niit@gmail.com>"]
 readme = "README.md"
+package-mode = true
+license = "MIT"
+packages = [
+    { include = "turtle" }
+]  
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -13,15 +18,17 @@ python-dotenv = "^1.0.1"
 yfinance = "^0.2.40"
 psycopg = {extras = ["binary", "pool"], version = "^3.2.1"}
 pandas = "^2.2.2"
+pandas-ta = "^0.3.14b0"
 ta-lib = "^0.4.32"
 numpy = "^1.26.4"
 streamlit = "^1.37.1"
 types-requests = "^2.32.0.20240712"
-
+setuptools = "^74.1.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.2"
 pytest-mock = "^3.14.0"
+jupyter = "^1.1.1"
 
 [build-system]
 requires = ["poetry-core"]

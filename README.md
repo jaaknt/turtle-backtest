@@ -2,12 +2,14 @@
 Python library to backtest different trading strategies with US stocks
 
 ## Features
-- download all relevant data free from different sources (Alpha Vantage, EodHD, Yahoo Finance)
+- download all relevant data free from different sources (Alpaca, Alpha Vantage, EODHD, Yahoo Finance)
 - test strategies in local database
 
 ## Installation
 ```
 poetry install
+# activate python virtualenv in bash
+source ./.venv/bin/activate
 ```
 There are special requirements for TA-lib installation - so look for [instructions](https://github.com/jaaknt/turtle-backtest/blob/main/.github/workflows/build.yml)
 
@@ -15,7 +17,7 @@ There are special requirements for TA-lib installation - so look for [instructio
 There are examples in [main.py](https://github.com/jaaknt/turtle-backtest/blob/main/main.py)
 - Download USA Stocks symbol list (EODHD)
 - Download USA Stocks company data (Yahoo)
-- Download USA Stocks company historical data (Alpaca)
+- Download USA Stocks daily data (Alpaca)
 
 ```
 data_updater = DataUpdate()
@@ -28,7 +30,7 @@ data_updater.update_symbol_list()
 # Download USA Stocks company data (Yahoo)
 data_updater.update_company_list()
 
-# Download USA Stocks company historical data
+# Download USA Stocks daily data
 data_updater.update_bars_history(start_date, None)
 
 ```
