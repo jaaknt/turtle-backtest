@@ -27,14 +27,14 @@ def main() -> None:
     load_dotenv()
 
     data_updater = DataUpdate()
-    start_date: datetime = datetime(year=2024, month=8, day=23)  # noqa: F841
-    end_date: datetime = datetime(year=2024, month=9, day=4)  # noqa: F841
+    start_date: datetime = datetime(year=2024, month=9, day=5)  # noqa: F841
+    end_date: datetime = datetime(year=2024, month=9, day=6)  # noqa: F841
     # data_updater.update_symbol_list()
     # data_updater.update_company_list()
-    data_updater.update_bars_history(start_date, None)
+    # data_updater.update_bars_history(start_date, None)
 
-    # symbol_list = data_updater.momentum_stocks(end_date)
-    # logger.info(symbol_list)
+    symbol_list = data_updater.momentum_stocks(end_date)
+    logger.info(symbol_list)
 
     # df = data_updater.get_company_list(symbol_list)
     # logger.info(df)

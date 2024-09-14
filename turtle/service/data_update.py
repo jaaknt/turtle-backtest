@@ -14,7 +14,7 @@ from turtle.data.bars_history import BarsHistoryRepo
 from turtle.data.models import Symbol
 from turtle.strategy.market import MarketData
 from turtle.strategy.momentum import MomentumStrategy
-
+from turtle.strategy.darvas_box import DarvasBoxStrategy
 
 logger = logging.getLogger(__name__)
 DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
@@ -34,6 +34,7 @@ class DataUpdate:
         )
         self.market_data = MarketData(self.bars_history)
         self.momentum_strategy = MomentumStrategy(self.bars_history)
+        self.darvas_box_strategy = DarvasBoxStrategy(self.bars_history)
 
     def update_symbol_list(self) -> None:
         self.symbol_repo.update_symbol_list()
@@ -57,7 +58,8 @@ class DataUpdate:
             symbol_list: List[Symbol] = self.symbol_repo.get_symbol_list("USA")
             momentum_stock_list = []
             for symbol_rec in symbol_list:
-                if self.momentum_strategy.weekly_momentum(
+                # if self.momentum_strategy.weekly_momentum(
+                if self.darvas_box_strategy.weekly_momentum(
                     symbol_rec.symbol, start_date
                 ):
                     momentum_stock_list.append(symbol_rec.symbol)
