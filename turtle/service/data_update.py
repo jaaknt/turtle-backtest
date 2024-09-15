@@ -15,13 +15,16 @@ from turtle.data.models import Symbol
 from turtle.strategy.market import MarketData
 from turtle.strategy.momentum import MomentumStrategy
 from turtle.strategy.darvas_box import DarvasBoxStrategy
+from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)
 DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
 
 
 class DataUpdate:
-    def __init__(self) -> None:
+    def __init__(self, time_frame_unit: TimeFrameUnit = TimeFrameUnit.WEEK) -> None:
+        self.time_frame_unit = time_frame_unit
+
         self.pool: ConnectionPool = ConnectionPool(
             conninfo=DSN, min_size=5, max_size=10, max_idle=600
         )
@@ -34,7 +37,12 @@ class DataUpdate:
         )
         self.market_data = MarketData(self.bars_history)
         self.momentum_strategy = MomentumStrategy(self.bars_history)
-        self.darvas_box_strategy = DarvasBoxStrategy(self.bars_history)
+        self.darvas_box_strategy = DarvasBoxStrategy(
+            self.bars_history,
+            time_frame_unit=self.time_frame_unit,
+            period_length=720,
+            min_bars=250,
+        )
 
     def update_symbol_list(self) -> None:
         self.symbol_repo.update_symbol_list()
@@ -59,8 +67,8 @@ class DataUpdate:
             momentum_stock_list = []
             for symbol_rec in symbol_list:
                 # if self.momentum_strategy.weekly_momentum(
-                if self.darvas_box_strategy.weekly_momentum(
-                    symbol_rec.symbol, start_date
+                if self.darvas_box_strategy.validate_momentum(
+                    symbol_rec.symbol, start_date, time_frame_unit=self.time_frame_unit
                 ):
                     momentum_stock_list.append(symbol_rec.symbol)
             return momentum_stock_list

@@ -2,8 +2,10 @@ from datetime import datetime, timedelta
 import logging
 import pandas as pd
 import pandas_ta as ta
+import numpy as np
 
 from turtle.data.bars_history import BarsHistoryRepo
+from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +14,7 @@ class DarvasBoxStrategy:
     def __init__(
         self,
         bars_history: BarsHistoryRepo,
+        time_frame_unit: TimeFrameUnit = TimeFrameUnit.WEEK,
         period_length: int = 720,
         min_bars: int = 80,
     ):
@@ -20,16 +23,19 @@ class DarvasBoxStrategy:
         self.bars_history = bars_history
         # self.market_data = MarketData(self.bars_history)
 
-        self.df_weekly = pd.DataFrame()
-        # self.df_daily = pd.DataFrame()
-        # self.df_daily_filtered = pd.DataFrame()
+        self.df = pd.DataFrame()
+        self.time_frame_unit: TimeFrameUnit = time_frame_unit
         self.PERIOD_LENGTH = period_length
         self.MIN_BARS = min_bars
 
     @staticmethod
     def check_local_max(
         row_index: int, series: pd.Series, preceding_count=10, following_count=3
-    ):
+    ) -> bool:
+        # return False if there are not enough preceding values
+        if row_index < preceding_count:
+            return False
+
         # Get the current value
         current_value = series.iloc[row_index]
 
@@ -50,7 +56,11 @@ class DarvasBoxStrategy:
             return False
 
     @staticmethod
-    def check_local_min(row_index: int, series: pd.Series, following_count=3):
+    def check_local_min(row_index: int, series: pd.Series, following_count=3) -> bool:
+        # return False if there are not enough following values
+        if row_index + following_count >= len(series):
+            return False
+
         # Get the current value
         current_value = series.iloc[row_index]
 
@@ -65,62 +75,128 @@ class DarvasBoxStrategy:
         else:
             return False
 
+    @staticmethod
+    def is_local_max_valid(
+        df: pd.DataFrame, local_max: float, following_count: int = 3
+    ):
+        # iterate over the following rows
+        # return True if 0:following_count high values after is_local_min are less than local_max
+        following: int = -1
+        for i, row in df.iterrows():
+            if following >= 0:
+                following += 1
+            if row["high"] > local_max:
+                return False
+            if row["is_local_min"]:
+                following = 0
+            if following == following_count:
+                return True
+        return True
+
     def collect(self, ticker: str, end_date: datetime) -> bool:
-        self.df_weekly = self.bars_history.get_ticker_history(
+        self.df = self.bars_history.get_ticker_history(
             ticker,
             end_date - timedelta(days=self.PERIOD_LENGTH),
             end_date,
-            "week",
+            self.time_frame_unit,
         )
-        if self.df_weekly.empty or self.df_weekly.shape[0] < self.MIN_BARS:
+        if self.df.empty or self.df.shape[0] < self.MIN_BARS:
             return False
 
         # add indicators
-        self.df_weekly["max_close_20"] = (
-            self.df_weekly["close"].rolling(window=20).max()
-        )
-        self.df_weekly["ema_10"] = ta.ema(self.df_weekly["close"], length=10)
-        self.df_weekly["ema_20"] = ta.ema(self.df_weekly["close"], length=20)
-        self.df_weekly["ema_50"] = ta.ema(self.df_weekly["close"], length=50)
+        self.df["max_close_20"] = self.df["close"].rolling(window=20).max()
+        self.df["ema_10"] = ta.ema(self.df["close"], length=10)
+        self.df["ema_20"] = ta.ema(self.df["close"], length=20)
+        self.df["ema_50"] = ta.ema(self.df["close"], length=50)
+        self.df["ema_200"] = ta.ema(self.df["close"], length=200)
 
-        self.df_weekly = self.df_weekly.reset_index()
+        self.df = self.df.reset_index()
         return True
 
     def darvas_box_breakout(self, lookback_period=10, validation_period=3) -> bool:
-        self.df_weekly["box_top"] = pd.NA
-        self.df_weekly["box_bottom"] = pd.NA
-        self.df_weekly["box_breakout"] = False
-        self.df_weekly["is_local_max"] = self.df_weekly.index.to_series().apply(
+        # status values: unknown, box_top_set, box_bottom_set, box_formed, breakout_up, breakout_down
+        self.df["status"] = "unknown"
+        self.df["box_top"] = np.nan
+        self.df["box_bottom"] = np.nan
+        self.df["is_local_max"] = self.df.index.to_series().apply(
             lambda i: self.check_local_max(
-                i, self.df_weekly["close"], lookback_period, validation_period
+                i, self.df["high"], lookback_period, validation_period
             )
         )
-        self.df_weekly["is_local_min"] = self.df_weekly.index.to_series().apply(
-            lambda i: self.check_local_min(
-                i, self.df_weekly["close"], validation_period
-            )
+        self.df["is_local_min"] = self.df.index.to_series().apply(
+            lambda i: self.check_local_min(i, self.df["low"], validation_period)
         )
 
         # Initialize variables for box formation
-        box_top = pd.NA
-        box_bottom = pd.NA
-        box_top_index: int = 0
-        box_bottom_index: int = 0
-        box_breakout_index: int = 0
+        status: str = "unknown"
+        # box_top_index: int = 0
+        # box_bottom_index: int = 0
+        box_top = pd.Float64Dtype()
+        box_bottom = pd.Float64Dtype()
 
-        # for i in range(lookback_period, len(self.df_weekly)):
-        #    row = self.df_weekly[i]
+        # iterate over the self.df_weekly rows
+        for i, row in self.df.iterrows():
+            # if status is unknown, check if the current row is a local max
+            if status == "unknown":
+                if row["is_local_max"]:
+                    if self.is_local_max_valid(
+                        self.df[i:], row["high"], validation_period
+                    ):
+                        status = "box_top_set"
+                        box_top = row["high"]
+                        # self.df_weekly.at[i, "status"] = status
+                        self.df.at[i, "box_top"] = box_top
+                    else:
+                        # fixing local max value
+                        self.df["is_local_max"] = False
+                        # status = "unknown"
+                        continue
+                else:
+                    continue
+            # if status is box_top_set, check if the current row is a local min
+            # there can be local max and min in the same bar
+            if status == "box_top_set":
+                if row["is_local_min"]:
+                    status = "box_bottom_set"
+                    box_bottom = row["low"]
+                    # self.df_weekly.at[i, "status"] = status
+                    self.df.at[i, "box_bottom"] = box_bottom
+            # if status is box_bottom_set, check if the current row is a local max
+            elif status == "box_bottom_set":
+                if row["is_local_min"]:
+                    status = "box_formed"
+                    # self.df_weekly.at[i, "status"] = status
+            # if status is box_formed, check if the current row is a breakout
+            elif status == "box_formed":
+                if row["close"] > box_top:
+                    status = "breakout_up"
+                    # self.df_weekly.at[i, "status"] = status
+                elif row["close"] < box_bottom:
+                    status = "breakout_down"
+                    # self.df_weekly.at[i, "status"] = status
+            elif status == "breakout_up" or status == "breakout_down":
+                status = "unknown"
 
-        # Check if the box top has been set
+            # update the status
+            self.df.at[i, "status"] = status
 
-        return True
+        # check if the last or previous row was a breakout up
+        return (
+            self.df.iloc[-1]["status"] == "breakout_up"
+            or self.df.iloc[-2]["status"] == "breakout_up"
+        )
 
-    def weekly_momentum(self, ticker: str, end_date: datetime) -> bool:
+    def validate_momentum(
+        self,
+        ticker: str,
+        end_date: datetime,
+        time_frame_unit: TimeFrameUnit = TimeFrameUnit.WEEK,
+    ) -> bool:
         if not self.collect(ticker, end_date):
-            logger.debug(f"{ticker} - not enough data, rows: {self.df_weekly.shape[0]}")
+            logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
             return False
 
-        last_record = self.df_weekly.iloc[-1]
+        last_record = self.df.iloc[-1]
         # last close > max(close, 20)
         if last_record["close"] < last_record["max_close_20"]:
             logger.debug(
@@ -155,6 +231,21 @@ class DarvasBoxStrategy:
                 f"{ticker} close < EMA_50, close: {last_record["close"]} EMA50: {last_record["ema_50"]}"
             )
             return False
+
+        if self.time_frame_unit == TimeFrameUnit.DAY:
+            # last close > EMA(close, 200)
+            if last_record["close"] < last_record["ema_200"]:
+                logger.debug(
+                    f"{ticker} close < EMA_200, close: {last_record["close"]} EMA200: {last_record["ema_200"]}"
+                )
+                return False
+
+            # EMA(close, 50) > EMA(close, 200)
+            if last_record["ema_50"] < last_record["ema_200"]:
+                logger.debug(
+                    f"{ticker} EMA_50 < EMA_200, EMA50: {last_record["ema_50"]} EMA200: {last_record["ema_200"]}"
+                )
+                return False
 
         # call darvas_box_breakout
         if not self.darvas_box_breakout():

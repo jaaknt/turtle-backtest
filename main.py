@@ -6,7 +6,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 from turtle.service.data_update import DataUpdate
-
+from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)
 DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
@@ -26,9 +26,9 @@ def main() -> None:
     # Load environment variables from the .env file (if present)
     load_dotenv()
 
-    data_updater = DataUpdate()
+    data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.DAY)
     start_date: datetime = datetime(year=2024, month=9, day=5)  # noqa: F841
-    end_date: datetime = datetime(year=2024, month=9, day=6)  # noqa: F841
+    end_date: datetime = datetime(year=2024, month=9, day=13)  # noqa: F841
     # data_updater.update_symbol_list()
     # data_updater.update_company_list()
     # data_updater.update_bars_history(start_date, None)
