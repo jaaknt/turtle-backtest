@@ -8,11 +8,13 @@ from psycopg_pool import ConnectionPool
 
 from alpaca.data.enums import DataFeed
 from alpaca.data.models.bars import Bar as AlpacaBar
-from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
+from alpaca.data.timeframe import TimeFrame as AlpacaTimeFrame
+from alpaca.data.timeframe import TimeFrameUnit as AlpacaTimeFrameUnit
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.historical import StockHistoricalDataClient
 
 from turtle.data.models import Bar
+from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +99,7 @@ class BarsHistoryRepo:
             start=start_date,
             end=end_date,
             limit=10000,
-            timeframe=TimeFrame(1, TimeFrameUnit.Day),
+            timeframe=AlpacaTimeFrame(1, AlpacaTimeFrameUnit.Day),
             feed=DataFeed.SIP,
         )
         # logger.debug(f"Stocks update: {ticker}")
@@ -112,7 +114,9 @@ class BarsHistoryRepo:
                 self.save_bars_history(place_holders)
                 # print(row[0][0], row[0][1].to_pydatetime(), row[1], type(row[0][1].to_pydatetime()))
 
-    def convert_df(self, bar_list: List[Bar], timeframe: str) -> pd.DataFrame:
+    def convert_df(
+        self, bar_list: List[Bar], time_frame_unit: TimeFrameUnit
+    ) -> pd.DataFrame:
         dtypes = {
             "hdate": "string",
             "open": "float64",
@@ -130,9 +134,9 @@ class BarsHistoryRepo:
         df["hdate"] = pd.to_datetime(df["hdate"])
         df = df.set_index(["hdate"])
 
-        if timeframe == "day":
+        if time_frame_unit == TimeFrameUnit.DAY:
             return df
-        elif timeframe == "week":
+        elif time_frame_unit == TimeFrameUnit.WEEK:
             df_weekly = df.resample("W").agg(
                 {
                     "open": "first",  # First day's open price
@@ -152,11 +156,11 @@ class BarsHistoryRepo:
         ticker: str,
         start_date: datetime,
         end_date: datetime,
-        timeframe: str,  # day, week
+        time_frame_unit: TimeFrameUnit,  # day, week
     ) -> pd.DataFrame:
         bar_list = self.get_bars_history(ticker, start_date, end_date)
         df = (
-            self.convert_df(bar_list, timeframe)
+            self.convert_df(bar_list, time_frame_unit)
             if len(bar_list) > 0
             else pd.DataFrame()
         )
