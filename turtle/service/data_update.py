@@ -22,7 +22,7 @@ DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
 
 
 class DataUpdate:
-    def __init__(self, time_frame_unit: TimeFrameUnit = TimeFrameUnit.WEEK) -> None:
+    def __init__(self, time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY) -> None:
         self.time_frame_unit = time_frame_unit
 
         self.pool: ConnectionPool = ConnectionPool(
@@ -68,7 +68,7 @@ class DataUpdate:
             for symbol_rec in symbol_list:
                 # if self.momentum_strategy.weekly_momentum(
                 if self.darvas_box_strategy.validate_momentum(
-                    symbol_rec.symbol, start_date, time_frame_unit=self.time_frame_unit
+                    symbol_rec.symbol, start_date
                 ):
                     momentum_stock_list.append(symbol_rec.symbol)
             return momentum_stock_list

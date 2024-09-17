@@ -80,8 +80,10 @@ class BarsHistoryRepo:
                     INSERT INTO turtle.bars_history
                     (symbol, hdate, open, high, low, close, volume, trade_count, source)
                     VALUES(%(symbol)s, %(hdate)s, %(open)s, %(high)s, %(low)s, %(close)s, %(volume)s, %(trade_count)s, %(source)s) 
-                    ON CONFLICT (symbol, hdate) DO NOTHING                
-                            """,
+                    ON CONFLICT (symbol, hdate) DO UPDATE SET
+                    (open, high, low, close, volume, trade_count, source, modified_at) =
+                    (EXCLUDED.open, EXCLUDED.high, EXCLUDED.low, EXCLUDED.close, EXCLUDED.volume, EXCLUDED.trade_count, EXCLUDED.source, CURRENT_TIMESTAMP)                
+                   """,
                     place_holders,
                 )
             connection.commit()
