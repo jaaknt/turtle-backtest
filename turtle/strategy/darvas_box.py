@@ -109,6 +109,7 @@ class DarvasBoxStrategy:
         self.df["ema_20"] = ta.ema(self.df["close"], length=20)
         self.df["ema_50"] = ta.ema(self.df["close"], length=50)
         self.df["ema_200"] = ta.ema(self.df["close"], length=200)
+        self.df["ema_volume_10"] = ta.ema(self.df["volume"], length=10)
 
         self.df = self.df.reset_index()
         return True
@@ -165,15 +166,15 @@ class DarvasBoxStrategy:
             elif status == "box_bottom_set":
                 if row["is_local_min"]:
                     status = "box_formed"
-                    # self.df_weekly.at[i, "status"] = status
             # if status is box_formed, check if the current row is a breakout
             elif status == "box_formed":
                 if row["close"] > box_top:
                     status = "breakout_up"
-                    # self.df_weekly.at[i, "status"] = status
+                    # for further filtering afterwards
+                    self.df.at[i, "box_bottom"] = box_bottom
+                    self.df.at[i, "box_top"] = box_top
                 elif row["close"] < box_bottom:
                     status = "breakout_down"
-                    # self.df_weekly.at[i, "status"] = status
             elif status == "breakout_up" or status == "breakout_down":
                 status = "unknown"
 
@@ -183,15 +184,10 @@ class DarvasBoxStrategy:
         # check if the last or previous row was a breakout up
         return (
             self.df.iloc[-1]["status"] == "breakout_up"
-            or self.df.iloc[-2]["status"] == "breakout_up"
+            # or self.df.iloc[-2]["status"] == "breakout_up"
         )
 
-    def validate_momentum(
-        self,
-        ticker: str,
-        end_date: datetime,
-        time_frame_unit: TimeFrameUnit = TimeFrameUnit.WEEK,
-    ) -> bool:
+    def validate_momentum(self, ticker: str, end_date: datetime) -> bool:
         if not self.collect(ticker, end_date):
             logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
             return False
@@ -247,8 +243,23 @@ class DarvasBoxStrategy:
                 )
                 return False
 
+        # if last volume < EMA(volume, 10)*1.10
+        if last_record["volume"] < last_record["ema_volume_10"] * 1.10:
+            logger.debug(
+                f"{ticker} volume < EMA_volume_10 * 1.10, volume: {last_record["volume"]} EMA_volume_10 * 1.10: {last_record["ema_volume_10"]*1.10}"
+            )
+            return False
+
+        # if last (close - open) / close < 0.01
+        if (last_record["close"] - last_record["open"]) / last_record["close"] < 0.01:
+            logger.debug(
+                f"{ticker} (close - open) / close < 0.01, close: {last_record["close"]} open: {last_record["open"]}"
+            )
+            return False
+
         # call darvas_box_breakout
         if not self.darvas_box_breakout():
+            logger.debug(f"{ticker} darvas_box_breakout failed")
             return False
 
         return True

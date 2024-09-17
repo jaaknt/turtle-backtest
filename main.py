@@ -28,7 +28,7 @@ def main() -> None:
 
     data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.DAY)
     start_date: datetime = datetime(year=2024, month=9, day=5)  # noqa: F841
-    end_date: datetime = datetime(year=2024, month=9, day=13)  # noqa: F841
+    end_date: datetime = datetime(year=2024, month=9, day=17)  # noqa: F841
     # data_updater.update_symbol_list()
     # data_updater.update_company_list()
     # data_updater.update_bars_history(start_date, None)

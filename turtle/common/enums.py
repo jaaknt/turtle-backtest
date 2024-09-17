@@ -2,6 +2,8 @@ from enum import Enum
 
 
 class TimeFrameUnit(Enum):
+    """Bars history time units"""
+
     # SECOND = "second"
     # MINUTE = "minute"
     # HOUR = "hour"

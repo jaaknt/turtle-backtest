@@ -37,7 +37,7 @@ class SymbolRepo:
                     SELECT symbol, name, exchange, country
                         FROM turtle.ticker
                         WHERE country = %s
-                        AND status = 'ACTIVE'     
+                          AND status = 'ACTIVE'     
                         ORDER BY symbol       
                     """,
                     (country,),
