@@ -36,11 +36,15 @@ def test_check_local_min():
 
 def test_collect():
     bars_history_mock = MagicMock(spec=BarsHistoryRepo)
-    strategy = DarvasBoxStrategy(bars_history_mock, period_length=10, min_bars=3)
+    strategy = DarvasBoxStrategy(bars_history_mock, period_length=3, min_bars=3)
 
     # Mock the return value of get_ticker_history
     bars_history_mock.get_ticker_history.return_value = pd.DataFrame(
-        {"close": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
+        {
+            "close": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "open": [0, 0, 1, 2, 3, 4, 5, 6, 7, 8],
+            "volume": [0, 0, 1, 2, 3, 4, 5, 6, 7, 15],
+        }
     )
 
     assert strategy.collect("AAPL", datetime.now()) is True
@@ -49,6 +53,8 @@ def test_collect():
     assert "ema_10" in strategy.df.columns
     assert "ema_20" in strategy.df.columns
     assert "ema_50" in strategy.df.columns
+    assert "ema_200" in strategy.df.columns
+    assert "ema_volume_10" in strategy.df.columns
 
     # Test with insufficient data
     bars_history_mock.get_ticker_history.return_value = pd.DataFrame({"close": [1, 2]})
