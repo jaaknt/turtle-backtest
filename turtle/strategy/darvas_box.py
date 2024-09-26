@@ -25,12 +25,15 @@ class DarvasBoxStrategy:
 
         self.df = pd.DataFrame()
         self.time_frame_unit: TimeFrameUnit = time_frame_unit
-        self.PERIOD_LENGTH = period_length
-        self.MIN_BARS = min_bars
+        self.period_length = period_length
+        self.min_bars = min_bars
 
     @staticmethod
     def check_local_max(
-        row_index: int, series: pd.Series, preceding_count=10, following_count=3
+        row_index: int,
+        series: pd.Series,
+        preceding_count: int = 10,
+        following_count: int = 4,
     ) -> bool:
         # return False if there are not enough preceding values
         if row_index < preceding_count:
@@ -44,7 +47,7 @@ class DarvasBoxStrategy:
 
         # Get the 3 next values (handling end of DataFrame edge cases)
         following_values = series.iloc[
-            row_index + 1 : min(row_index + following_count, len(series))
+            row_index + 1 : min(row_index + following_count + 1, len(series))
         ]
 
         # Check if all previous 10 and next 3 values are less than current
@@ -56,7 +59,9 @@ class DarvasBoxStrategy:
             return False
 
     @staticmethod
-    def check_local_min(row_index: int, series: pd.Series, following_count=3) -> bool:
+    def check_local_min(
+        row_index: int, series: pd.Series, following_count: int = 3
+    ) -> bool:
         # return False if there are not enough following values
         if row_index + following_count >= len(series):
             return False
@@ -66,7 +71,7 @@ class DarvasBoxStrategy:
 
         # Get the 3 next values (handling end of DataFrame edge cases)
         following_values = series.iloc[
-            row_index + 1 : min(row_index + following_count, len(series))
+            row_index + 1 : min(row_index + following_count + 1, len(series))
         ]
 
         # Check if all next 3 values are less than current
@@ -96,13 +101,13 @@ class DarvasBoxStrategy:
     def collect(self, ticker: str, end_date: datetime) -> bool:
         self.df = self.bars_history.get_ticker_history(
             ticker,
-            end_date - timedelta(days=self.PERIOD_LENGTH),
+            end_date - timedelta(days=self.period_length),
             end_date,
             self.time_frame_unit,
         )
-        if self.df.empty or self.df.shape[0] < self.MIN_BARS:
-            return False
+        return not (self.df.empty or self.df.shape[0] < self.min_bars)
 
+    def calculate_indicators(self) -> None:
         # add indicators
         self.df["max_close_20"] = self.df["close"].rolling(window=20).max()
         self.df["ema_10"] = ta.ema(self.df["close"], length=10)
@@ -110,11 +115,13 @@ class DarvasBoxStrategy:
         self.df["ema_50"] = ta.ema(self.df["close"], length=50)
         self.df["ema_200"] = ta.ema(self.df["close"], length=200)
         self.df["ema_volume_10"] = ta.ema(self.df["volume"], length=10)
+        self.df["buy_signal"] = False
 
         self.df = self.df.reset_index()
-        return True
 
-    def darvas_box_breakout(self, lookback_period=10, validation_period=3) -> bool:
+        self.darvas_box_breakout()
+
+    def darvas_box_breakout(self, lookback_period=10, validation_period=3) -> None:
         # status values: unknown, box_top_set, box_bottom_set, box_formed, breakout_up, breakout_down
         self.df["status"] = "unknown"
         self.df["box_top"] = np.nan
@@ -187,79 +194,106 @@ class DarvasBoxStrategy:
             # or self.df.iloc[-2]["status"] == "breakout_up"
         )
 
-    def validate_momentum(self, ticker: str, end_date: datetime) -> bool:
-        if not self.collect(ticker, end_date):
-            logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
-            return False
-
-        last_record = self.df.iloc[-1]
+    def is_buy_signal(self, ticker: str, row: pd.Series) -> bool:
+        # last_record: pd.Series = self.df.iloc[-1]
         # last close > max(close, 20)
-        if last_record["close"] < last_record["max_close_20"]:
+        if row["close"] < row["max_close_20"]:
             logger.debug(
-                f"{ticker} close < max_close_20, close: {last_record["close"]} max_close_20: {last_record["max_close_20"]}"
+                f"{ticker} close < max_close_20, close: {row["close"]} max_close_20: {row["max_close_20"]}"
             )
             return False
 
         # last close > EMA(close, 10)
-        if last_record["close"] < last_record["ema_10"]:
+        if row["close"] < row["ema_10"]:
             logger.debug(
-                f"{ticker} close < EMA_10, close: {last_record["close"]} EMA10: {last_record["ema_10"]}"
+                f"{ticker} close < EMA_10, close: {row["close"]} EMA10: {row["ema_10"]}"
             )
             return False
 
         # last close > EMA(close, 20)
-        if last_record["close"] < last_record["ema_20"]:
+        if row["close"] < row["ema_20"]:
             logger.debug(
-                f"{ticker} close < EMA_20, close: {last_record["close"]} EMA20: {last_record["ema_20"]}"
+                f"{ticker} close < EMA_20, close: {row["close"]} EMA20: {row["ema_20"]}"
             )
             return False
 
         # EMA(close, 10) > EMA(close, 20)
-        if last_record["ema_10"] < last_record["ema_20"]:
+        if row["ema_10"] < row["ema_20"]:
             logger.debug(
-                f"{ticker} EMA_10 < EMA_20, EMA10: {last_record["ema_10"]} EMA20: {last_record["ema_20"]}"
+                f"{ticker} EMA_10 < EMA_20, EMA10: {row["ema_10"]} EMA20: {row["ema_20"]}"
             )
             return False
 
         # last close > EMA(close, 50)
-        if last_record["close"] < last_record["ema_50"]:
+        if row["close"] < row["ema_50"]:
             logger.debug(
-                f"{ticker} close < EMA_50, close: {last_record["close"]} EMA50: {last_record["ema_50"]}"
+                f"{ticker} close < EMA_50, close: {row["close"]} EMA50: {row["ema_50"]}"
             )
             return False
 
         if self.time_frame_unit == TimeFrameUnit.DAY:
             # last close > EMA(close, 200)
-            if last_record["close"] < last_record["ema_200"]:
+            if row["close"] < row["ema_200"]:
                 logger.debug(
-                    f"{ticker} close < EMA_200, close: {last_record["close"]} EMA200: {last_record["ema_200"]}"
+                    f"{ticker} close < EMA_200, close: {row["close"]} EMA200: {row["ema_200"]}"
                 )
                 return False
 
             # EMA(close, 50) > EMA(close, 200)
-            if last_record["ema_50"] < last_record["ema_200"]:
+            if row["ema_50"] < row["ema_200"]:
                 logger.debug(
-                    f"{ticker} EMA_50 < EMA_200, EMA50: {last_record["ema_50"]} EMA200: {last_record["ema_200"]}"
+                    f"{ticker} EMA_50 < EMA_200, EMA50: {row["ema_50"]} EMA200: {row["ema_200"]}"
                 )
                 return False
 
         # if last volume < EMA(volume, 10)*1.10
-        if last_record["volume"] < last_record["ema_volume_10"] * 1.10:
+        if row["volume"] < row["ema_volume_10"] * 1.10:
             logger.debug(
-                f"{ticker} volume < EMA_volume_10 * 1.10, volume: {last_record["volume"]} EMA_volume_10 * 1.10: {last_record["ema_volume_10"]*1.10}"
+                f"{ticker} volume < EMA_volume_10 * 1.10, volume: {row["volume"]} EMA_volume_10 * 1.10: {row["ema_volume_10"]*1.10}"
             )
             return False
 
         # if last (close - open) / close < 0.01
-        if (last_record["close"] - last_record["open"]) / last_record["close"] < 0.01:
+        if (row["close"] - row["open"]) / row["close"] < 0.01:
             logger.debug(
-                f"{ticker} (close - open) / close < 0.01, close: {last_record["close"]} open: {last_record["open"]}"
+                f"{ticker} (close - open) / close < 0.01, close: {row["close"]} open: {row["open"]}"
             )
             return False
 
-        # call darvas_box_breakout
-        if not self.darvas_box_breakout():
+        # is darvas_box breakout up
+        if not row["status"] == "breakout_up":
             logger.debug(f"{ticker} darvas_box_breakout failed")
             return False
 
         return True
+
+    def validate_momentum(self, ticker: str, end_date: datetime) -> bool:
+        if not self.collect(ticker, end_date):
+            logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
+            return False
+
+        self.calculate_indicators()
+
+        return self.is_buy_signal(ticker, self.df.iloc[-1])
+
+    # create similar procedure as validate_momentum that will calculate validate_momentum for all dates in df DataFrame
+    # parameters - self, ticker, start_date, end_date
+    # adds a new column to the DataFrame - df["buy_signal"] with boolean values
+    # returns count of buy signals
+    def validate_momentum_all_dates(
+        self, ticker: str, start_date: datetime, end_date: datetime
+    ) -> int:
+        # collect data for the ticker and end_date
+        if not self.collect(ticker, end_date):
+            logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
+            return 0
+
+        self.calculate_indicators()
+
+        # iterate over the dates in the df DataFrame
+        for i, row in self.df.iterrows():
+            # calculate validate_momentum for the date
+            if self.df.at[i, "status"] == "breakout_up":
+                self.df.at[i, "buy_signal"] = self.is_buy_signal(ticker, row)
+
+        return self.df["buy_signal"].sum()

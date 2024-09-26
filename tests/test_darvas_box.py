@@ -24,14 +24,16 @@ def test_check_local_max():
 
 
 def test_check_local_min():
-    series = pd.Series([10, 9, 8, 1, 8, 9, 10])
-    assert DarvasBoxStrategy.check_local_min(0, series, 3) is False
-    assert DarvasBoxStrategy.check_local_min(1, series, 3) is False
-    assert DarvasBoxStrategy.check_local_min(2, series, 3) is False
-    assert DarvasBoxStrategy.check_local_min(3, series, 3) is True
-    assert DarvasBoxStrategy.check_local_min(4, series, 3) is False
-    assert DarvasBoxStrategy.check_local_min(5, series, 3) is False
-    assert DarvasBoxStrategy.check_local_min(6, series, 3) is False
+    series = pd.Series([10, 9, 8, 7, 1, 7, 8, 9, 10])
+    assert DarvasBoxStrategy.check_local_min(0, series, 2) is False
+    assert DarvasBoxStrategy.check_local_min(1, series, 2) is False
+    assert DarvasBoxStrategy.check_local_min(2, series, 2) is False
+    assert DarvasBoxStrategy.check_local_min(3, series, 2) is False
+    assert DarvasBoxStrategy.check_local_min(4, series, 2) is True
+    assert DarvasBoxStrategy.check_local_min(5, series, 2) is True
+    assert DarvasBoxStrategy.check_local_min(6, series, 2) is True
+    assert DarvasBoxStrategy.check_local_min(7, series, 2) is False
+    assert DarvasBoxStrategy.check_local_min(8, series, 2) is False
 
 
 def test_collect():
@@ -49,16 +51,50 @@ def test_collect():
 
     assert strategy.collect("AAPL", datetime.now()) is True
     assert not strategy.df.empty
-    assert "max_close_20" in strategy.df.columns
-    assert "ema_10" in strategy.df.columns
-    assert "ema_20" in strategy.df.columns
-    assert "ema_50" in strategy.df.columns
-    assert "ema_200" in strategy.df.columns
-    assert "ema_volume_10" in strategy.df.columns
+    # assert "max_close_20" in strategy.df.columns
+    # assert "ema_10" in strategy.df.columns
+    # assert "ema_20" in strategy.df.columns
+    # assert "ema_50" in strategy.df.columns
+    # assert "ema_200" in strategy.df.columns
+    # assert "ema_volume_10" in strategy.df.columns
 
     # Test with insufficient data
     bars_history_mock.get_ticker_history.return_value = pd.DataFrame({"close": [1, 2]})
-    assert strategy.collect("AAPL", datetime.now()) is False
+    assert strategy.collect("GOOG", datetime.now()) is False
+
+
+def test_calculate_indicators():
+    # Call the method
+    bars_history_mock = MagicMock(spec=BarsHistoryRepo)
+    strategy = DarvasBoxStrategy(bars_history_mock, period_length=3, min_bars=3)
+
+    strategy.df = pd.DataFrame(
+        {
+            "close": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "open": [0, 0, 1, 2, 3, 4, 5, 6, 7, 8],
+            "high": [2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+            "low": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            "volume": [0, 0, 1, 2, 3, 4, 5, 6, 7, 15],
+        }
+    )
+    strategy.calculate_indicators()
+
+    # Check that the expected columns are added
+    expected_columns = [
+        "max_close_20",
+        "ema_10",
+        "ema_20",
+        "ema_50",
+        "ema_200",
+        "ema_volume_10",
+        "buy_signal",
+    ]
+    for column in expected_columns:
+        assert column in strategy.df.columns
+
+    # Check that the columns contain values
+    # for column in expected_columns:
+    #     assert strategy.df[column].isnull().all()
 
 
 def test_is_local_max_valid():
