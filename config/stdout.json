@@ -22,7 +22,7 @@
             ]
         },
         "turtle": {
-            "level": "DEBUG",
+            "level": "INFO",
             "handlers": [
                 "stdout"
             ],

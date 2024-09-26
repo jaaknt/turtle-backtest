@@ -223,6 +223,26 @@ files = [
 dev = ["freezegun (>=1.0,<2.0)", "pytest (>=6.0)", "pytest-cov"]
 
 [[package]]
+name = "backtesting"
+version = "0.3.3"
+description = "Backtest trading strategies in Python"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "Backtesting-0.3.3.tar.gz", hash = "sha256:b2511993ae16596c06d3cfd3d42a662ca69d51a95a604b85705fb1a900e3a798"},
+]
+
+[package.dependencies]
+bokeh = ">=1.4.0"
+numpy = ">=1.17.0"
+pandas = ">0.25.0"
+
+[package.extras]
+dev = ["coverage", "flake8", "mypy"]
+doc = ["ipykernel", "jupyter_client", "jupytext (>=1.3)", "nbconvert", "pdoc3"]
+test = ["matplotlib", "scikit-learn", "scikit-optimize", "seaborn"]
+
+[[package]]
 name = "beautifulsoup4"
 version = "4.12.3"
 description = "Screen-scraping library"
@@ -271,6 +291,26 @@ files = [
     {file = "blinker-1.8.2-py3-none-any.whl", hash = "sha256:1779309f71bf239144b9399d06ae925637cf6634cf6bd131104184531bf67c01"},
     {file = "blinker-1.8.2.tar.gz", hash = "sha256:8f77b09d3bf7c795e969e9486f39c2c5e9c39d4ee07424be2bc594ece9642d83"},
 ]
+
+[[package]]
+name = "bokeh"
+version = "2.4.3"
+description = "Interactive plots and applications in the browser from Python"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "bokeh-2.4.3-py3-none-any.whl", hash = "sha256:104d2f0a4ca7774ee4b11e545aa34ff76bf3e2ad6de0d33944361981b65da420"},
+    {file = "bokeh-2.4.3.tar.gz", hash = "sha256:ef33801161af379665ab7a34684f2209861e3aefd5c803a21fbbb99d94874b03"},
+]
+
+[package.dependencies]
+Jinja2 = ">=2.9"
+numpy = ">=1.11.3"
+packaging = ">=16.8"
+pillow = ">=7.1.0"
+PyYAML = ">=3.10"
+tornado = ">=5.1"
+typing-extensions = ">=3.10.0"
 
 [[package]]
 name = "cachetools"
@@ -3589,4 +3629,4 @@ repair = ["scipy (>=1.6.3)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "e5891fbfc1cc034e7b1003685e3f5e4f346d2cb31e571dd0063e84d8862ec64f"
+content-hash = "5547e131541c0bb804e57707067e33c679ed8ae3477ce3d805b04e77434366a7"
