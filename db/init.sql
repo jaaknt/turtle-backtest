@@ -59,6 +59,16 @@ CREATE TABLE IF NOT EXISTS turtle.company(
     CONSTRAINT pk_company PRIMARY KEY (symbol)
 );
 
+CREATE TABLE IF NOT EXISTS turtle.symbol_group(
+    symbol_group    varchar(20) NOT NULL,
+    symbol          varchar(20) NOT NULL,
+    rate            numeric(12,6),
+    created_at      timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modified_at     timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_symbol_group PRIMARY KEY (symbol_group, symbol)
+);
+
+
 INSERT INTO turtle.ticker
 (symbol, "name", exchange, country, currency, isin, symbol_type, "source", created_at, modified_at, status, reason_code)
 VALUES('QQQ', 'Nasdaq 100 index ETF', 'NASDAQ', 'USA', 'USD', null, 'ETF', 'special', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'ACTIVE', null);

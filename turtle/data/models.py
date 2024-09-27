@@ -68,3 +68,18 @@ class Bar:
     close: float
     volume: int
     trade_count: int
+
+
+@dataclass
+class SymbolGroup:
+    """Stock symbol groups
+
+    Attributes:
+    symbol (str): symbol code in stock exchange
+    symbol_group (str): group (NASDAQ100, NASQAQ, ...) where the symbol belongs
+    rate (float): rate of the symbol in the group
+    """
+
+    symbol_group: str
+    symbol: str
+    rate: float
