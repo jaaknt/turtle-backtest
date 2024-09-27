@@ -26,6 +26,7 @@ types-requests = "^2.32.0.20240712"
 setuptools = "^74.1.2"
 backtesting = "^0.3.3"
 bokeh = "2.4.3"
+plotly = "^5.24.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.2"

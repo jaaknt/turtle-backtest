@@ -10,12 +10,14 @@ from turtle.common.enums import TimeFrameUnit
 logger = logging.getLogger(__name__)
 
 
+# Darvas Box Strategy description
+# https://www.tradingview.com/script/ygJLhYt4-Darvas-Box-Theory-Tracking-Uptrends/
 class DarvasBoxStrategy:
     def __init__(
         self,
         bars_history: BarsHistoryRepo,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.WEEK,
-        period_length: int = 720,
+        warmup_period: int = 300,
         min_bars: int = 80,
     ):
         # self.connection = connection
@@ -25,7 +27,7 @@ class DarvasBoxStrategy:
 
         self.df = pd.DataFrame()
         self.time_frame_unit: TimeFrameUnit = time_frame_unit
-        self.period_length = period_length
+        self.warmup_period = warmup_period
         self.min_bars = min_bars
 
     @staticmethod
@@ -98,10 +100,10 @@ class DarvasBoxStrategy:
                 return True
         return True
 
-    def collect(self, ticker: str, end_date: datetime) -> bool:
+    def collect(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
         self.df = self.bars_history.get_ticker_history(
             ticker,
-            end_date - timedelta(days=self.period_length),
+            start_date - timedelta(days=self.warmup_period),
             end_date,
             self.time_frame_unit,
         )
@@ -196,6 +198,12 @@ class DarvasBoxStrategy:
 
     def is_buy_signal(self, ticker: str, row: pd.Series) -> bool:
         # last_record: pd.Series = self.df.iloc[-1]
+
+        # is darvas_box breakout up
+        if not row["status"] == "breakout_up":
+            logger.debug(f"{ticker} darvas_box_breakout failed")
+            return False
+
         # last close > max(close, 20)
         if row["close"] < row["max_close_20"]:
             logger.debug(
@@ -260,15 +268,10 @@ class DarvasBoxStrategy:
             )
             return False
 
-        # is darvas_box breakout up
-        if not row["status"] == "breakout_up":
-            logger.debug(f"{ticker} darvas_box_breakout failed")
-            return False
-
         return True
 
-    def validate_momentum(self, ticker: str, end_date: datetime) -> bool:
-        if not self.collect(ticker, end_date):
+    def validate_momentum(self, ticker: str, date_to_check: datetime) -> bool:
+        if not self.collect(ticker, date_to_check, date_to_check):
             logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
             return False
 
@@ -284,16 +287,19 @@ class DarvasBoxStrategy:
         self, ticker: str, start_date: datetime, end_date: datetime
     ) -> int:
         # collect data for the ticker and end_date
-        if not self.collect(ticker, end_date):
+        if not self.collect(ticker, start_date, end_date):
             logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
             return 0
 
         self.calculate_indicators()
 
         # iterate over the dates in the df DataFrame
+        # skip first 200 rows as EMA200 is not calculated for them
         for i, row in self.df.iterrows():
-            # calculate validate_momentum for the date
-            if self.df.at[i, "status"] == "breakout_up":
-                self.df.at[i, "buy_signal"] = self.is_buy_signal(ticker, row)
+            if row["hdate"] < start_date:
+                logger.debug(f"Skipping date: {row["hdate"]}")
+                continue
+
+            self.df.at[i, "buy_signal"] = self.is_buy_signal(ticker, row)
 
         return self.df["buy_signal"].sum()

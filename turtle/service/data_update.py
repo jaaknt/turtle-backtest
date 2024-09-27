@@ -1,13 +1,14 @@
 import os
 import pandas as pd
 from psycopg_pool import ConnectionPool
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import logging.config
 import logging.handlers
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 from turtle.data.symbol import SymbolRepo
+from turtle.data.symbol_group import SymbolGroupRepo
 from turtle.data.company import CompanyRepo
 from turtle.data.bars_history import BarsHistoryRepo
 
@@ -25,15 +26,16 @@ class DataUpdate:
     def __init__(
         self,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
-        period_length: int = 720,
+        warmup_period: int = 300,
     ) -> None:
         self.time_frame_unit = time_frame_unit
-        self.period_length = period_length
+        self.warmup_period = warmup_period
 
         self.pool: ConnectionPool = ConnectionPool(
             conninfo=DSN, min_size=5, max_size=10, max_idle=600
         )
         self.symbol_repo = SymbolRepo(self.pool, str(os.getenv("EODHD_API_KEY")))
+        self.symbol_group_repo = SymbolGroupRepo(self.pool)
         self.company_repo = CompanyRepo(self.pool)
         self.bars_history = BarsHistoryRepo(
             self.pool,
@@ -45,7 +47,7 @@ class DataUpdate:
         self.darvas_box_strategy = DarvasBoxStrategy(
             self.bars_history,
             time_frame_unit=self.time_frame_unit,
-            period_length=period_length,
+            warmup_period=warmup_period,
             min_bars=250,
         )
 
@@ -79,24 +81,26 @@ class DataUpdate:
             return momentum_stock_list
         return []
 
-    def get_buy_signals(self, end_date: datetime) -> None:
+    def get_buy_signals(self, start_date: datetime, end_date: datetime) -> List[Tuple]:
         symbol_list: List[Symbol] = self.symbol_repo.get_symbol_list("USA")
         momentum_stock_list = []
         for symbol_rec in symbol_list:
             # if self.momentum_strategy.weekly_momentum(
             count = self.darvas_box_strategy.validate_momentum_all_dates(
                 symbol_rec.symbol,
-                end_date - timedelta(days=self.period_length),
+                start_date,
                 end_date,
             )
             if count > 0:
                 momentum_stock_list.append((symbol_rec.symbol, count))
                 logger.info(f"Buy signal for {symbol_rec.symbol} - count {count}")
 
-        top_50 = sorted(momentum_stock_list, key=lambda x: x[1], reverse=True)[:50]
-        logger.info(f"Top 50 stocks with trade counts: {top_50}")
+        # top_100 = sorted(self.momentum_stock_list, key=lambda x: x[1], reverse=True)[:100]
+        # logger.info(f"Top 100 stocks with trade counts: {top_100}")
         # convert top_20 to list of symbols
-        logger.info(f"Top 50 stocks: {[x[0] for x in top_50]}")
+        # logger.info(f"Top 100 stocks: {[x[0] for x in top_100]}")
+
+        return momentum_stock_list
 
     def get_company_list(self, symbol_list: List[str]) -> pd.DataFrame:
         self.company_repo.get_company_list(symbol_list)

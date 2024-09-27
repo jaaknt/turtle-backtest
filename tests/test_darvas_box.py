@@ -38,7 +38,7 @@ def test_check_local_min():
 
 def test_collect():
     bars_history_mock = MagicMock(spec=BarsHistoryRepo)
-    strategy = DarvasBoxStrategy(bars_history_mock, period_length=3, min_bars=3)
+    strategy = DarvasBoxStrategy(bars_history_mock, warmup_period=3, min_bars=3)
 
     # Mock the return value of get_ticker_history
     bars_history_mock.get_ticker_history.return_value = pd.DataFrame(
@@ -66,7 +66,7 @@ def test_collect():
 def test_calculate_indicators():
     # Call the method
     bars_history_mock = MagicMock(spec=BarsHistoryRepo)
-    strategy = DarvasBoxStrategy(bars_history_mock, period_length=3, min_bars=3)
+    strategy = DarvasBoxStrategy(bars_history_mock, warmup_period=3, min_bars=3)
 
     strategy.df = pd.DataFrame(
         {
