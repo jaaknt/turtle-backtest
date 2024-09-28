@@ -48,7 +48,6 @@ class DataUpdate:
             self.bars_history,
             time_frame_unit=self.time_frame_unit,
             warmup_period=warmup_period,
-            min_bars=250,
         )
 
     def update_symbol_list(self) -> None:
