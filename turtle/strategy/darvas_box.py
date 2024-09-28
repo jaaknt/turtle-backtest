@@ -18,7 +18,7 @@ class DarvasBoxStrategy:
         bars_history: BarsHistoryRepo,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.WEEK,
         warmup_period: int = 300,
-        min_bars: int = 80,
+        min_bars: int = 201,
     ):
         # self.connection = connection
         # self.ticker = SymbolRepo(connection, ticker_api_key)

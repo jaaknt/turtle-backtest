@@ -49,7 +49,7 @@ def test_collect():
         }
     )
 
-    assert strategy.collect("AAPL", datetime.now()) is True
+    assert strategy.collect("AAPL", datetime.now(), datetime.now()) is True
     assert not strategy.df.empty
     # assert "max_close_20" in strategy.df.columns
     # assert "ema_10" in strategy.df.columns
@@ -60,7 +60,7 @@ def test_collect():
 
     # Test with insufficient data
     bars_history_mock.get_ticker_history.return_value = pd.DataFrame({"close": [1, 2]})
-    assert strategy.collect("GOOG", datetime.now()) is False
+    assert strategy.collect("GOOG", datetime.now(), datetime.now()) is False
 
 
 def test_calculate_indicators():
