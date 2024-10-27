@@ -26,15 +26,28 @@ def main() -> None:
     # Load environment variables from the .env file (if present)
     load_dotenv()
 
-    data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.DAY)
-    start_date: datetime = datetime(year=2024, month=9, day=27)  # noqa: F841
-    end_date: datetime = datetime(year=2024, month=9, day=28)  # noqa: F841
+    # data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.DAY)
+    # start_date: datetime = datetime(year=2024, month=9, day=27)  # noqa: F841
+    # end_date: datetime = datetime(year=2024, month=9, day=28)  # noqa: F841
+
+    data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.WEEK)
+
+    ticker = "TSLA"
+    start_date: datetime = datetime(year=2022, month=1, day=1)  # noqa: F841
+    end_date: datetime = datetime(year=2023, month=12, day=31)  # noqa: F841
+
+    data_updater.mars_strategy.calculate_entries(
+        ticker,
+        start_date,
+        end_date,
+    )
+
     # data_updater.update_symbol_list()
     # data_updater.update_company_list()
     # data_updater.update_bars_history(start_date, None)
 
-    symbol_list = data_updater.momentum_stocks(end_date)
-    logger.info(symbol_list)
+    # symbol_list = data_updater.momentum_stocks(end_date)
+    # logger.info(symbol_list)
 
     # data_updater.get_buy_signals(start_date, end_date)
 
@@ -42,7 +55,7 @@ def main() -> None:
     # logger.info(df)
 
     # data_updater.update_bars_history(
-    #    datetime(year=2024, month=8, day=23), datetime(year=2024, month=8, day=30)
+    #    datetime(year=2016, month=1, day=1), datetime(year=2024, month=10, day=25)
     # )
 
     # update_ticker_list()

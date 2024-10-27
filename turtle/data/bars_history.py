@@ -12,6 +12,7 @@ from alpaca.data.timeframe import TimeFrame as AlpacaTimeFrame
 from alpaca.data.timeframe import TimeFrameUnit as AlpacaTimeFrameUnit
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.enums import Adjustment
 
 from turtle.data.models import Bar
 from turtle.common.enums import TimeFrameUnit
@@ -102,6 +103,7 @@ class BarsHistoryRepo:
             end=end_date,
             limit=10000,
             timeframe=AlpacaTimeFrame(1, AlpacaTimeFrameUnit.Day),
+            adjustment=Adjustment.ALL,
             feed=DataFeed.SIP,
         )
         # logger.debug(f"Stocks update: {ticker}")

@@ -16,7 +16,9 @@ from turtle.data.models import Symbol
 from turtle.strategy.market import MarketData
 from turtle.strategy.momentum import MomentumStrategy
 from turtle.strategy.darvas_box import DarvasBoxStrategy
+from turtle.strategy.mars import MarsStrategy
 from turtle.common.enums import TimeFrameUnit
+from turtle.data.models import SymbolGroup
 
 logger = logging.getLogger(__name__)
 DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
@@ -45,6 +47,11 @@ class DataUpdate:
         self.market_data = MarketData(self.bars_history)
         self.momentum_strategy = MomentumStrategy(self.bars_history)
         self.darvas_box_strategy = DarvasBoxStrategy(
+            self.bars_history,
+            time_frame_unit=self.time_frame_unit,
+            warmup_period=warmup_period,
+        )
+        self.mars_strategy = MarsStrategy(
             self.bars_history,
             time_frame_unit=self.time_frame_unit,
             warmup_period=warmup_period,
@@ -105,3 +112,6 @@ class DataUpdate:
         self.company_repo.get_company_list(symbol_list)
         df = self.company_repo.convert_df()
         return df
+
+    def get_symbol_group_list(self, symbol_group: str) -> List[SymbolGroup]:
+        return self.symbol_group_repo.get_symbol_group_list(symbol_group)

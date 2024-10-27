@@ -4,6 +4,7 @@ import pandas as pd
 import pandas_ta as ta
 
 from turtle.data.bars_history import BarsHistoryRepo
+from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class MomentumStrategy:
             ticker,
             end_date - timedelta(days=PERIOD_LENGTH),
             end_date,
-            "week",
+            TimeFrameUnit.WEEK,
         )
 
         if self.df_weekly.empty:
@@ -41,7 +42,7 @@ class MomentumStrategy:
             ticker,
             end_date - timedelta(days=2 * PERIOD_LENGTH),
             end_date,
-            "day",
+            TimeFrameUnit.DAY,
         )
         if self.df_daily.empty:
             return False
