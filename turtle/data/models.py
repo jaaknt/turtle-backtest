@@ -76,7 +76,7 @@ class SymbolGroup:
 
     Attributes:
     symbol (str): symbol code in stock exchange
-    symbol_group (str): group (NASDAQ100, NASQAQ, ...) where the symbol belongs
+    symbol_group (str): group (NAS100, ...) where the symbol belongs
     rate (float): rate of the symbol in the group
     """
 
