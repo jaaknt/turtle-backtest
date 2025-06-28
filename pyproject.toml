@@ -1,23 +1,22 @@
 [project]
 name = "turtle"
-version = "0.1.0"
+version = "0.2.0"
 description = "Backtest different US stocks trading strategies"
-authors = [
-    {name = "Jaak Niit", email = "jaak.niit@gmail.com"}
-]
+authors = [{ name = "Jaak Niit", email = "jaak.niit@gmail.com" }]
 readme = "README.md"
-license = {text = "MIT"}
+license = { text = "MIT" }
 requires-python = ">=3.12"
 dependencies = [
     "requests>=2.32.3",
-    "alpaca-py>=0.28.0",
+    "alpaca-py>=0.40.2",
     "python-dotenv>=1.0.1",
     "yfinance>=0.2.40",
     "psycopg[binary,pool]>=3.2.1",
     "pandas>=2.2.2",
     "pandas-ta>=0.3.14b0",
-    # "ta-lib>=0.4.32",  # Requires system library: https://github.com/TA-Lib/ta-lib-python#troubleshooting
-    "numpy>=1.26.4,<2.0",
+    "ta-lib>=0.6.4",               # Requires system library: https://github.com/TA-Lib/ta-lib-python#troubleshooting
+    "numpy>=1.26.4,<2.0",          # pandas-ta requires numpy<2.0
+    # "numpy>=2.3.1",
     "streamlit>=1.37.1",
     "types-requests>=2.32.0.20240712",
     "setuptools>=74.1.2",
@@ -27,11 +26,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=8.3.2",
-    "pytest-mock>=3.14.0",
-    "jupyter>=1.1.1",
-]
+dev = ["pytest>=8.3.2", "pytest-mock>=3.14.0", "jupyter>=1.1.1"]
 
 [build-system]
 requires = ["hatchling"]
@@ -39,3 +34,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["turtle"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning:websockets.legacy.*",
+    "ignore::UserWarning:pandas_ta.*",
+]

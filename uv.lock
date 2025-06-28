@@ -1865,6 +1865,16 @@ wheels = [
 ]
 
 [[package]]
+name = "ta-lib"
+version = "0.6.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "setuptools" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ba/97/a49816dd468a18ee080cf3a04640772a9f6321790d4049cece2490c4b7ad/ta_lib-0.6.4.tar.gz", hash = "sha256:08f55bc5771a6d1ceb1a2b713aad7b05f04eb0061e980c9113571c532d32e9cb", size = 381774, upload-time = "2025-06-08T15:28:15.452Z" }
+
+[[package]]
 name = "tenacity"
 version = "9.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1938,7 +1948,7 @@ wheels = [
 
 [[package]]
 name = "turtle"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "alpaca-py" },
@@ -1953,6 +1963,7 @@ dependencies = [
     { name = "requests" },
     { name = "setuptools" },
     { name = "streamlit" },
+    { name = "ta-lib" },
     { name = "types-requests" },
     { name = "yfinance" },
 ]
@@ -1966,7 +1977,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "alpaca-py", specifier = ">=0.28.0" },
+    { name = "alpaca-py", specifier = ">=0.40.2" },
     { name = "backtesting", specifier = ">=0.3.3" },
     { name = "bokeh", specifier = "==2.4.3" },
     { name = "jupyter", marker = "extra == 'dev'", specifier = ">=1.1.1" },
@@ -1981,6 +1992,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.32.3" },
     { name = "setuptools", specifier = ">=74.1.2" },
     { name = "streamlit", specifier = ">=1.37.1" },
+    { name = "ta-lib", specifier = ">=0.6.4" },
     { name = "types-requests", specifier = ">=2.32.0.20240712" },
     { name = "yfinance", specifier = ">=0.2.40" },
 ]
