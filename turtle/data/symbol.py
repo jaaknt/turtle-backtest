@@ -45,9 +45,12 @@ class SymbolRepo:
                 result = cursor.fetchall()
         return result
 
-    def get_symbol_list(self, country: str) -> List[Symbol]:
+    def get_symbol_list(self, country: str, symbol: str = "") -> List[Symbol]:
         result = self._get_symbol_list_db(country)
         self.symbol_list = [Symbol(*symbol) for symbol in result]
+        # filter symbols based on symbol parameter
+        if not symbol:
+            self.symbol_list = [s for s in self.symbol_list if s.symbol >= symbol]
         logger.debug(f"{len(self.symbol_list)} symbols returned from database")
 
         return self.symbol_list

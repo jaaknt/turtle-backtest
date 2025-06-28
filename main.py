@@ -20,31 +20,44 @@ def setup_logging() -> None:
     logging.config.dictConfig(config)
 
 
+def init_db() -> None:
+    """Initialize the database with the required tables and data."""
+    data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.DAY)
+    start_date: datetime = datetime(year=2017, month=1, day=1)
+    end_date: datetime = datetime(year=2025, month=6, day=27)
+
+    data_updater.update_symbol_list()
+    data_updater.update_company_list()
+    data_updater.update_bars_history(start_date, end_date)
+
+
 def main() -> None:
     # Setup logging configuration
     setup_logging()
     # Load environment variables from the .env file (if present)
     load_dotenv()
+    # Initialize the database
+    # init_db()
 
-    # data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.DAY)
-    # start_date: datetime = datetime(year=2024, month=9, day=27)  # noqa: F841
-    # end_date: datetime = datetime(year=2024, month=9, day=28)  # noqa: F841
+    data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.DAY)
+    start_date: datetime = datetime(year=2024, month=6, day=25)  # noqa: F841
+    end_date: datetime = datetime(year=2025, month=6, day=27)  # noqa: F841
 
-    data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.WEEK)
+    # data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.WEEK)
 
-    ticker = "TSLA"
-    start_date: datetime = datetime(year=2022, month=1, day=1)  # noqa: F841
-    end_date: datetime = datetime(year=2023, month=12, day=31)  # noqa: F841
+    # ticker = "TSLA"
+    # start_date: datetime = datetime(year=2022, month=1, day=1)  # noqa: F841
+    # end_date: datetime = datetime(year=2023, month=12, day=31)  # noqa: F841
 
-    data_updater.mars_strategy.calculate_entries(
-        ticker,
-        start_date,
-        end_date,
-    )
+    # data_updater.mars_strategy.calculate_entries(
+    #    ticker,
+    #    start_date,
+    #    end_date,
+    # )
 
     # data_updater.update_symbol_list()
     # data_updater.update_company_list()
-    # data_updater.update_bars_history(start_date, None)
+    data_updater.update_bars_history(start_date, end_date)
 
     # symbol_list = data_updater.momentum_stocks(end_date)
     # logger.info(symbol_list)
