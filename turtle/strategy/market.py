@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 import logging
 import pandas as pd
-import pandas_ta as ta
+import talib
 
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
@@ -25,8 +25,8 @@ class MarketData:
             TimeFrameUnit.WEEK,
         )
 
-        self.df["ema_20"] = ta.ema(self.df["close"], length=20)
-        self.df["ema_10"] = ta.ema(self.df["close"], length=10)
+        self.df["ema_20"] = talib.EMA(self.df["close"], timeperiod=20)
+        self.df["ema_10"] = talib.EMA(self.df["close"], timeperiod=10)
         last_record = self.df.iloc[-1]
 
         logger.info(

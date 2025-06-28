@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import logging
 import pandas as pd
-import pandas_ta as ta
+import talib
 import numpy as np
 
 from turtle.data.bars_history import BarsHistoryRepo
@@ -112,11 +112,11 @@ class DarvasBoxStrategy:
     def calculate_indicators(self) -> None:
         # add indicators
         self.df["max_close_20"] = self.df["close"].rolling(window=20).max()
-        self.df["ema_10"] = ta.ema(self.df["close"], length=10)
-        self.df["ema_20"] = ta.ema(self.df["close"], length=20)
-        self.df["ema_50"] = ta.ema(self.df["close"], length=50)
-        self.df["ema_200"] = ta.ema(self.df["close"], length=200)
-        self.df["ema_volume_10"] = ta.ema(self.df["volume"], length=10)
+        self.df["ema_10"] = talib.EMA(self.df["close"], timeperiod=10)
+        self.df["ema_20"] = talib.EMA(self.df["close"], timeperiod=20)
+        self.df["ema_50"] = talib.EMA(self.df["close"], timeperiod=50)
+        self.df["ema_200"] = talib.EMA(self.df["close"], timeperiod=200)
+        self.df["ema_volume_10"] = talib.EMA(self.df["volume"], timeperiod=10)
         self.df["buy_signal"] = False
 
         self.df = self.df.reset_index()
