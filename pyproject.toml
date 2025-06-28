@@ -1,38 +1,41 @@
-[tool.poetry]
+[project]
 name = "turtle"
 version = "0.1.0"
 description = "Backtest different US stocks trading strategies"
-authors = ["Jaak Niit <jaak.niit@gmail.com>"]
+authors = [
+    {name = "Jaak Niit", email = "jaak.niit@gmail.com"}
+]
 readme = "README.md"
-package-mode = true
-license = "MIT"
-packages = [
-    { include = "turtle" }
-]  
+license = {text = "MIT"}
+requires-python = ">=3.12"
+dependencies = [
+    "requests>=2.32.3",
+    "alpaca-py>=0.28.0",
+    "python-dotenv>=1.0.1",
+    "yfinance>=0.2.40",
+    "psycopg[binary,pool]>=3.2.1",
+    "pandas>=2.2.2",
+    "pandas-ta>=0.3.14b0",
+    # "ta-lib>=0.4.32",  # Requires system library: https://github.com/TA-Lib/ta-lib-python#troubleshooting
+    "numpy>=1.26.4,<2.0",
+    "streamlit>=1.37.1",
+    "types-requests>=2.32.0.20240712",
+    "setuptools>=74.1.2",
+    "backtesting>=0.3.3",
+    "bokeh==2.4.3",
+    "plotly>=5.24.1",
+]
 
-[tool.poetry.dependencies]
-python = "^3.12"
-requests = "^2.32.3"
-alpaca-py = "^0.28.0"
-python-dotenv = "^1.0.1"
-yfinance = "^0.2.40"
-psycopg = {extras = ["binary", "pool"], version = "^3.2.1"}
-pandas = "^2.2.2"
-pandas-ta = "^0.3.14b0"
-ta-lib = "^0.4.32"
-numpy = "^1.26.4"
-streamlit = "^1.37.1"
-types-requests = "^2.32.0.20240712"
-setuptools = "^74.1.2"
-backtesting = "^0.3.3"
-bokeh = "2.4.3"
-plotly = "^5.24.1"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.3.2"
-pytest-mock = "^3.14.0"
-jupyter = "^1.1.1"
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.2",
+    "pytest-mock>=3.14.0",
+    "jupyter>=1.1.1",
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["turtle"]

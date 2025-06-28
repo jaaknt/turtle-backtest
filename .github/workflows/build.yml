@@ -26,23 +26,23 @@ jobs:
 
     - name: Install system dependencies for ta-lib
       run: |
-        wget https://sourceforge.net/projects/ta-lib/files/ta-lib/0.4.0/ta-lib-0.4.0-src.tar.gz
-        tar xvfz ta-lib-0.4.0-src.tar.gz
+        wget https://github.com/ta-lib/ta-lib/releases/download/v0.6.4/ta-lib-0.6.4-src.tar.gz
+        tar xvfz ta-lib-0.6.4-src.tar.gz
         cd ta-lib
         ./configure
         make
         sudo make install
 
-    - name: Install Poetry
+    - name: Install uv
       run: |
-        curl -sSL https://install.python-poetry.org | python3 -
+        curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.local/bin" >> $GITHUB_PATH
 
     - name: Install dependencies
-      run: poetry install
+      run: uv sync --extra dev
 
     # - name: Run mypy for static type checking
     #   run: poetry run mypy turtle/ tests/ main.py app.py
 
     - name: Run tests
-      run: poetry run pytest
+      run: uv run pytest
