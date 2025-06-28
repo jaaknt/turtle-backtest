@@ -11,7 +11,7 @@ This is a Python-based financial trading strategy backtesting library for US sto
 ### Environment Setup
 ```bash
 # Install dependencies
-poetry install
+uv sync --extra dev
 
 # Activate virtual environment
 source ./.venv/bin/activate
@@ -26,25 +26,25 @@ docker-compose down
 ### Running the Application
 ```bash
 # Run main data update/strategy execution
-python main.py
+uv run python main.py
 
 # Run Streamlit web interface
-streamlit run app.py
+uv run streamlit run app.py
 
 # Run Jupyter notebooks for analysis
-jupyter notebook examples/
+uv run jupyter notebook examples/
 ```
 
 ### Testing
 ```bash
 # Run all tests
-pytest
+uv run pytest
 
 # Run specific test file
-pytest tests/test_darvas_box.py
+uv run pytest tests/test_darvas_box.py
 
 # Run with verbose output
-pytest -v
+uv run pytest -v
 ```
 
 ## Architecture Overview

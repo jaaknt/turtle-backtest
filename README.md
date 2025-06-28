@@ -7,8 +7,13 @@ Python library to backtest different trading strategies with US stocks
 
 ## Installation
 ```
-poetry install
-# activate python virtualenv in bash
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies
+uv sync --extra dev
+
+# Activate python virtualenv in bash
 source ./.venv/bin/activate
 ```
 There are special requirements for TA-lib installation - so look for [instructions](https://github.com/jaaknt/turtle-backtest/blob/main/.github/workflows/build.yml)
