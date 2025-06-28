@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import logging
 import pandas as pd
-import pandas_ta as ta
+import talib
 
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
@@ -35,7 +35,7 @@ class MomentumStrategy:
         if self.df_weekly.empty:
             return False
 
-        self.df_weekly["sma_20"] = ta.sma(self.df_weekly["close"], length=20)
+        self.df_weekly["sma_20"] = talib.SMA(self.df_weekly["close"], timeperiod=20)
         self.df_weekly["max_last_10"] = self.df_weekly["close"].rolling(window=10).max()
 
         self.df_daily = self.bars_history.get_ticker_history(
@@ -47,7 +47,7 @@ class MomentumStrategy:
         if self.df_daily.empty:
             return False
 
-        self.df_daily["ema_200"] = ta.ema(self.df_daily["close"], length=200)
+        self.df_daily["ema_200"] = talib.EMA(self.df_daily["close"], timeperiod=200)
 
         start_date: datetime = end_date - timedelta(days=PERIOD_LENGTH)
         self.df_daily_filtered = self.df_daily.loc[start_date:end_date]  # type: ignore[misc]
