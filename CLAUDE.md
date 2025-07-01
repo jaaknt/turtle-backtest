@@ -28,6 +28,13 @@ docker-compose down
 # Run main data update/strategy execution
 uv run python main.py
 
+# Run daily EOD data update (requires start date)
+uv run python scripts/daily_eod_update.py --start-date 2025-06-28
+
+# Run daily EOD update with options
+uv run python scripts/daily_eod_update.py --start-date 2025-06-28 --dry-run --verbose
+uv run python scripts/daily_eod_update.py --start-date 2025-06-25 --end-date 2025-06-28
+
 # Run Streamlit web interface
 uv run streamlit run app.py
 
@@ -102,8 +109,29 @@ Configurable via `TimeFrameUnit` enum: `DAY`, `WEEK`, `MONTH`
 
 ## Data Management
 
-### Updating Data
-The `DataUpdate` service handles all data operations:
+### Daily Data Updates
+For daily operations, use the dedicated daily update script:
+```bash
+# Update specific single date (start-date is required)
+uv run python scripts/daily_eod_update.py --start-date 2024-06-28
+
+# Dry run to see what would be updated
+uv run python scripts/daily_eod_update.py --start-date 2024-06-28 --dry-run --verbose
+
+# Update date range
+uv run python scripts/daily_eod_update.py --start-date 2024-06-25 --end-date 2024-06-28
+```
+
+The daily update script:
+- Requires `--start-date` parameter to specify the target date
+- Updates OHLCV data for all symbols for a single date or date range
+- Includes validation to ensure data was successfully retrieved
+- Provides detailed logging and error handling
+- Supports dry-run mode for testing
+- Flexible date parameters: `--start-date` (required) and optional `--end-date`
+
+### Bulk Data Updates
+The `DataUpdate` service handles bulk data operations:
 ```python
 data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.DAY)
 data_updater.update_symbol_list()        # Download symbol list
