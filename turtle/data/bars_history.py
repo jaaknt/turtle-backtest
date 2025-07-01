@@ -106,17 +106,18 @@ class BarsHistoryRepo:
             adjustment=Adjustment.ALL,
             feed=DataFeed.SIP,
         )
-        # logger.debug(f"Stocks update: {ticker}")
         data = self.stock_data_client.get_stock_bars(request_params=request)
-        bars = data[symbol]
-        if not bars:  # empty list
-            logger.debug(f"Unknown symbol: {symbol}")
-        else:
-            logger.debug(f"Saving: {symbol}")
-            for bar in bars:
-                place_holders = self.map_alpaca_bars_history(symbol, bar)
-                self.save_bars_history(place_holders)
-                # print(row[0][0], row[0][1].to_pydatetime(), row[1], type(row[0][1].to_pydatetime()))
+        # logger.info(f"Stocks update: {symbol} {data}")
+        try:
+            bars = data[symbol]
+        except KeyError:
+            logger.warning(f"No data found for symbol: {symbol}")
+            return
+        logger.debug(f"Saving: {symbol}")
+        for bar in bars:
+            place_holders = self.map_alpaca_bars_history(symbol, bar)
+            self.save_bars_history(place_holders)
+            # print(row[0][0], row[0][1].to_pydatetime(), row[1], type(row[0][1].to_pydatetime()))
 
     def convert_df(
         self, bar_list: List[Bar], time_frame_unit: TimeFrameUnit

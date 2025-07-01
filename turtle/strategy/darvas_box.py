@@ -112,11 +112,21 @@ class DarvasBoxStrategy:
     def calculate_indicators(self) -> None:
         # add indicators
         self.df["max_close_20"] = self.df["close"].rolling(window=20).max()
-        self.df["ema_10"] = talib.EMA(self.df["close"], timeperiod=10)
-        self.df["ema_20"] = talib.EMA(self.df["close"], timeperiod=20)
-        self.df["ema_50"] = talib.EMA(self.df["close"], timeperiod=50)
-        self.df["ema_200"] = talib.EMA(self.df["close"], timeperiod=200)
-        self.df["ema_volume_10"] = talib.EMA(self.df["volume"], timeperiod=10)
+        self.df["ema_10"] = talib.EMA(
+            self.df["close"].to_numpy(dtype=np.float64), timeperiod=10
+        )
+        self.df["ema_20"] = talib.EMA(
+            self.df["close"].to_numpy(dtype=np.float64), timeperiod=20
+        )
+        self.df["ema_50"] = talib.EMA(
+            self.df["close"].to_numpy(dtype=np.float64), timeperiod=50
+        )
+        self.df["ema_200"] = talib.EMA(
+            self.df["close"].to_numpy(dtype=np.float64), timeperiod=200
+        )
+        self.df["ema_volume_10"] = talib.EMA(
+            self.df["volume"].to_numpy(dtype=np.float64), timeperiod=10
+        )
         self.df["buy_signal"] = False
 
         self.df = self.df.reset_index()
@@ -207,35 +217,35 @@ class DarvasBoxStrategy:
         # last close > max(close, 20)
         if row["close"] < row["max_close_20"]:
             logger.debug(
-                f"{ticker} close < max_close_20, close: {row["close"]} max_close_20: {row["max_close_20"]}"
+                f"{ticker} close < max_close_20, close: {row['close']} max_close_20: {row['max_close_20']}"
             )
             return False
 
         # last close > EMA(close, 10)
         if row["close"] < row["ema_10"]:
             logger.debug(
-                f"{ticker} close < EMA_10, close: {row["close"]} EMA10: {row["ema_10"]}"
+                f"{ticker} close < EMA_10, close: {row['close']} EMA10: {row['ema_10']}"
             )
             return False
 
         # last close > EMA(close, 20)
         if row["close"] < row["ema_20"]:
             logger.debug(
-                f"{ticker} close < EMA_20, close: {row["close"]} EMA20: {row["ema_20"]}"
+                f"{ticker} close < EMA_20, close: {row['close']} EMA20: {row['ema_20']}"
             )
             return False
 
         # EMA(close, 10) > EMA(close, 20)
         if row["ema_10"] < row["ema_20"]:
             logger.debug(
-                f"{ticker} EMA_10 < EMA_20, EMA10: {row["ema_10"]} EMA20: {row["ema_20"]}"
+                f"{ticker} EMA_10 < EMA_20, EMA10: {row['ema_10']} EMA20: {row['ema_20']}"
             )
             return False
 
         # last close > EMA(close, 50)
         if row["close"] < row["ema_50"]:
             logger.debug(
-                f"{ticker} close < EMA_50, close: {row["close"]} EMA50: {row["ema_50"]}"
+                f"{ticker} close < EMA_50, close: {row['close']} EMA50: {row['ema_50']}"
             )
             return False
 
@@ -243,28 +253,28 @@ class DarvasBoxStrategy:
             # last close > EMA(close, 200)
             if row["close"] < row["ema_200"]:
                 logger.debug(
-                    f"{ticker} close < EMA_200, close: {row["close"]} EMA200: {row["ema_200"]}"
+                    f"{ticker} close < EMA_200, close: {row['close']} EMA200: {row['ema_200']}"
                 )
                 return False
 
             # EMA(close, 50) > EMA(close, 200)
             if row["ema_50"] < row["ema_200"]:
                 logger.debug(
-                    f"{ticker} EMA_50 < EMA_200, EMA50: {row["ema_50"]} EMA200: {row["ema_200"]}"
+                    f"{ticker} EMA_50 < EMA_200, EMA50: {row['ema_50']} EMA200: {row['ema_200']}"
                 )
                 return False
 
         # if last volume < EMA(volume, 10)*1.10
         if row["volume"] < row["ema_volume_10"] * 1.10:
             logger.debug(
-                f"{ticker} volume < EMA_volume_10 * 1.10, volume: {row["volume"]} EMA_volume_10 * 1.10: {row["ema_volume_10"]*1.10}"
+                f"{ticker} volume < EMA_volume_10 * 1.10, volume: {row['volume']} EMA_volume_10 * 1.10: {row['ema_volume_10'] * 1.10}"
             )
             return False
 
         # if last (close - open) / close < 0.01
         if (row["close"] - row["open"]) / row["close"] < 0.01:
             logger.debug(
-                f"{ticker} (close - open) / close < 0.01, close: {row["close"]} open: {row["open"]}"
+                f"{ticker} (close - open) / close < 0.01, close: {row['close']} open: {row['open']}"
             )
             return False
 
@@ -297,7 +307,7 @@ class DarvasBoxStrategy:
         # skip first 200 rows as EMA200 is not calculated for them
         for i, row in self.df.iterrows():
             if row["hdate"] < start_date:
-                logger.debug(f"Skipping date: {row["hdate"]}")
+                logger.debug(f"Skipping date: {row['hdate']}")
                 continue
 
             self.df.at[i, "buy_signal"] = self.is_buy_signal(ticker, row)
