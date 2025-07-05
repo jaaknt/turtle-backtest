@@ -113,19 +113,19 @@ class DarvasBoxStrategy:
         # add indicators
         self.df["max_close_20"] = self.df["close"].rolling(window=20).max()
         self.df["ema_10"] = talib.EMA(
-            self.df["close"].to_numpy(dtype=np.float64), timeperiod=10
+            self.df["close"].values.astype(float), timeperiod=10
         )
         self.df["ema_20"] = talib.EMA(
-            self.df["close"].to_numpy(dtype=np.float64), timeperiod=20
+            self.df["close"].values.astype(float), timeperiod=20
         )
         self.df["ema_50"] = talib.EMA(
-            self.df["close"].to_numpy(dtype=np.float64), timeperiod=50
+            self.df["close"].values.astype(float), timeperiod=50
         )
         self.df["ema_200"] = talib.EMA(
-            self.df["close"].to_numpy(dtype=np.float64), timeperiod=200
+            self.df["close"].values.astype(float), timeperiod=200
         )
         self.df["ema_volume_10"] = talib.EMA(
-            self.df["volume"].to_numpy(dtype=np.float64), timeperiod=10
+            self.df["volume"].values.astype(float), timeperiod=10
         )
         self.df["buy_signal"] = False
 

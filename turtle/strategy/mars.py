@@ -53,10 +53,19 @@ class MarsStrategy:
             self.df["max_box_4"] + self.df["min_box_4"]
         ) / 2 - 0.02
 
-        self.df["ema_10"] = talib.EMA(self.df["close"], timeperiod=10)
-        self.df["ema_20"] = talib.EMA(self.df["close"], timeperiod=20)
+        self.df["ema_10"] = talib.EMA(
+            self.df["close"].values.astype(float), timeperiod=10
+        )
+        self.df["ema_20"] = talib.EMA(
+            self.df["close"].values.astype(float), timeperiod=20
+        )
 
-        macd_line, macd_signal, macd_histogram = talib.MACD(self.df["close"], fastperiod=12, slowperiod=26, signalperiod=9)
+        macd_line, macd_signal, macd_histogram = talib.MACD(
+            self.df["close"].values.astype(float),
+            fastperiod=12,
+            slowperiod=26,
+            signalperiod=9,
+        )
         self.df["macd"] = macd_line
         self.df["macd_histogram"] = macd_histogram
         self.df["macd_signal"] = macd_signal
@@ -64,7 +73,9 @@ class MarsStrategy:
         self.df["max_close_10"] = self.df["close"].rolling(window=10).max()
 
         # volume indicators
-        self.df["ema_volume_4"] = talib.SMA(self.df["volume"].shift(1), timeperiod=4)
+        self.df["ema_volume_4"] = talib.SMA(
+            self.df["volume"].shift(1).values.astype(float), timeperiod=4
+        )
         self.df["volume_change"] = self.df["volume"] / self.df["ema_volume_4"]
 
         self.df["buy_signal"] = False
@@ -76,35 +87,35 @@ class MarsStrategy:
         # last close > max(close, 10)
         if row["close"] < row["max_close_10"]:
             logger.debug(
-                f"{ticker} {row["hdate"].strftime('%Y-%m-%d')} close < max_close_10, close: {row["close"]} max_close_10: {row["max_close_10"]}"
+                f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} close < max_close_10, close: {row['close']} max_close_10: {row['max_close_10']}"
             )
             return False
 
         # EMA(close, 10) > EMA(close, 20)
         if row["ema_10"] < row["ema_20"]:
             logger.debug(
-                f"{ticker} {row["hdate"].strftime('%Y-%m-%d')} EMA_10 < EMA_20, EMA10: {row["ema_10"]} EMA20: {row["ema_20"]}"
+                f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} EMA_10 < EMA_20, EMA10: {row['ema_10']} EMA20: {row['ema_20']}"
             )
             return False
 
         # MACD_signal is not NaN or MACD is not NaN
         if pd.isna(row["macd"]) or pd.isna(row["macd_signal"]):
             logger.debug(
-                f"{ticker} {row["hdate"].strftime('%Y-%m-%d')} MACD_signal is NaN"
+                f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} MACD_signal is NaN"
             )
             return False
 
         # consolidation_change < 0.12
         if row["consolidation_change"] > 0.12:
             logger.debug(
-                f"{ticker} {row["hdate"].strftime('%Y-%m-%d')} consolidation_change > 0.12, consolidation_change: {row["consolidation_change"]}"
+                f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} consolidation_change > 0.12, consolidation_change: {row['consolidation_change']}"
             )
             return False
 
         # (close - hard_stoploss / close < 0.16
         if (row["close"] - row["hard_stoploss"]) / row["close"] > 0.25:
             logger.debug(
-                f"{ticker} {row["hdate"].strftime('%Y-%m-%d')} (close - (max_box_4 - min_box_4) / 2) / close < 0.16, close: {row["close"]} hard_stoploss: {row["hard_stoploss"]}"
+                f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} (close - (max_box_4 - min_box_4) / 2) / close < 0.16, close: {row['close']} hard_stoploss: {row['hard_stoploss']}"
             )
             return False
 
@@ -117,7 +128,7 @@ class MarsStrategy:
             return False
         """
 
-        logger.debug(f"{ticker} {row["hdate"].strftime('%Y-%m-%d')} buy signal")
+        logger.debug(f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} buy signal")
         return True
 
     def calculate_entries(

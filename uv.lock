@@ -2044,7 +2044,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "alpaca-py", specifier = ">=0.40.2" },
+    { name = "alpaca-py", specifier = ">=0.42.0" },
     { name = "backtesting", specifier = ">=0.3.3" },
     { name = "bokeh", specifier = "==2.4.3" },
     { name = "jupyter", marker = "extra == 'dev'", specifier = ">=1.1.1" },
@@ -2054,13 +2054,13 @@ requires-dist = [
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.2" },
     { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.14.0" },
-    { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "setuptools", specifier = ">=74.1.2" },
     { name = "streamlit", specifier = ">=1.37.1" },
     { name = "ta-lib", specifier = ">=0.6.4" },
     { name = "types-requests", specifier = ">=2.32.0.20240712" },
-    { name = "yfinance", specifier = ">=0.2.40" },
+    { name = "yfinance", specifier = ">=0.2.64" },
 ]
 provides-extras = ["dev"]
 
