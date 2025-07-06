@@ -29,7 +29,7 @@
             "propagate": false
         },
         "yfinance": {
-            "level": "DEBUG",
+            "level": "WARNING",
             "handlers": [
                 "stdout"
             ],
