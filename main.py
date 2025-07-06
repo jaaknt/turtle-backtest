@@ -26,9 +26,9 @@ def init_db() -> None:
     start_date: datetime = datetime(year=2017, month=1, day=1)
     end_date: datetime = datetime(year=2025, month=6, day=27)
 
-    # data_updater.update_symbol_list()
+    data_updater.update_symbol_list()
     data_updater.update_company_list()
-    # data_updater.update_bars_history(start_date, end_date)
+    data_updater.update_bars_history(start_date, end_date)
 
 
 def main() -> None:
@@ -37,8 +37,8 @@ def main() -> None:
     # Load environment variables from the .env file (if present)
     load_dotenv()
     # Initialize the database
-    init_db()
-    return
+    # init_db()
+    # return
 
     data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.DAY)
     start_date: datetime = datetime(year=2024, month=6, day=25)  # noqa: F841
