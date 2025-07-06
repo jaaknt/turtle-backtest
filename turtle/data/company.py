@@ -1,4 +1,5 @@
 # import requests
+import time
 import yfinance as yf
 import logging
 import pandas as pd
@@ -77,10 +78,29 @@ class CompanyRepo:
                 connection.commit()
 
     def update_company_info(self, symbol: str) -> None:
-        ticker = yf.Ticker(symbol)
-        data = ticker.info
-        place_holders = self.map_yahoo_company_data(symbol, data)
-        self.save_company_list(place_holders)
+        # logger.info(f"Calling: {symbol}")
+        try:
+            ticker = yf.Ticker(symbol)
+            data = ticker.info
+
+            # Validate that we received valid data
+            if not data or not isinstance(data, dict):
+                logger.warning(f"No valid data received for symbol: {symbol}")
+                return
+
+            # Check if symbol exists (Yahoo returns empty dict for invalid symbols)
+            if "symbol" not in data and "shortName" not in data:
+                logger.warning(f"Symbol {symbol} not found in Yahoo Finance")
+                return
+
+            logger.info(f"Saving: {symbol}")
+            place_holders = self.map_yahoo_company_data(symbol, data)
+            self.save_company_list(place_holders)
+            time.sleep(1)  # Sleep to avoid hitting API rate limits
+
+        except Exception as e:
+            logger.error(f"Error fetching data for symbol {symbol}: {str(e)}")
+            # Don't re-raise - continue with other symbols
 
     def convert_df(self) -> pd.DataFrame:
         dtypes = {

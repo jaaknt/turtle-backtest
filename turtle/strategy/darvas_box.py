@@ -271,7 +271,7 @@ class DarvasBoxStrategy:
             )
             return False
 
-        # if last (close - open) / close < 0.01
+        # At least 1% raise between close and open
         if (row["close"] - row["open"]) / row["close"] < 0.01:
             logger.debug(
                 f"{ticker} (close - open) / close < 0.01, close: {row['close']} open: {row['open']}"
