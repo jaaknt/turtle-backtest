@@ -6,6 +6,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 from turtle.service.data_update import DataUpdate
+from turtle.service.strategy_runner import StrategyRunner
 from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,8 @@ def main() -> None:
     # start_date: datetime = datetime(year=2022, month=1, day=1)  # noqa: F841
     # end_date: datetime = datetime(year=2023, month=12, day=31)  # noqa: F841
 
-    # data_updater.mars_strategy.calculate_entries(
+    # strategy_runner = StrategyRunner(time_frame_unit=TimeFrameUnit.DAY)
+    # strategy_runner.mars_strategy.calculate_entries(
     #    ticker,
     #    start_date,
     #    end_date,
@@ -60,12 +62,13 @@ def main() -> None:
     # data_updater.update_company_list()
     # data_updater.update_bars_history(start_date, end_date)
 
-    # symbol_list = data_updater.momentum_stocks(end_date)
+    # strategy_runner = StrategyRunner(time_frame_unit=TimeFrameUnit.DAY)
+    # symbol_list = strategy_runner.momentum_stocks(end_date)
     # logger.info(symbol_list)
 
-    # data_updater.get_buy_signals(start_date, end_date)
+    # strategy_runner.get_buy_signals(start_date, end_date)
 
-    # df = data_updater.get_company_list(symbol_list)
+    # df = strategy_runner.get_company_list(symbol_list)
     # logger.info(df)
 
     # data_updater.update_bars_history(
