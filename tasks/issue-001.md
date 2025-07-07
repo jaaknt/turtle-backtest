@@ -2,7 +2,7 @@
 
 ## Task
 1. Create new task that updates EOD database every day
-2. In first iteration inemplement local process that must be started manually every day  
+2. In first iteration implement local process that must be started manually every day  
 
 ## Plan
 
