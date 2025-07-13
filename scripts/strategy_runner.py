@@ -67,21 +67,30 @@ def setup_logging(verbose: bool = False) -> None:
 
 
 def get_trading_strategy(strategy_runner: StrategyRunner, strategy_name: str):
-    """Get the trading strategy instance by name."""
-    strategy_map = {
-        "darvas_box": strategy_runner.darvas_box_strategy,
-        "mars": strategy_runner.mars_strategy,
-        "momentum": strategy_runner.momentum_strategy,
+    """Create and return a trading strategy instance by name."""
+    from turtle.strategy.darvas_box import DarvasBoxStrategy
+    from turtle.strategy.mars import MarsStrategy
+    from turtle.strategy.momentum import MomentumStrategy
+    
+    strategy_classes = {
+        "darvas_box": DarvasBoxStrategy,
+        "mars": MarsStrategy,
+        "momentum": MomentumStrategy,
     }
 
-    strategy = strategy_map.get(strategy_name.lower())
-    if strategy is None:
-        available_strategies = ", ".join(strategy_map.keys())
+    strategy_class = strategy_classes.get(strategy_name.lower())
+    if strategy_class is None:
+        available_strategies = ", ".join(strategy_classes.keys())
         raise ValueError(
             f"Unknown strategy '{strategy_name}'. Available strategies: {available_strategies}"
         )
 
-    return strategy
+    # Create strategy instance with common parameters
+    return strategy_class(
+        bars_history=strategy_runner.bars_history,
+        time_frame_unit=strategy_runner.time_frame_unit,
+        warmup_period=strategy_runner.warmup_period,
+    )
 
 
 def parse_and_validate_dates(
@@ -305,37 +314,47 @@ def main():
             if not date or not args.ticker:
                 logger.error("Signal mode requires valid date and ticker")
                 return 1
-            
+
             logger.info(
                 f"Checking trading signal for {args.ticker} on {date.date()} using {args.strategy} strategy"
             )
-            has_signal = strategy_runner.is_trading_signal(args.ticker, date, trading_strategy)
-            
-            print(f"\nTrading signal check for {args.ticker} on {date.date()} ({args.strategy} strategy):")
+            has_signal = strategy_runner.is_trading_signal(
+                args.ticker, date, trading_strategy
+            )
+
+            print(
+                f"\nTrading signal check for {args.ticker} on {date.date()} ({args.strategy} strategy):"
+            )
             if has_signal:
                 print(f"  ✓ {args.ticker} has a trading signal on {date.date()}")
             else:
-                print(f"  ✗ {args.ticker} does NOT have a trading signal on {date.date()}")
+                print(
+                    f"  ✗ {args.ticker} does NOT have a trading signal on {date.date()}"
+                )
 
         elif args.mode == "signal_count":
             if not start_date or not end_date or not args.ticker:
-                logger.error("Signal count mode requires valid start date, end date, and ticker")
+                logger.error(
+                    "Signal count mode requires valid start date, end date, and ticker"
+                )
                 return 1
-            
+
             logger.info(
                 f"Getting signal count for {args.ticker} from {start_date.date()} to {end_date.date()} using {args.strategy} strategy"
             )
             signal_count = strategy_runner.trading_signals_count(
                 args.ticker, start_date, end_date, trading_strategy
             )
-            
+
             print(
                 f"\nSignal count for {args.ticker} from {start_date.date()} to {end_date.date()} ({args.strategy} strategy):"
             )
             print(f"  {args.ticker}: {signal_count} signals")
-            
+
             if signal_count == 0:
-                print(f"  No signals found for {args.ticker} in the specified date range")
+                print(
+                    f"  No signals found for {args.ticker} in the specified date range"
+                )
 
         logger.info("Strategy analysis completed successfully")
         return 0

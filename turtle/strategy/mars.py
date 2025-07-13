@@ -5,13 +5,14 @@ import talib
 
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
+from turtle.strategy.trading_strategy import TradingStrategy
 
 logger = logging.getLogger(__name__)
 
 
 # Mars Strategy (@marsrides)
 # https://docs.google.com/document/d/1BZgaYWFOnsOFMFWRt0jJgNVeLicEMB-ccf9kUwtIxYI/edit?tab=t.0
-class MarsStrategy:
+class MarsStrategy(TradingStrategy):
     def __init__(
         self,
         bars_history: BarsHistoryRepo,
@@ -19,15 +20,11 @@ class MarsStrategy:
         warmup_period: int = 300,
         min_bars: int = 30,
     ):
-        self.bars_history = bars_history
-
-        self.df = pd.DataFrame()
+        super().__init__(bars_history, time_frame_unit, warmup_period, min_bars)
+        
         self.df_orig = pd.DataFrame()
-        self.time_frame_unit: TimeFrameUnit = time_frame_unit
-        self.warmup_period = warmup_period
-        self.min_bars = min_bars
 
-    def collect(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
+    def collect_historical_data(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
         self.df = self.bars_history.get_ticker_history(
             ticker,
             start_date - timedelta(days=self.warmup_period),
@@ -36,7 +33,7 @@ class MarsStrategy:
         )
         return not (self.df.empty or self.df.shape[0] < self.min_bars)
 
-    def add_indicators(self) -> None:
+    def calculate_indicators(self) -> None:
         # calculate min and max over last 4 period open and close (excluding current period)
         self.df["max_box_4"] = (
             self.df[["open", "close"]].shift(1).rolling(window=4).max().max(axis=1)
@@ -135,11 +132,11 @@ class MarsStrategy:
         self, ticker: str, start_date: datetime, end_date: datetime
     ) -> None:
         # collect data for the ticker and end_date
-        if not self.collect(ticker, start_date, end_date):
+        if not self.collect_historical_data(ticker, start_date, end_date):
             logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
             return
 
-        self.add_indicators()
+        self.calculate_indicators()
 
         self.df_orig = self.df.copy()
         self.df = self.df.query("hdate >= @start_date and hdate <= @end_date")
@@ -147,3 +144,64 @@ class MarsStrategy:
         # skip rows before start_date and after end_date
         for i, row in self.df.iterrows():
             self.df.at[i, "buy_signal"] = self.is_buy_signal(ticker, row)
+
+    def is_trading_signal(self, ticker: str, date_to_check: datetime) -> bool:
+        """
+        Check if there is a trading signal for a specific ticker on a given date.
+        
+        Args:
+            ticker: The stock symbol to check
+            date_to_check: The specific date to evaluate for trading signals
+            
+        Returns:
+            bool: True if there is a trading signal, False otherwise
+        """
+        # Collect data for the single date
+        if not self.collect_historical_data(ticker, date_to_check, date_to_check):
+            logger.debug(f"{ticker} - not enough data for date {date_to_check.date()}")
+            return False
+
+        self.calculate_indicators()
+
+        # Filter to the specific date
+        target_df = self.df[self.df['hdate'].dt.date == date_to_check.date()]
+        
+        if target_df.empty:
+            logger.debug(f"{ticker} - no data for date {date_to_check.date()}")
+            return False
+
+        # Check buy signal for the target date
+        row = target_df.iloc[-1]  # Get the last row for that date
+        return self.is_buy_signal(ticker, row)
+
+    def trading_signals_count(self, ticker: str, start_date: datetime, end_date: datetime) -> int:
+        """
+        Count the number of trading signals for a ticker within a date range.
+        
+        Args:
+            ticker: The stock symbol to analyze
+            start_date: The start date of the analysis period
+            end_date: The end date of the analysis period
+            
+        Returns:
+            int: The total number of trading signals found in the date range
+        """
+        # Collect data for the date range
+        if not self.collect_historical_data(ticker, start_date, end_date):
+            logger.debug(f"{ticker} - not enough data for range {start_date.date()} to {end_date.date()}")
+            return 0
+
+        self.calculate_indicators()
+
+        # Filter to the date range and count signals
+        filtered_df = self.df[
+            (self.df['hdate'].dt.date >= start_date.date()) & 
+            (self.df['hdate'].dt.date <= end_date.date())
+        ]
+        
+        signal_count = 0
+        for _, row in filtered_df.iterrows():
+            if self.is_buy_signal(ticker, row):
+                signal_count += 1
+                
+        return signal_count
