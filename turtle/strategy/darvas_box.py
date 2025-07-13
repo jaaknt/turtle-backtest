@@ -21,15 +21,7 @@ class DarvasBoxStrategy(TradingStrategy):
         warmup_period: int = 365,
         min_bars: int = 201,
     ):
-        # self.connection = connection
-        # self.ticker = SymbolRepo(connection, ticker_api_key)
-        self.bars_history = bars_history
-        # self.market_data = MarketData(self.bars_history)
-
-        self.df = pd.DataFrame()
-        self.time_frame_unit: TimeFrameUnit = time_frame_unit
-        self.warmup_period = warmup_period
-        self.min_bars = min_bars
+        super().__init__(bars_history, time_frame_unit, warmup_period, min_bars)
 
     @staticmethod
     def check_local_max(

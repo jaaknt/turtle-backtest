@@ -41,17 +41,6 @@ class StrategyRunner:
             str(os.getenv("ALPACA_SECRET_KEY")),
         )
         self.market_data = MarketData(self.bars_history)
-        self.momentum_strategy = MomentumStrategy(self.bars_history)
-        self.darvas_box_strategy = DarvasBoxStrategy(
-            self.bars_history,
-            time_frame_unit=self.time_frame_unit,
-            warmup_period=warmup_period,
-        )
-        self.mars_strategy = MarsStrategy(
-            self.bars_history,
-            time_frame_unit=self.time_frame_unit,
-            warmup_period=warmup_period,
-        )
 
     def get_tickers_list(self, date_to_check: datetime, trading_strategy: TradingStrategy) -> List[str]:
         symbol_list: List[Symbol] = self.symbol_repo.get_symbol_list("USA")
