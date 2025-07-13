@@ -98,3 +98,25 @@ class TradingStrategy(ABC):
         The indicators will be used by trading signal methods.
         """
         pass
+
+    @abstractmethod
+    def ranking(self, ticker: str, date_to_check: datetime) -> int:
+        """
+        Calculate a ranking score for a ticker based on its closing price on a given date.
+        
+        The ranking is based on price ranges with lower-priced stocks receiving higher rankings:
+        - $0-10: rank 20 (highest)
+        - $10-20: rank 16
+        - $20-60: rank 12  
+        - $60-240: rank 8
+        - $240-1000: rank 4
+        - >$1000: rank 0 (lowest)
+        
+        Args:
+            ticker: The stock symbol to rank
+            date_to_check: The specific date to evaluate the stock price
+            
+        Returns:
+            int: Ranking score between 0-100, with higher scores for lower-priced stocks
+        """
+        pass

@@ -93,7 +93,9 @@ class DarvasBoxStrategy(TradingStrategy):
                 return True
         return True
 
-    def collect_historical_data(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
+    def collect_historical_data(
+        self, ticker: str, start_date: datetime, end_date: datetime
+    ) -> bool:
         self.df = self.bars_history.get_ticker_history(
             ticker,
             start_date - timedelta(days=self.warmup_period),
@@ -280,7 +282,7 @@ class DarvasBoxStrategy(TradingStrategy):
 
         self.calculate_indicators()
 
-        return self.is_buy_signal(ticker, self.df.iloc[-1])
+        return self.is_buy_signal(ticker, self.df.loc[self.df.index[-1]])
 
     # create similar procedure as is_trading_signal that will calculate trading signals for all dates in df DataFrame
     # parameters - self, ticker, start_date, end_date
@@ -306,3 +308,56 @@ class DarvasBoxStrategy(TradingStrategy):
             self.df.at[i, "buy_signal"] = self.is_buy_signal(ticker, row)
 
         return self.df["buy_signal"].sum()
+
+    def _price_to_ranking(self, price: float) -> int:
+        """
+        Convert stock price to ranking score based on predefined price ranges.
+
+        Args:
+            price: The stock price to convert
+
+        Returns:
+            int: Ranking score (0-20)
+        """
+        if price <= 0:
+            return 0
+        elif price <= 10:
+            return 20
+        elif price <= 20:
+            return 16
+        elif price <= 60:
+            return 12
+        elif price <= 240:
+            return 8
+        elif price <= 1000:
+            return 4
+        else:
+            return 0
+
+    def ranking(self, ticker: str, date_to_check: datetime) -> int:
+        """
+        Calculate a ranking score for a ticker based on its closing price on a given date.
+
+        Args:
+            ticker: The stock symbol to rank
+            date_to_check: The specific date to evaluate the stock price
+
+        Returns:
+            int: Ranking score between 0-20, with higher scores for lower-priced stocks
+        """
+        # Collect data for the specific date
+        if not self.collect_historical_data(ticker, date_to_check, date_to_check):
+            logger.debug(f"{ticker} - not enough data for ranking on date {date_to_check.date()}")
+            return 0
+
+        # Filter to the specific date
+        target_df = self.df[self.df['hdate'].dt.date == date_to_check.date()]
+        
+        if target_df.empty:
+            logger.debug(f"{ticker} - no data for ranking on date {date_to_check.date()}")
+            return 0
+
+        # Get the closing price from the target date
+        closing_price = target_df.iloc[-1]['close']
+        
+        return self._price_to_ranking(closing_price)

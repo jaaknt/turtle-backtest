@@ -134,3 +134,87 @@ def test_is_local_max_valid():
 
     # Test when local max is valid with different following count
     assert DarvasBoxStrategy.is_local_max_valid(df, 10, 5) is True
+
+
+def test_price_to_ranking():
+    """Test the price to ranking conversion logic."""
+    bars_history_mock = MagicMock(spec=BarsHistoryRepo)
+    strategy = DarvasBoxStrategy(bars_history_mock)
+
+    # Test each price range
+    assert strategy._price_to_ranking(5.0) == 20    # $0-10 range
+    assert strategy._price_to_ranking(10.0) == 20   # Boundary: exactly $10
+    assert strategy._price_to_ranking(15.0) == 16   # $10-20 range
+    assert strategy._price_to_ranking(20.0) == 16   # Boundary: exactly $20
+    assert strategy._price_to_ranking(40.0) == 12   # $20-60 range
+    assert strategy._price_to_ranking(60.0) == 12   # Boundary: exactly $60
+    assert strategy._price_to_ranking(150.0) == 8   # $60-240 range
+    assert strategy._price_to_ranking(240.0) == 8   # Boundary: exactly $240
+    assert strategy._price_to_ranking(500.0) == 4   # $240-1000 range
+    assert strategy._price_to_ranking(1000.0) == 4  # Boundary: exactly $1000
+    assert strategy._price_to_ranking(1500.0) == 0  # >$1000 range
+
+    # Test edge cases
+    assert strategy._price_to_ranking(0.0) == 0     # Zero price
+    assert strategy._price_to_ranking(-10.0) == 0   # Negative price
+
+
+def test_ranking():
+    """Test the ranking method with mock data."""
+    bars_history_mock = MagicMock(spec=BarsHistoryRepo)
+    strategy = DarvasBoxStrategy(bars_history_mock, min_bars=1)  # Lower min_bars for testing
+
+    # Mock successful data collection
+    test_date = datetime(2024, 1, 15)
+    
+    # Test case 1: Stock with $50 price (should return rank 12)
+    mock_df = pd.DataFrame({
+        'hdate': [test_date],
+        'close': [50.0],
+        'open': [49.0],
+        'high': [51.0],
+        'low': [48.0],
+        'volume': [1000000]
+    })
+    
+    # Mock the return value for sufficient data
+    bars_history_mock.get_ticker_history.return_value = mock_df
+    
+    ranking = strategy.ranking("TEST", test_date)
+    assert ranking == 12
+
+    # Test case 2: No data available (empty DataFrame)
+    bars_history_mock.get_ticker_history.return_value = pd.DataFrame()
+    
+    ranking = strategy.ranking("NODATA", test_date)
+    assert ranking == 0
+
+    # Test case 3: High-priced stock (should return rank 0)
+    mock_df_expensive = pd.DataFrame({
+        'hdate': [test_date],
+        'close': [1500.0],
+        'open': [1480.0],
+        'high': [1520.0],
+        'low': [1470.0],
+        'volume': [500000]
+    })
+    
+    bars_history_mock.get_ticker_history.return_value = mock_df_expensive
+    
+    ranking = strategy.ranking("EXPENSIVE", test_date)
+    assert ranking == 0
+    
+    # Test case 4: Low-priced stock (should return rank 20)
+    mock_df_cheap = pd.DataFrame({
+        'hdate': [test_date],
+        'close': [8.50],
+        'open': [8.20],
+        'high': [8.80],
+        'low': [8.10],
+        'volume': [2000000]
+    })
+    
+    bars_history_mock.get_ticker_history.return_value = mock_df_cheap
+    
+    ranking = strategy.ranking("CHEAP", test_date)
+    assert ranking == 20
