@@ -280,7 +280,7 @@ class DarvasBoxStrategy:
 
         return True
 
-    def validate_momentum(self, ticker: str, date_to_check: datetime) -> bool:
+    def is_trading_signal(self, ticker: str, date_to_check: datetime) -> bool:
         if not self.collect(ticker, date_to_check, date_to_check):
             logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
             return False
@@ -289,11 +289,11 @@ class DarvasBoxStrategy:
 
         return self.is_buy_signal(ticker, self.df.iloc[-1])
 
-    # create similar procedure as validate_momentum that will calculate validate_momentum for all dates in df DataFrame
+    # create similar procedure as is_trading_signal that will calculate trading signals for all dates in df DataFrame
     # parameters - self, ticker, start_date, end_date
     # adds a new column to the DataFrame - df["buy_signal"] with boolean values
     # returns count of buy signals
-    def validate_momentum_all_dates(
+    def trading_signals_count(
         self, ticker: str, start_date: datetime, end_date: datetime
     ) -> int:
         # collect data for the ticker and end_date
