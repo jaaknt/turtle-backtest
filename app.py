@@ -13,7 +13,7 @@ end_date = datetime(year=2024, month=8, day=30)
 # df = get_company_data(["AMZN", "TSLA"])
 strategy_runner = StrategyRunner()
 # Use DarvasBoxStrategy as the default trading strategy
-symbol_list: List[str] = strategy_runner.momentum_stocks(end_date, strategy_runner.darvas_box_strategy)
+symbol_list: List[str] = strategy_runner.get_tickers_list(end_date, strategy_runner.darvas_box_strategy)
 df: pd.DataFrame = strategy_runner.get_company_list(symbol_list)
 
 # Streamlit commands to visualize the DataFrame

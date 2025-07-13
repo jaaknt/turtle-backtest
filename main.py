@@ -63,10 +63,10 @@ def main() -> None:
     # data_updater.update_bars_history(start_date, end_date)
 
     # strategy_runner = StrategyRunner(time_frame_unit=TimeFrameUnit.DAY)
-    # symbol_list = strategy_runner.momentum_stocks(end_date, strategy_runner.darvas_box_strategy)
+    # symbol_list = strategy_runner.get_tickers_list(end_date, strategy_runner.darvas_box_strategy)
     # logger.info(symbol_list)
 
-    # strategy_runner.get_buy_signals(start_date, end_date, strategy_runner.darvas_box_strategy)
+    # strategy_runner.get_tickers_count(start_date, end_date, strategy_runner.darvas_box_strategy)
 
     # df = strategy_runner.get_company_list(symbol_list)
     # logger.info(df)
