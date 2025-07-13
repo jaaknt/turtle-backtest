@@ -58,7 +58,7 @@ class StrategyRunner:
             momentum_stock_list = []
             for symbol_rec in symbol_list:
                 # if self.momentum_strategy.weekly_momentum(
-                if self.darvas_box_strategy.validate_momentum(
+                if self.darvas_box_strategy.is_trading_signal(
                     symbol_rec.symbol, start_date
                 ):
                     momentum_stock_list.append(symbol_rec.symbol)
@@ -70,7 +70,7 @@ class StrategyRunner:
         momentum_stock_list = []
         for symbol_rec in symbol_list:
             # if self.momentum_strategy.weekly_momentum(
-            count = self.darvas_box_strategy.validate_momentum_all_dates(
+            count = self.darvas_box_strategy.trading_signals_count(
                 symbol_rec.symbol,
                 start_date,
                 end_date,
