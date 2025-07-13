@@ -14,6 +14,7 @@ from turtle.strategy.market import MarketData
 from turtle.strategy.momentum import MomentumStrategy
 from turtle.strategy.darvas_box import DarvasBoxStrategy
 from turtle.strategy.mars import MarsStrategy
+from turtle.strategy.trading_strategy import TradingStrategy
 from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ class StrategyRunner:
         self.warmup_period = warmup_period
 
         self.pool: ConnectionPool = ConnectionPool(
-            conninfo=DSN, min_size=5, max_size=10, max_idle=600
+            conninfo=DSN, min_size=5, max_size=50, max_idle=600
         )
         self.symbol_repo = SymbolRepo(self.pool, str(os.getenv("EODHD_API_KEY")))
         self.company_repo = CompanyRepo(self.pool)
@@ -52,25 +53,21 @@ class StrategyRunner:
             warmup_period=warmup_period,
         )
 
-    def momentum_stocks(self, start_date: datetime) -> List[str]:
-        if self.market_data.spy_momentum(start_date):
-            symbol_list: List[Symbol] = self.symbol_repo.get_symbol_list("USA")
-            momentum_stock_list = []
-            for symbol_rec in symbol_list:
-                # if self.momentum_strategy.weekly_momentum(
-                if self.darvas_box_strategy.is_trading_signal(
-                    symbol_rec.symbol, start_date
-                ):
-                    momentum_stock_list.append(symbol_rec.symbol)
-            return momentum_stock_list
-        return []
-
-    def get_buy_signals(self, start_date: datetime, end_date: datetime) -> List[Tuple]:
+    def momentum_stocks(self, date_to_check: datetime, trading_strategy: TradingStrategy) -> List[str]:
         symbol_list: List[Symbol] = self.symbol_repo.get_symbol_list("USA")
         momentum_stock_list = []
         for symbol_rec in symbol_list:
-            # if self.momentum_strategy.weekly_momentum(
-            count = self.darvas_box_strategy.trading_signals_count(
+            if trading_strategy.is_trading_signal(
+                symbol_rec.symbol, date_to_check
+            ):
+                momentum_stock_list.append(symbol_rec.symbol)
+        return momentum_stock_list
+
+    def get_buy_signals(self, start_date: datetime, end_date: datetime, trading_strategy: TradingStrategy) -> List[Tuple]:
+        symbol_list: List[Symbol] = self.symbol_repo.get_symbol_list("USA")
+        momentum_stock_list = []
+        for symbol_rec in symbol_list:
+            count = trading_strategy.trading_signals_count(
                 symbol_rec.symbol,
                 start_date,
                 end_date,
