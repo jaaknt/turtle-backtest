@@ -6,18 +6,19 @@ import numpy as np
 
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
+from turtle.strategy.trading_strategy import TradingStrategy
 
 logger = logging.getLogger(__name__)
 
 
 # Darvas Box Strategy description
 # https://www.tradingview.com/script/ygJLhYt4-Darvas-Box-Theory-Tracking-Uptrends/
-class DarvasBoxStrategy:
+class DarvasBoxStrategy(TradingStrategy):
     def __init__(
         self,
         bars_history: BarsHistoryRepo,
-        time_frame_unit: TimeFrameUnit = TimeFrameUnit.WEEK,
-        warmup_period: int = 300,
+        time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
+        warmup_period: int = 365,
         min_bars: int = 201,
     ):
         # self.connection = connection
@@ -100,7 +101,7 @@ class DarvasBoxStrategy:
                 return True
         return True
 
-    def collect(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
+    def collect_historical_data(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
         self.df = self.bars_history.get_ticker_history(
             ticker,
             start_date - timedelta(days=self.warmup_period),
@@ -281,7 +282,7 @@ class DarvasBoxStrategy:
         return True
 
     def is_trading_signal(self, ticker: str, date_to_check: datetime) -> bool:
-        if not self.collect(ticker, date_to_check, date_to_check):
+        if not self.collect_historical_data(ticker, date_to_check, date_to_check):
             logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
             return False
 
@@ -297,7 +298,7 @@ class DarvasBoxStrategy:
         self, ticker: str, start_date: datetime, end_date: datetime
     ) -> int:
         # collect data for the ticker and end_date
-        if not self.collect(ticker, start_date, end_date):
+        if not self.collect_historical_data(ticker, start_date, end_date):
             logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
             return 0
 
