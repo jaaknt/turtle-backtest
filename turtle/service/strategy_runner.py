@@ -53,7 +53,7 @@ class StrategyRunner:
             warmup_period=warmup_period,
         )
 
-    def momentum_stocks(self, date_to_check: datetime, trading_strategy: TradingStrategy) -> List[str]:
+    def get_tickers_list(self, date_to_check: datetime, trading_strategy: TradingStrategy) -> List[str]:
         symbol_list: List[Symbol] = self.symbol_repo.get_symbol_list("USA")
         momentum_stock_list = []
         for symbol_rec in symbol_list:
@@ -63,7 +63,15 @@ class StrategyRunner:
                 momentum_stock_list.append(symbol_rec.symbol)
         return momentum_stock_list
 
-    def get_buy_signals(self, start_date: datetime, end_date: datetime, trading_strategy: TradingStrategy) -> List[Tuple]:
+    def is_trading_signal(self, ticker: str, date_to_check: datetime, trading_strategy: TradingStrategy) -> bool:
+        """Wrapper function for TradingStrategy.is_trading_signal()."""
+        return trading_strategy.is_trading_signal(ticker, date_to_check)
+
+    def trading_signals_count(self, ticker: str, start_date: datetime, end_date: datetime, trading_strategy: TradingStrategy) -> int:
+        """Wrapper function for TradingStrategy.trading_signals_count()."""
+        return trading_strategy.trading_signals_count(ticker, start_date, end_date)
+
+    def get_tickers_count(self, start_date: datetime, end_date: datetime, trading_strategy: TradingStrategy) -> List[Tuple]:
         symbol_list: List[Symbol] = self.symbol_repo.get_symbol_list("USA")
         momentum_stock_list = []
         for symbol_rec in symbol_list:
