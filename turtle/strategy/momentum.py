@@ -226,3 +226,57 @@ class MomentumStrategy(TradingStrategy):
             current_date += timedelta(days=7)
                 
         return signal_count
+
+    def _price_to_ranking(self, price: float) -> int:
+        """
+        Convert stock price to ranking score based on predefined price ranges.
+        
+        Args:
+            price: The stock price to convert
+            
+        Returns:
+            int: Ranking score (0-20)
+        """
+        if price <= 0:
+            return 0
+        elif price <= 10:
+            return 20
+        elif price <= 20:
+            return 16
+        elif price <= 60:
+            return 12
+        elif price <= 240:
+            return 8
+        elif price <= 1000:
+            return 4
+        else:
+            return 0
+
+    def ranking(self, ticker: str, date_to_check: datetime) -> int:
+        """
+        Calculate a ranking score for a ticker based on its closing price on a given date.
+        
+        Args:
+            ticker: The stock symbol to rank
+            date_to_check: The specific date to evaluate the stock price
+            
+        Returns:
+            int: Ranking score between 0-20, with higher scores for lower-priced stocks
+        """
+        # Collect data for the specific date
+        if not self.collect_historical_data(ticker, date_to_check, date_to_check):
+            logger.debug(f"{ticker} - not enough data for ranking on date {date_to_check.date()}")
+            return 0
+
+        # Since MomentumStrategy uses weekly and daily data, get daily data for the price
+        # Filter daily data to the specific date
+        target_df = self.df_daily[self.df_daily['hdate'].dt.date == date_to_check.date()]
+        
+        if target_df.empty:
+            logger.debug(f"{ticker} - no daily data for ranking on date {date_to_check.date()}")
+            return 0
+
+        # Get the closing price from the target date
+        closing_price = target_df.iloc[-1]['close']
+        
+        return self._price_to_ranking(closing_price)
