@@ -334,16 +334,50 @@ class DarvasBoxStrategy(TradingStrategy):
         else:
             return 0
 
+    def _ranking_ema200_1month(self) -> int:
+        """
+        Calculate ranking score based on EMA200 performance vs 20 trading days ago.
+
+        Returns:
+            int: Ranking score (0-20) where 20 = EMA200 is 10% higher than 20 days ago
+        """
+        if len(self.df) < 21:  # Need at least 21 rows for 20-day lookback
+            return 0
+
+        # Get current EMA200 (last row)
+        current_ema200 = self.df.iloc[-1]["ema_200"]
+
+        # Get EMA200 from 20 trading days ago
+        past_ema200 = self.df.iloc[-21]["ema_200"]
+
+        # Handle invalid data
+        if pd.isna(current_ema200) or pd.isna(past_ema200) or past_ema200 <= 0:
+            return 0
+
+        # Calculate percentage change
+        pct_change = (current_ema200 - past_ema200) / past_ema200
+
+        # Convert to ranking score: 20 for +10%, scale linearly
+        # Positive changes get higher scores, negative changes get lower scores
+        if pct_change >= 0.10:  # 10% or more increase
+            return 20
+        elif pct_change >= 0.0:  # 0% to 10% increase
+            return int(20 * (pct_change / 0.10))
+        else:  # Less than 0% decrease
+            return 0
+
     def ranking(self, ticker: str, date_to_check: datetime) -> int:
         """
-        Calculate a ranking score for a ticker based on its closing price on a given date.
+        Calculate a combined ranking score for a ticker based on price and EMA200 performance.
 
         Args:
             ticker: The stock symbol to rank
-            date_to_check: The specific date to evaluate the stock price
+            date_to_check: The specific date to evaluate the stock
 
         Returns:
-            int: Ranking score between 0-20, with higher scores for lower-priced stocks
+            int: Combined ranking score (0-100):
+                 - Price component: 0-20 (higher scores for lower-priced stocks)
+                 - EMA200 component: 0-20 (higher scores for EMA200 growth vs 20 days ago)
         """
         # Collect data for the specific date
         if not self.collect_historical_data(ticker, date_to_check, date_to_check):
@@ -355,4 +389,9 @@ class DarvasBoxStrategy(TradingStrategy):
         # Get the closing price from the target date
         closing_price = self.df.iloc[-1]["close"]
 
-        return self._price_to_ranking(closing_price)
+        # Calculate both ranking components
+        price_ranking = self._price_to_ranking(closing_price)
+        ema200_ranking = self._ranking_ema200_1month()
+
+        # Return combined score
+        return price_ranking + ema200_ranking
