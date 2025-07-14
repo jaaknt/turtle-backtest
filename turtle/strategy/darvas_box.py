@@ -319,17 +319,17 @@ class DarvasBoxStrategy(TradingStrategy):
         Returns:
             int: Ranking score (0-20)
         """
-        if price <= 0:
+        if price <= 0.0:
             return 0
-        elif price <= 10:
+        elif price <= 10.0:
             return 20
-        elif price <= 20:
+        elif price <= 20.0:
             return 16
-        elif price <= 60:
+        elif price <= 60.0:
             return 12
-        elif price <= 240:
+        elif price <= 240.0:
             return 8
-        elif price <= 1000:
+        elif price <= 1000.0:
             return 4
         else:
             return 0
@@ -347,17 +347,12 @@ class DarvasBoxStrategy(TradingStrategy):
         """
         # Collect data for the specific date
         if not self.collect_historical_data(ticker, date_to_check, date_to_check):
-            logger.debug(f"{ticker} - not enough data for ranking on date {date_to_check.date()}")
+            logger.warning(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
             return 0
 
-        # Filter to the specific date
-        target_df = self.df[self.df['hdate'].dt.date == date_to_check.date()]
-        
-        if target_df.empty:
-            logger.debug(f"{ticker} - no data for ranking on date {date_to_check.date()}")
-            return 0
+        self.calculate_indicators()
 
         # Get the closing price from the target date
-        closing_price = target_df.iloc[-1]['close']
-        
+        closing_price = self.df.iloc[-1]["close"]
+
         return self._price_to_ranking(closing_price)
