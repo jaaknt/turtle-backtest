@@ -4,7 +4,7 @@
 1. Amend darvas_box.py 
    - Add additional ranking function with signature:
        ```python
-       def _ranking_ema200(self) -> int:
+       def _ranking_ema200_1month(self) -> int:
        ```
        returning integer between 0-20
    - Add implementation _ranking_ema200

@@ -18,8 +18,8 @@ class TradingStrategy(ABC):
         self,
         bars_history: BarsHistoryRepo,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
-        warmup_period: int = 365,
-        min_bars: int = 201,
+        warmup_period: int = 730,
+        min_bars: int = 420,
     ):
         """
         Initialize the trading strategy with common parameters.

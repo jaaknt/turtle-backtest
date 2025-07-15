@@ -26,7 +26,7 @@ class StrategyRunner:
     def __init__(
         self,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
-        warmup_period: int = 300,
+        warmup_period: int = 730,
     ) -> None:
         self.time_frame_unit = time_frame_unit
         self.warmup_period = warmup_period
@@ -45,13 +45,15 @@ class StrategyRunner:
 
     def get_tickers_list(
         self, date_to_check: datetime, trading_strategy: TradingStrategy
-    ) -> List[str]:
+    ) -> List[dict]:
         symbol_list: List[Symbol] = self.symbol_repo.get_symbol_list("USA")
-        momentum_stock_list = []
+        stock_list: List[dict] = []
+        ranking: int = 0
         for symbol_rec in symbol_list:
             if trading_strategy.is_trading_signal(symbol_rec.symbol, date_to_check):
-                momentum_stock_list.append(symbol_rec.symbol)
-        return momentum_stock_list
+                ranking = trading_strategy.ranking(symbol_rec.symbol, date_to_check)
+                stock_list.append({"symbol": symbol_rec.symbol, "ranking": ranking})
+        return stock_list
 
     def is_trading_signal(
         self, ticker: str, date_to_check: datetime, trading_strategy: TradingStrategy
