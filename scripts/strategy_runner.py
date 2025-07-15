@@ -71,7 +71,7 @@ def get_trading_strategy(strategy_runner: StrategyRunner, strategy_name: str):
     from turtle.strategy.darvas_box import DarvasBoxStrategy
     from turtle.strategy.mars import MarsStrategy
     from turtle.strategy.momentum import MomentumStrategy
-    
+
     strategy_classes = {
         "darvas_box": DarvasBoxStrategy,
         "mars": MarsStrategy,
@@ -279,7 +279,7 @@ def main():
             print(f"\nTicker list for {date.date()} ({args.strategy} strategy):")
             print(f"Found {len(ticker_list)} tickers:")
             for ticker in ticker_list:
-                print(f"  {ticker}")
+                print(f" {ticker['symbol']} (Ranking: {ticker['ranking']})")
 
             if not ticker_list:
                 print("  No tickers found for the specified date and strategy")
