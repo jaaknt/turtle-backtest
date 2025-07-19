@@ -7,12 +7,12 @@
    - add 2 functions that are wrappers to TradingStrategy.is_trading_signal and trading_signals_count
 2. Create new script @scripts/strategy_runner.py similar to data_update.py
    - parameters start_date, end_date, strategy
-   - calls StrategyRunner.get_tickers_list or StrategyRunner.get_tickers_count with parameters and prints list to console
+   - calls StrategyRunnerService.get_tickers_list or StrategyRunnerService.get_tickers_count with parameters and prints list to console
 
 ## Analysis & Implementation Plan
 
 ### Code Analysis Results
-Current `StrategyRunner` class methods and dependencies:
+Current `StrategyRunnerService` class methods and dependencies:
 
 1. **Methods to Rename**:
    - `momentum_stocks(date_to_check, trading_strategy) -> List[str]` → `get_tickers_list`
@@ -36,7 +36,7 @@ Current `StrategyRunner` class methods and dependencies:
 
 ### Implementation Plan
 
-#### Phase 1: Rename StrategyRunner Methods ✅
+#### Phase 1: Rename StrategyRunnerService Methods ✅
 - [x] Rename `momentum_stocks` → `get_tickers_list` in `strategy_runner.py`
 - [x] Rename `get_buy_signals` → `get_tickers_count` in `strategy_runner.py`
 - [x] Add wrapper functions for TradingStrategy methods
@@ -51,7 +51,7 @@ Current `StrategyRunner` class methods and dependencies:
 - [x] Add strategy selection logic (darvas_box, mars, momentum)
 - [x] Implement date parsing and validation
 - [x] Add logging setup and error handling
-- [x] Add main function to call StrategyRunner methods and print results
+- [x] Add main function to call StrategyRunnerService methods and print results
 
 #### Phase 4: Verification ✅
 - [x] Run tests to ensure no regressions
@@ -63,7 +63,7 @@ Current `StrategyRunner` class methods and dependencies:
 
 ### Summary of Changes Made:
 
-1. **StrategyRunner Method Refactoring**:
+1. **StrategyRunnerService Method Refactoring**:
    - Renamed `momentum_stocks()` → `get_tickers_list()` in `turtle/service/strategy_runner.py:56`
    - Renamed `get_buy_signals()` → `get_tickers_count()` in `turtle/service/strategy_runner.py:74`
    - Added wrapper functions:

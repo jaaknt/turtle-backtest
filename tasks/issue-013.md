@@ -29,7 +29,7 @@ After analyzing the existing codebase, I understand the following structure:
    - `get_ticker_history()`: Returns pandas DataFrame with OHLCV data
    - Data sourced from Alpaca API and stored in `turtle.bars_history` table
 
-3. **Service Pattern**: Services like `DataUpdate` and `StrategyRunner` orchestrate business logic
+3. **Service Pattern**: Services like `DataUpdateService` and `StrategyRunnerService` orchestrate business logic
    - Use ConnectionPool for database connections
    - Follow consistent patterns for initialization and execution
 

@@ -24,7 +24,7 @@
 2. **MarsStrategy** ❌ - Does NOT inherit from TradingStrategy, different constructor signature 
 3. **MomentumStrategy** ❌ - Does NOT inherit from TradingStrategy, minimal constructor
 
-**StrategyRunner Current Behavior**:
+**StrategyRunnerService Current Behavior**:
 - Creates strategy instances in `__init__` (lines 44, 45-49, 50-54)
 - Stores them as `self.momentum_strategy`, `self.darvas_box_strategy`, `self.mars_strategy`
 - External code accesses via `strategy_runner.darvas_box_strategy` etc.
@@ -56,7 +56,7 @@
 - [x] **MomentumStrategy**: Add TradingStrategy inheritance and implement missing abstract methods  
 - [x] **DarvasBoxStrategy**: Update to call `super().__init__()` and remove duplicate attribute assignment
 
-#### Phase 3: Refactor StrategyRunner ✅
+#### Phase 3: Refactor StrategyRunnerService ✅
 - [x] Remove strategy instance creation from `__init__` method:
   - Remove `self.momentum_strategy = MomentumStrategy(self.bars_history)`
   - Remove `self.darvas_box_strategy = DarvasBoxStrategy(...)`  
@@ -89,7 +89,7 @@
    - **MomentumStrategy**: Now inherits from TradingStrategy, implements all abstract methods  
    - **DarvasBoxStrategy**: Updated to call `super().__init__()` properly
 
-3. **StrategyRunner Refactored**:
+3. **StrategyRunnerService Refactored**:
    - Removed pre-created strategy instances from `__init__`
    - No more `self.momentum_strategy`, `self.darvas_box_strategy`, `self.mars_strategy`
    - Keeps shared resources (`bars_history`, `symbol_repo`, etc.)
@@ -110,8 +110,8 @@
 
 1. **Standardized Interface** - All strategies now have consistent constructor parameters
 2. **Lazy Instantiation** - Strategies created only when needed, improving performance
-3. **Reduced Memory Usage** - No pre-created strategy instances in StrategyRunner
-4. **Better Separation of Concerns** - StrategyRunner focuses on orchestration, not strategy storage
+3. **Reduced Memory Usage** - No pre-created strategy instances in StrategyRunnerService
+4. **Better Separation of Concerns** - StrategyRunnerService focuses on orchestration, not strategy storage
 5. **Improved Testability** - Easier to mock and test individual strategies
 6. **Consistent API** - All strategies implement the same abstract interface
 
@@ -119,13 +119,13 @@
 
 **Before**:
 ```python
-strategy_runner = StrategyRunner()
+strategy_runner = StrategyRunnerService()
 strategy_runner.get_tickers_list(date, strategy_runner.darvas_box_strategy)
 ```
 
 **After**:
 ```python
-strategy_runner = StrategyRunner()
+strategy_runner = StrategyRunnerService()
 darvas_strategy = DarvasBoxStrategy(strategy_runner.bars_history)
 strategy_runner.get_tickers_list(date, darvas_strategy)
 ```
@@ -136,21 +136,21 @@ This refactoring significantly improves the architecture and provides a solid fo
 
 1. **Standardized Interface**: All strategies will have consistent constructor parameters
 2. **Lazy Instantiation**: Strategies created only when needed, improving performance
-3. **Reduced Memory Usage**: No pre-created strategy instances in StrategyRunner
-4. **Better Separation of Concerns**: StrategyRunner focuses on orchestration, not strategy storage
+3. **Reduced Memory Usage**: No pre-created strategy instances in StrategyRunnerService
+4. **Better Separation of Concerns**: StrategyRunnerService focuses on orchestration, not strategy storage
 5. **Improved Testability**: Easier to mock and test individual strategies
 
 ### Breaking Changes & Migration
 
 **Before** (current usage):
 ```python
-strategy_runner = StrategyRunner()
+strategy_runner = StrategyRunnerService()
 strategy_runner.get_tickers_list(date, strategy_runner.darvas_box_strategy)
 ```
 
 **After** (new usage):
 ```python
-strategy_runner = StrategyRunner()
+strategy_runner = StrategyRunnerService()
 darvas_strategy = DarvasBoxStrategy(strategy_runner.bars_history)
 strategy_runner.get_tickers_list(date, darvas_strategy)
 ```

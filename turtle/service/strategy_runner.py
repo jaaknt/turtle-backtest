@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
 
 
-class StrategyRunner:
+class StrategyRunnerService:
     def __init__(
         self,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,

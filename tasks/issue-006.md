@@ -14,7 +14,7 @@
 ## Analysis & Implementation Plan
 
 ### Code Analysis Results
-Current `StrategyRunner` class dependencies and usage:
+Current `StrategyRunnerService` class dependencies and usage:
 
 1. **Method Signatures to Change**:
    - `momentum_stocks(self, start_date: datetime) -> List[str]`
@@ -36,7 +36,7 @@ Current `StrategyRunner` class dependencies and usage:
 
 ### Implementation Plan
 
-#### Phase 1: Update StrategyRunner Method Signatures
+#### Phase 1: Update StrategyRunnerService Method Signatures
 - [x] Add `TradingStrategy` import to `strategy_runner.py`
 - [x] Update `momentum_stocks()` method signature and implementation
 - [x] Update `get_buy_signals()` method signature and implementation
@@ -48,9 +48,9 @@ Current `StrategyRunner` class dependencies and usage:
 - [x] Update `examples/symbol_group.ipynb` notebook
 
 #### Phase 3: Update Service Layer and Notebooks
-- [x] Update `examples/symbol_group.ipynb` to use `StrategyRunner` instead of `DataUpdate`
+- [x] Update `examples/symbol_group.ipynb` to use `StrategyRunnerService` instead of `DataUpdateService`
 - [x] Update notebook to pass strategy parameter to new method signatures
-- [x] Note: `DataUpdate` no longer has `get_buy_signals()` after issue-002 refactoring
+- [x] Note: `DataUpdateService` no longer has `get_buy_signals()` after issue-002 refactoring
 
 #### Phase 4: Verification
 - [x] Run tests to ensure no regressions (13 tests passed)
@@ -60,7 +60,7 @@ Current `StrategyRunner` class dependencies and usage:
 
 ## ✅ Task Completed
 
-Successfully refactored StrategyRunner to accept TradingStrategy parameters for better flexibility:
+Successfully refactored StrategyRunnerService to accept TradingStrategy parameters for better flexibility:
 
 ### Enhanced Method Signatures:
 ```python
@@ -75,7 +75,7 @@ def get_buy_signals(self, start_date: datetime, end_date: datetime, trading_stra
 - **`/turtle/service/strategy_runner.py`**: Refactored both methods to accept TradingStrategy parameter
 - **`/app.py`**: Updated to pass `strategy_runner.darvas_box_strategy` as parameter
 - **`/main.py`**: Updated commented method calls for future compatibility 
-- **`/examples/symbol_group.ipynb`**: Updated to use `StrategyRunner` instead of `DataUpdate` and new API
+- **`/examples/symbol_group.ipynb`**: Updated to use `StrategyRunnerService` instead of `DataUpdateService` and new API
 
 ### Key Changes:
 1. **Removed Market Condition Check**: Eliminated `spy_momentum()` check from `momentum_stocks()`

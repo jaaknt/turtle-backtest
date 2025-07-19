@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 from typing import List
 
-from turtle.service.strategy_runner import StrategyRunner
+from turtle.service.strategy_runner import StrategyRunnerService
 from turtle.strategy.darvas_box import DarvasBoxStrategy
 
 end_date = datetime(year=2024, month=8, day=30)
@@ -12,7 +12,7 @@ end_date = datetime(year=2024, month=8, day=30)
 # data = {"Symbol": momentum_stock_list}
 
 # df = get_company_data(["AMZN", "TSLA"])
-strategy_runner = StrategyRunner()
+strategy_runner = StrategyRunnerService()
 # Create DarvasBoxStrategy instance
 darvas_strategy = DarvasBoxStrategy(strategy_runner.bars_history)
 symbol_list: List[str] = strategy_runner.get_tickers_list(end_date, darvas_strategy)

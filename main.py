@@ -5,8 +5,8 @@ import pathlib
 from datetime import datetime
 from dotenv import load_dotenv
 
-from turtle.service.data_update import DataUpdate
-from turtle.service.strategy_runner import StrategyRunner
+from turtle.service.data_update import DataUpdateService
+from turtle.service.strategy_runner import StrategyRunnerService
 from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ def setup_logging() -> None:
 
 def init_db() -> None:
     """Initialize the database with the required tables and data."""
-    data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.DAY)
+    data_updater = DataUpdateService(time_frame_unit=TimeFrameUnit.DAY)
     start_date: datetime = datetime(year=2017, month=1, day=1)
     end_date: datetime = datetime(year=2025, month=6, day=27)
 
@@ -41,17 +41,17 @@ def main() -> None:
     # init_db()
     # return
 
-    data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.DAY)
+    data_updater = DataUpdateService(time_frame_unit=TimeFrameUnit.DAY)
     start_date: datetime = datetime(year=2024, month=6, day=25)  # noqa: F841
     end_date: datetime = datetime(year=2025, month=6, day=27)  # noqa: F841
 
-    # data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.WEEK)
+    # data_updater = DataUpdateService(time_frame_unit=TimeFrameUnit.WEEK)
 
     # ticker = "TSLA"
     # start_date: datetime = datetime(year=2022, month=1, day=1)  # noqa: F841
     # end_date: datetime = datetime(year=2023, month=12, day=31)  # noqa: F841
 
-    # strategy_runner = StrategyRunner(time_frame_unit=TimeFrameUnit.DAY)
+    # strategy_runner = StrategyRunnerService(time_frame_unit=TimeFrameUnit.DAY)
     # strategy_runner.mars_strategy.calculate_entries(
     #    ticker,
     #    start_date,
@@ -62,7 +62,7 @@ def main() -> None:
     # data_updater.update_company_list()
     # data_updater.update_bars_history(start_date, end_date)
 
-    # strategy_runner = StrategyRunner(time_frame_unit=TimeFrameUnit.DAY)
+    # strategy_runner = StrategyRunnerService(time_frame_unit=TimeFrameUnit.DAY)
     # from turtle.strategy.darvas_box import DarvasBoxStrategy
     # darvas_strategy = DarvasBoxStrategy(strategy_runner.bars_history)
     # symbol_list = strategy_runner.get_tickers_list(end_date, darvas_strategy)
