@@ -50,13 +50,13 @@ uv run python scripts/daily_eod_update.py --help
 
 ### Method 2: Programmatic API
 
-For integration into other scripts, you can use the DataUpdate class directly as shown in [main.py](https://github.com/jaaknt/turtle-backtest/blob/main/main.py):
+For integration into other scripts, you can use the DataUpdateService class directly as shown in [main.py](https://github.com/jaaknt/turtle-backtest/blob/main/main.py):
 
 ```python
-from turtle.service.data_update import DataUpdate
+from turtle.service.data_update import DataUpdateService
 from datetime import datetime
 
-data_updater = DataUpdate()
+data_updater = DataUpdateService()
 start_date = datetime(year=2017, month=1, day=1)
 end_date = datetime(year=2024, month=12, day=7)
 

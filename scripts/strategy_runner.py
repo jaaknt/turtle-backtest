@@ -2,7 +2,7 @@
 """
 Strategy Runner Script
 
-This script runs trading strategy analysis using the StrategyRunner class.
+This script runs trading strategy analysis using the StrategyRunnerService class.
 It can get ticker lists, ticker counts, check individual ticker signals, or count signals for specific tickers using different trading strategies.
 
 Usage:
@@ -33,7 +33,7 @@ from dotenv import load_dotenv
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
-from turtle.service.strategy_runner import StrategyRunner
+from turtle.service.strategy_runner import StrategyRunnerService
 from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ def setup_logging(verbose: bool = False) -> None:
         )
 
 
-def get_trading_strategy(strategy_runner: StrategyRunner, strategy_name: str):
+def get_trading_strategy(strategy_runner: StrategyRunnerService, strategy_name: str):
     """Create and return a trading strategy instance by name."""
     from turtle.strategy.darvas_box import DarvasBoxStrategy
     from turtle.strategy.mars import MarsStrategy
@@ -256,7 +256,7 @@ def main():
 
         # Initialize strategy runner
         logger.info("Initializing strategy runner...")
-        strategy_runner = StrategyRunner(time_frame_unit=TimeFrameUnit.DAY)
+        strategy_runner = StrategyRunnerService(time_frame_unit=TimeFrameUnit.DAY)
 
         # Get the trading strategy
         try:

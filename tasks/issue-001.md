@@ -7,7 +7,7 @@
 ## Plan
 
 ### Analysis
-The system already has a `DataUpdate` class in `turtle/service/data_update.py` that handles data updates via Alpaca API, Yahoo Finance, and EODHD. Currently, `main.py` runs data updates for large date ranges manually. The `update_bars_history` method processes all symbols for a given date range.
+The system already has a `DataUpdateService` class in `turtle/service/data_update.py` that handles data updates via Alpaca API, Yahoo Finance, and EODHD. Currently, `main.py` runs data updates for large date ranges manually. The `update_bars_history` method processes all symbols for a given date range.
 
 ### Todo List
 1. **Create daily update script** - Create `scripts/daily_eod_update.py` that focuses on getting just the previous trading day's data

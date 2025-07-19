@@ -30,7 +30,7 @@ from dotenv import load_dotenv
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
-from turtle.service.data_update import DataUpdate
+from turtle.service.data_update import DataUpdateService
 from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)
@@ -90,13 +90,13 @@ def get_previous_trading_day(reference_date: Optional[datetime] = None) -> datet
 
 
 def validate_update_success(
-    data_updater: DataUpdate, start_date: datetime, end_date: datetime
+    data_updater: DataUpdateService, start_date: datetime, end_date: datetime
 ) -> bool:
     """
     Validate that the data update was successful.
 
     Args:
-        data_updater: DataUpdate instance
+        data_updater: DataUpdateService instance
         start_date: Start date that was updated
         end_date: End date that was updated
 
@@ -251,7 +251,7 @@ def main():
             logger.info("DRY RUN MODE - No actual updates will be performed")
 
             # Initialize data updater to get symbol count
-            data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.DAY)
+            data_updater = DataUpdateService(time_frame_unit=TimeFrameUnit.DAY)
             symbol_list = data_updater.symbol_repo.get_symbol_list("USA")
 
             if start_date == end_date:

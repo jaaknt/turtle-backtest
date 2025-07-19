@@ -99,7 +99,7 @@ Configurable via `TimeFrameUnit` enum: `DAY`, `WEEK`, `MONTH`
 ### Adding New Strategies
 1. Create new file in `turtle/strategy/`
 2. Implement strategy logic with entry/exit signals
-3. Add integration to `DataUpdate` service
+3. Add integration to `DataUpdateService` service
 4. Create corresponding test file in `tests/`
 
 ### Strategy Testing
@@ -131,9 +131,9 @@ The daily update script:
 - Flexible date parameters: `--start-date` (required) and optional `--end-date`
 
 ### Bulk Data Updates
-The `DataUpdate` service handles bulk data operations:
+The `DataUpdateService` service handles bulk data operations:
 ```python
-data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.DAY)
+data_updater = DataUpdateService(time_frame_unit=TimeFrameUnit.DAY)
 data_updater.update_symbol_list()        # Download symbol list
 data_updater.update_company_list()       # Download company data
 data_updater.update_bars_history(start_date, end_date)  # Download OHLCV data
