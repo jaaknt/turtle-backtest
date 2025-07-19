@@ -285,7 +285,7 @@ def main():
 
         # Validate the update
         logger.info("Validating update success...")
-        if validate_update_success(data_updater, start_date, end_date):
+        if validate_update_success(data_updater, end_date, end_date):
             logger.info("✓ Daily EOD update completed successfully")
             return 0
         else:

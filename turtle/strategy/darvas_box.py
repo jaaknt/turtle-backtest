@@ -282,7 +282,13 @@ class DarvasBoxStrategy(TradingStrategy):
 
         self.calculate_indicators()
 
-        return self.is_buy_signal(ticker, self.df.loc[self.df.index[-1]])
+        # compare last row [hdate] with the date_to_check
+        if self.df.iloc[-1]["hdate"] != date_to_check:
+            logger.warning(
+                f"{ticker} - last row date {self.df.iloc[-1]['hdate']} does not match {date_to_check}"
+            )
+
+        return self.is_buy_signal(ticker, self.df.iloc[-1])
 
     # create similar procedure as is_trading_signal that will calculate trading signals for all dates in df DataFrame
     # parameters - self, ticker, start_date, end_date
