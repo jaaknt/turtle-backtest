@@ -126,7 +126,7 @@ class DarvasBoxStrategy(TradingStrategy):
 
         self.df = self.df.reset_index()
 
-        self.darvas_box_breakout()
+        # self.darvas_box_breakout()
 
     def darvas_box_breakout(self, lookback_period=10, validation_period=3) -> None:
         # status values: unknown, box_top_set, box_bottom_set, box_formed, breakout_up, breakout_down
@@ -205,9 +205,9 @@ class DarvasBoxStrategy(TradingStrategy):
         # last_record: pd.Series = self.df.iloc[-1]
 
         # is darvas_box breakout up
-        if not row["status"] == "breakout_up":
-            logger.debug(f"{ticker} darvas_box_breakout failed")
-            return False
+        # if not row["status"] == "breakout_up":
+        #    logger.debug(f"{ticker} darvas_box_breakout failed")
+        #    return False
 
         # last close > max(close, 20)
         if row["close"] < row["max_close_20"]:
