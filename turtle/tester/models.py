@@ -1,54 +1,125 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import pandas as pd
+
+from turtle.tester.period_return import PeriodReturn, PeriodReturnResult
 
 
 @dataclass
 class SignalResult:
     """
     Represents a single trading signal and its outcomes.
-    
+
     Attributes:
         ticker: Stock symbol that generated the signal
         signal_date: Date when the trading signal was generated
         entry_price: Opening price of the next trading day after signal
         entry_date: Date when entry price was recorded
-        period_results: Dictionary mapping period names to closing prices
+        period_results: Dictionary mapping period names to closing prices (for backward compatibility)
+        period_data: Dictionary mapping period names to target dates and OHLCV data
         ranking: Strategy ranking score (0-100) for this signal
     """
+
     ticker: str
     signal_date: datetime
     entry_price: float
     entry_date: datetime
-    period_results: dict[str, Optional[float]]  # period_name -> closing_price
+    period_results: dict[str, Optional[float]]  # period_name -> closing_price (backward compatibility)
     ranking: int = 0
+    period_data: Optional[Dict[str, Dict[str, Any]]] = None  # period_name -> {target_date, data}
 
-    def get_return_for_period(self, period_name: str) -> Optional[float]:
+    def get_return_for_period(
+        self, 
+        period_name: str, 
+        strategy_name: str = 'buy_and_hold',
+        **strategy_kwargs
+    ) -> Optional[float]:
         """
-        Calculate percentage return for a specific period.
-        
+        Calculate percentage return for a specific period using specified strategy.
+
         Args:
-            period_name: Name of the period (e.g., '3d', '1w', '2w', '1m')
-            
+            period_name: Name of the period (e.g., '3D', '1W', '2W', '1M')
+            strategy_name: Name of period return strategy to use
+            **strategy_kwargs: Additional arguments for strategy initialization
+
         Returns:
             Percentage return or None if data not available
         """
+        # Try new period return calculation first
+        if self.period_data and period_name in self.period_data:
+            try:
+                period_info = self.period_data[period_name]
+                target_date = period_info['target_date']
+                data = period_info['data']
+                
+                period_return = PeriodReturn(strategy_name, **strategy_kwargs)
+                result = period_return.calculate_return(
+                    data=data,
+                    entry_price=self.entry_price,
+                    entry_date=self.entry_date,
+                    target_date=target_date
+                )
+                
+                if result:
+                    return result.return_pct
+                    
+            except Exception:
+                # Fall back to legacy calculation
+                pass
+        
+        # Fallback to legacy calculation for backward compatibility
         if period_name not in self.period_results:
             return None
-            
+
         closing_price = self.period_results[period_name]
         if closing_price is None or self.entry_price <= 0:
             return None
-            
+
         return ((closing_price - self.entry_price) / self.entry_price) * 100
+    
+    def get_return_result_for_period(
+        self, 
+        period_name: str, 
+        strategy_name: str = 'buy_and_hold',
+        **strategy_kwargs
+    ) -> Optional[PeriodReturnResult]:
+        """
+        Get detailed period return result including exit reason and date.
+
+        Args:
+            period_name: Name of the period (e.g., '3D', '1W', '2W', '1M')
+            strategy_name: Name of period return strategy to use
+            **strategy_kwargs: Additional arguments for strategy initialization
+
+        Returns:
+            PeriodReturnResult or None if data not available
+        """
+        if not self.period_data or period_name not in self.period_data:
+            return None
+            
+        try:
+            period_info = self.period_data[period_name]
+            target_date = period_info['target_date']
+            data = period_info['data']
+            
+            period_return = PeriodReturn(strategy_name, **strategy_kwargs)
+            return period_return.calculate_return(
+                data=data,
+                entry_price=self.entry_price,
+                entry_date=self.entry_date,
+                target_date=target_date
+            )
+            
+        except Exception:
+            return None
 
 
 @dataclass
 class PerformanceResult:
     """
     Performance statistics for a specific time period.
-    
+
     Attributes:
         period_name: Name of the time period (e.g., '3d', '1w', '2w', '1m')
         total_signals: Total number of signals analyzed
@@ -59,6 +130,7 @@ class PerformanceResult:
         worst_return: Worst percentage return
         returns: List of all percentage returns
     """
+
     period_name: str
     total_signals: int
     valid_signals: int
@@ -69,15 +141,17 @@ class PerformanceResult:
     returns: List[float]
 
     @classmethod
-    def from_returns(cls, period_name: str, total_signals: int, returns: List[float]) -> 'PerformanceResult':
+    def from_returns(
+        cls, period_name: str, total_signals: int, returns: List[float]
+    ) -> "PerformanceResult":
         """
         Create PerformanceResult from a list of returns.
-        
+
         Args:
             period_name: Name of the time period
             total_signals: Total number of signals that were attempted
             returns: List of percentage returns (only valid ones)
-            
+
         Returns:
             PerformanceResult instance with calculated statistics
         """
@@ -90,16 +164,16 @@ class PerformanceResult:
                 win_rate=0.0,
                 best_return=0.0,
                 worst_return=0.0,
-                returns=[]
+                returns=[],
             )
-        
+
         valid_signals = len(returns)
         average_return = sum(returns) / valid_signals
         winning_trades = len([r for r in returns if r > 0])
         win_rate = (winning_trades / valid_signals) * 100 if valid_signals > 0 else 0.0
         best_return = max(returns)
         worst_return = min(returns)
-        
+
         return cls(
             period_name=period_name,
             total_signals=total_signals,
@@ -108,7 +182,7 @@ class PerformanceResult:
             win_rate=win_rate,
             best_return=best_return,
             worst_return=worst_return,
-            returns=returns
+            returns=returns,
         )
 
 
@@ -116,12 +190,13 @@ class PerformanceResult:
 class RankingPerformance:
     """
     Performance statistics grouped by ranking ranges.
-    
+
     Attributes:
         ranking_range: Description of ranking range (e.g., "0-20", "21-40", "41-60", "61-80", "81-100")
         period_results: Dictionary mapping period names to PerformanceResult
         total_signals: Total number of signals in this ranking range
     """
+
     ranking_range: str
     period_results: dict[str, PerformanceResult]
     total_signals: int
@@ -131,7 +206,7 @@ class RankingPerformance:
 class TestSummary:
     """
     Summary of strategy testing results across all periods.
-    
+
     Attributes:
         strategy_name: Name of the tested strategy
         test_start_date: Start date of the testing period
@@ -142,6 +217,7 @@ class TestSummary:
         benchmark_results: Optional dictionary mapping benchmark symbols to their period results
         ranking_results: Optional dictionary mapping ranking ranges to RankingPerformance
     """
+
     strategy_name: str
     test_start_date: datetime
     test_end_date: datetime
@@ -151,18 +227,20 @@ class TestSummary:
     benchmark_results: Optional[dict] = None
     ranking_results: Optional[dict[str, RankingPerformance]] = None
 
-    def get_performance_for_period(self, period_name: str) -> Optional[PerformanceResult]:
+    def get_performance_for_period(
+        self, period_name: str
+    ) -> Optional[PerformanceResult]:
         """Get performance results for a specific period."""
         return self.period_results.get(period_name)
-    
+
     def get_all_periods(self) -> List[str]:
         """Get list of all tested period names."""
         return list(self.period_results.keys())
-    
+
     def format_summary(self) -> str:
         """
         Format the test summary as a readable string.
-        
+
         Returns:
             Formatted string representation of the test results
         """
@@ -171,22 +249,24 @@ class TestSummary:
             f"Test Period: {self.test_start_date.strftime('%Y-%m-%d')} to {self.test_end_date.strftime('%Y-%m-%d')}",
             f"Signals Found: {self.total_signals_found}",
             "",
-            "Strategy Performance:"
+            "Strategy Performance:",
         ]
-        
+
         # Sort periods by length (ascending order: 3d, 1w, 2w, 1m)
         def period_sort_key(period_name):
-            if period_name.endswith('d'):
+            if period_name.endswith("d"):
                 return int(period_name[:-1])
-            elif period_name.endswith('w') or period_name.endswith('W'):
+            elif period_name.endswith("w") or period_name.endswith("W"):
                 return int(period_name[:-1]) * 7
-            elif period_name.endswith('m') or period_name.endswith('M'):
+            elif period_name.endswith("m") or period_name.endswith("M"):
                 return int(period_name[:-1]) * 30
             else:
                 return 999  # Unknown format, put at end
-        
-        sorted_strategy_periods = sorted(self.period_results.keys(), key=period_sort_key)
-        
+
+        sorted_strategy_periods = sorted(
+            self.period_results.keys(), key=period_sort_key
+        )
+
         for period_name in sorted_strategy_periods:
             result = self.period_results[period_name]
             lines.append(
@@ -196,30 +276,32 @@ class TestSummary:
                 f"Worst: {result.worst_return:+5.1f}%  "
                 f"Valid: {result.valid_signals}/{result.total_signals}"
             )
-        
+
         # Add benchmark performance if available
         if self.benchmark_results:
             lines.append("")
             lines.append("Benchmark Performance (Buy & Hold - Start to End Period):")
-            
-            for benchmark_symbol in ['QQQ', 'SPY']:
+
+            for benchmark_symbol in ["QQQ", "SPY"]:
                 if benchmark_symbol in self.benchmark_results:
                     lines.append(f"\n{benchmark_symbol}:")
                     benchmark_periods = self.benchmark_results[benchmark_symbol]
-                    
+
                     # Sort periods by length (ascending order: 3d, 1w, 2w, 1m)
                     def period_sort_key(period_name):
-                        if period_name.endswith('d'):
+                        if period_name.endswith("d"):
                             return int(period_name[:-1])
-                        elif period_name.endswith('w') or period_name.endswith('W'):
+                        elif period_name.endswith("w") or period_name.endswith("W"):
                             return int(period_name[:-1]) * 7
-                        elif period_name.endswith('m') or period_name.endswith('M'):
+                        elif period_name.endswith("m") or period_name.endswith("M"):
                             return int(period_name[:-1]) * 30
                         else:
                             return 999  # Unknown format, put at end
-                    
-                    sorted_periods = sorted(benchmark_periods.keys(), key=period_sort_key)
-                    
+
+                    sorted_periods = sorted(
+                        benchmark_periods.keys(), key=period_sort_key
+                    )
+
                     for period_name in sorted_periods:
                         result = benchmark_periods[period_name]
                         if result.valid_signals > 0:
@@ -230,22 +312,27 @@ class TestSummary:
                             )
                         else:
                             lines.append(f"{period_name:8}: No data available")
-        
+
         # Add ranking-based performance if available
         if self.ranking_results:
             lines.append("")
             lines.append("Performance by Ranking Groups:")
-            
+
             # Sort ranking groups by range start (0-20, 21-40, 41-60, 61-80, 81-100)
-            sorted_ranking_groups = sorted(self.ranking_results.keys(), 
-                                         key=lambda x: int(x.split('-')[0]))
-            
+            sorted_ranking_groups = sorted(
+                self.ranking_results.keys(), key=lambda x: int(x.split("-")[0])
+            )
+
             for ranking_range in sorted_ranking_groups:
                 ranking_perf = self.ranking_results[ranking_range]
-                lines.append(f"\nRanking {ranking_range} ({ranking_perf.total_signals} signals):")
-                
-                sorted_periods = sorted(ranking_perf.period_results.keys(), key=period_sort_key)
-                
+                lines.append(
+                    f"\nRanking {ranking_range} ({ranking_perf.total_signals} signals):"
+                )
+
+                sorted_periods = sorted(
+                    ranking_perf.period_results.keys(), key=period_sort_key
+                )
+
                 for period_name in sorted_periods:
                     result = ranking_perf.period_results[period_name]
                     lines.append(
@@ -255,5 +342,5 @@ class TestSummary:
                         f"Worst: {result.worst_return:+5.1f}%  "
                         f"Valid: {result.valid_signals}/{result.total_signals}"
                     )
-        
+
         return "\n".join(lines)

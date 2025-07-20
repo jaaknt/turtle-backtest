@@ -15,6 +15,9 @@ from turtle.strategy.mars import MarsStrategy
 from turtle.strategy.momentum import MomentumStrategy
 from turtle.common.enums import TimeFrameUnit
 from turtle.tester.strategy_performance import StrategyPerformanceTester
+
+# from turtle.tester.period_return import ProfitLossTargetStrategy, EMAExitStrategy
+from turtle.tester.period_return import EMAExitStrategy
 from turtle.tester.models import TestSummary, PerformanceResult
 
 logger = logging.getLogger(__name__)
@@ -34,12 +37,12 @@ class StrategyTesterService:
 
     # Default test periods
     DEFAULT_TEST_PERIODS = [
-        pd.Timedelta(days=3),   # 3 days
+        pd.Timedelta(days=3),  # 3 days
         pd.Timedelta(weeks=1),  # 1 week
         pd.Timedelta(weeks=2),  # 2 weeks
         pd.Timedelta(days=30),  # 1 month
         pd.Timedelta(days=90),  # 3 months
-        pd.Timedelta(days=180), # 6 months
+        pd.Timedelta(days=180),  # 6 months
     ]
 
     def __init__(
@@ -163,6 +166,8 @@ class StrategyTesterService:
             start_date=self.signal_start_date,
             end_date=self.signal_end_date,
             test_periods=self.test_periods,
+            # period_return_strategy=ProfitLossTargetStrategy(profit_target=15.0, stop_loss=3.0),
+            period_return_strategy=EMAExitStrategy(ema_period=20),
         )
 
         # Generate signals for all symbols
@@ -227,7 +232,9 @@ class StrategyTesterService:
                 period_performance = {}
                 for period in self.test_periods:
                     period_name = self._format_period_name(period)
-                    returns = self._calculate_benchmark_returns_for_period(symbol, period)
+                    returns = self._calculate_benchmark_returns_for_period(
+                        symbol, period
+                    )
 
                     performance = PerformanceResult.from_returns(
                         period_name=period_name,
@@ -264,7 +271,7 @@ class StrategyTesterService:
         try:
             # Calculate the end date for this specific period
             period_end_date = self.signal_start_date + period
-            
+
             # Get benchmark data for this specific period range
             df = self.bars_history.get_ticker_history(
                 symbol,
@@ -274,7 +281,9 @@ class StrategyTesterService:
             )
 
             if df.empty or len(df) < 2:
-                logger.warning(f"Insufficient data for benchmark {symbol} for period {period}")
+                logger.warning(
+                    f"Insufficient data for benchmark {symbol} for period {period}"
+                )
                 return returns
 
             # Get start and end prices
@@ -292,7 +301,9 @@ class StrategyTesterService:
                 )
 
         except Exception as e:
-            logger.error(f"Error calculating benchmark return for {symbol} period {period}: {e}")
+            logger.error(
+                f"Error calculating benchmark return for {symbol} period {period}: {e}"
+            )
 
         return returns
 
@@ -345,17 +356,19 @@ class StrategyTesterService:
 
         # Sort periods by length (ascending order: 3d, 1w, 2w, 1m)
         def period_sort_key(period_name):
-            if period_name.endswith('d'):
+            if period_name.endswith("d"):
                 return int(period_name[:-1])
-            elif period_name.endswith('w') or period_name.endswith('W'):
+            elif period_name.endswith("w") or period_name.endswith("W"):
                 return int(period_name[:-1]) * 7
-            elif period_name.endswith('m') or period_name.endswith('M'):
+            elif period_name.endswith("m") or period_name.endswith("M"):
                 return int(period_name[:-1]) * 30
             else:
                 return 999  # Unknown format, put at end
 
         # Add strategy results (sorted by period length)
-        sorted_strategy_periods = sorted(test_summary.period_results.keys(), key=period_sort_key)
+        sorted_strategy_periods = sorted(
+            test_summary.period_results.keys(), key=period_sort_key
+        )
         for period_name in sorted_strategy_periods:
             result = test_summary.period_results[period_name]
             lines.append(
@@ -366,11 +379,13 @@ class StrategyTesterService:
 
         # Add benchmark results if available (sorted by period length)
         if test_summary.benchmark_results:
-            for benchmark_symbol in ['QQQ', 'SPY']:
+            for benchmark_symbol in ["QQQ", "SPY"]:
                 if benchmark_symbol in test_summary.benchmark_results:
                     benchmark_periods = test_summary.benchmark_results[benchmark_symbol]
-                    sorted_benchmark_periods = sorted(benchmark_periods.keys(), key=period_sort_key)
-                    
+                    sorted_benchmark_periods = sorted(
+                        benchmark_periods.keys(), key=period_sort_key
+                    )
+
                     for period_name in sorted_benchmark_periods:
                         result = benchmark_periods[period_name]
                         # For benchmarks, the period return is the simple start-to-end return
