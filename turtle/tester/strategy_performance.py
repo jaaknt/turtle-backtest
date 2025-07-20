@@ -6,6 +6,7 @@ from typing import List, Optional, Tuple
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.strategy.trading_strategy import TradingStrategy
 from turtle.tester.models import SignalResult, PerformanceResult, TestSummary, RankingPerformance
+from turtle.tester.period_return import PeriodReturnStrategy, BuyAndHoldStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,9 @@ class StrategyPerformanceTester:
         bars_history: BarsHistoryRepo,
         start_date: datetime,
         end_date: datetime,
-        test_periods: List[pd.Timedelta]
+        test_periods: List[pd.Timedelta],
+        period_return_strategy: Optional[PeriodReturnStrategy] = None,
+        period_return_strategy_kwargs: Optional[dict] = None
     ):
         """
         Initialize the strategy performance tester.
@@ -33,12 +36,17 @@ class StrategyPerformanceTester:
             start_date: Start date for signal generation
             end_date: End date for signal generation
             test_periods: List of time periods to test (e.g., [pd.Timedelta(days=3), pd.Timedelta(weeks=1)])
+            period_return_strategy: Optional PeriodReturnStrategy instance to use for return calculations
+                                   If None, defaults to BuyAndHoldStrategy()
+            period_return_strategy_kwargs: Optional kwargs to pass to period return strategy calculations
         """
         self.strategy = strategy
         self.bars_history = bars_history
         self.start_date = start_date
         self.end_date = end_date
         self.test_periods = test_periods
+        self.period_return_strategy = period_return_strategy or BuyAndHoldStrategy()
+        self.period_return_strategy_kwargs = period_return_strategy_kwargs or {}
         self.signal_results: List[SignalResult] = []
     
     def generate_signals(self, tickers: List[str]) -> List[SignalResult]:
@@ -103,12 +111,25 @@ class StrategyPerformanceTester:
                 logger.debug(f"No entry price found for {ticker} on {signal_date}")
                 return None
             
-            # Calculate period results
+            # Calculate period results (backward compatibility)
             period_results = {}
+            period_data = {}
+            
             for period in self.test_periods:
                 period_name = self._format_period_name(period)
+                
+                # Legacy closing price calculation for backward compatibility
                 closing_price = self._get_closing_price_after_period(ticker, entry_date, period)
                 period_results[period_name] = closing_price
+                
+                # New: Get full OHLCV data for the period
+                target_date = entry_date + period
+                ohlcv_data = self._get_period_data(ticker, entry_date, target_date)
+                if ohlcv_data is not None:
+                    period_data[period_name] = {
+                        'target_date': target_date,
+                        'data': ohlcv_data
+                    }
             
             # Calculate ranking for this signal
             ranking = self.strategy.ranking(ticker, signal_date)
@@ -119,7 +140,8 @@ class StrategyPerformanceTester:
                 entry_price=entry_price,
                 entry_date=entry_date,
                 period_results=period_results,
-                ranking=ranking
+                ranking=ranking,
+                period_data=period_data if period_data else None
             )
             
         except Exception as e:
@@ -236,6 +258,78 @@ class StrategyPerformanceTester:
             logger.error(f"Error getting closing price for {ticker} after period {period}: {str(e)}")
             return None
     
+    def _get_period_data(self, ticker: str, entry_date: datetime, target_date: datetime) -> Optional[pd.DataFrame]:
+        """
+        Get OHLCV data for the entire period from entry to target date.
+        
+        Args:
+            ticker: Stock symbol
+            entry_date: Date when position was entered
+            target_date: Target end date for the period
+            
+        Returns:
+            DataFrame with OHLCV data or None if not available
+        """
+        try:
+            # Get data with some buffer before entry date for EMA calculations
+            buffer_days = 30  # Buffer for technical indicators
+            start_date = entry_date - timedelta(days=buffer_days)
+            end_date = target_date + timedelta(days=5)  # Buffer after target
+            
+            df = self.bars_history.get_ticker_history(
+                ticker, start_date, end_date, self.strategy.time_frame_unit
+            )
+            
+            if df.empty:
+                return None
+                
+            # Ensure we have the required columns
+            required_columns = ['open', 'high', 'low', 'close', 'volume']
+            if not all(col in df.columns for col in required_columns):
+                logger.warning(f"Missing required OHLCV columns for {ticker}")
+                return None
+                
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error getting period data for {ticker} from {entry_date} to {target_date}: {str(e)}")
+            return None
+    
+    def _calculate_signal_return(self, signal_result: SignalResult, period_name: str) -> Optional[float]:
+        """
+        Calculate return for a signal using the configured period return strategy.
+        
+        Args:
+            signal_result: SignalResult to calculate return for
+            period_name: Name of the period (e.g., '1W', '2W', '1M')
+            
+        Returns:
+            Percentage return or None if calculation failed
+        """
+        # If we have period data, use the period return strategy directly
+        if signal_result.period_data and period_name in signal_result.period_data:
+            try:
+                period_info = signal_result.period_data[period_name]
+                target_date = period_info['target_date']
+                data = period_info['data']
+                
+                result = self.period_return_strategy.calculate_return(
+                    data=data,
+                    entry_price=signal_result.entry_price,
+                    entry_date=signal_result.entry_date,
+                    target_date=target_date
+                )
+                
+                if result:
+                    return result.return_pct
+                    
+            except Exception:
+                # Fall back to SignalResult method
+                pass
+        
+        # Fallback to SignalResult's method (for backward compatibility)
+        return signal_result.get_return_for_period(period_name, **self.period_return_strategy_kwargs)
+    
     def _format_period_name(self, period: pd.Timedelta) -> str:
         """
         Format a pandas Timedelta into a readable period name.
@@ -275,13 +369,14 @@ class StrategyPerformanceTester:
         
         period_results = {}
         
-        # Calculate performance for each test period
+        # Calculate performance for each test period using the specified strategy
         for period in self.test_periods:
             period_name = self._format_period_name(period)
             returns = []
             
             for signal_result in self.signal_results:
-                return_pct = signal_result.get_return_for_period(period_name)
+                # Use the period return strategy to calculate returns
+                return_pct = self._calculate_signal_return(signal_result, period_name)
                 if return_pct is not None:
                     returns.append(return_pct)
             
@@ -358,7 +453,7 @@ class StrategyPerformanceTester:
                 returns = []
                 
                 for signal_result in range_signals:
-                    return_pct = signal_result.get_return_for_period(period_name)
+                    return_pct = self._calculate_signal_return(signal_result, period_name)
                     if return_pct is not None:
                         returns.append(return_pct)
                 
