@@ -16,8 +16,8 @@ from turtle.strategy.momentum import MomentumStrategy
 from turtle.common.enums import TimeFrameUnit
 from turtle.tester.strategy_performance import StrategyPerformanceTester
 
-# from turtle.tester.period_return import ProfitLossTargetStrategy, EMAExitStrategy
-from turtle.tester.period_return import EMAExitStrategy
+# from turtle.tester.period_return import ProfitLossTargetStrategy
+# from turtle.tester.period_return import EMAExitStrategy
 from turtle.tester.models import TestSummary, PerformanceResult
 
 logger = logging.getLogger(__name__)
@@ -166,8 +166,8 @@ class StrategyTesterService:
             start_date=self.signal_start_date,
             end_date=self.signal_end_date,
             test_periods=self.test_periods,
-            # period_return_strategy=ProfitLossTargetStrategy(profit_target=15.0, stop_loss=3.0),
-            period_return_strategy=EMAExitStrategy(ema_period=20),
+            # period_return_strategy=ProfitLossTargetStrategy(profit_target=15.0, stop_loss=10.0),
+            # period_return_strategy=EMAExitStrategy(ema_period=20),
         )
 
         # Generate signals for all symbols
