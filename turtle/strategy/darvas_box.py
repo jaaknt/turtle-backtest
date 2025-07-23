@@ -82,7 +82,7 @@ class DarvasBoxStrategy(TradingStrategy):
         # iterate over the following rows
         # return True if 0:following_count high values after is_local_min are less than local_max
         following: int = -1
-        for i, row in df.iterrows():
+        for _, row in df.iterrows():
             if following >= 0:
                 following += 1
             if row["high"] > local_max:
@@ -105,23 +105,31 @@ class DarvasBoxStrategy(TradingStrategy):
         return not (self.df.empty or self.df.shape[0] < self.min_bars)
 
     def calculate_indicators(self) -> None:
-        # add indicators
+        """Calculate technical indicators for the strategy.
+
+        Adds the following columns to self.df:
+        - max_close_20: 20-period rolling maximum of close prices
+        - ema_10/20/50/200: Exponential moving averages of close prices
+        - ema_volume_10: 10-period EMA of volume
+        - buy_signal: Boolean column initialized to False
+        """
+        # Pre-convert arrays once for performance optimization
+        close_values = self.df["close"].values.astype(float)
+        volume_values = self.df["volume"].values.astype(float)
+
+        # Rolling window indicators
         self.df["max_close_20"] = self.df["close"].rolling(window=20).max()
-        self.df["ema_10"] = talib.EMA(
-            self.df["close"].values.astype(float), timeperiod=10
-        )
-        self.df["ema_20"] = talib.EMA(
-            self.df["close"].values.astype(float), timeperiod=20
-        )
-        self.df["ema_50"] = talib.EMA(
-            self.df["close"].values.astype(float), timeperiod=50
-        )
-        self.df["ema_200"] = talib.EMA(
-            self.df["close"].values.astype(float), timeperiod=200
-        )
-        self.df["ema_volume_10"] = talib.EMA(
-            self.df["volume"].values.astype(float), timeperiod=10
-        )
+
+        # Exponential Moving Averages for close prices
+        self.df["ema_10"] = talib.EMA(close_values, timeperiod=10)
+        self.df["ema_20"] = talib.EMA(close_values, timeperiod=20)
+        self.df["ema_50"] = talib.EMA(close_values, timeperiod=50)
+        self.df["ema_200"] = talib.EMA(close_values, timeperiod=200)
+
+        # Volume indicators
+        self.df["ema_volume_10"] = talib.EMA(volume_values, timeperiod=10)
+
+        # Initialize buy signal column
         self.df["buy_signal"] = False
 
         self.df = self.df.reset_index()
@@ -303,17 +311,35 @@ class DarvasBoxStrategy(TradingStrategy):
             return 0
 
         self.calculate_indicators()
+        
+        # Filter data to target date range
+        filtered_df = self.df[self.df["hdate"] >= start_date].copy()
+        if filtered_df.empty:
+            logger.debug(f"{ticker} - no data after date filtering")
+            return 0
 
-        # iterate over the dates in the df DataFrame
-        # skip first 200 rows as EMA200 is not calculated for them
-        for i, row in self.df.iterrows():
-            if row["hdate"] < start_date:
-                logger.debug(f"Skipping date: {row['hdate']}")
-                continue
+        # Vectorized buy signal calculation - much faster than iterrows()
+        buy_signals = (
+            (filtered_df["close"] >= filtered_df["max_close_20"]) &
+            (filtered_df["close"] >= filtered_df["ema_10"]) &
+            (filtered_df["close"] >= filtered_df["ema_20"]) &
+            (filtered_df["ema_10"] >= filtered_df["ema_20"]) &
+            (filtered_df["close"] >= filtered_df["ema_50"]) &
+            (filtered_df["volume"] >= filtered_df["ema_volume_10"] * 1.10) &
+            ((filtered_df["close"] - filtered_df["open"]) / filtered_df["close"] >= 0.01)
+        )
+        
+        # Add EMA200 conditions only for daily timeframe
+        if self.time_frame_unit == TimeFrameUnit.DAY:
+            buy_signals = buy_signals & (
+                (filtered_df["close"] >= filtered_df["ema_200"]) &
+                (filtered_df["ema_50"] >= filtered_df["ema_200"])
+            )
+        
+        # Update original dataframe with results
+        self.df.loc[filtered_df.index, "buy_signal"] = buy_signals
 
-            self.df.at[i, "buy_signal"] = self.is_buy_signal(ticker, row)
-
-        return self.df["buy_signal"].sum()
+        return buy_signals.sum()
 
     def _price_to_ranking(self, price: float) -> int:
         """
