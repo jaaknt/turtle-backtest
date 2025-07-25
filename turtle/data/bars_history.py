@@ -89,11 +89,20 @@ class BarsHistoryRepo:
                 )
             connection.commit()
 
+    def _map_timeframe_unit(self, time_frame_unit: TimeFrameUnit) -> AlpacaTimeFrameUnit:
+        """Map internal TimeFrameUnit to AlpacaTimeFrameUnit"""
+        mapping = {
+            TimeFrameUnit.DAY: AlpacaTimeFrameUnit.Day,
+            TimeFrameUnit.WEEK: AlpacaTimeFrameUnit.Week,
+        }
+        return mapping.get(time_frame_unit, AlpacaTimeFrameUnit.Day)
+
     def update_bars_history(
         self,
         symbol: str,
         start_date: datetime,
         end_date: Optional[datetime] = None,
+        time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
     ) -> None:
         # stock_data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
 
@@ -102,7 +111,7 @@ class BarsHistoryRepo:
             start=start_date,
             end=end_date,
             limit=10000,
-            timeframe=AlpacaTimeFrame(1, AlpacaTimeFrameUnit.Day),
+            timeframe=AlpacaTimeFrame(1, self._map_timeframe_unit(time_frame_unit)),
             adjustment=Adjustment.ALL,
             feed=DataFeed.SIP,
         )
