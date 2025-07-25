@@ -311,7 +311,7 @@ class DarvasBoxStrategy(TradingStrategy):
             return 0
 
         self.calculate_indicators()
-        
+
         # Filter data to target date range
         filtered_df = self.df[self.df["hdate"] >= start_date].copy()
         if filtered_df.empty:
@@ -320,22 +320,25 @@ class DarvasBoxStrategy(TradingStrategy):
 
         # Vectorized buy signal calculation - much faster than iterrows()
         buy_signals = (
-            (filtered_df["close"] >= filtered_df["max_close_20"]) &
-            (filtered_df["close"] >= filtered_df["ema_10"]) &
-            (filtered_df["close"] >= filtered_df["ema_20"]) &
-            (filtered_df["ema_10"] >= filtered_df["ema_20"]) &
-            (filtered_df["close"] >= filtered_df["ema_50"]) &
-            (filtered_df["volume"] >= filtered_df["ema_volume_10"] * 1.10) &
-            ((filtered_df["close"] - filtered_df["open"]) / filtered_df["close"] >= 0.01)
+            (filtered_df["close"] >= filtered_df["max_close_20"])
+            & (filtered_df["close"] >= filtered_df["ema_10"])
+            & (filtered_df["close"] >= filtered_df["ema_20"])
+            & (filtered_df["ema_10"] >= filtered_df["ema_20"])
+            & (filtered_df["close"] >= filtered_df["ema_50"])
+            & (filtered_df["volume"] >= filtered_df["ema_volume_10"] * 1.10)
+            & (
+                (filtered_df["close"] - filtered_df["open"]) / filtered_df["close"]
+                >= 0.01
+            )
         )
-        
+
         # Add EMA200 conditions only for daily timeframe
         if self.time_frame_unit == TimeFrameUnit.DAY:
             buy_signals = buy_signals & (
-                (filtered_df["close"] >= filtered_df["ema_200"]) &
-                (filtered_df["ema_50"] >= filtered_df["ema_200"])
+                (filtered_df["close"] >= filtered_df["ema_200"])
+                & (filtered_df["ema_50"] >= filtered_df["ema_200"])
             )
-        
+
         # Update original dataframe with results
         self.df.loc[filtered_df.index, "buy_signal"] = buy_signals
 
@@ -549,7 +552,7 @@ class DarvasBoxStrategy(TradingStrategy):
         ema200_3month_ranking = self._ranking_ema200_3month()
         ema200_6month_ranking = self._ranking_ema200_6month()
         period_high_ranking = self._ranking_period_high()
-        logger.info(
+        logger.debug(
             f"{ticker} - Price Ranking: {price_ranking}, "
             f"EMA200 1M: {ema200_1month_ranking}, "
             f"EMA200 3M: {ema200_3month_ranking}, "
