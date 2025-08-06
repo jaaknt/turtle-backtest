@@ -17,8 +17,10 @@ class SignalResult:
         entry_price: Opening price of the next trading day after signal
         entry_date: Date when entry price was recorded
         period_results: Dictionary mapping period names to closing prices (for backward compatibility)
-        period_data: Dictionary mapping period names to target dates and OHLCV data
         ranking: Strategy ranking score (0-100) for this signal
+        period_data: <Optional> Dictionary mapping period names to target dates and OHLCV data
+        closing_date: <Optional> Date when the position was closed
+        closing_price: <Optional> Price at which the position was closed
     """
 
     ticker: str
@@ -28,6 +30,8 @@ class SignalResult:
     period_results: dict[str, Optional[float]]  # period_name -> closing_price (backward compatibility)
     ranking: int = 0
     period_data: Optional[Dict[str, Dict[str, Any]]] = None  # period_name -> {target_date, data}
+    closing_date: Optional[datetime] = None
+    closing_price: Optional[float] = None
 
     def get_return_for_period(
         self, 
