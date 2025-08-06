@@ -267,7 +267,7 @@ def main():
 
         # Actual update
         logger.info("Initializing data updater...")
-        data_updater = DataUpdate(time_frame_unit=TimeFrameUnit.DAY)
+        data_updater = DataUpdateService(time_frame_unit=TimeFrameUnit.DAY)
 
         logger.info(
             f"Starting bars history update from {start_date.date()} to {end_date.date()}"
