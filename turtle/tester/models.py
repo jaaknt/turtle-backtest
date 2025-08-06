@@ -17,10 +17,10 @@ class SignalResult:
         entry_price: Opening price of the next trading day after signal
         entry_date: Date when entry price was recorded
         period_results: Dictionary mapping period names to closing prices (for backward compatibility)
-        period_data: Dictionary mapping period names to target dates and OHLCV data
         ranking: Strategy ranking score (0-100) for this signal
-        closing_date: Date when the position was closed
-        closing_price: Price at which the position was closed
+        period_data: <Optional> Dictionary mapping period names to target dates and OHLCV data
+        closing_date: <Optional> Date when the position was closed
+        closing_price: <Optional> Price at which the position was closed
     """
 
     ticker: str
