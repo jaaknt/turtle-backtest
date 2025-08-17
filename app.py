@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 from typing import List
 
-from turtle.service.strategy_runner import StrategyRunnerService
+from turtle.service.strategy_runner_service import StrategyRunnerService
 from turtle.strategy.darvas_box import DarvasBoxStrategy
 
 end_date = datetime(year=2024, month=8, day=30)

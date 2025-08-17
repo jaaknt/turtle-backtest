@@ -9,4 +9,5 @@ Process the file specified: $ARGUMENTS
 a plan as todo list iin the same file
 3. Fix typos in the task file
 4. Update documentation if needed
-5. Before you begin working, check in with me and I will verify the plan.
+5. Lint all changes and fix errors if needed
+6. Before you begin working, check in with me and I will verify the plan.

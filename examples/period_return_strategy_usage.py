@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Example demonstrating how to use StrategyPerformanceTester with different PeriodReturnStrategy classes.
+Example demonstrating how to use StrategyPerformanceTester with different TradeExitStrategy classes.
 
 This example shows how to:
 1. Use the default BuyAndHoldStrategy
@@ -24,7 +24,7 @@ from turtle.performance.period_return import (
 def example_usage():
     """Demonstrate different ways to use StrategyPerformanceTester with period return strategies."""
     
-    print("🔸 StrategyPerformanceTester with PeriodReturnStrategy Examples")
+    print("🔸 StrategyPerformanceTester with TradeExitStrategy Examples")
     print("=" * 70)
     
     # Note: This is a conceptual example showing the API usage

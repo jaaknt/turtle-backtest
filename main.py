@@ -5,8 +5,8 @@ import pathlib
 from datetime import datetime
 from dotenv import load_dotenv
 
-from turtle.service.data_update import DataUpdateService
-from turtle.service.strategy_runner import StrategyRunnerService
+from turtle.service.data_update_service import DataUpdateService
+from turtle.service.strategy_runner_service import StrategyRunnerService
 from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)

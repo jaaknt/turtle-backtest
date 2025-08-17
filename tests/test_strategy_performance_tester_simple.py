@@ -30,7 +30,7 @@ class TestStrategyPerformanceTesterBasic:
         assert tester.period_return_strategy_kwargs == {}
         
     def test_initialization_with_custom_strategy(self):
-        """Test initialization with custom PeriodReturnStrategy."""
+        """Test initialization with custom TradeExitStrategy."""
         from unittest.mock import Mock
         
         mock_strategy = Mock()
