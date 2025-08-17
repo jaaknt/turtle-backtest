@@ -29,7 +29,7 @@ MANIFEST
 # secrets file
 .env
 
-# poetry virtual environment 
+# virtual environment 
 .venv
 
 # Jupiter notebooks if any
