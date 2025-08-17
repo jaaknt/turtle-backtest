@@ -33,7 +33,7 @@ from dotenv import load_dotenv
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
-from turtle.service.strategy_runner import StrategyRunnerService
+from turtle.service.strategy_runner_service import StrategyRunnerService
 from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)

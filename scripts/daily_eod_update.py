@@ -30,7 +30,7 @@ from dotenv import load_dotenv
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
-from turtle.service.data_update import DataUpdateService
+from turtle.service.data_update_service import DataUpdateService
 from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)

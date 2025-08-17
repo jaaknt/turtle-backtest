@@ -37,7 +37,7 @@ class PeriodReturnResult:
     return_pct_spy: Optional[float] = None
 
 
-class PeriodReturnStrategy(ABC):
+class TradeExitStrategy(ABC):
     """
     Abstract base class for period return calculation strategies.
     """
@@ -65,7 +65,7 @@ class PeriodReturnStrategy(ABC):
         pass
 
 
-class BuyAndHoldStrategy(PeriodReturnStrategy):
+class BuyAndHoldStrategy(TradeExitStrategy):
     """
     Simple buy and hold strategy - exit at period end.
     """
@@ -128,7 +128,7 @@ class BuyAndHoldStrategy(PeriodReturnStrategy):
             return None
 
 
-class ProfitLossTargetStrategy(PeriodReturnStrategy):
+class ProfitLossTargetStrategy(TradeExitStrategy):
     """
     Exit when 10% profit target or 5% stop loss is hit, whichever comes first.
     """
@@ -211,7 +211,7 @@ class ProfitLossTargetStrategy(PeriodReturnStrategy):
             return None
 
 
-class EMAExitStrategy(PeriodReturnStrategy):
+class EMAExitStrategy(TradeExitStrategy):
     """
     Exit when price closes below EMA or at period end.
     

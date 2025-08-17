@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.strategy.trading_strategy import TradingStrategy
 from turtle.performance.models import SignalResult, PerformanceResult, TestSummary, RankingPerformance
-from turtle.performance.period_return import PeriodReturnStrategy, BuyAndHoldStrategy, PeriodReturnResult
+from turtle.performance.period_return import TradeExitStrategy, BuyAndHoldStrategy, PeriodReturnResult
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class StrategyPerformanceTester:
         start_date: datetime,
         end_date: datetime,
         max_holding_period: pd.Timedelta,
-        period_return_strategy: Optional[PeriodReturnStrategy] = None,
+        period_return_strategy: Optional[TradeExitStrategy] = None,
         period_return_strategy_kwargs: Optional[dict] = None
     ):
         """
@@ -37,7 +37,7 @@ class StrategyPerformanceTester:
             start_date: Start date for signal generation
             end_date: End date for signal generation
             max_holding_period: Maximum holding period for analysis (e.g., pd.Timedelta(days=30))
-            period_return_strategy: Optional PeriodReturnStrategy instance to use for return calculations
+            period_return_strategy: Optional TradeExitStrategy instance to use for return calculations
                                    If None, defaults to BuyAndHoldStrategy()
             period_return_strategy_kwargs: Optional kwargs to pass to period return strategy calculations
         """

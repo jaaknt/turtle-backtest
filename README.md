@@ -53,7 +53,7 @@ uv run python scripts/daily_eod_update.py --help
 For integration into other scripts, you can use the DataUpdateService class directly as shown in [main.py](https://github.com/jaaknt/turtle-backtest/blob/main/main.py):
 
 ```python
-from turtle.service.data_update import DataUpdateService
+from turtle.service.data_update_service import DataUpdateService
 from datetime import datetime
 
 data_updater = DataUpdateService()
