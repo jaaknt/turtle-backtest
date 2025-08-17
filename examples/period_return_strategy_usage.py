@@ -13,8 +13,8 @@ import pandas as pd
 from datetime import datetime
 from typing import List
 
-from turtle.tester.strategy_performance import StrategyPerformanceTester
-from turtle.tester.period_return import (
+from turtle.performance.strategy_performance import StrategyPerformanceTester
+from turtle.performance.period_return import (
     BuyAndHoldStrategy, 
     ProfitLossTargetStrategy, 
     EMAExitStrategy

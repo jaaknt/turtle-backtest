@@ -2,9 +2,9 @@ import pytest
 import pandas as pd
 from datetime import datetime
 
-from turtle.tester.strategy_performance import StrategyPerformanceTester
-from turtle.tester.period_return import BuyAndHoldStrategy, ProfitLossTargetStrategy, EMAExitStrategy
-from turtle.tester.models import SignalResult
+from turtle.performance.strategy_performance import StrategyPerformanceTester
+from turtle.performance.period_return import BuyAndHoldStrategy, ProfitLossTargetStrategy, EMAExitStrategy
+from turtle.performance.models import SignalResult
 
 
 class TestStrategyPerformanceTesterBasic:

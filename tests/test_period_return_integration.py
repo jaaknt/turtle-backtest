@@ -1,8 +1,8 @@
 import pytest
 import pandas as pd
 from datetime import datetime
-from turtle.tester.models import SignalResult
-from turtle.tester.period_return import PeriodReturnResult
+from turtle.performance.models import SignalResult
+from turtle.performance.period_return import PeriodReturnResult
 
 
 @pytest.fixture

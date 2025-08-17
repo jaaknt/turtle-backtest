@@ -14,16 +14,16 @@ from turtle.strategy.darvas_box import DarvasBoxStrategy
 from turtle.strategy.mars import MarsStrategy
 from turtle.strategy.momentum import MomentumStrategy
 from turtle.common.enums import TimeFrameUnit
-from turtle.tester.strategy_performance import StrategyPerformanceTester
+from turtle.performance.strategy_performance import StrategyPerformanceTester
 
-# from turtle.tester.period_return import ProfitLossTargetStrategy
-from turtle.tester.period_return import EMAExitStrategy
-from turtle.tester.models import TestSummary, PerformanceResult
+# from turtle.performance.period_return import ProfitLossTargetStrategy
+from turtle.performance.period_return import EMAExitStrategy
+from turtle.performance.models import TestSummary, PerformanceResult
 
 logger = logging.getLogger(__name__)
 
 
-class StrategyTesterService:
+class StrategyPerformanceService:
     """
     Service for orchestrating strategy performance testing across multiple symbols and time periods.
     """
@@ -96,9 +96,9 @@ class StrategyTesterService:
         test_periods: Optional[List[pd.Timedelta]] = None,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         dsn: str = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres",
-    ) -> "StrategyTesterService":
+    ) -> "StrategyPerformanceService":
         """
-        Create StrategyTesterService instance from strategy name.
+        Create StrategyPerformanceService instance from strategy name.
 
         Args:
             strategy_name: Name of the strategy ('darvas_box', 'mars', 'momentum')
@@ -109,7 +109,7 @@ class StrategyTesterService:
             dsn: Database connection string
 
         Returns:
-            StrategyTesterService instance
+            StrategyPerformanceService instance
 
         Raises:
             ValueError: If strategy name is not recognized

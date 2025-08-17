@@ -6,13 +6,13 @@ The goal is to test different strategies in the past data
   - print percentage in price change (e.g. opening price vs closing price after x period)
 
 ## Task
-1. Create service @service/strategy_tester.py with parameters
+1. Create service @service/strategy_performance_service.py with parameters
    - strategy class
    - signal start date
    - signal end date
    - list of pandas.Timedelta values
 2. Implementation should be in classes in @turtle/tester directory
-3. Add @scripts/strategy_tester.py to execute @service/strategy_tester.py services from commandline
+3. Add @scripts/strategy_performance.py to execute @service/strategy_performance_service.py services from commandline
 
 ## Analysis & Implementation Plan
 
@@ -56,8 +56,8 @@ After analyzing the existing codebase, I understand the following structure:
    - `TestSummary`: Aggregate results across all signals
 
 #### Phase 2: Create Service Layer
-4. **Create `/turtle/service/strategy_tester.py`** - Service orchestrating strategy testing
-   - Class: `StrategyTesterService`
+4. **Create `/turtle/service/strategy_performance_service.py`** - Service orchestrating strategy testing
+   - Class: `StrategyPerformanceService`
    - Parameters:
      - `strategy_class`: Strategy class to test
      - `signal_start_date`: Start date for signal generation
@@ -70,7 +70,7 @@ After analyzing the existing codebase, I understand the following structure:
      - `_generate_report()`: Create summary report
 
 #### Phase 3: Create Command Line Interface
-5. **Create `/scripts/strategy_tester.py`** - CLI script
+5. **Create `/scripts/strategy_performance.py`** - CLI script
    - Arguments:
      - `--strategy`: Strategy name (darvas_box, mars, momentum)
      - `--start-date`: Signal generation start date
