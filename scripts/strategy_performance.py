@@ -3,7 +3,7 @@
 Strategy Performance Testing Script
 
 This script tests trading strategies by analyzing historical signals and calculating
-returns over various time periods.
+returns over a specified holding period.
 
 Usage:
     python scripts/strategy_performance.py [options]
@@ -12,8 +12,8 @@ Examples:
     # Test DarvasBox strategy for January 2024
     python scripts/strategy_performance.py --strategy darvas_box --start-date 2024-01-01 --end-date 2024-01-31
 
-    # Test Mars strategy with custom periods
-    python scripts/strategy_performance.py --strategy mars --start-date 2024-01-01 --end-date 2024-03-31 --periods 5d,2W,3M
+    # Test Mars strategy with custom holding period
+    python scripts/strategy_performance.py --strategy mars --start-date 2024-01-01 --end-date 2024-03-31 --max-holding-period 2W
 
     # Test with limited symbols and save to CSV
     python scripts/strategy_performance.py --strategy momentum --start-date 2024-01-01 --end-date 2024-02-29 --max-symbols 50 --output csv --save results.csv
@@ -22,7 +22,7 @@ Options:
     --strategy NAME          Strategy to test (darvas_box, mars, momentum) [required]
     --start-date YYYY-MM-DD  Start date for signal generation [required]
     --end-date YYYY-MM-DD    End date for signal generation [required]
-    --periods LIST           Test periods (default: 3d,1W,2W,1M,3M,6M)
+    --max-holding-period STR Maximum holding period (default: 1M)
     --symbols LIST           Comma-separated list of specific symbols to test
     --max-symbols NUM        Maximum number of symbols to test
     --time-frame FRAME       Time frame (DAY, WEEK) [default: DAY]
@@ -78,38 +78,31 @@ def setup_logging(verbose: bool = False) -> None:
         )
 
 
-def parse_periods(periods_str: str) -> List[pd.Timedelta]:
+def parse_period(period_str: str) -> pd.Timedelta:
     """
-    Parse period string into list of pandas Timedelta objects.
+    Parse period string into pandas Timedelta object.
 
     Args:
-        periods_str: Comma-separated periods (e.g., "3d,1W,2W,1M")
+        period_str: Single period (e.g., "3d", "1W", "2W", "1M")
 
     Returns:
-        List of pandas Timedelta objects
+        pandas Timedelta object
     """
-    periods = []
+    period_str = period_str.strip()
 
-    for period_str in periods_str.split(","):
-        period_str = period_str.strip()
-
-        if period_str.endswith("d"):
-            days = int(period_str[:-1])
-            periods.append(pd.Timedelta(days=days))
-        elif period_str.endswith("w") or period_str.endswith("W"):
-            weeks = int(period_str[:-1])
-            periods.append(pd.Timedelta(weeks=weeks))
-        elif period_str.endswith("m") or period_str.endswith("M"):
-            months = int(period_str[:-1])
-            periods.append(
-                pd.Timedelta(days=months * 30)
-            )  # Approximate month as 30 days
-        else:
-            raise ValueError(
-                f"Invalid period format: {period_str}. Use format like '3d', '1W', '2W', '1M'"
-            )
-
-    return periods
+    if period_str.endswith("d"):
+        days = int(period_str[:-1])
+        return pd.Timedelta(days=days)
+    elif period_str.endswith("w") or period_str.endswith("W"):
+        weeks = int(period_str[:-1])
+        return pd.Timedelta(weeks=weeks)
+    elif period_str.endswith("m") or period_str.endswith("M"):
+        months = int(period_str[:-1])
+        return pd.Timedelta(days=months * 30)  # Approximate month as 30 days
+    else:
+        raise ValueError(
+            f"Invalid period format: {period_str}. Use format like '3d', '1W', '2W', '1M'"
+        )
 
 
 def parse_symbols(symbols_str: str) -> List[str]:
@@ -171,7 +164,9 @@ def main():
 
     # Optional arguments
     parser.add_argument(
-        "--periods", default="3d,1W,2W,1M,3M,6M", help="Test periods (default: 3d,1W,2W,1M,3M,6M)"
+        "--max-holding-period",
+        default="1M",
+        help="Maximum holding period for analysis (default: 1M)",
     )
     parser.add_argument(
         "--symbols", help="Comma-separated list of specific symbols to test"
@@ -206,7 +201,7 @@ def main():
 
     try:
         # Parse arguments
-        test_periods = parse_periods(args.periods)
+        max_holding_period = parse_period(args.max_holding_period)
         time_frame = parse_time_frame(args.time_frame)
         symbols = parse_symbols(args.symbols) if args.symbols else None
 
@@ -220,7 +215,7 @@ def main():
         logger.info(
             f"  Signal period: {args.start_date.strftime('%Y-%m-%d')} to {args.end_date.strftime('%Y-%m-%d')}"
         )
-        logger.info(f"  Test periods: {[str(p) for p in test_periods]}")
+        logger.info(f"  Max holding period: {max_holding_period}")
         logger.info(f"  Time frame: {time_frame}")
         if symbols:
             logger.info(f"  Specific symbols: {symbols}")
@@ -239,7 +234,7 @@ def main():
             strategy_name=args.strategy,
             signal_start_date=args.start_date,
             signal_end_date=args.end_date,
-            test_periods=test_periods,
+            max_holding_period=max_holding_period,
             time_frame_unit=time_frame,
         )
 

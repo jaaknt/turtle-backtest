@@ -35,40 +35,33 @@ class StrategyPerformanceService:
         "momentum": MomentumStrategy,
     }
 
-    # Default test periods
-    DEFAULT_TEST_PERIODS = [
-        pd.Timedelta(days=3),  # 3 days
-        pd.Timedelta(weeks=1),  # 1 week
-        pd.Timedelta(weeks=2),  # 2 weeks
-        pd.Timedelta(days=30),  # 1 month
-        pd.Timedelta(days=90),  # 3 months
-        pd.Timedelta(days=180),  # 6 months
-    ]
+    # Default holding period
+    DEFAULT_HOLDING_PERIOD = pd.Timedelta(days=30)  # 1 month
 
     def __init__(
         self,
         strategy_class: Type[TradingStrategy],
         signal_start_date: datetime,
         signal_end_date: datetime,
-        test_periods: Optional[List[pd.Timedelta]] = None,
+        max_holding_period: Optional[pd.Timedelta] = None,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         dsn: str = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres",
     ):
         """
-        Initialize the strategy tester service.
+        Initialize the strategy performance service.
 
         Args:
             strategy_class: Strategy class to test
             signal_start_date: Start date for signal generation
             signal_end_date: End date for signal generation
-            test_periods: List of time periods to test (defaults to 3d, 1w, 2w, 1m)
+            max_holding_period: Maximum holding period for analysis (defaults to 1M)
             time_frame_unit: Time frame for analysis (DAY, WEEK, etc.)
             dsn: Database connection string
         """
         self.strategy_class = strategy_class
         self.signal_start_date = signal_start_date
         self.signal_end_date = signal_end_date
-        self.test_periods = test_periods or self.DEFAULT_TEST_PERIODS
+        self.max_holding_period = max_holding_period or self.DEFAULT_HOLDING_PERIOD
         self.time_frame_unit = time_frame_unit
 
         # Initialize database connection and repositories
@@ -93,7 +86,7 @@ class StrategyPerformanceService:
         strategy_name: str,
         signal_start_date: datetime,
         signal_end_date: datetime,
-        test_periods: Optional[List[pd.Timedelta]] = None,
+        max_holding_period: Optional[pd.Timedelta] = None,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         dsn: str = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres",
     ) -> "StrategyPerformanceService":
@@ -104,7 +97,7 @@ class StrategyPerformanceService:
             strategy_name: Name of the strategy ('darvas_box', 'mars', 'momentum')
             signal_start_date: Start date for signal generation
             signal_end_date: End date for signal generation
-            test_periods: List of time periods to test
+            max_holding_period: Maximum holding period for analysis
             time_frame_unit: Time frame for analysis
             dsn: Database connection string
 
@@ -125,7 +118,7 @@ class StrategyPerformanceService:
             strategy_class=strategy_class,
             signal_start_date=signal_start_date,
             signal_end_date=signal_end_date,
-            test_periods=test_periods,
+            max_holding_period=max_holding_period,
             time_frame_unit=time_frame_unit,
             dsn=dsn,
         )
@@ -151,7 +144,7 @@ class StrategyPerformanceService:
         logger.info(
             f"Signal period: {self.signal_start_date} to {self.signal_end_date}"
         )
-        logger.info(f"Test periods: {[str(p) for p in self.test_periods]}")
+        logger.info(f"Max holding period: {self.max_holding_period}")
 
         # Get symbols to test
         if symbols is None:
@@ -165,7 +158,7 @@ class StrategyPerformanceService:
             bars_history=self.bars_history,
             start_date=self.signal_start_date,
             end_date=self.signal_end_date,
-            test_periods=self.test_periods,
+            max_holding_period=self.max_holding_period,
             # period_return_strategy=ProfitLossTargetStrategy(profit_target=15.0, stop_loss=10.0),
             period_return_strategy=EMAExitStrategy(ema_period=10),
         )
@@ -228,20 +221,18 @@ class StrategyPerformanceService:
             try:
                 logger.debug(f"Calculating benchmark performance for {symbol}")
 
-                # Calculate returns for each test period
-                period_performance = {}
-                for period in self.test_periods:
-                    period_name = self._format_period_name(period)
-                    returns = self._calculate_benchmark_returns_for_period(
-                        symbol, period
-                    )
+                # Calculate returns for single holding period
+                period_name = self._format_period_name(self.max_holding_period)
+                returns = self._calculate_benchmark_returns_for_period(
+                    symbol, self.max_holding_period
+                )
 
-                    performance = PerformanceResult.from_returns(
-                        period_name=period_name,
-                        total_signals=len(returns),
-                        returns=returns,
-                    )
-                    period_performance[period_name] = performance
+                performance = PerformanceResult.from_returns(
+                    period_name=period_name,
+                    total_signals=len(returns),
+                    returns=returns,
+                )
+                period_performance = {period_name: performance}
 
                 benchmark_results[symbol] = period_performance
 

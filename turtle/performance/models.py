@@ -227,7 +227,7 @@ class TestSummary:
     test_end_date: datetime
     total_signals_found: int
     period_results: dict[str, PerformanceResult]
-    test_periods: List[pd.Timedelta]
+    max_holding_period: pd.Timedelta
     benchmark_results: Optional[dict] = None
     ranking_results: Optional[dict[str, RankingPerformance]] = None
 

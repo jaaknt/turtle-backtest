@@ -16,14 +16,14 @@ class TestStrategyPerformanceTesterBasic:
         
         mock_strategy = Mock()
         mock_bars_history = Mock()
-        test_periods = [pd.Timedelta(days=7)]
+        max_holding_period = pd.Timedelta(days=7)
         
         tester = StrategyPerformanceTester(
             strategy=mock_strategy,
             bars_history=mock_bars_history,
             start_date=datetime(2024, 1, 1),
             end_date=datetime(2024, 1, 31),
-            test_periods=test_periods
+            max_holding_period=max_holding_period
         )
         
         assert isinstance(tester.period_return_strategy, BuyAndHoldStrategy)
@@ -35,7 +35,7 @@ class TestStrategyPerformanceTesterBasic:
         
         mock_strategy = Mock()
         mock_bars_history = Mock()
-        test_periods = [pd.Timedelta(days=7)]
+        max_holding_period = pd.Timedelta(days=7)
         
         custom_period_strategy = ProfitLossTargetStrategy(profit_target=15.0, stop_loss=8.0)
         
@@ -44,7 +44,7 @@ class TestStrategyPerformanceTesterBasic:
             bars_history=mock_bars_history,
             start_date=datetime(2024, 1, 1),
             end_date=datetime(2024, 1, 31),
-            test_periods=test_periods,
+            max_holding_period=max_holding_period,
             period_return_strategy=custom_period_strategy
         )
         
@@ -58,7 +58,7 @@ class TestStrategyPerformanceTesterBasic:
         
         mock_strategy = Mock()
         mock_bars_history = Mock()
-        test_periods = [pd.Timedelta(days=7)]
+        max_holding_period = pd.Timedelta(days=7)
         
         custom_period_strategy = EMAExitStrategy(ema_period=25)
         
@@ -67,7 +67,7 @@ class TestStrategyPerformanceTesterBasic:
             bars_history=mock_bars_history,
             start_date=datetime(2024, 1, 1),
             end_date=datetime(2024, 1, 31),
-            test_periods=test_periods,
+            max_holding_period=max_holding_period,
             period_return_strategy=custom_period_strategy
         )
         
@@ -80,7 +80,7 @@ class TestStrategyPerformanceTesterBasic:
         
         mock_strategy = Mock()
         mock_bars_history = Mock()
-        test_periods = [pd.Timedelta(days=7)]
+        max_holding_period = pd.Timedelta(days=7)
         
         kwargs = {'profit_target': 20.0, 'stop_loss': 5.0}
         
@@ -89,7 +89,7 @@ class TestStrategyPerformanceTesterBasic:
             bars_history=mock_bars_history,
             start_date=datetime(2024, 1, 1),
             end_date=datetime(2024, 1, 31),
-            test_periods=test_periods,
+            max_holding_period=max_holding_period,
             period_return_strategy_kwargs=kwargs
         )
         
@@ -101,7 +101,7 @@ class TestStrategyPerformanceTesterBasic:
         
         mock_strategy = Mock()
         mock_bars_history = Mock()
-        test_periods = [pd.Timedelta(days=7)]
+        max_holding_period = pd.Timedelta(days=7)
         
         period_strategy = ProfitLossTargetStrategy(profit_target=10.0, stop_loss=5.0)
         
@@ -110,7 +110,7 @@ class TestStrategyPerformanceTesterBasic:
             bars_history=mock_bars_history,
             start_date=datetime(2024, 1, 1),
             end_date=datetime(2024, 1, 31),
-            test_periods=test_periods,
+            max_holding_period=max_holding_period,
             period_return_strategy=period_strategy
         )
         
@@ -152,14 +152,14 @@ class TestStrategyPerformanceTesterBasic:
         
         mock_strategy = Mock()
         mock_bars_history = Mock()
-        test_periods = [pd.Timedelta(days=7)]
+        max_holding_period = pd.Timedelta(days=7)
         
         tester = StrategyPerformanceTester(
             strategy=mock_strategy,
             bars_history=mock_bars_history,
             start_date=datetime(2024, 1, 1),
             end_date=datetime(2024, 1, 31),
-            test_periods=test_periods
+            max_holding_period=max_holding_period
         )
         
         # Create signal result without period data (legacy format)
@@ -185,7 +185,7 @@ class TestStrategyPerformanceTesterBasic:
         
         mock_strategy = Mock()
         mock_bars_history = Mock()
-        test_periods = [pd.Timedelta(days=7), pd.Timedelta(days=14)]
+        max_holding_period = pd.Timedelta(days=7)
         
         # Old way - no period return strategy specified
         tester = StrategyPerformanceTester(
@@ -193,7 +193,7 @@ class TestStrategyPerformanceTesterBasic:
             bars_history=mock_bars_history,
             start_date=datetime(2024, 1, 1),
             end_date=datetime(2024, 1, 31),
-            test_periods=test_periods
+            max_holding_period=max_holding_period
         )
         
         # Should default to BuyAndHoldStrategy
@@ -205,7 +205,7 @@ class TestStrategyPerformanceTesterBasic:
         # Should have the same basic attributes as before
         assert tester.strategy == mock_strategy
         assert tester.bars_history == mock_bars_history
-        assert tester.test_periods == test_periods
+        assert tester.max_holding_period == max_holding_period
 
 
 class TestStrategyComparison:

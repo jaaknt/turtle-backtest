@@ -41,7 +41,7 @@ def example_usage():
         bars_history=my_bars_history,
         start_date=datetime(2024, 1, 1),
         end_date=datetime(2024, 12, 31),
-        test_periods=[pd.Timedelta(days=7), pd.Timedelta(days=14), pd.Timedelta(days=30)]
+        max_holding_period=pd.Timedelta(days=30)
     )
     """
     print("✅ Uses BuyAndHoldStrategy by default")
@@ -64,7 +64,7 @@ def example_usage():
         bars_history=my_bars_history,
         start_date=datetime(2024, 1, 1),
         end_date=datetime(2024, 12, 31),
-        test_periods=[pd.Timedelta(days=7), pd.Timedelta(days=14), pd.Timedelta(days=30)],
+        max_holding_period=pd.Timedelta(days=30),
         period_return_strategy=profit_loss_strategy
     )
     """
@@ -85,7 +85,7 @@ def example_usage():
         bars_history=my_bars_history,
         start_date=datetime(2024, 1, 1),
         end_date=datetime(2024, 12, 31),
-        test_periods=[pd.Timedelta(days=7), pd.Timedelta(days=14), pd.Timedelta(days=30)],
+        max_holding_period=pd.Timedelta(days=30),
         period_return_strategy=ema_strategy
     )
     """
@@ -104,7 +104,7 @@ def example_usage():
         bars_history=my_bars_history,
         start_date=datetime(2024, 1, 1),
         end_date=datetime(2024, 12, 31),
-        test_periods=[pd.Timedelta(days=7), pd.Timedelta(days=14), pd.Timedelta(days=30)],
+        max_holding_period=pd.Timedelta(days=30),
         period_return_strategy_kwargs={
             'profit_target': 20.0,
             'stop_loss': 5.0
@@ -136,7 +136,7 @@ def example_usage():
             bars_history=my_bars_history,
             start_date=datetime(2024, 1, 1),
             end_date=datetime(2024, 12, 31),
-            test_periods=[pd.Timedelta(days=7), pd.Timedelta(days=14)],
+            max_holding_period=pd.Timedelta(days=14),
             period_return_strategy=strategy
         )
         

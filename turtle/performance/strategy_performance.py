@@ -23,7 +23,7 @@ class StrategyPerformanceTester:
         bars_history: BarsHistoryRepo,
         start_date: datetime,
         end_date: datetime,
-        test_periods: List[pd.Timedelta],
+        max_holding_period: pd.Timedelta,
         period_return_strategy: Optional[PeriodReturnStrategy] = None,
         period_return_strategy_kwargs: Optional[dict] = None
     ):
@@ -35,7 +35,7 @@ class StrategyPerformanceTester:
             bars_history: Repository for accessing historical bar data
             start_date: Start date for signal generation
             end_date: End date for signal generation
-            test_periods: List of time periods to test (e.g., [pd.Timedelta(days=3), pd.Timedelta(weeks=1)])
+            max_holding_period: Maximum holding period for analysis (e.g., pd.Timedelta(days=30))
             period_return_strategy: Optional PeriodReturnStrategy instance to use for return calculations
                                    If None, defaults to BuyAndHoldStrategy()
             period_return_strategy_kwargs: Optional kwargs to pass to period return strategy calculations
@@ -44,7 +44,7 @@ class StrategyPerformanceTester:
         self.bars_history = bars_history
         self.start_date = start_date
         self.end_date = end_date
-        self.test_periods = test_periods
+        self.max_holding_period = max_holding_period
         self.period_return_strategy = period_return_strategy or BuyAndHoldStrategy()
         self.period_return_strategy_kwargs = period_return_strategy_kwargs or {}
         self.signal_results: List[SignalResult] = []
@@ -112,24 +112,22 @@ class StrategyPerformanceTester:
                 return None
             
             # Calculate period results (backward compatibility)
-            period_results = {}
-            period_data = {}
+            # Single period analysis
+            period_name = self._format_period_name(self.max_holding_period)
             
-            for period in self.test_periods:
-                period_name = self._format_period_name(period)
-                
-                # Legacy closing price calculation for backward compatibility
-                closing_price = self._get_closing_price_after_period(ticker, entry_date, period)
-                period_results[period_name] = closing_price
-                
-                # New: Get full OHLCV data for the period
-                target_date = entry_date + period
-                ohlcv_data = self._get_period_data(ticker, entry_date, target_date)
-                if ohlcv_data is not None:
-                    period_data[period_name] = {
-                        'target_date': target_date,
-                        'data': ohlcv_data
-                    }
+            # Legacy closing price calculation for backward compatibility
+            closing_price = self._get_closing_price_after_period(ticker, entry_date, self.max_holding_period)
+            period_results = {period_name: closing_price}
+            
+            # Get full OHLCV data for the period
+            target_date = entry_date + self.max_holding_period
+            ohlcv_data = self._get_period_data(ticker, entry_date, target_date)
+            period_data = {}
+            if ohlcv_data is not None:
+                period_data[period_name] = {
+                    'target_date': target_date,
+                    'data': ohlcv_data
+                }
             
             # Calculate ranking for this signal
             ranking = self.strategy.ranking(ticker, signal_date)
@@ -364,28 +362,25 @@ class StrategyPerformanceTester:
                 test_end_date=self.end_date,
                 total_signals_found=0,
                 period_results={},
-                test_periods=self.test_periods
+                max_holding_period=self.max_holding_period
             )
         
-        period_results = {}
+        # Calculate performance for single holding period
+        period_name = self._format_period_name(self.max_holding_period)
+        returns = []
         
-        # Calculate performance for each test period using the specified strategy
-        for period in self.test_periods:
-            period_name = self._format_period_name(period)
-            returns = []
-            
-            for signal_result in self.signal_results:
-                # Use the period return strategy to calculate returns
-                return_pct = self._calculate_signal_return(signal_result, period_name)
-                if return_pct is not None:
-                    returns.append(return_pct)
-            
-            performance = PerformanceResult.from_returns(
-                period_name=period_name,
-                total_signals=len(self.signal_results),
-                returns=returns
-            )
-            period_results[period_name] = performance
+        for signal_result in self.signal_results:
+            # Use the period return strategy to calculate returns
+            return_pct = self._calculate_signal_return(signal_result, period_name)
+            if return_pct is not None:
+                returns.append(return_pct)
+        
+        performance = PerformanceResult.from_returns(
+            period_name=period_name,
+            total_signals=len(self.signal_results),
+            returns=returns
+        )
+        period_results = {period_name: performance}
         
         # Calculate ranking-based performance
         ranking_results = self._calculate_ranking_performance()
@@ -396,7 +391,7 @@ class StrategyPerformanceTester:
             test_end_date=self.end_date,
             total_signals_found=len(self.signal_results),
             period_results=period_results,
-            test_periods=self.test_periods,
+            max_holding_period=self.max_holding_period,
             ranking_results=ranking_results
         )
     
@@ -430,14 +425,13 @@ class StrategyPerformanceTester:
             if not range_signals:
                 # Create empty performance results for this range
                 period_performance = {}
-                for period in self.test_periods:
-                    period_name = self._format_period_name(period)
-                    performance = PerformanceResult.from_returns(
-                        period_name=period_name,
-                        total_signals=0,
-                        returns=[]
-                    )
-                    period_performance[period_name] = performance
+                period_name = self._format_period_name(self.max_holding_period)
+                performance = PerformanceResult.from_returns(
+                    period_name=period_name,
+                    total_signals=0,
+                    returns=[]
+                )
+                period_performance = {period_name: performance}
                 
                 ranking_results[range_name] = RankingPerformance(
                     ranking_range=range_name,
@@ -446,23 +440,21 @@ class StrategyPerformanceTester:
                 )
                 continue
             
-            # Calculate performance for each test period for this ranking range
-            period_performance = {}
-            for period in self.test_periods:
-                period_name = self._format_period_name(period)
-                returns = []
+            # Calculate performance for single holding period for this ranking range
+            period_name = self._format_period_name(self.max_holding_period)
+            returns = []
+            
+            for signal_result in range_signals:
+                return_pct = self._calculate_signal_return(signal_result, period_name)
+                if return_pct is not None:
+                    returns.append(return_pct)
                 
-                for signal_result in range_signals:
-                    return_pct = self._calculate_signal_return(signal_result, period_name)
-                    if return_pct is not None:
-                        returns.append(return_pct)
-                
-                performance = PerformanceResult.from_returns(
-                    period_name=period_name,
-                    total_signals=len(range_signals),
-                    returns=returns
-                )
-                period_performance[period_name] = performance
+            performance = PerformanceResult.from_returns(
+                period_name=period_name,
+                total_signals=len(range_signals),
+                returns=returns
+            )
+            period_performance = {period_name: performance}
             
             ranking_results[range_name] = RankingPerformance(
                 ranking_range=range_name,
