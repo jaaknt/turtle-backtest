@@ -1,12 +1,13 @@
 import logging
 import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
 
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.strategy.trading_strategy import TradingStrategy
 from turtle.performance.models import SignalResult, PerformanceResult, TestSummary, RankingPerformance
-from turtle.performance.period_return import PeriodReturnStrategy, BuyAndHoldStrategy
+from turtle.performance.period_return import PeriodReturnStrategy, BuyAndHoldStrategy, PeriodReturnResult
 
 logger = logging.getLogger(__name__)
 
@@ -293,6 +294,144 @@ class StrategyPerformanceTester:
             logger.error(f"Error getting period data for {ticker} from {entry_date} to {target_date}: {str(e)}")
             return None
     
+    def _calculate_benchmark_returns(self, entry_date: datetime, exit_date: datetime) -> tuple[Optional[float], Optional[float]]:
+        """
+        Calculate QQQ and SPY benchmark returns for the same period as a signal.
+        
+        Args:
+            entry_date: Date when position was entered
+            exit_date: Date when position was exited
+            
+        Returns:
+            Tuple of (qqq_return_pct, spy_return_pct) or (None, None) if data not available
+        """
+        qqq_return = None
+        spy_return = None
+        
+        for symbol in ["QQQ", "SPY"]:
+            try:
+                # Get data for the benchmark symbol for the same period
+                # Add small buffer to ensure we have data
+                start_date = entry_date - timedelta(days=1)
+                end_date = exit_date + timedelta(days=2)
+                
+                df = self.bars_history.get_ticker_history(
+                    symbol, start_date, end_date, self.strategy.time_frame_unit
+                )
+                
+                if df.empty:
+                    logger.debug(f"No benchmark data available for {symbol}")
+                    continue
+                
+                # Find opening price on or after entry_date
+                entry_mask = df.index >= pd.Timestamp(entry_date)
+                entry_data = df[entry_mask]
+                if entry_data.empty:
+                    logger.debug(f"No entry data for {symbol} on {entry_date}")
+                    continue
+                
+                entry_price = entry_data.iloc[0]['open']
+                
+                # Find closing price on or closest to exit_date
+                exit_mask = df.index <= pd.Timestamp(exit_date)
+                exit_data = df[exit_mask]
+                if exit_data.empty:
+                    logger.debug(f"No exit data for {symbol} on {exit_date}")
+                    continue
+                
+                # Get the closest trading day to exit date
+                target_timestamp = pd.Timestamp(exit_date)
+                date_diffs = np.abs((exit_data.index - target_timestamp).astype('timedelta64[ns]'))
+                min_diff_idx = int(np.argmin(date_diffs))
+                closest_idx = exit_data.index[min_diff_idx]
+                exit_price = exit_data.loc[closest_idx, 'close']
+                
+                # Calculate percentage return
+                if entry_price > 0:
+                    return_pct = ((exit_price - entry_price) / entry_price) * 100
+                    if symbol == "QQQ":
+                        qqq_return = return_pct
+                    elif symbol == "SPY":
+                        spy_return = return_pct
+                    
+                    logger.debug(f"Benchmark {symbol}: {return_pct:.2f}% "
+                               f"({entry_price:.2f} -> {exit_price:.2f})")
+                
+            except Exception as e:
+                logger.error(f"Error calculating {symbol} benchmark return: {e}")
+                continue
+                
+        return qqq_return, spy_return
+
+    def _calculate_signal_return_with_benchmarks(self, signal_result: SignalResult, period_name: str) -> Optional[PeriodReturnResult]:
+        """
+        Calculate return for a signal with benchmark data using the configured period return strategy.
+        
+        Args:
+            signal_result: SignalResult to calculate return for
+            period_name: Name of the period (e.g., '1W', '2W', '1M')
+            
+        Returns:
+            PeriodReturnResult with benchmark data or None if calculation failed
+        """
+        
+        # If we have period data, use the period return strategy directly
+        if signal_result.period_data and period_name in signal_result.period_data:
+            try:
+                period_info = signal_result.period_data[period_name]
+                target_date = period_info['target_date']
+                data = period_info['data']
+                
+                result = self.period_return_strategy.calculate_return(
+                    data=data,
+                    entry_price=signal_result.entry_price,
+                    entry_date=signal_result.entry_date,
+                    target_date=target_date
+                )
+                
+                if result:
+                    # Calculate benchmark returns for the same period
+                    qqq_return, spy_return = self._calculate_benchmark_returns(
+                        result.entry_date or signal_result.entry_date, 
+                        result.exit_date
+                    )
+                    
+                    # Update the result with benchmark data
+                    result.return_pct_qqq = qqq_return
+                    result.return_pct_spy = spy_return
+                    
+                    return result
+                    
+            except Exception:
+                # Fall back to SignalResult method
+                pass
+        
+        # Fallback to SignalResult's method (for backward compatibility)
+        return_pct = signal_result.get_return_for_period(period_name, **self.period_return_strategy_kwargs)
+        if return_pct is not None:
+            # Create a simple PeriodReturnResult for backward compatibility
+            # We don't have exit date/price from the legacy method, so we'll estimate
+            target_date = signal_result.entry_date + self.max_holding_period
+            
+            # Calculate benchmark returns
+            qqq_return, spy_return = self._calculate_benchmark_returns(
+                signal_result.entry_date, 
+                target_date
+            )
+            
+            return PeriodReturnResult(
+                return_pct=return_pct,
+                exit_price=0.0,  # Not available from legacy method
+                exit_date=target_date,
+                exit_reason='period_end',
+                entry_date=signal_result.entry_date,
+                entry_price=signal_result.entry_price,
+                return_pct_qqq=qqq_return,
+                return_pct_spy=spy_return
+            )
+        
+        return None
+
     def _calculate_signal_return(self, signal_result: SignalResult, period_name: str) -> Optional[float]:
         """
         Calculate return for a signal using the configured period return strategy.
@@ -368,12 +507,22 @@ class StrategyPerformanceTester:
         # Calculate performance for single holding period
         period_name = self._format_period_name(self.max_holding_period)
         returns = []
+        benchmark_data = []  # Store individual signal benchmark data
         
         for signal_result in self.signal_results:
-            # Use the period return strategy to calculate returns
-            return_pct = self._calculate_signal_return(signal_result, period_name)
-            if return_pct is not None:
-                returns.append(return_pct)
+            # Use the period return strategy with benchmarks to calculate returns
+            result = self._calculate_signal_return_with_benchmarks(signal_result, period_name)
+            if result is not None:
+                returns.append(result.return_pct)
+                # Store benchmark data for this signal
+                benchmark_data.append({
+                    'ticker': signal_result.ticker,
+                    'entry_date': result.entry_date,
+                    'exit_date': result.exit_date,
+                    'return_pct': result.return_pct,
+                    'return_pct_qqq': result.return_pct_qqq,
+                    'return_pct_spy': result.return_pct_spy
+                })
         
         performance = PerformanceResult.from_returns(
             period_name=period_name,
@@ -392,7 +541,8 @@ class StrategyPerformanceTester:
             total_signals_found=len(self.signal_results),
             period_results=period_results,
             max_holding_period=self.max_holding_period,
-            ranking_results=ranking_results
+            ranking_results=ranking_results,
+            signal_benchmark_data=benchmark_data
         )
     
     def _calculate_ranking_performance(self) -> dict[str, 'RankingPerformance']:
