@@ -6,17 +6,17 @@ This script tests trading strategies by analyzing historical signals and calcula
 returns over various time periods.
 
 Usage:
-    python scripts/strategy_tester.py [options]
+    python scripts/strategy_performance.py [options]
 
 Examples:
     # Test DarvasBox strategy for January 2024
-    python scripts/strategy_tester.py --strategy darvas_box --start-date 2024-01-01 --end-date 2024-01-31
+    python scripts/strategy_performance.py --strategy darvas_box --start-date 2024-01-01 --end-date 2024-01-31
 
     # Test Mars strategy with custom periods
-    python scripts/strategy_tester.py --strategy mars --start-date 2024-01-01 --end-date 2024-03-31 --periods 5d,2W,3M
+    python scripts/strategy_performance.py --strategy mars --start-date 2024-01-01 --end-date 2024-03-31 --periods 5d,2W,3M
 
     # Test with limited symbols and save to CSV
-    python scripts/strategy_tester.py --strategy momentum --start-date 2024-01-01 --end-date 2024-02-29 --max-symbols 50 --output csv --save results.csv
+    python scripts/strategy_performance.py --strategy momentum --start-date 2024-01-01 --end-date 2024-02-29 --max-symbols 50 --output csv --save results.csv
 
 Options:
     --strategy NAME          Strategy to test (darvas_box, mars, momentum) [required]
@@ -47,7 +47,7 @@ from dotenv import load_dotenv
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
-from turtle.service.strategy_tester import StrategyTesterService
+from turtle.service.strategy_performance_service import StrategyPerformanceService
 from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)
@@ -153,7 +153,7 @@ def main():
     parser.add_argument(
         "--strategy",
         required=True,
-        choices=list(StrategyTesterService.AVAILABLE_STRATEGIES.keys()),
+        choices=list(StrategyPerformanceService.AVAILABLE_STRATEGIES.keys()),
         help="Strategy to test",
     )
     parser.add_argument(
@@ -235,7 +235,7 @@ def main():
             return
 
         # Create strategy tester service
-        service = StrategyTesterService.from_strategy_name(
+        service = StrategyPerformanceService.from_strategy_name(
             strategy_name=args.strategy,
             signal_start_date=args.start_date,
             signal_end_date=args.end_date,

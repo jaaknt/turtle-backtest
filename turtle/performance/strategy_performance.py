@@ -5,8 +5,8 @@ from typing import List, Optional, Tuple
 
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.strategy.trading_strategy import TradingStrategy
-from turtle.tester.models import SignalResult, PerformanceResult, TestSummary, RankingPerformance
-from turtle.tester.period_return import PeriodReturnStrategy, BuyAndHoldStrategy
+from turtle.performance.models import SignalResult, PerformanceResult, TestSummary, RankingPerformance
+from turtle.performance.period_return import PeriodReturnStrategy, BuyAndHoldStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -407,7 +407,7 @@ class StrategyPerformanceTester:
         Returns:
             Dictionary mapping ranking ranges to RankingPerformance objects
         """
-        from turtle.tester.models import RankingPerformance
+        from turtle.performance.models import RankingPerformance
         
         # Define ranking ranges
         ranking_ranges = {

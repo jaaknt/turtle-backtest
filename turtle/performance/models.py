@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 import pandas as pd
 
-from turtle.tester.period_return import PeriodReturn, PeriodReturnResult
+from turtle.performance.period_return import PeriodReturn, PeriodReturnResult
 
 
 @dataclass
