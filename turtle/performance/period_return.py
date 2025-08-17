@@ -22,11 +22,19 @@ class PeriodReturnResult:
         exit_price: Price at which position was exited
         exit_date: Date when position was exited
         exit_reason: Reason for exit (e.g., 'period_end', 'profit_target', 'stop_loss', 'ema_exit')
+        entry_date: Date when position was entered
+        entry_price: Price at which position was entered
+        return_pct_qqq: QQQ benchmark percentage return for the same period
+        return_pct_spy: SPY benchmark percentage return for the same period
     """
     return_pct: float
     exit_price: float
     exit_date: datetime
     exit_reason: str
+    entry_date: Optional[datetime] = None
+    entry_price: Optional[float] = None
+    return_pct_qqq: Optional[float] = None
+    return_pct_spy: Optional[float] = None
 
 
 class PeriodReturnStrategy(ABC):
@@ -111,7 +119,9 @@ class BuyAndHoldStrategy(PeriodReturnStrategy):
                 return_pct=return_pct,
                 exit_price=exit_price,
                 exit_date=exit_date,
-                exit_reason='period_end'
+                exit_reason='period_end',
+                entry_date=entry_date,
+                entry_price=entry_price
             )
             
         except Exception:
@@ -192,7 +202,9 @@ class ProfitLossTargetStrategy(PeriodReturnStrategy):
                 return_pct=return_pct,
                 exit_price=exit_price,
                 exit_date=exit_date,
-                exit_reason=exit_reason
+                exit_reason=exit_reason,
+                entry_date=entry_date,
+                entry_price=entry_price
             )
             
         except Exception:
@@ -256,7 +268,9 @@ class EMAExitStrategy(PeriodReturnStrategy):
                     return_pct=return_pct,
                     exit_price=exit_price,
                     exit_date=exit_date,
-                    exit_reason='ema_exit'
+                    exit_reason='ema_exit',
+                    entry_date=entry_date,
+                    entry_price=entry_price
                 )
             
             # Price never went below EMA, exit at period end
@@ -269,7 +283,9 @@ class EMAExitStrategy(PeriodReturnStrategy):
                 return_pct=return_pct,
                 exit_price=exit_price,
                 exit_date=exit_date,
-                exit_reason='period_end'
+                exit_reason='period_end',
+                entry_date=entry_date,
+                entry_price=entry_price
             )
             
         except Exception as e:

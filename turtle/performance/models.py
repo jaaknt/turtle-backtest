@@ -220,6 +220,7 @@ class TestSummary:
         test_periods: List of pandas.Timedelta objects representing test periods
         benchmark_results: Optional dictionary mapping benchmark symbols to their period results
         ranking_results: Optional dictionary mapping ranking ranges to RankingPerformance
+        signal_benchmark_data: Optional list of individual signal benchmark data
     """
 
     strategy_name: str
@@ -230,6 +231,7 @@ class TestSummary:
     max_holding_period: pd.Timedelta
     benchmark_results: Optional[dict] = None
     ranking_results: Optional[dict[str, RankingPerformance]] = None
+    signal_benchmark_data: Optional[List[Dict[str, Any]]] = None
 
     def get_performance_for_period(
         self, period_name: str
@@ -346,5 +348,56 @@ class TestSummary:
                         f"Worst: {result.worst_return:+5.1f}%  "
                         f"Valid: {result.valid_signals}/{result.total_signals}"
                     )
+
+        # Add individual signal benchmark data if available
+        if self.signal_benchmark_data:
+            lines.append("")
+            lines.append("Individual Signal Benchmark Performance:")
+            lines.append("Ticker    Entry Date   Exit Date    Return%    QQQ%     SPY%")
+            lines.append("-" * 60)
+            
+            # Sort by entry date
+            sorted_signals = sorted(self.signal_benchmark_data, key=lambda x: x.get('entry_date', datetime.min))
+            
+            for signal_data in sorted_signals[:10]:  # Show first 10 signals
+                ticker = signal_data.get('ticker', 'N/A')[:8]
+                entry_date = signal_data.get('entry_date')
+                exit_date = signal_data.get('exit_date')
+                return_pct = signal_data.get('return_pct')
+                return_pct_qqq = signal_data.get('return_pct_qqq')
+                return_pct_spy = signal_data.get('return_pct_spy')
+                
+                entry_str = entry_date.strftime('%Y-%m-%d') if entry_date else 'N/A'
+                exit_str = exit_date.strftime('%Y-%m-%d') if exit_date else 'N/A'
+                return_str = f"{return_pct:+6.1f}" if return_pct is not None else "   N/A"
+                qqq_str = f"{return_pct_qqq:+6.1f}" if return_pct_qqq is not None else "   N/A"
+                spy_str = f"{return_pct_spy:+6.1f}" if return_pct_spy is not None else "   N/A"
+                
+                lines.append(f"{ticker:8} {entry_str} {exit_str} {return_str}%  {qqq_str}%  {spy_str}%")
+            
+            if len(self.signal_benchmark_data) > 10:
+                lines.append(f"... and {len(self.signal_benchmark_data) - 10} more signals")
+            
+            # Calculate and display average benchmark returns
+            valid_qqq: List[float] = []
+            valid_spy: List[float] = []
+            
+            for s in self.signal_benchmark_data:
+                qqq_val = s.get('return_pct_qqq')
+                if qqq_val is not None:
+                    valid_qqq.append(float(qqq_val))
+                    
+                spy_val = s.get('return_pct_spy')
+                if spy_val is not None:
+                    valid_spy.append(float(spy_val))
+            
+            if valid_qqq:
+                avg_qqq = sum(valid_qqq) / len(valid_qqq)
+                lines.append("")
+                lines.append(f"Average QQQ Return: {avg_qqq:+5.1f}% ({len(valid_qqq)} signals)")
+            
+            if valid_spy:
+                avg_spy = sum(valid_spy) / len(valid_spy)
+                lines.append(f"Average SPY Return: {avg_spy:+5.1f}% ({len(valid_spy)} signals)")
 
         return "\n".join(lines)
