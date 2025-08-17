@@ -1,4 +1,4 @@
-import requests
+import httpx
 import logging
 from typing import List, Dict, Any
 from psycopg_pool import ConnectionPool
@@ -78,7 +78,9 @@ class SymbolRepo:
         self, exchange_code: str
     ) -> List[Dict[str, Any]]:
         url = f"https://eodhd.com/api/exchange-symbol-list/{exchange_code}?api_token={self.api_key}&fmt=json&type=stock"
-        data = requests.get(url).json()
+        response = httpx.get(url)
+        response.raise_for_status()
+        data = response.json()
         # print(data)
         # print(type(data))
         # print(type(data[0]))
