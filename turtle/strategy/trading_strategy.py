@@ -1,5 +1,6 @@
 import pandas as pd
 from abc import ABC, abstractmethod
+from typing import List, Tuple
 
 from datetime import datetime
 from turtle.data.bars_history import BarsHistoryRepo
@@ -65,6 +66,23 @@ class TradingStrategy(ABC):
 
         Returns:
             int: The total number of trading signals found in the date range
+        """
+        pass
+
+    @abstractmethod
+    def get_trading_signals(
+        self, ticker: str, start_date: datetime, end_date: datetime
+    ) -> List[Tuple[str, datetime]]:
+        """
+        Get trading signals for a ticker within a date range.
+
+        Args:
+            ticker: The stock symbol to analyze
+            start_date: The start date of the analysis period
+            end_date: The end date of the analysis period
+
+        Returns:
+            List[Tuple[str, datetime]]: List of (ticker, signal_date) tuples for each trading signal
         """
         pass
 

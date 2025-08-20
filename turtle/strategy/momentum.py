@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import logging
 import pandas as pd
 import talib
+from typing import List, Tuple
 
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
@@ -201,12 +202,39 @@ class MomentumStrategy(TradingStrategy):
         # Use the existing weekly_momentum method
         return self.weekly_momentum(ticker, date_to_check)
 
+    def get_trading_signals(
+        self, ticker: str, start_date: datetime, end_date: datetime
+    ) -> List[Tuple[str, datetime]]:
+        """
+        Get momentum trading signals for a ticker within a date range.
+        
+        For momentum strategy, we check weekly signals, so we'll check each week
+        in the date range.
+
+        Args:
+            ticker: The stock symbol to analyze
+            start_date: The start date of the analysis period
+            end_date: The end date of the analysis period
+
+        Returns:
+            List[Tuple[str, datetime]]: List of (ticker, signal_date) tuples for each trading signal
+        """
+        signal_dates = []
+        current_date = start_date
+        
+        # Check weekly (every 7 days) for signals
+        while current_date <= end_date:
+            if self.weekly_momentum(ticker, current_date):
+                signal_dates.append((ticker, current_date))
+            current_date += timedelta(days=7)
+                
+        return signal_dates
+
     def trading_signals_count(self, ticker: str, start_date: datetime, end_date: datetime) -> int:
         """
         Count the number of momentum trading signals for a ticker within a date range.
         
-        For momentum strategy, we check weekly signals, so we'll check each week
-        in the date range.
+        This method now uses get_trading_signals internally for consistency.
         
         Args:
             ticker: The stock symbol to analyze
@@ -216,16 +244,8 @@ class MomentumStrategy(TradingStrategy):
         Returns:
             int: The total number of trading signals found in the date range
         """
-        signal_count = 0
-        current_date = start_date
-        
-        # Check weekly (every 7 days) for signals
-        while current_date <= end_date:
-            if self.weekly_momentum(ticker, current_date):
-                signal_count += 1
-            current_date += timedelta(days=7)
-                
-        return signal_count
+        signals = self.get_trading_signals(ticker, start_date, end_date)
+        return len(signals)
 
     def _price_to_ranking(self, price: float) -> int:
         """

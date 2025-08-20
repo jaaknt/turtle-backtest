@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import logging
 import pandas as pd
 import talib
+from typing import List, Tuple
 
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
@@ -174,9 +175,45 @@ class MarsStrategy(TradingStrategy):
         row = target_df.iloc[-1]  # Get the last row for that date
         return self.is_buy_signal(ticker, row)
 
+    def get_trading_signals(
+        self, ticker: str, start_date: datetime, end_date: datetime
+    ) -> List[Tuple[str, datetime]]:
+        """
+        Get trading signals for a ticker within a date range.
+
+        Args:
+            ticker: The stock symbol to analyze
+            start_date: The start date of the analysis period
+            end_date: The end date of the analysis period
+
+        Returns:
+            List[Tuple[str, datetime]]: List of (ticker, signal_date) tuples for each trading signal
+        """
+        # Collect data for the date range
+        if not self.collect_historical_data(ticker, start_date, end_date):
+            logger.debug(f"{ticker} - not enough data for range {start_date.date()} to {end_date.date()}")
+            return []
+
+        self.calculate_indicators()
+
+        # Filter to the date range
+        filtered_df = self.df[
+            (self.df['hdate'].dt.date >= start_date.date()) & 
+            (self.df['hdate'].dt.date <= end_date.date())
+        ]
+        
+        signal_dates = []
+        for _, row in filtered_df.iterrows():
+            if self.is_buy_signal(ticker, row):
+                signal_dates.append((ticker, row['hdate']))
+                
+        return signal_dates
+
     def trading_signals_count(self, ticker: str, start_date: datetime, end_date: datetime) -> int:
         """
         Count the number of trading signals for a ticker within a date range.
+        
+        This method now uses get_trading_signals internally for consistency.
         
         Args:
             ticker: The stock symbol to analyze
@@ -186,25 +223,8 @@ class MarsStrategy(TradingStrategy):
         Returns:
             int: The total number of trading signals found in the date range
         """
-        # Collect data for the date range
-        if not self.collect_historical_data(ticker, start_date, end_date):
-            logger.debug(f"{ticker} - not enough data for range {start_date.date()} to {end_date.date()}")
-            return 0
-
-        self.calculate_indicators()
-
-        # Filter to the date range and count signals
-        filtered_df = self.df[
-            (self.df['hdate'].dt.date >= start_date.date()) & 
-            (self.df['hdate'].dt.date <= end_date.date())
-        ]
-        
-        signal_count = 0
-        for _, row in filtered_df.iterrows():
-            if self.is_buy_signal(ticker, row):
-                signal_count += 1
-                
-        return signal_count
+        signals = self.get_trading_signals(ticker, start_date, end_date)
+        return len(signals)
 
     def _price_to_ranking(self, price: float) -> int:
         """
