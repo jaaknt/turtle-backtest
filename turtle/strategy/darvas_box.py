@@ -3,6 +3,7 @@ import logging
 import pandas as pd
 import talib
 import numpy as np
+from typing import List, Tuple
 
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
@@ -298,17 +299,24 @@ class DarvasBoxStrategy(TradingStrategy):
 
         return self.is_buy_signal(ticker, self.df.iloc[-1])
 
-    # create similar procedure as is_trading_signal that will calculate trading signals for all dates in df DataFrame
-    # parameters - self, ticker, start_date, end_date
-    # adds a new column to the DataFrame - df["buy_signal"] with boolean values
-    # returns count of buy signals
-    def trading_signals_count(
+    def get_trading_signals(
         self, ticker: str, start_date: datetime, end_date: datetime
-    ) -> int:
+    ) -> List[Tuple[str, datetime]]:
+        """
+        Get trading signals for a ticker within a date range.
+
+        Args:
+            ticker: The stock symbol to analyze
+            start_date: The start date of the analysis period
+            end_date: The end date of the analysis period
+
+        Returns:
+            List[Tuple[str, datetime]]: List of (ticker, signal_date) tuples for each trading signal
+        """
         # collect data for the ticker and end_date
         if not self.collect_historical_data(ticker, start_date, end_date):
             logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
-            return 0
+            return []
 
         self.calculate_indicators()
 
@@ -316,7 +324,7 @@ class DarvasBoxStrategy(TradingStrategy):
         filtered_df = self.df[self.df["hdate"] >= start_date].copy()
         if filtered_df.empty:
             logger.debug(f"{ticker} - no data after date filtering")
-            return 0
+            return []
 
         # Vectorized buy signal calculation - much faster than iterrows()
         buy_signals = (
@@ -339,10 +347,34 @@ class DarvasBoxStrategy(TradingStrategy):
                 & (filtered_df["ema_50"] >= filtered_df["ema_200"])
             )
 
-        # Update original dataframe with results
-        self.df.loc[filtered_df.index, "buy_signal"] = buy_signals
+        # Get the dates where buy signals occur
+        signal_dates = filtered_df[buy_signals]["hdate"].tolist()
+        
+        # Return list of (ticker, datetime) tuples
+        return [(ticker, signal_date) for signal_date in signal_dates]
 
-        return buy_signals.sum()
+    # create similar procedure as is_trading_signal that will calculate trading signals for all dates in df DataFrame
+    # parameters - self, ticker, start_date, end_date
+    # adds a new column to the DataFrame - df["buy_signal"] with boolean values
+    # returns count of buy signals
+    def trading_signals_count(
+        self, ticker: str, start_date: datetime, end_date: datetime
+    ) -> int:
+        """
+        Count the number of trading signals for a ticker within a date range.
+        
+        This method now uses get_trading_signals internally for consistency.
+
+        Args:
+            ticker: The stock symbol to analyze
+            start_date: The start date of the analysis period
+            end_date: The end date of the analysis period
+
+        Returns:
+            int: The total number of trading signals found in the date range
+        """
+        signals = self.get_trading_signals(ticker, start_date, end_date)
+        return len(signals)
 
     def _price_to_ranking(self, price: float) -> int:
         """
