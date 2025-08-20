@@ -1,6 +1,6 @@
 import pandas as pd
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import List
 
 from datetime import datetime
 from turtle.data.bars_history import BarsHistoryRepo

@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from psycopg.rows import TupleRow
+from psycopg import Connection
 from dataclasses import asdict
 from psycopg_pool import ConnectionPool
 
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 class BarsHistoryRepo:
     def __init__(
         self,
-        pool: ConnectionPool,
+        pool: ConnectionPool[Connection[TupleRow]],
         alpaca_api_key: str,
         alpaca_api_secret: str,
     ):
@@ -89,13 +90,17 @@ class BarsHistoryRepo:
                 )
             connection.commit()
 
-    def _map_timeframe_unit(self, time_frame_unit: TimeFrameUnit) -> AlpacaTimeFrameUnit:
+    def _map_timeframe_unit(
+        self, time_frame_unit: TimeFrameUnit
+    ) -> AlpacaTimeFrameUnit:
         """Map internal TimeFrameUnit to AlpacaTimeFrameUnit"""
-        mapping = {
-            TimeFrameUnit.DAY: AlpacaTimeFrameUnit.Day,
-            TimeFrameUnit.WEEK: AlpacaTimeFrameUnit.Week,
-        }
-        return mapping.get(time_frame_unit, AlpacaTimeFrameUnit.Day)
+        if time_frame_unit == TimeFrameUnit.DAY:
+            return AlpacaTimeFrameUnit(1, AlpacaTimeFrameUnit.Day)
+        elif time_frame_unit == TimeFrameUnit.WEEK:
+            return AlpacaTimeFrameUnit(1, AlpacaTimeFrameUnit.Week)
+        else:
+            # Default to DAY for any unknown values
+            return AlpacaTimeFrameUnit(1, AlpacaTimeFrameUnit.Day)
 
     def update_bars_history(
         self,
