@@ -7,6 +7,7 @@ from typing import List, Tuple
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
 from turtle.strategy.trading_strategy import TradingStrategy
+from turtle.strategy.models import Signal
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +205,7 @@ class MomentumStrategy(TradingStrategy):
 
     def get_trading_signals(
         self, ticker: str, start_date: datetime, end_date: datetime
-    ) -> List[Tuple[str, datetime]]:
+    ) -> List[Signal]:
         """
         Get momentum trading signals for a ticker within a date range.
         
@@ -217,18 +218,18 @@ class MomentumStrategy(TradingStrategy):
             end_date: The end date of the analysis period
 
         Returns:
-            List[Tuple[str, datetime]]: List of (ticker, signal_date) tuples for each trading signal
+            List[Signal]: List of Signal objects for each trading signal
         """
-        signal_dates = []
+        signals = []
         current_date = start_date
         
         # Check weekly (every 7 days) for signals
         while current_date <= end_date:
             if self.weekly_momentum(ticker, current_date):
-                signal_dates.append((ticker, current_date))
+                signals.append(Signal(ticker=ticker, date=current_date))
             current_date += timedelta(days=7)
                 
-        return signal_dates
+        return signals
 
     def trading_signals_count(self, ticker: str, start_date: datetime, end_date: datetime) -> int:
         """
