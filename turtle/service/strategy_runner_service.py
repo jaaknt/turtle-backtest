@@ -16,6 +16,7 @@ from turtle.strategy.market import MarketData
 # from turtle.strategy.darvas_box import DarvasBoxStrategy
 # from turtle.strategy.mars import MarsStrategy
 from turtle.strategy.trading_strategy import TradingStrategy
+from turtle.strategy.models import Signal
 from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,16 @@ class StrategyRunnerService:
     ) -> int:
         """Wrapper function for TradingStrategy.trading_signals_count()."""
         return trading_strategy.trading_signals_count(ticker, start_date, end_date)
+
+    def get_trading_signals(
+        self,
+        ticker: str,
+        start_date: datetime,
+        end_date: datetime,
+        trading_strategy: TradingStrategy,
+    ) -> List[Signal]:
+        """Wrapper function for TradingStrategy.get_trading_signals."""
+        return trading_strategy.get_trading_signals(ticker, start_date, end_date)
 
     def get_tickers_count(
         self,
