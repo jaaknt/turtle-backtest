@@ -5,6 +5,7 @@ from typing import List, Tuple
 from datetime import datetime
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
+from turtle.strategy.models import Signal
 
 
 class TradingStrategy(ABC):
@@ -72,7 +73,7 @@ class TradingStrategy(ABC):
     @abstractmethod
     def get_trading_signals(
         self, ticker: str, start_date: datetime, end_date: datetime
-    ) -> List[Tuple[str, datetime]]:
+    ) -> List[Signal]:
         """
         Get trading signals for a ticker within a date range.
 
@@ -82,7 +83,7 @@ class TradingStrategy(ABC):
             end_date: The end date of the analysis period
 
         Returns:
-            List[Tuple[str, datetime]]: List of (ticker, signal_date) tuples for each trading signal
+            List[Signal]: List of Signal objects for each trading signal
         """
         pass
 

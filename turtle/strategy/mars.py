@@ -7,6 +7,7 @@ from typing import List, Tuple
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
 from turtle.strategy.trading_strategy import TradingStrategy
+from turtle.strategy.models import Signal
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +178,7 @@ class MarsStrategy(TradingStrategy):
 
     def get_trading_signals(
         self, ticker: str, start_date: datetime, end_date: datetime
-    ) -> List[Tuple[str, datetime]]:
+    ) -> List[Signal]:
         """
         Get trading signals for a ticker within a date range.
 
@@ -187,7 +188,7 @@ class MarsStrategy(TradingStrategy):
             end_date: The end date of the analysis period
 
         Returns:
-            List[Tuple[str, datetime]]: List of (ticker, signal_date) tuples for each trading signal
+            List[Signal]: List of Signal objects for each trading signal
         """
         # Collect data for the date range
         if not self.collect_historical_data(ticker, start_date, end_date):
@@ -202,12 +203,12 @@ class MarsStrategy(TradingStrategy):
             (self.df['hdate'].dt.date <= end_date.date())
         ]
         
-        signal_dates = []
+        signals = []
         for _, row in filtered_df.iterrows():
             if self.is_buy_signal(ticker, row):
-                signal_dates.append((ticker, row['hdate']))
+                signals.append(Signal(ticker=ticker, date=row['hdate']))
                 
-        return signal_dates
+        return signals
 
     def trading_signals_count(self, ticker: str, start_date: datetime, end_date: datetime) -> int:
         """

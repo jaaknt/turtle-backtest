@@ -8,6 +8,7 @@ from typing import List, Tuple
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
 from turtle.strategy.trading_strategy import TradingStrategy
+from turtle.strategy.models import Signal
 
 logger = logging.getLogger(__name__)
 
@@ -301,7 +302,7 @@ class DarvasBoxStrategy(TradingStrategy):
 
     def get_trading_signals(
         self, ticker: str, start_date: datetime, end_date: datetime
-    ) -> List[Tuple[str, datetime]]:
+    ) -> List[Signal]:
         """
         Get trading signals for a ticker within a date range.
 
@@ -311,7 +312,7 @@ class DarvasBoxStrategy(TradingStrategy):
             end_date: The end date of the analysis period
 
         Returns:
-            List[Tuple[str, datetime]]: List of (ticker, signal_date) tuples for each trading signal
+            List[Signal]: List of Signal objects for each trading signal
         """
         # collect data for the ticker and end_date
         if not self.collect_historical_data(ticker, start_date, end_date):
@@ -350,8 +351,8 @@ class DarvasBoxStrategy(TradingStrategy):
         # Get the dates where buy signals occur
         signal_dates = filtered_df[buy_signals]["hdate"].tolist()
         
-        # Return list of (ticker, datetime) tuples
-        return [(ticker, signal_date) for signal_date in signal_dates]
+        # Return list of Signal objects
+        return [Signal(ticker=ticker, date=signal_date) for signal_date in signal_dates]
 
     # create similar procedure as is_trading_signal that will calculate trading signals for all dates in df DataFrame
     # parameters - self, ticker, start_date, end_date
