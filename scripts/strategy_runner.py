@@ -13,7 +13,7 @@ Options:
     --end-date YYYY-MM-DD    End date for analysis (required for count mode)
     --date YYYY-MM-DD        Single date for ticker list analysis or signal check
     --ticker TICKER          Stock ticker symbol (required for signal and signal_count modes)
-    --strategy STRATEGY      Trading strategy: darvas_box, mars, momentum (default: darvas_box)
+    --trading_strategy STRATEGY      Trading strategy: darvas_box, mars, momentum (default: darvas_box)
     --mode MODE              Analysis mode: list, count, signal, or signal_count (default: list)
     --verbose                Enable verbose logging
     --help                   Show this help message
@@ -23,18 +23,23 @@ import argparse
 import json
 import logging.config
 import logging.handlers
+import os
 import pathlib
 import sys
 from datetime import datetime
 from typing import Optional, Tuple
 
 from dotenv import load_dotenv
+from psycopg_pool import ConnectionPool
+from psycopg import Connection
+from psycopg.rows import TupleRow
 
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
 from turtle.service.strategy_runner_service import StrategyRunnerService
 from turtle.common.enums import TimeFrameUnit
+from turtle.data.bars_history import BarsHistoryRepo
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +71,7 @@ def setup_logging(verbose: bool = False) -> None:
         )
 
 
-def get_trading_strategy(strategy_runner: StrategyRunnerService, strategy_name: str):
+def get_trading_strategy_instance(strategy_name: str):
     """Create and return a trading strategy instance by name."""
     from turtle.strategy.darvas_box import DarvasBoxStrategy
     from turtle.strategy.mars import MarsStrategy
@@ -85,12 +90,27 @@ def get_trading_strategy(strategy_runner: StrategyRunnerService, strategy_name: 
             f"Unknown strategy '{strategy_name}'. Available strategies: {available_strategies}"
         )
 
+    # Create database connection and bars_history for strategy
+    pool: ConnectionPool[Connection[TupleRow]] = ConnectionPool(
+        conninfo="host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres", 
+        min_size=5, max_size=50, max_idle=600
+    )
+    bars_history = BarsHistoryRepo(
+        pool,
+        str(os.getenv("ALPACA_API_KEY")),
+        str(os.getenv("ALPACA_SECRET_KEY")),
+    )
+
     # Create strategy instance with common parameters
     return strategy_class(
-        bars_history=strategy_runner.bars_history,
-        time_frame_unit=strategy_runner.time_frame_unit,
-        warmup_period=strategy_runner.warmup_period,
+        bars_history=bars_history,
+        time_frame_unit=TimeFrameUnit.DAY,
+        warmup_period=730,
     )
+
+def get_trading_strategy(strategy_runner: StrategyRunnerService, strategy_name: str):
+    """Create and return a trading strategy instance by name (deprecated - kept for compatibility)."""
+    return get_trading_strategy_instance(strategy_name)
 
 
 def parse_and_validate_dates(
@@ -215,7 +235,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--strategy",
+        "--trading_strategy",
         type=str,
         default="darvas_box",
         choices=["darvas_box", "mars", "momentum"],
@@ -248,22 +268,25 @@ def main():
     # Load environment variables
     load_dotenv()
 
-    logger.info(f"Starting strategy analysis with {args.strategy} strategy")
+    logger.info(f"Starting strategy analysis with {args.trading_strategy} strategy")
 
     try:
         # Parse and validate dates
         date, start_date, end_date = parse_and_validate_dates(args)
 
-        # Initialize strategy runner
-        logger.info("Initializing strategy runner...")
-        strategy_runner = StrategyRunnerService(time_frame_unit=TimeFrameUnit.DAY)
-
-        # Get the trading strategy
+        # Get the trading strategy first (we need it for service initialization)
         try:
-            trading_strategy = get_trading_strategy(strategy_runner, args.strategy)
+            trading_strategy = get_trading_strategy_instance(args.trading_strategy)
         except ValueError as e:
             logger.error(str(e))
             return 1
+
+        # Initialize strategy runner with the trading strategy
+        logger.info("Initializing strategy runner...")
+        strategy_runner = StrategyRunnerService(
+            trading_strategy=trading_strategy, 
+            time_frame_unit=TimeFrameUnit.DAY
+        )
 
         # Run analysis based on mode
         if args.mode == "list":
@@ -272,11 +295,11 @@ def main():
                 return 1
 
             logger.info(
-                f"Getting ticker list for {date.date()} using {args.strategy} strategy"
+                f"Getting ticker list for {date.date()} using {args.trading_strategy} strategy"
             )
-            ticker_list = strategy_runner.get_tickers_list(date, trading_strategy)
+            ticker_list = strategy_runner.get_tickers_list(date)
 
-            print(f"\nTicker list for {date.date()} ({args.strategy} strategy):")
+            print(f"\nTicker list for {date.date()} ({args.trading_strategy} strategy):")
             print(f"Found {len(ticker_list)} tickers:")
             for ticker in ticker_list:
                 print(f" {ticker['symbol']} (Ranking: {ticker['ranking']})")
@@ -289,14 +312,12 @@ def main():
                 logger.error("Count mode requires valid start and end dates")
                 return 1
             logger.info(
-                f"Getting ticker counts from {start_date.date()} to {end_date.date()} using {args.strategy} strategy"
+                f"Getting ticker counts from {start_date.date()} to {end_date.date()} using {args.trading_strategy} strategy"
             )
-            ticker_counts = strategy_runner.get_tickers_count(
-                start_date, end_date, trading_strategy
-            )
+            ticker_counts = strategy_runner.get_tickers_count(start_date, end_date)
 
             print(
-                f"\nTicker counts from {start_date.date()} to {end_date.date()} ({args.strategy} strategy):"
+                f"\nTicker counts from {start_date.date()} to {end_date.date()} ({args.trading_strategy} strategy):"
             )
             print(f"Found {len(ticker_counts)} tickers with signals:")
 
@@ -316,14 +337,12 @@ def main():
                 return 1
 
             logger.info(
-                f"Checking trading signal for {args.ticker} on {date.date()} using {args.strategy} strategy"
+                f"Checking trading signal for {args.ticker} on {date.date()} using {args.trading_strategy} strategy"
             )
-            has_signal = strategy_runner.is_trading_signal(
-                args.ticker, date, trading_strategy
-            )
+            has_signal = strategy_runner.is_trading_signal(args.ticker, date)
 
             print(
-                f"\nTrading signal check for {args.ticker} on {date.date()} ({args.strategy} strategy):"
+                f"\nTrading signal check for {args.ticker} on {date.date()} ({args.trading_strategy} strategy):"
             )
             if has_signal:
                 print(f"  ✓ {args.ticker} has a trading signal on {date.date()}")
@@ -340,14 +359,14 @@ def main():
                 return 1
 
             logger.info(
-                f"Getting signal count for {args.ticker} from {start_date.date()} to {end_date.date()} using {args.strategy} strategy"
+                f"Getting signal count for {args.ticker} from {start_date.date()} to {end_date.date()} using {args.trading_strategy} strategy"
             )
             signal_count = strategy_runner.trading_signals_count(
-                args.ticker, start_date, end_date, trading_strategy
+                args.ticker, start_date, end_date
             )
 
             print(
-                f"\nSignal count for {args.ticker} from {start_date.date()} to {end_date.date()} ({args.strategy} strategy):"
+                f"\nSignal count for {args.ticker} from {start_date.date()} to {end_date.date()} ({args.trading_strategy} strategy):"
             )
             print(f"  {args.ticker}: {signal_count} signals")
 

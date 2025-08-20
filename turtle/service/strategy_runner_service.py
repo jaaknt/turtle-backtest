@@ -26,9 +26,11 @@ DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
 class StrategyRunnerService:
     def __init__(
         self,
+        trading_strategy: TradingStrategy,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         warmup_period: int = 730,
     ) -> None:
+        self.trading_strategy = trading_strategy
         self.time_frame_unit = time_frame_unit
         self.warmup_period = warmup_period
 
@@ -44,54 +46,37 @@ class StrategyRunnerService:
         )
         self.market_data = MarketData(self.bars_history)
 
-    def get_tickers_list(
-        self, date_to_check: datetime, trading_strategy: TradingStrategy
-    ) -> List[dict]:
+    def get_tickers_list(self, date_to_check: datetime) -> List[dict]:
         symbol_list: List[Symbol] = self.symbol_repo.get_symbol_list("USA")
         stock_list: List[dict] = []
         ranking: int = 0
         for symbol_rec in symbol_list:
-            if trading_strategy.is_trading_signal(symbol_rec.symbol, date_to_check):
-                ranking = trading_strategy.ranking(symbol_rec.symbol, date_to_check)
+            if self.trading_strategy.is_trading_signal(symbol_rec.symbol, date_to_check):
+                ranking = self.trading_strategy.ranking(symbol_rec.symbol, date_to_check)
                 stock_list.append({"symbol": symbol_rec.symbol, "ranking": ranking})
         return stock_list
 
-    def is_trading_signal(
-        self, ticker: str, date_to_check: datetime, trading_strategy: TradingStrategy
-    ) -> bool:
+    def is_trading_signal(self, ticker: str, date_to_check: datetime) -> bool:
         """Wrapper function for TradingStrategy.is_trading_signal()."""
-        return trading_strategy.is_trading_signal(ticker, date_to_check)
+        return self.trading_strategy.is_trading_signal(ticker, date_to_check)
 
     def trading_signals_count(
-        self,
-        ticker: str,
-        start_date: datetime,
-        end_date: datetime,
-        trading_strategy: TradingStrategy,
+        self, ticker: str, start_date: datetime, end_date: datetime
     ) -> int:
         """Wrapper function for TradingStrategy.trading_signals_count()."""
-        return trading_strategy.trading_signals_count(ticker, start_date, end_date)
+        return self.trading_strategy.trading_signals_count(ticker, start_date, end_date)
 
     def get_trading_signals(
-        self,
-        ticker: str,
-        start_date: datetime,
-        end_date: datetime,
-        trading_strategy: TradingStrategy,
+        self, ticker: str, start_date: datetime, end_date: datetime
     ) -> List[Signal]:
         """Wrapper function for TradingStrategy.get_trading_signals."""
-        return trading_strategy.get_trading_signals(ticker, start_date, end_date)
+        return self.trading_strategy.get_trading_signals(ticker, start_date, end_date)
 
-    def get_tickers_count(
-        self,
-        start_date: datetime,
-        end_date: datetime,
-        trading_strategy: TradingStrategy,
-    ) -> List[Tuple]:
+    def get_tickers_count(self, start_date: datetime, end_date: datetime) -> List[Tuple]:
         symbol_list: List[Symbol] = self.symbol_repo.get_symbol_list("USA")
         momentum_stock_list = []
         for symbol_rec in symbol_list:
-            count = trading_strategy.trading_signals_count(
+            count = self.trading_strategy.trading_signals_count(
                 symbol_rec.symbol,
                 start_date,
                 end_date,
