@@ -134,7 +134,7 @@ def validate_date(date_str: str) -> datetime:
         )
 
 
-def main():
+def main() -> None:
     """Main function."""
     parser = argparse.ArgumentParser(
         description="Test trading strategy performance by analyzing historical signals",

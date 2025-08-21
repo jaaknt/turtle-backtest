@@ -3,7 +3,7 @@ import logging
 import pandas as pd
 from datetime import datetime
 
-# from typing import List, Type, Optional
+# from typing import Dict
 from psycopg_pool import ConnectionPool
 from psycopg.rows import TupleRow
 from psycopg import Connection
@@ -30,7 +30,7 @@ class StrategyPerformanceService:
     """
 
     # Mapping of strategy names to strategy classes
-    AVAILABLE_STRATEGIES = {
+    AVAILABLE_STRATEGIES: dict[str, type[TradingStrategy]] = {
         "darvas_box": DarvasBoxStrategy,
         "mars": MarsStrategy,
         "momentum": MomentumStrategy,
@@ -242,7 +242,7 @@ class StrategyPerformanceService:
         Returns:
             List with single percentage return for the specified period
         """
-        returns = []
+        returns: list[float] = []
 
         try:
             # Calculate the end date for this specific period
@@ -323,7 +323,7 @@ class StrategyPerformanceService:
         lines = ["Type,Symbol,Period,Total_Signals,Valid_Signals,Avg_Return,Win_Rate,Best_Return,Worst_Return,Period_Return"]
 
         # Sort periods by length (ascending order: 3d, 1w, 2w, 1m)
-        def period_sort_key(period_name):
+        def period_sort_key(period_name: str) -> int:
             if period_name.endswith("d"):
                 return int(period_name[:-1])
             elif period_name.endswith("w") or period_name.endswith("W"):
@@ -365,7 +365,8 @@ class StrategyPerformanceService:
         """Format test results as JSON."""
         import json
 
-        data = {
+        from typing import Any
+        data: dict[str, Any] = {
             "strategy_name": test_summary.strategy_name,
             "test_start_date": test_summary.test_start_date.isoformat(),
             "test_end_date": test_summary.test_end_date.isoformat(),
@@ -431,7 +432,7 @@ class StrategyPerformanceService:
 
         logger.info(f"Results saved to {filename}")
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Clean up database connection pool."""
         if hasattr(self, "pool"):
             self.pool.close()

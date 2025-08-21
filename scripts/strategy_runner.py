@@ -40,6 +40,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from turtle.service.strategy_runner_service import StrategyRunnerService
 from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
+from turtle.strategy.trading_strategy import TradingStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -71,13 +72,13 @@ def setup_logging(verbose: bool = False) -> None:
         )
 
 
-def get_trading_strategy_instance(strategy_name: str):
+def get_trading_strategy_instance(strategy_name: str) -> TradingStrategy:
     """Create and return a trading strategy instance by name."""
     from turtle.strategy.darvas_box import DarvasBoxStrategy
     from turtle.strategy.mars import MarsStrategy
     from turtle.strategy.momentum import MomentumStrategy
 
-    strategy_classes = {
+    strategy_classes: dict[str, type[TradingStrategy]] = {
         "darvas_box": DarvasBoxStrategy,
         "mars": MarsStrategy,
         "momentum": MomentumStrategy,
@@ -108,13 +109,13 @@ def get_trading_strategy_instance(strategy_name: str):
         warmup_period=730,
     )
 
-def get_trading_strategy(strategy_runner: StrategyRunnerService, strategy_name: str):
+def get_trading_strategy(strategy_runner: StrategyRunnerService, strategy_name: str) -> TradingStrategy:
     """Create and return a trading strategy instance by name (deprecated - kept for compatibility)."""
     return get_trading_strategy_instance(strategy_name)
 
 
 def parse_and_validate_dates(
-    args,
+    args: 'argparse.Namespace',
 ) -> Tuple[Optional[datetime], Optional[datetime], Optional[datetime]]:
     """
     Parse and validate dates from command line arguments.
@@ -257,7 +258,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main():
+def main() -> int:
     """Main entry point for strategy runner."""
     parser = create_argument_parser()
     args = parser.parse_args()

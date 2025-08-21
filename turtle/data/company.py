@@ -1,5 +1,5 @@
 import time
-import yfinance as yf
+import yfinance as yf  # type: ignore[import-untyped]
 import logging
 import pandas as pd
 from typing import List, Dict, Any

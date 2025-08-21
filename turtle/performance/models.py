@@ -37,7 +37,7 @@ class SignalResult:
         self, 
         period_name: str, 
         strategy_name: str = 'buy_and_hold',
-        **strategy_kwargs
+        **strategy_kwargs: Any
     ) -> Optional[float]:
         """
         Calculate percentage return for a specific period using specified strategy.
@@ -86,7 +86,7 @@ class SignalResult:
         self, 
         period_name: str, 
         strategy_name: str = 'buy_and_hold',
-        **strategy_kwargs
+        **strategy_kwargs: Any
     ) -> Optional[PeriodReturnResult]:
         """
         Get detailed period return result including exit reason and date.
@@ -259,7 +259,7 @@ class TestSummary:
         ]
 
         # Sort periods by length (ascending order: 3d, 1w, 2w, 1m)
-        def period_sort_key(period_name):
+        def period_sort_key(period_name: str) -> int:
             if period_name.endswith("d"):
                 return int(period_name[:-1])
             elif period_name.endswith("w") or period_name.endswith("W"):
@@ -294,7 +294,7 @@ class TestSummary:
                     benchmark_periods = self.benchmark_results[benchmark_symbol]
 
                     # Sort periods by length (ascending order: 3d, 1w, 2w, 1m)
-                    def period_sort_key(period_name):
+                    def period_sort_key(period_name: str) -> int:
                         if period_name.endswith("d"):
                             return int(period_name[:-1])
                         elif period_name.endswith("w") or period_name.endswith("W"):
