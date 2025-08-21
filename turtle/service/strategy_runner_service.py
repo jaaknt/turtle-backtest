@@ -2,7 +2,7 @@ import os
 import pandas as pd
 from psycopg_pool import ConnectionPool
 from datetime import datetime
-from typing import List, Tuple
+# from typing import List, Tuple
 
 import logging
 
@@ -34,9 +34,7 @@ class StrategyRunnerService:
         self.time_frame_unit = time_frame_unit
         self.warmup_period = warmup_period
 
-        self.pool: ConnectionPool = ConnectionPool(
-            conninfo=DSN, min_size=5, max_size=50, max_idle=600
-        )
+        self.pool: ConnectionPool = ConnectionPool(conninfo=DSN, min_size=5, max_size=50, max_idle=600)
         self.symbol_repo = SymbolRepo(self.pool, str(os.getenv("EODHD_API_KEY")))
         self.company_repo = CompanyRepo(self.pool)
         self.bars_history = BarsHistoryRepo(
@@ -46,9 +44,9 @@ class StrategyRunnerService:
         )
         self.market_data = MarketData(self.bars_history)
 
-    def get_tickers_list(self, date_to_check: datetime) -> List[dict]:
-        symbol_list: List[Symbol] = self.symbol_repo.get_symbol_list("USA")
-        stock_list: List[dict] = []
+    def get_tickers_list(self, date_to_check: datetime) -> list[dict]:
+        symbol_list: list[Symbol] = self.symbol_repo.get_symbol_list("USA")
+        stock_list: list[dict] = []
         ranking: int = 0
         for symbol_rec in symbol_list:
             if self.trading_strategy.is_trading_signal(symbol_rec.symbol, date_to_check):
@@ -60,20 +58,16 @@ class StrategyRunnerService:
         """Wrapper function for TradingStrategy.is_trading_signal()."""
         return self.trading_strategy.is_trading_signal(ticker, date_to_check)
 
-    def trading_signals_count(
-        self, ticker: str, start_date: datetime, end_date: datetime
-    ) -> int:
+    def trading_signals_count(self, ticker: str, start_date: datetime, end_date: datetime) -> int:
         """Wrapper function for TradingStrategy.trading_signals_count()."""
         return self.trading_strategy.trading_signals_count(ticker, start_date, end_date)
 
-    def get_trading_signals(
-        self, ticker: str, start_date: datetime, end_date: datetime
-    ) -> List[Signal]:
+    def get_trading_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
         """Wrapper function for TradingStrategy.get_trading_signals."""
         return self.trading_strategy.get_trading_signals(ticker, start_date, end_date)
 
-    def get_tickers_count(self, start_date: datetime, end_date: datetime) -> List[Tuple]:
-        symbol_list: List[Symbol] = self.symbol_repo.get_symbol_list("USA")
+    def get_tickers_count(self, start_date: datetime, end_date: datetime) -> list[tuple]:
+        symbol_list: list[Symbol] = self.symbol_repo.get_symbol_list("USA")
         momentum_stock_list = []
         for symbol_rec in symbol_list:
             count = self.trading_strategy.trading_signals_count(
@@ -92,7 +86,7 @@ class StrategyRunnerService:
 
         return momentum_stock_list
 
-    def get_company_list(self, symbol_list: List[str]) -> pd.DataFrame:
+    def get_company_list(self, symbol_list: list[str]) -> pd.DataFrame:
         self.company_repo.get_company_list(symbol_list)
         df = self.company_repo.convert_df()
         return df

@@ -1,11 +1,10 @@
-import pandas as pd
 from abc import ABC, abstractmethod
-from typing import List
-
 from datetime import datetime
-from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
+from turtle.data.bars_history import BarsHistoryRepo
 from turtle.strategy.models import Signal
+
+import pandas as pd
 
 
 class TradingStrategy(ABC):
@@ -54,9 +53,7 @@ class TradingStrategy(ABC):
         pass
 
     @abstractmethod
-    def trading_signals_count(
-        self, ticker: str, start_date: datetime, end_date: datetime
-    ) -> int:
+    def trading_signals_count(self, ticker: str, start_date: datetime, end_date: datetime) -> int:
         """
         Count the number of trading signals for a ticker within a date range.
 
@@ -71,9 +68,7 @@ class TradingStrategy(ABC):
         pass
 
     @abstractmethod
-    def get_trading_signals(
-        self, ticker: str, start_date: datetime, end_date: datetime
-    ) -> List[Signal]:
+    def get_trading_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
         """
         Get trading signals for a ticker within a date range.
 
@@ -88,9 +83,7 @@ class TradingStrategy(ABC):
         pass
 
     @abstractmethod
-    def collect_historical_data(
-        self, ticker: str, start_date: datetime, end_date: datetime
-    ) -> bool:
+    def collect_historical_data(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
         """
         Collect historical market data for analysis.
 

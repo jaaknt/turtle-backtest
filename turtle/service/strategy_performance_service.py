@@ -2,7 +2,8 @@ import os
 import logging
 import pandas as pd
 from datetime import datetime
-from typing import List, Type, Optional
+
+# from typing import List, Type, Optional
 from psycopg_pool import ConnectionPool
 from psycopg.rows import TupleRow
 from psycopg import Connection
@@ -40,10 +41,10 @@ class StrategyPerformanceService:
 
     def __init__(
         self,
-        strategy_class: Type[TradingStrategy],
+        strategy_class: type[TradingStrategy],
         signal_start_date: datetime,
         signal_end_date: datetime,
-        max_holding_period: Optional[pd.Timedelta] = None,
+        max_holding_period: pd.Timedelta | None = None,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         dsn: str = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres",
     ):
@@ -65,9 +66,7 @@ class StrategyPerformanceService:
         self.time_frame_unit = time_frame_unit
 
         # Initialize database connection and repositories
-        self.pool: ConnectionPool[Connection[TupleRow]] = ConnectionPool(
-            conninfo=dsn, min_size=5, max_size=50, max_idle=600
-        )
+        self.pool: ConnectionPool[Connection[TupleRow]] = ConnectionPool(conninfo=dsn, min_size=5, max_size=50, max_idle=600)
         self.symbol_repo = SymbolRepo(self.pool, str(os.getenv("EODHD_API_KEY")))
         self.bars_history = BarsHistoryRepo(
             self.pool,
@@ -76,9 +75,7 @@ class StrategyPerformanceService:
         )
 
         # Initialize strategy instance
-        self.strategy = self.strategy_class(
-            bars_history=self.bars_history, time_frame_unit=self.time_frame_unit
-        )
+        self.strategy = self.strategy_class(bars_history=self.bars_history, time_frame_unit=self.time_frame_unit)
 
     @classmethod
     def from_strategy_name(
@@ -86,7 +83,7 @@ class StrategyPerformanceService:
         strategy_name: str,
         signal_start_date: datetime,
         signal_end_date: datetime,
-        max_holding_period: Optional[pd.Timedelta] = None,
+        max_holding_period: pd.Timedelta | None = None,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         dsn: str = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres",
     ) -> "StrategyPerformanceService":
@@ -108,9 +105,7 @@ class StrategyPerformanceService:
             ValueError: If strategy name is not recognized
         """
         if strategy_name not in cls.AVAILABLE_STRATEGIES:
-            raise ValueError(
-                f"Unknown strategy: {strategy_name}. Available: {list(cls.AVAILABLE_STRATEGIES.keys())}"
-            )
+            raise ValueError(f"Unknown strategy: {strategy_name}. Available: {list(cls.AVAILABLE_STRATEGIES.keys())}")
 
         strategy_class = cls.AVAILABLE_STRATEGIES[strategy_name]
 
@@ -125,9 +120,9 @@ class StrategyPerformanceService:
 
     def run_test(
         self,
-        symbols: Optional[List[str]] = None,
+        symbols: list[str] | None = None,
         symbol_filter: str = "USA",
-        max_symbols: Optional[int] = None,
+        max_symbols: int | None = None,
     ) -> TestSummary:
         """
         Execute complete strategy performance test.
@@ -141,9 +136,7 @@ class StrategyPerformanceService:
             TestSummary object containing all test results
         """
         logger.info(f"Starting strategy test for {self.strategy_class.__name__}")
-        logger.info(
-            f"Signal period: {self.signal_start_date} to {self.signal_end_date}"
-        )
+        logger.info(f"Signal period: {self.signal_start_date} to {self.signal_end_date}")
         logger.info(f"Max holding period: {self.max_holding_period}")
 
         # Get symbols to test
@@ -180,9 +173,7 @@ class StrategyPerformanceService:
         logger.info("Strategy test completed")
         return test_summary
 
-    def _get_symbol_list(
-        self, symbol_filter: str = "USA", max_symbols: Optional[int] = None
-    ) -> List[str]:
+    def _get_symbol_list(self, symbol_filter: str = "USA", max_symbols: int | None = None) -> list[str]:
         """
         Get list of symbols to test.
 
@@ -223,9 +214,7 @@ class StrategyPerformanceService:
 
                 # Calculate returns for single holding period
                 period_name = self._format_period_name(self.max_holding_period)
-                returns = self._calculate_benchmark_returns_for_period(
-                    symbol, self.max_holding_period
-                )
+                returns = self._calculate_benchmark_returns_for_period(symbol, self.max_holding_period)
 
                 performance = PerformanceResult.from_returns(
                     period_name=period_name,
@@ -237,16 +226,12 @@ class StrategyPerformanceService:
                 benchmark_results[symbol] = period_performance
 
             except Exception as e:
-                logger.error(
-                    f"Error calculating benchmark performance for {symbol}: {str(e)}"
-                )
+                logger.error(f"Error calculating benchmark performance for {symbol}: {str(e)}")
                 continue
 
         return benchmark_results
 
-    def _calculate_benchmark_returns_for_period(
-        self, symbol: str, period: pd.Timedelta
-    ) -> List[float]:
+    def _calculate_benchmark_returns_for_period(self, symbol: str, period: pd.Timedelta) -> list[float]:
         """
         Calculate percentage change for the specific period from signal start date.
 
@@ -272,9 +257,7 @@ class StrategyPerformanceService:
             )
 
             if df.empty or len(df) < 2:
-                logger.warning(
-                    f"Insufficient data for benchmark {symbol} for period {period}"
-                )
+                logger.warning(f"Insufficient data for benchmark {symbol} for period {period}")
                 return returns
 
             # Get start and end prices
@@ -292,9 +275,7 @@ class StrategyPerformanceService:
                 )
 
         except Exception as e:
-            logger.error(
-                f"Error calculating benchmark return for {symbol} period {period}: {e}"
-            )
+            logger.error(f"Error calculating benchmark return for {symbol} period {period}: {e}")
 
         return returns
 
@@ -317,9 +298,7 @@ class StrategyPerformanceService:
             months = period.days // 30
             return f"{months}M"
 
-    def _generate_report(
-        self, test_summary: TestSummary, output_format: str = "console"
-    ) -> str:
+    def _generate_report(self, test_summary: TestSummary, output_format: str = "console") -> str:
         """
         Generate formatted report from test results.
 
@@ -341,9 +320,7 @@ class StrategyPerformanceService:
 
     def _format_csv_report(self, test_summary: TestSummary) -> str:
         """Format test results as CSV."""
-        lines = [
-            "Type,Symbol,Period,Total_Signals,Valid_Signals,Avg_Return,Win_Rate,Best_Return,Worst_Return,Period_Return"
-        ]
+        lines = ["Type,Symbol,Period,Total_Signals,Valid_Signals,Avg_Return,Win_Rate,Best_Return,Worst_Return,Period_Return"]
 
         # Sort periods by length (ascending order: 3d, 1w, 2w, 1m)
         def period_sort_key(period_name):
@@ -357,9 +334,7 @@ class StrategyPerformanceService:
                 return 999  # Unknown format, put at end
 
         # Add strategy results (sorted by period length)
-        sorted_strategy_periods = sorted(
-            test_summary.period_results.keys(), key=period_sort_key
-        )
+        sorted_strategy_periods = sorted(test_summary.period_results.keys(), key=period_sort_key)
         for period_name in sorted_strategy_periods:
             result = test_summary.period_results[period_name]
             lines.append(
@@ -373,16 +348,12 @@ class StrategyPerformanceService:
             for benchmark_symbol in ["QQQ", "SPY"]:
                 if benchmark_symbol in test_summary.benchmark_results:
                     benchmark_periods = test_summary.benchmark_results[benchmark_symbol]
-                    sorted_benchmark_periods = sorted(
-                        benchmark_periods.keys(), key=period_sort_key
-                    )
+                    sorted_benchmark_periods = sorted(benchmark_periods.keys(), key=period_sort_key)
 
                     for period_name in sorted_benchmark_periods:
                         result = benchmark_periods[period_name]
                         # For benchmarks, the period return is the simple start-to-end return
-                        period_return = (
-                            result.average_return if result.valid_signals > 0 else 0.0
-                        )
+                        period_return = result.average_return if result.valid_signals > 0 else 0.0
                         lines.append(
                             f"Benchmark,{benchmark_symbol},{period_name},1,{result.valid_signals},"
                             f"{result.average_return:.2f},N/A,N/A,N/A,{period_return:.2f}"
@@ -433,9 +404,7 @@ class StrategyPerformanceService:
 
         return json.dumps(data, indent=2)
 
-    def print_results(
-        self, test_summary: TestSummary, output_format: str = "console"
-    ) -> None:
+    def print_results(self, test_summary: TestSummary, output_format: str = "console") -> None:
         """
         Print test results in specified format.
 
@@ -446,9 +415,7 @@ class StrategyPerformanceService:
         report = self._generate_report(test_summary, output_format)
         print(report)
 
-    def save_results(
-        self, test_summary: TestSummary, filename: str, output_format: str = "csv"
-    ) -> None:
+    def save_results(self, test_summary: TestSummary, filename: str, output_format: str = "csv") -> None:
         """
         Save test results to file.
 
