@@ -33,8 +33,8 @@ class BarsHistoryRepo:
             alpaca_api_key, alpaca_api_secret
         )
 
-    def map_alpaca_bars_history(self, symbol: str, bar: AlpacaBar) -> Dict[str, Any]:
-        place_holders = {}
+    def map_alpaca_bars_history(self, symbol: str, bar: AlpacaBar) -> Dict[str, datetime | float | str | None]:
+        place_holders: dict[str, datetime | float | str | None] = {}
         place_holders["symbol"] = symbol
         place_holders["hdate"] = bar.timestamp
         place_holders["open"] = bar.open
@@ -95,12 +95,12 @@ class BarsHistoryRepo:
     ) -> AlpacaTimeFrameUnit:
         """Map internal TimeFrameUnit to AlpacaTimeFrameUnit"""
         if time_frame_unit == TimeFrameUnit.DAY:
-            return AlpacaTimeFrameUnit(1, AlpacaTimeFrameUnit.Day)
+            return AlpacaTimeFrameUnit.Day
         elif time_frame_unit == TimeFrameUnit.WEEK:
-            return AlpacaTimeFrameUnit(1, AlpacaTimeFrameUnit.Week)
+            return AlpacaTimeFrameUnit.Week
         else:
             # Default to DAY for any unknown values
-            return AlpacaTimeFrameUnit(1, AlpacaTimeFrameUnit.Day)
+            return AlpacaTimeFrameUnit.Day
 
     def update_bars_history(
         self,

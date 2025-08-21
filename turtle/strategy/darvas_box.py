@@ -70,7 +70,7 @@ class DarvasBoxStrategy(TradingStrategy):
             return False
 
     @staticmethod
-    def is_local_max_valid(df: pd.DataFrame, local_max: float, following_count: int = 3):
+    def is_local_max_valid(df: pd.DataFrame, local_max: float, following_count: int = 3) -> bool:
         # iterate over the following rows
         # return True if 0:following_count high values after is_local_min are less than local_max
         following: int = -1
@@ -126,7 +126,7 @@ class DarvasBoxStrategy(TradingStrategy):
 
         # self.darvas_box_breakout()
 
-    def darvas_box_breakout(self, lookback_period=10, validation_period=3) -> None:
+    def darvas_box_breakout(self, lookback_period: int = 10, validation_period: int = 3) -> bool:
         # status values: unknown, box_top_set, box_bottom_set, box_formed, breakout_up, breakout_down
         self.df["status"] = "unknown"
         self.df["box_top"] = np.nan
@@ -144,11 +144,11 @@ class DarvasBoxStrategy(TradingStrategy):
         box_bottom = pd.Float64Dtype()
 
         # iterate over the self.df_weekly rows
-        for i, row in self.df.iterrows():
+        for idx, (i, row) in enumerate(self.df.iterrows()):
             # if status is unknown, check if the current row is a local max
             if status == "unknown":
                 if row["is_local_max"]:
-                    if self.is_local_max_valid(self.df[i:], row["high"], validation_period):
+                    if self.is_local_max_valid(self.df.iloc[idx:], row["high"], validation_period):
                         status = "box_top_set"
                         box_top = row["high"]
                         # self.df_weekly.at[i, "status"] = status
@@ -188,7 +188,7 @@ class DarvasBoxStrategy(TradingStrategy):
             self.df.at[i, "status"] = status
 
         # check if the last or previous row was a breakout up
-        return (
+        return bool(
             self.df.iloc[-1]["status"] == "breakout_up"
             # or self.df.iloc[-2]["status"] == "breakout_up"
         )

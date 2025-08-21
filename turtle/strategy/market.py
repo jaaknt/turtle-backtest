@@ -36,4 +36,4 @@ class MarketData:
         logger.info(
             f"SPY EMA10 - {last_record['ema_10']} EMA20: {last_record['ema_20']}"
         )
-        return last_record["ema_10"] > last_record["ema_20"]
+        return bool(last_record["ema_10"] > last_record["ema_20"])

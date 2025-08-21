@@ -14,8 +14,8 @@ class SymbolGroupRepo:
 
     def map_symbol_group(
         self, symbol_group: str, symbol: str, rate: Optional[float]
-    ) -> Dict[str, Any]:
-        place_holders = {}
+    ) -> Dict[str, Optional[float] | str]:
+        place_holders: dict[str, Optional[float] | str] = {}
         place_holders["symbol"] = symbol
         place_holders["symbol_group"] = symbol_group
         place_holders["rate"] = rate

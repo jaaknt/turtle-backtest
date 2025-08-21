@@ -21,7 +21,7 @@ from turtle.performance.period_return import (
 )
 
 
-def example_usage():
+def example_usage() -> None:
     """Demonstrate different ways to use StrategyPerformanceTester with period return strategies."""
     
     print("🔸 StrategyPerformanceTester with TradeExitStrategy Examples")

@@ -148,7 +148,7 @@ def validate_update_success(
         return False
 
 
-def parse_and_validate_dates(args) -> Tuple[datetime, datetime]:
+def parse_and_validate_dates(args: 'argparse.Namespace') -> Tuple[datetime, datetime]:
     """
     Parse and validate start and end dates from command line arguments.
 
@@ -229,7 +229,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main():
+def main() -> int:
     """Main entry point for daily EOD update."""
     parser = create_argument_parser()
     args = parser.parse_args()

@@ -80,7 +80,7 @@ class SymbolRepo:
         url = f"https://eodhd.com/api/exchange-symbol-list/{exchange_code}?api_token={self.api_key}&fmt=json&type=stock"
         response = httpx.get(url)
         response.raise_for_status()
-        data = response.json()
+        data: List[Dict[str, Any]] = response.json()
         # print(data)
         # print(type(data))
         # print(type(data[0]))

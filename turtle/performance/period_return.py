@@ -306,7 +306,7 @@ class PeriodReturn:
         'ema_exit': EMAExitStrategy,
     }
     
-    def __init__(self, strategy_name: str = 'buy_and_hold', **strategy_kwargs):
+    def __init__(self, strategy_name: str = 'buy_and_hold', **strategy_kwargs: Any) -> None:
         """
         Initialize with specified strategy.
         
@@ -340,7 +340,9 @@ class PeriodReturn:
         Returns:
             PeriodReturnResult or None if calculation failed
         """
-        return self.strategy.calculate_return(data, entry_price, entry_date, target_date)
+        from typing import cast
+        result = self.strategy.calculate_return(data, entry_price, entry_date, target_date)
+        return cast(Optional[PeriodReturnResult], result)
     
     @classmethod
     def get_available_strategies(cls) -> list[str]:
