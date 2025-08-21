@@ -168,3 +168,6 @@ Tests are organized by component:
 - `test_symbol.py`: Symbol management
 
 Use pytest fixtures for database setup and teardown in tests.
+
+## Linting
+Use mypy and ruff tools configured in pyproject.toml 
