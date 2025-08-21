@@ -39,7 +39,6 @@ import logging.config
 import pathlib
 import sys
 from datetime import datetime
-from typing import List
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -105,7 +104,7 @@ def parse_period(period_str: str) -> pd.Timedelta:
         )
 
 
-def parse_symbols(symbols_str: str) -> List[str]:
+def parse_symbols(symbols_str: str) -> list[str]:
     """Parse comma-separated symbols string."""
     return [symbol.strip().upper() for symbol in symbols_str.split(",")]
 

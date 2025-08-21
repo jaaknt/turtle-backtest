@@ -5,7 +5,6 @@ from datetime import datetime
 
 import logging.config
 import logging.handlers
-from typing import Optional, List
 
 from turtle.data.symbol import SymbolRepo
 from turtle.data.symbol_group import SymbolGroupRepo
@@ -44,12 +43,12 @@ class DataUpdateService:
         self.symbol_repo.update_symbol_list()
 
     def update_company_list(self) -> None:
-        symbol_list: List[Symbol] = self.symbol_repo.get_symbol_list("USA")
+        symbol_list: list[Symbol] = self.symbol_repo.get_symbol_list("USA")
         for symbol_rec in symbol_list:
             self.company_repo.update_company_info(symbol_rec.symbol)
 
     def update_bars_history(
-        self, start_date: datetime, end_date: Optional[datetime]
+        self, start_date: datetime, end_date: datetime | None
     ) -> None:
         symbol_list = self.symbol_repo.get_symbol_list("USA")
         for symbol_rec in symbol_list:
@@ -58,10 +57,10 @@ class DataUpdateService:
             )
 
 
-    def get_company_list(self, symbol_list: List[str]) -> pd.DataFrame:
+    def get_company_list(self, symbol_list: list[str]) -> pd.DataFrame:
         self.company_repo.get_company_list(symbol_list)
         df = self.company_repo.convert_df()
         return df
 
-    def get_symbol_group_list(self, symbol_group: str) -> List[SymbolGroup]:
+    def get_symbol_group_list(self, symbol_group: str) -> list[SymbolGroup]:
         return self.symbol_group_repo.get_symbol_group_list(symbol_group)

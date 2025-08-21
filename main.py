@@ -6,7 +6,6 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 from turtle.service.data_update_service import DataUpdateService
-from turtle.service.strategy_runner_service import StrategyRunnerService
 from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)
@@ -41,9 +40,9 @@ def main() -> None:
     # init_db()
     # return
 
-    data_updater = DataUpdateService(time_frame_unit=TimeFrameUnit.DAY)
-    start_date: datetime = datetime(year=2024, month=6, day=25)  # noqa: F841
-    end_date: datetime = datetime(year=2025, month=6, day=27)  # noqa: F841
+    # data_updater = DataUpdateService(time_frame_unit=TimeFrameUnit.DAY)
+    # start_date: datetime = datetime(year=2024, month=6, day=25)  # noqa: F841
+    # end_date: datetime = datetime(year=2025, month=6, day=27)  # noqa: F841
 
     # data_updater = DataUpdateService(time_frame_unit=TimeFrameUnit.WEEK)
 
@@ -94,7 +93,7 @@ def main() -> None:
     with get_db_connection(dsn) as connection:
         company = Company(connection, str(os.getenv("EODHD_API_KEY")))
         company.update_company_list()
-    
+
     !! Run database updates after that to update ticker.status values
     """
     # company.update_company_list(conn)
@@ -106,7 +105,7 @@ def main() -> None:
     """
 
     """
-    Calculate momentum strategy 
+    Calculate momentum strategy
     for ticker in ["SPY", "QQQ"]:
         bars_history.update_ticker_history(
             conn,

@@ -6,7 +6,7 @@ from .market import MarketData
 
 __all__ = [
     "TradingStrategy",
-    "DarvasBoxStrategy", 
+    "DarvasBoxStrategy",
     "MarsStrategy",
     "MomentumStrategy",
     "MarketData",

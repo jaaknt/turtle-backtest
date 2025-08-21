@@ -5,7 +5,7 @@ from datetime import datetime
 @dataclass
 class Signal:
     """Ticker signals
-     
+
     Attributes:
         ticker (str): Stock symbol code
         date (datetime): Date when the signal was generated

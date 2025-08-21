@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 
 from datetime import datetime
-from typing import List, cast
+from typing import cast
 
 from turtle.service.strategy_runner_service import StrategyRunnerService
 from turtle.strategy.darvas_box import DarvasBoxStrategy
@@ -24,7 +24,7 @@ end_date = datetime(year=2024, month=8, day=30)
 
 # Create database connection and bars_history for strategy
 pool = cast(DatabasePool, ConnectionPool(
-    conninfo="host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres", 
+    conninfo="host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres",
     min_size=5, max_size=50, max_idle=600
 ))
 bars_history = BarsHistoryRepo(

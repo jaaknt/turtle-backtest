@@ -69,24 +69,24 @@ def test_get_symbol_list_with_symbol_filter(mocker: MockerFixture) -> None:
 
     # Test 1: Filter symbols starting with "M" or later alphabetically
     symbols = repo.get_symbol_list(country="USA", symbol="M")
-    
+
     expected_symbols = [
         Symbol(symbol="MSFT", name="Microsoft Corporation", exchange="NASDAQ", country="USA"),
         Symbol(symbol="TSLA", name="Tesla Inc.", exchange="NASDAQ", country="USA"),
     ]
-    
+
     assert symbols == expected_symbols
     mock_get_symbol_list_db.assert_called_with("USA")
 
     # Test 2: Filter with symbol that matches exactly
     symbols = repo.get_symbol_list(country="USA", symbol="GOOGL")
-    
+
     expected_symbols = [
         Symbol(symbol="GOOGL", name="Alphabet Inc.", exchange="NASDAQ", country="USA"),
         Symbol(symbol="MSFT", name="Microsoft Corporation", exchange="NASDAQ", country="USA"),
         Symbol(symbol="TSLA", name="Tesla Inc.", exchange="NASDAQ", country="USA"),
     ]
-    
+
     assert symbols == expected_symbols
 
     # Test 3: Filter with symbol that returns no results (after last symbol)
@@ -95,7 +95,7 @@ def test_get_symbol_list_with_symbol_filter(mocker: MockerFixture) -> None:
 
     # Test 4: Empty string should return all symbols (default behavior)
     symbols = repo.get_symbol_list(country="USA", symbol="")
-    
+
     expected_all_symbols = [
         Symbol(symbol="AAPL", name="Apple Inc.", exchange="NASDAQ", country="USA"),
         Symbol(symbol="AMZN", name="Amazon.com Inc.", exchange="NASDAQ", country="USA"),
@@ -103,5 +103,5 @@ def test_get_symbol_list_with_symbol_filter(mocker: MockerFixture) -> None:
         Symbol(symbol="MSFT", name="Microsoft Corporation", exchange="NASDAQ", country="USA"),
         Symbol(symbol="TSLA", name="Tesla Inc.", exchange="NASDAQ", country="USA"),
     ]
-    
+
     assert symbols == expected_all_symbols

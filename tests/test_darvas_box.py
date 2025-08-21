@@ -166,7 +166,7 @@ def test_ranking():
 
     # Mock successful data collection
     test_date = datetime(2024, 1, 15)
-    
+
     # Test case 1: Stock with $50 price (should return rank 12)
     mock_df = pd.DataFrame({
         'hdate': [test_date],
@@ -176,16 +176,16 @@ def test_ranking():
         'low': [48.0],
         'volume': [1000000]
     })
-    
+
     # Mock the return value for sufficient data
     bars_history_mock.get_ticker_history.return_value = mock_df
-    
+
     ranking = strategy.ranking("TEST", test_date)
     assert ranking == 12
 
     # Test case 2: No data available (empty DataFrame)
     bars_history_mock.get_ticker_history.return_value = pd.DataFrame()
-    
+
     ranking = strategy.ranking("NODATA", test_date)
     assert ranking == 0
 
@@ -198,12 +198,12 @@ def test_ranking():
         'low': [1470.0],
         'volume': [500000]
     })
-    
+
     bars_history_mock.get_ticker_history.return_value = mock_df_expensive
-    
+
     ranking = strategy.ranking("EXPENSIVE", test_date)
     assert ranking == 0
-    
+
     # Test case 4: Low-priced stock (should return rank 20)
     mock_df_cheap = pd.DataFrame({
         'hdate': [test_date],
@@ -213,8 +213,8 @@ def test_ranking():
         'low': [8.10],
         'volume': [2000000]
     })
-    
+
     bars_history_mock.get_ticker_history.return_value = mock_df_cheap
-    
+
     ranking = strategy.ranking("CHEAP", test_date)
     assert ranking == 20

@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Any, Optional
+from typing import Any
 from psycopg_pool import ConnectionPool
 from psycopg.rows import TupleRow
 
@@ -13,16 +13,16 @@ class SymbolGroupRepo:
         self.pool = pool
 
     def map_symbol_group(
-        self, symbol_group: str, symbol: str, rate: Optional[float]
-    ) -> Dict[str, Optional[float] | str]:
-        place_holders: dict[str, Optional[float] | str] = {}
+        self, symbol_group: str, symbol: str, rate: float | None
+    ) -> dict[str, float | None | str]:
+        place_holders: dict[str, float | None | str] = {}
         place_holders["symbol"] = symbol
         place_holders["symbol_group"] = symbol_group
         place_holders["rate"] = rate
 
         return place_holders
 
-    def _get_symbol_group_list_db(self, symbol_group: str) -> List[TupleRow]:
+    def _get_symbol_group_list_db(self, symbol_group: str) -> list[TupleRow]:
         with self.pool.connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -37,14 +37,14 @@ class SymbolGroupRepo:
                 result = cursor.fetchall()
         return result
 
-    def get_symbol_group_list(self, symbol_group: str) -> List[SymbolGroup]:
+    def get_symbol_group_list(self, symbol_group: str) -> list[SymbolGroup]:
         result = self._get_symbol_group_list_db(symbol_group)
         self.symbol_list = [SymbolGroup(*symbol_group) for symbol_group in result]
         logger.debug(f"{len(self.symbol_list)} symbols returned from database")
 
         return self.symbol_list
 
-    def save_symbol_group(self, place_holders: Dict[str, Any]) -> None:
+    def save_symbol_group(self, place_holders: dict[str, Any]) -> None:
         with self.pool.connection() as connection:
             with connection.cursor() as cursor:
                 # logger.debug(
@@ -62,7 +62,7 @@ class SymbolGroupRepo:
                 connection.commit()
 
     def update_symbol_group(
-        self, symbol_group: str, symbol: str, rate: Optional[float] = None
+        self, symbol_group: str, symbol: str, rate: float | None = None
     ) -> None:
         place_holders = self.map_symbol_group(symbol_group, symbol, rate)
         self.save_symbol_group(place_holders)

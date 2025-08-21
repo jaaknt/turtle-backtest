@@ -1,6 +1,6 @@
 import httpx
 import logging
-from typing import List, Dict, Any
+from typing import Any
 from psycopg_pool import ConnectionPool
 from psycopg.rows import TupleRow
 
@@ -13,9 +13,9 @@ class SymbolRepo:
     def __init__(self, pool: ConnectionPool, api_key: str):
         self.pool = pool
         self.api_key = api_key
-        self.symbol_list: List[Symbol] = []
+        self.symbol_list: list[Symbol] = []
 
-    def map_eodhd_symbol_list(self, ticker: Dict[str, Any]) -> Dict[str, Any]:
+    def map_eodhd_symbol_list(self, ticker: dict[str, Any]) -> dict[str, Any]:
         place_holders = {}
         place_holders["symbol"] = ticker["Code"]
         place_holders["name"] = ticker["Name"]
@@ -29,7 +29,7 @@ class SymbolRepo:
 
         return place_holders
 
-    def _get_symbol_list_db(self, country: str) -> List[TupleRow]:
+    def _get_symbol_list_db(self, country: str) -> list[TupleRow]:
         with self.pool.connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -45,7 +45,7 @@ class SymbolRepo:
                 result = cursor.fetchall()
         return result
 
-    def get_symbol_list(self, country: str, symbol: str = "") -> List[Symbol]:
+    def get_symbol_list(self, country: str, symbol: str = "") -> list[Symbol]:
         result = self._get_symbol_list_db(country)
         self.symbol_list = [Symbol(*symbol) for symbol in result]
         # filter symbols based on symbol parameter
@@ -55,7 +55,7 @@ class SymbolRepo:
 
         return self.symbol_list
 
-    def save_symbol_list(self, place_holders: Dict[str, Any]) -> None:
+    def save_symbol_list(self, place_holders: dict[str, Any]) -> None:
         with self.pool.connection() as connection:
             with connection.cursor() as cursor:
                 logger.debug(
@@ -76,11 +76,11 @@ class SymbolRepo:
 
     def get_eodhd_exchange_symbol_list(
         self, exchange_code: str
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         url = f"https://eodhd.com/api/exchange-symbol-list/{exchange_code}?api_token={self.api_key}&fmt=json&type=stock"
         response = httpx.get(url)
         response.raise_for_status()
-        data: List[Dict[str, Any]] = response.json()
+        data: list[dict[str, Any]] = response.json()
         # print(data)
         # print(type(data))
         # print(type(data[0]))
