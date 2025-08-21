@@ -12,9 +12,7 @@ class SymbolGroupRepo:
     def __init__(self, pool: ConnectionPool) -> None:
         self.pool = pool
 
-    def map_symbol_group(
-        self, symbol_group: str, symbol: str, rate: float | None
-    ) -> dict[str, float | None | str]:
+    def map_symbol_group(self, symbol_group: str, symbol: str, rate: float | None) -> dict[str, float | None | str]:
         place_holders: dict[str, float | None | str] = {}
         place_holders["symbol"] = symbol
         place_holders["symbol_group"] = symbol_group
@@ -30,7 +28,7 @@ class SymbolGroupRepo:
                     SELECT symbol_group, symbol, rate
                         FROM turtle.symbol_group
                         WHERE symbol_group = %s
-                        ORDER BY symbol       
+                        ORDER BY symbol
                     """,
                     (symbol_group,),
                 )
@@ -53,16 +51,14 @@ class SymbolGroupRepo:
                 cursor.execute(
                     """
                     INSERT INTO turtle.symbol_group(symbol_group, symbol, rate)
-                    VALUES(%(symbol_group)s, %(symbol)s, %(rate)s) 
+                    VALUES(%(symbol_group)s, %(symbol)s, %(rate)s)
                         ON CONFLICT (symbol_group, symbol) DO UPDATE SET
-                        (rate, modified_at) = (EXCLUDED.rate, CURRENT_TIMESTAMP)              
+                        (rate, modified_at) = (EXCLUDED.rate, CURRENT_TIMESTAMP)
                     """,
                     place_holders,
                 )
                 connection.commit()
 
-    def update_symbol_group(
-        self, symbol_group: str, symbol: str, rate: float | None = None
-    ) -> None:
+    def update_symbol_group(self, symbol_group: str, symbol: str, rate: float | None = None) -> None:
         place_holders = self.map_symbol_group(symbol_group, symbol, rate)
         self.save_symbol_group(place_holders)

@@ -71,7 +71,8 @@ class MarsStrategy(TradingStrategy):
         # last close > max(close, 10)
         if row["close"] < row["max_close_10"]:
             logger.debug(
-                f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} close < max_close_10, close: {row['close']} max_close_10: {row['max_close_10']}"
+                f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} close < max_close_10, "
+                f"close: {row['close']} max_close_10: {row['max_close_10']}"
             )
             return False
 
@@ -88,14 +89,16 @@ class MarsStrategy(TradingStrategy):
         # consolidation_change < 0.12
         if row["consolidation_change"] > 0.12:
             logger.debug(
-                f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} consolidation_change > 0.12, consolidation_change: {row['consolidation_change']}"
+                f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} consolidation_change > 0.12, "
+                f"consolidation_change: {row['consolidation_change']}"
             )
             return False
 
         # (close - hard_stoploss / close < 0.16
         if (row["close"] - row["hard_stoploss"]) / row["close"] > 0.25:
             logger.debug(
-                f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} (close - (max_box_4 - min_box_4) / 2) / close < 0.16, close: {row['close']} hard_stoploss: {row['hard_stoploss']}"
+                f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} (close - (max_box_4 - min_box_4) / 2) / close < 0.16, "
+                f"close: {row['close']} hard_stoploss: {row['hard_stoploss']}"
             )
             return False
 
@@ -103,7 +106,8 @@ class MarsStrategy(TradingStrategy):
         # if last volume < EMA(volume, 4)*1.10
         if row["volume"] < row["ema_volume_4"] * 0.9:
             logger.debug(
-                f"{ticker} {row["hdate"].strftime('%Y-%m-%d')} volume < EMA_volume_4 * 1.10, volume: {row["volume"]} EMA_volume_4 * 1.10: {row["ema_volume_4"]*1.10}"
+                f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} volume < EMA_volume_4 * 1.10, "
+                f"volume: {row['volume']} EMA_volume_4 * 1.10: {row['ema_volume_4']*1.10}"
             )
             return False
         """

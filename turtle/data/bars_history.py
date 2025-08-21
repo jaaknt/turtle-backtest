@@ -29,9 +29,7 @@ class BarsHistoryRepo:
         alpaca_api_secret: str,
     ):
         self.pool = pool
-        self.stock_data_client = StockHistoricalDataClient(
-            alpaca_api_key, alpaca_api_secret
-        )
+        self.stock_data_client = StockHistoricalDataClient(alpaca_api_key, alpaca_api_secret)
 
     def map_alpaca_bars_history(self, symbol: str, bar: AlpacaBar) -> dict[str, datetime | float | str | None]:
         place_holders: dict[str, datetime | float | str | None] = {}
@@ -47,9 +45,7 @@ class BarsHistoryRepo:
 
         return place_holders
 
-    def _get_bars_history_db(
-        self, symbol: str, start_date: datetime, end_date: datetime
-    ) -> list[TupleRow]:
+    def _get_bars_history_db(self, symbol: str, start_date: datetime, end_date: datetime) -> list[TupleRow]:
         with self.pool.connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -58,17 +54,15 @@ class BarsHistoryRepo:
                         FROM turtle.bars_history
                         WHERE symbol = %s
                         AND hdate >= %s
-                        AND hdate <= %s     
-                        ORDER BY hdate       
+                        AND hdate <= %s
+                        ORDER BY hdate
                     """,
                     (symbol, start_date, end_date),
                 )
                 result = cursor.fetchall()
         return result
 
-    def get_bars_history(
-        self, symbol: str, start_date: datetime, end_date: datetime
-    ) -> list[Bar]:
+    def get_bars_history(self, symbol: str, start_date: datetime, end_date: datetime) -> list[Bar]:
         result = self._get_bars_history_db(symbol, start_date, end_date)
         bar_list = [Bar(*bar) for bar in result]
         # logger.debug(f"{len(symbol_list)} symbols returned from database")
@@ -81,23 +75,22 @@ class BarsHistoryRepo:
                     """
                     INSERT INTO turtle.bars_history
                     (symbol, hdate, open, high, low, close, volume, trade_count, source)
-                    VALUES(%(symbol)s, %(hdate)s, %(open)s, %(high)s, %(low)s, %(close)s, %(volume)s, %(trade_count)s, %(source)s) 
+                    VALUES(%(symbol)s, %(hdate)s, %(open)s, %(high)s, %(low)s, %(close)s, %(volume)s, %(trade_count)s, %(source)s)
                     ON CONFLICT (symbol, hdate) DO UPDATE SET
                     (open, high, low, close, volume, trade_count, source, modified_at) =
-                    (EXCLUDED.open, EXCLUDED.high, EXCLUDED.low, EXCLUDED.close, EXCLUDED.volume, EXCLUDED.trade_count, EXCLUDED.source, CURRENT_TIMESTAMP)                
+                    (EXCLUDED.open, EXCLUDED.high, EXCLUDED.low, EXCLUDED.close, EXCLUDED.volume,
+                     EXCLUDED.trade_count, EXCLUDED.source, CURRENT_TIMESTAMP)
                    """,
                     place_holders,
                 )
             connection.commit()
 
-    def _map_timeframe_unit(
-        self, time_frame_unit: TimeFrameUnit
-    ) -> AlpacaTimeFrameUnit:
+    def _map_timeframe_unit(self, time_frame_unit: TimeFrameUnit) -> AlpacaTimeFrameUnit:
         """Map internal TimeFrameUnit to AlpacaTimeFrameUnit"""
         if time_frame_unit == TimeFrameUnit.DAY:
-            return AlpacaTimeFrameUnit.Day
+            return AlpacaTimeFrameUnit.Day  # type: ignore
         elif time_frame_unit == TimeFrameUnit.WEEK:
-            return AlpacaTimeFrameUnit.Week
+            return AlpacaTimeFrameUnit.Week  # type: ignore
         else:
             # Default to DAY for any unknown values
             return AlpacaTimeFrameUnit.Day
@@ -133,9 +126,7 @@ class BarsHistoryRepo:
             self.save_bars_history(place_holders)
             # print(row[0][0], row[0][1].to_pydatetime(), row[1], type(row[0][1].to_pydatetime()))
 
-    def convert_df(
-        self, bar_list: list[Bar], time_frame_unit: TimeFrameUnit
-    ) -> pd.DataFrame:
+    def convert_df(self, bar_list: list[Bar], time_frame_unit: TimeFrameUnit) -> pd.DataFrame:
         dtypes = {
             "hdate": "string",
             "open": "float64",
@@ -178,10 +169,6 @@ class BarsHistoryRepo:
         time_frame_unit: TimeFrameUnit,  # day, week
     ) -> pd.DataFrame:
         bar_list = self.get_bars_history(ticker, start_date, end_date)
-        df = (
-            self.convert_df(bar_list, time_frame_unit)
-            if len(bar_list) > 0
-            else pd.DataFrame()
-        )
+        df = self.convert_df(bar_list, time_frame_unit) if len(bar_list) > 0 else pd.DataFrame()
 
         return df

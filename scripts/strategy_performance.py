@@ -16,7 +16,8 @@ Examples:
     python scripts/strategy_performance.py --strategy mars --start-date 2024-01-01 --end-date 2024-03-31 --max-holding-period 2W
 
     # Test with limited symbols and save to CSV
-    python scripts/strategy_performance.py --strategy momentum --start-date 2024-01-01 --end-date 2024-02-29 --max-symbols 50 --output csv --save results.csv
+    python scripts/strategy_performance.py --strategy momentum --start-date 2024-01-01 \
+        --end-date 2024-02-29 --max-symbols 50 --output csv --save results.csv
 
 Options:
     --strategy NAME          Strategy to test (darvas_box, mars, momentum) [required]
@@ -127,10 +128,10 @@ def validate_date(date_str: str) -> datetime:
     """Validate and parse date string."""
     try:
         return datetime.strptime(date_str, "%Y-%m-%d")
-    except ValueError:
+    except ValueError as err:
         raise argparse.ArgumentTypeError(
             f"Invalid date format: {date_str}. Use YYYY-MM-DD"
-        )
+        ) from err
 
 
 def main() -> None:

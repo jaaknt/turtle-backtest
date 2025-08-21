@@ -16,7 +16,7 @@ def _safe_float_from_pandas(value: Any) -> float:
 class PeriodReturnResult:
     """
     Result of period return calculation.
-    
+
     Attributes:
         return_pct: Percentage return achieved
         exit_price: Price at which position was exited
@@ -27,6 +27,7 @@ class PeriodReturnResult:
         return_pct_qqq: QQQ benchmark percentage return for the same period
         return_pct_spy: SPY benchmark percentage return for the same period
     """
+
     return_pct: float
     exit_price: float
     exit_date: datetime
@@ -44,21 +45,17 @@ class TradeExitStrategy(ABC):
 
     @abstractmethod
     def calculate_return(
-        self,
-        data: pd.DataFrame,
-        entry_price: float,
-        entry_date: datetime,
-        target_date: datetime
+        self, data: pd.DataFrame, entry_price: float, entry_date: datetime, target_date: datetime
     ) -> PeriodReturnResult | None:
         """
         Calculate period return based on strategy-specific logic.
-        
+
         Args:
             data: DataFrame with OHLCV data (index should be datetime)
             entry_price: Price at which position was entered
             entry_date: Date when position was entered
             target_date: Target end date for the period
-            
+
         Returns:
             PeriodReturnResult or None if calculation failed
         """
@@ -71,11 +68,7 @@ class BuyAndHoldStrategy(TradeExitStrategy):
     """
 
     def calculate_return(
-        self,
-        data: pd.DataFrame,
-        entry_price: float,
-        entry_date: datetime,
-        target_date: datetime
+        self, data: pd.DataFrame, entry_price: float, entry_date: datetime, target_date: datetime
     ) -> PeriodReturnResult | None:
         """Calculate return by holding until target date."""
         try:
@@ -105,13 +98,13 @@ class BuyAndHoldStrategy(TradeExitStrategy):
                 min_diff_idx = int(abs_diffs.argmin())
                 closest_idx = period_data.index[min_diff_idx]
 
-            exit_price = _safe_float_from_pandas(period_data.loc[closest_idx, 'close'])
+            exit_price = _safe_float_from_pandas(period_data.loc[closest_idx, "close"])
             exit_date = pd.Timestamp(closest_idx).to_pydatetime()
 
             # Handle edge cases for entry price
             if entry_price <= 0:
                 # For zero or negative entry price, just return the absolute change
-                return_pct = 0.0 if entry_price == 0 else float('inf')
+                return_pct = 0.0 if entry_price == 0 else float("inf")
             else:
                 return_pct = ((exit_price - entry_price) / entry_price) * 100
 
@@ -119,9 +112,9 @@ class BuyAndHoldStrategy(TradeExitStrategy):
                 return_pct=return_pct,
                 exit_price=exit_price,
                 exit_date=exit_date,
-                exit_reason='period_end',
+                exit_reason="period_end",
                 entry_date=entry_date,
-                entry_price=entry_price
+                entry_price=entry_price,
             )
 
         except Exception:
@@ -136,7 +129,7 @@ class ProfitLossTargetStrategy(TradeExitStrategy):
     def __init__(self, profit_target: float = 10.0, stop_loss: float = 5.0):
         """
         Initialize with profit and loss targets.
-        
+
         Args:
             profit_target: Profit target percentage (default 10%)
             stop_loss: Stop loss percentage (default 5%)
@@ -145,11 +138,7 @@ class ProfitLossTargetStrategy(TradeExitStrategy):
         self.stop_loss = stop_loss
 
     def calculate_return(
-        self,
-        data: pd.DataFrame,
-        entry_price: float,
-        entry_date: datetime,
-        target_date: datetime
+        self, data: pd.DataFrame, entry_price: float, entry_date: datetime, target_date: datetime
     ) -> PeriodReturnResult | None:
         """Calculate return with profit/loss targets."""
         try:
@@ -161,14 +150,14 @@ class ProfitLossTargetStrategy(TradeExitStrategy):
                 return None
 
             # Calculate daily returns
-            period_data['return_pct'] = ((period_data['close'] - entry_price) / entry_price) * 100
+            period_data["return_pct"] = ((period_data["close"] - entry_price) / entry_price) * 100
 
             # Find first profit target hit
-            profit_hits = period_data[period_data['return_pct'] >= self.profit_target]
+            profit_hits = period_data[period_data["return_pct"] >= self.profit_target]
             first_profit_date = profit_hits.index[0] if not profit_hits.empty else None
 
             # Find first stop loss hit
-            loss_hits = period_data[period_data['return_pct'] <= -self.stop_loss]
+            loss_hits = period_data[period_data["return_pct"] <= -self.stop_loss]
             first_loss_date = loss_hits.index[0] if not loss_hits.empty else None
 
             # Determine which target was hit first (if any)
@@ -176,27 +165,27 @@ class ProfitLossTargetStrategy(TradeExitStrategy):
                 # Both targets hit - use whichever came first
                 if first_profit_date <= first_loss_date:
                     exit_idx = first_profit_date
-                    exit_reason = 'profit_target'
+                    exit_reason = "profit_target"
                 else:
                     exit_idx = first_loss_date
-                    exit_reason = 'stop_loss'
+                    exit_reason = "stop_loss"
             elif first_profit_date is not None:
                 # Only profit target hit
                 exit_idx = first_profit_date
-                exit_reason = 'profit_target'
+                exit_reason = "profit_target"
             elif first_loss_date is not None:
                 # Only stop loss hit
                 exit_idx = first_loss_date
-                exit_reason = 'stop_loss'
+                exit_reason = "stop_loss"
             else:
                 # Neither target hit - exit at period end
                 exit_idx = period_data.index[-1]
-                exit_reason = 'period_end'
+                exit_reason = "period_end"
 
             # Calculate exit values
-            exit_price = _safe_float_from_pandas(period_data.loc[exit_idx, 'close'])
+            exit_price = _safe_float_from_pandas(period_data.loc[exit_idx, "close"])
             exit_date = pd.Timestamp(exit_idx).to_pydatetime()
-            return_pct = _safe_float_from_pandas(period_data.loc[exit_idx, 'return_pct'])
+            return_pct = _safe_float_from_pandas(period_data.loc[exit_idx, "return_pct"])
 
             return PeriodReturnResult(
                 return_pct=return_pct,
@@ -204,7 +193,7 @@ class ProfitLossTargetStrategy(TradeExitStrategy):
                 exit_date=exit_date,
                 exit_reason=exit_reason,
                 entry_date=entry_date,
-                entry_price=entry_price
+                entry_price=entry_price,
             )
 
         except Exception:
@@ -214,7 +203,7 @@ class ProfitLossTargetStrategy(TradeExitStrategy):
 class EMAExitStrategy(TradeExitStrategy):
     """
     Exit when price closes below EMA or at period end.
-    
+
     Note: This strategy assumes that the EMA column already exists in the data
     (e.g., 'ema_10', 'ema_20', etc.). If the column doesn't exist, an error will be raised.
     """
@@ -222,20 +211,16 @@ class EMAExitStrategy(TradeExitStrategy):
     def __init__(self, ema_period: int = 20):
         """
         Initialize with EMA period.
-        
+
         Args:
             ema_period: Period for EMA to look for in data (default 20 days)
                        Will look for column named 'ema_{ema_period}' in the DataFrame
         """
         self.ema_period = ema_period
-        self.ema_column = f'ema_{ema_period}'
+        self.ema_column = f"ema_{ema_period}"
 
     def calculate_return(
-        self,
-        data: pd.DataFrame,
-        entry_price: float,
-        entry_date: datetime,
-        target_date: datetime
+        self, data: pd.DataFrame, entry_price: float, entry_date: datetime, target_date: datetime
     ) -> PeriodReturnResult | None:
         """Calculate return with EMA exit logic."""
         # Check if required EMA column exists
@@ -255,12 +240,12 @@ class EMAExitStrategy(TradeExitStrategy):
                 return None
 
             # Find first day where close is below EMA
-            below_ema = period_data[period_data['close'] < period_data[self.ema_column]]
+            below_ema = period_data[period_data["close"] < period_data[self.ema_column]]
 
             if not below_ema.empty:
                 # Exit on first close below EMA
                 exit_idx = below_ema.index[0]
-                exit_price = _safe_float_from_pandas(period_data.loc[exit_idx, 'close'])
+                exit_price = _safe_float_from_pandas(period_data.loc[exit_idx, "close"])
                 exit_date = pd.Timestamp(exit_idx).to_pydatetime()
                 return_pct = ((exit_price - entry_price) / entry_price) * 100
 
@@ -268,14 +253,14 @@ class EMAExitStrategy(TradeExitStrategy):
                     return_pct=return_pct,
                     exit_price=exit_price,
                     exit_date=exit_date,
-                    exit_reason='ema_exit',
+                    exit_reason="ema_exit",
                     entry_date=entry_date,
-                    entry_price=entry_price
+                    entry_price=entry_price,
                 )
 
             # Price never went below EMA, exit at period end
             last_idx = period_data.index[-1]
-            exit_price = _safe_float_from_pandas(period_data.loc[last_idx, 'close'])
+            exit_price = _safe_float_from_pandas(period_data.loc[last_idx, "close"])
             exit_date = pd.Timestamp(last_idx).to_pydatetime()
             return_pct = ((exit_price - entry_price) / entry_price) * 100
 
@@ -283,9 +268,9 @@ class EMAExitStrategy(TradeExitStrategy):
                 return_pct=return_pct,
                 exit_price=exit_price,
                 exit_date=exit_date,
-                exit_reason='period_end',
+                exit_reason="period_end",
                 entry_date=entry_date,
-                entry_price=entry_price
+                entry_price=entry_price,
             )
 
         except Exception as e:
@@ -301,15 +286,15 @@ class PeriodReturn:
     """
 
     STRATEGIES = {
-        'buy_and_hold': BuyAndHoldStrategy,
-        'profit_loss_target': ProfitLossTargetStrategy,
-        'ema_exit': EMAExitStrategy,
+        "buy_and_hold": BuyAndHoldStrategy,
+        "profit_loss_target": ProfitLossTargetStrategy,
+        "ema_exit": EMAExitStrategy,
     }
 
-    def __init__(self, strategy_name: str = 'buy_and_hold', **strategy_kwargs: Any) -> None:
+    def __init__(self, strategy_name: str = "buy_and_hold", **strategy_kwargs: Any) -> None:
         """
         Initialize with specified strategy.
-        
+
         Args:
             strategy_name: Name of the strategy to use
             **strategy_kwargs: Additional arguments for strategy initialization
@@ -322,25 +307,22 @@ class PeriodReturn:
         self.strategy_name = strategy_name
 
     def calculate_return(
-        self,
-        data: pd.DataFrame,
-        entry_price: float,
-        entry_date: datetime,
-        target_date: datetime
+        self, data: pd.DataFrame, entry_price: float, entry_date: datetime, target_date: datetime
     ) -> PeriodReturnResult | None:
         """
         Calculate period return using the configured strategy.
-        
+
         Args:
             data: DataFrame with OHLCV data (index should be datetime)
             entry_price: Price at which position was entered
             entry_date: Date when position was entered
             target_date: Target end date for the period
-            
+
         Returns:
             PeriodReturnResult or None if calculation failed
         """
         from typing import cast
+
         result = self.strategy.calculate_return(data, entry_price, entry_date, target_date)
         return cast(PeriodReturnResult | None, result)
 

@@ -3,7 +3,8 @@
 Strategy Runner Script
 
 This script runs trading strategy analysis using the StrategyRunnerService class.
-It can get ticker lists, ticker counts, check individual ticker signals, or count signals for specific tickers using different trading strategies.
+It can get ticker lists, ticker counts, check individual ticker signals, or count signals
+for specific tickers using different trading strategies.
 
 Usage:
     python scripts/strategy_runner.py [options]
@@ -247,7 +248,9 @@ def create_argument_parser() -> argparse.ArgumentParser:
         type=str,
         default="list",
         choices=["list", "count", "signal", "signal_count"],
-        help="Analysis mode: list (get tickers for date), count (get ticker counts for range), signal (check single ticker signal), signal_count (get signal count for single ticker) (default: list)",
+        help="Analysis mode: list (get tickers for date), count (get ticker counts for range), "
+             "signal (check single ticker signal), signal_count (get signal count for single ticker) "
+             "(default: list)",
     )
 
     parser.add_argument(
@@ -359,7 +362,8 @@ def main() -> int:
                 return 1
 
             logger.info(
-                f"Getting signal count for {args.ticker} from {start_date.date()} to {end_date.date()} using {args.trading_strategy} strategy"
+                f"Getting signal count for {args.ticker} from {start_date.date()} to {end_date.date()} "
+                f"using {args.trading_strategy} strategy"
             )
             signal_count = strategy_runner.trading_signals_count(
                 args.ticker, start_date, end_date
