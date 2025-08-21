@@ -2,7 +2,7 @@ import time
 import yfinance as yf  # type: ignore[import-untyped]
 import logging
 import pandas as pd
-from typing import List, Dict, Any
+from typing import Any
 from dataclasses import asdict
 from psycopg_pool import ConnectionPool
 from psycopg.rows import TupleRow
@@ -15,12 +15,12 @@ logger = logging.getLogger(__name__)
 class CompanyRepo:
     def __init__(self, pool: ConnectionPool):
         self.pool = pool
-        self.company_list: List[Company] = []
+        self.company_list: list[Company] = []
 
     def map_yahoo_company_data(
-        self, symbol: str, data: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        place_holders: Dict[str, str | int | float | None] = {}
+        self, symbol: str, data: dict[str, Any]
+    ) -> dict[str, Any]:
+        place_holders: dict[str, str | int | float | None] = {}
         place_holders["symbol"] = symbol
         place_holders["short_name"] = data.get("shortName")
         place_holders["country"] = data.get("country")
@@ -51,7 +51,7 @@ class CompanyRepo:
         return place_holders
 
     def save_company_list(
-        self, place_holders: Dict[str, str | int | float | None]
+        self, place_holders: dict[str, str | int | float | None]
     ) -> None:
         with self.pool.connection() as connection:
             with connection.cursor() as cursor:
@@ -123,7 +123,7 @@ class CompanyRepo:
         # logger.info(df.info())
         return df
 
-    def _get_company_list_db(self, symbol_list: List[str]) -> List[TupleRow]:
+    def _get_company_list_db(self, symbol_list: list[str]) -> list[TupleRow]:
         with self.pool.connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -139,7 +139,7 @@ class CompanyRepo:
                 result = cursor.fetchall()
         return result
 
-    def get_company_list(self, symbol_list: List[str]) -> List[Company]:
+    def get_company_list(self, symbol_list: list[str]) -> list[Company]:
         # logger.debug(f"{tuple(symbol_list)} symbols passed to company table")
         result = self._get_company_list_db(symbol_list)
         self.company_list = [Company(*company) for company in result]

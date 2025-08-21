@@ -9,31 +9,22 @@ This example shows how to:
 4. Compare results between different strategies
 """
 
-import pandas as pd
-from datetime import datetime
-from typing import List
 
-from turtle.performance.strategy_performance import StrategyPerformanceTester
-from turtle.performance.period_return import (
-    BuyAndHoldStrategy, 
-    ProfitLossTargetStrategy, 
-    EMAExitStrategy
-)
 
 
 def example_usage() -> None:
     """Demonstrate different ways to use StrategyPerformanceTester with period return strategies."""
-    
+
     print("🔸 StrategyPerformanceTester with TradeExitStrategy Examples")
     print("=" * 70)
-    
+
     # Note: This is a conceptual example showing the API usage
     # In real usage, you would have actual TradingStrategy and BarsHistoryRepo instances
-    
+
     # Example 1: Default BuyAndHoldStrategy
     print("\n1️⃣ Default Strategy (Buy and Hold)")
     print("-" * 40)
-    
+
     """
     # Basic usage - defaults to BuyAndHoldStrategy
     tester_default = StrategyPerformanceTester(
@@ -47,11 +38,11 @@ def example_usage() -> None:
     print("✅ Uses BuyAndHoldStrategy by default")
     print("✅ Holds positions until period end")
     print("✅ Backward compatible with existing code")
-    
+
     # Example 2: ProfitLossTargetStrategy
     print("\n2️⃣ Profit/Loss Target Strategy")
     print("-" * 40)
-    
+
     """
     # Using profit/loss targets
     profit_loss_strategy = ProfitLossTargetStrategy(
@@ -71,11 +62,11 @@ def example_usage() -> None:
     print("✅ Exits at 15% profit OR 8% loss (whichever comes first)")
     print("✅ More realistic risk management")
     print("✅ Prevents large drawdowns")
-    
+
     # Example 3: EMAExitStrategy
     print("\n3️⃣ EMA Exit Strategy")
     print("-" * 40)
-    
+
     """
     # Using EMA-based exits
     ema_strategy = EMAExitStrategy(ema_period=20)
@@ -92,11 +83,11 @@ def example_usage() -> None:
     print("✅ Exits when price closes below 20-day EMA")
     print("✅ Trend-following approach")
     print("✅ Protects against trend reversals")
-    
+
     # Example 4: Custom parameters via kwargs
     print("\n4️⃣ Strategy with Custom Parameters")
     print("-" * 40)
-    
+
     """
     # Passing strategy parameters via kwargs (for SignalResult fallback)
     tester_custom = StrategyPerformanceTester(
@@ -114,11 +105,11 @@ def example_usage() -> None:
     print("✅ Flexible parameter passing")
     print("✅ Useful for strategy optimization")
     print("✅ Works with both new and legacy signal data")
-    
+
     # Example 5: Comparing strategies
     print("\n5️⃣ Strategy Comparison")
     print("-" * 40)
-    
+
     """
     # Run the same backtest with different strategies
     strategies_to_test = [
@@ -153,7 +144,7 @@ def example_usage() -> None:
     print("✅ Easy strategy comparison")
     print("✅ Identify best risk/reward profiles")
     print("✅ Optimize strategy parameters")
-    
+
     print("\n🎯 Key Benefits:")
     print("   • More realistic backtesting with proper exit strategies")
     print("   • Easy to extend with new exit strategies")

@@ -1,7 +1,7 @@
 import logging
 import pandas as pd
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Any
 from psycopg.rows import TupleRow
 from psycopg import Connection
 from dataclasses import asdict
@@ -33,7 +33,7 @@ class BarsHistoryRepo:
             alpaca_api_key, alpaca_api_secret
         )
 
-    def map_alpaca_bars_history(self, symbol: str, bar: AlpacaBar) -> Dict[str, datetime | float | str | None]:
+    def map_alpaca_bars_history(self, symbol: str, bar: AlpacaBar) -> dict[str, datetime | float | str | None]:
         place_holders: dict[str, datetime | float | str | None] = {}
         place_holders["symbol"] = symbol
         place_holders["hdate"] = bar.timestamp
@@ -49,7 +49,7 @@ class BarsHistoryRepo:
 
     def _get_bars_history_db(
         self, symbol: str, start_date: datetime, end_date: datetime
-    ) -> List[TupleRow]:
+    ) -> list[TupleRow]:
         with self.pool.connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -68,13 +68,13 @@ class BarsHistoryRepo:
 
     def get_bars_history(
         self, symbol: str, start_date: datetime, end_date: datetime
-    ) -> List[Bar]:
+    ) -> list[Bar]:
         result = self._get_bars_history_db(symbol, start_date, end_date)
         bar_list = [Bar(*bar) for bar in result]
         # logger.debug(f"{len(symbol_list)} symbols returned from database")
         return bar_list
 
-    def save_bars_history(self, place_holders: Dict[str, Any]) -> None:
+    def save_bars_history(self, place_holders: dict[str, Any]) -> None:
         with self.pool.connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -106,7 +106,7 @@ class BarsHistoryRepo:
         self,
         symbol: str,
         start_date: datetime,
-        end_date: Optional[datetime] = None,
+        end_date: datetime | None = None,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
     ) -> None:
         # stock_data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
@@ -134,7 +134,7 @@ class BarsHistoryRepo:
             # print(row[0][0], row[0][1].to_pydatetime(), row[1], type(row[0][1].to_pydatetime()))
 
     def convert_df(
-        self, bar_list: List[Bar], time_frame_unit: TimeFrameUnit
+        self, bar_list: list[Bar], time_frame_unit: TimeFrameUnit
     ) -> pd.DataFrame:
         dtypes = {
             "hdate": "string",

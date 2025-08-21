@@ -27,7 +27,6 @@ import os
 import pathlib
 import sys
 from datetime import datetime
-from typing import Optional, Tuple
 
 from dotenv import load_dotenv
 from psycopg_pool import ConnectionPool
@@ -93,7 +92,7 @@ def get_trading_strategy_instance(strategy_name: str) -> TradingStrategy:
 
     # Create database connection and bars_history for strategy
     pool: ConnectionPool[Connection[TupleRow]] = ConnectionPool(
-        conninfo="host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres", 
+        conninfo="host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres",
         min_size=5, max_size=50, max_idle=600
     )
     bars_history = BarsHistoryRepo(
@@ -116,7 +115,7 @@ def get_trading_strategy(strategy_runner: StrategyRunnerService, strategy_name: 
 
 def parse_and_validate_dates(
     args: 'argparse.Namespace',
-) -> Tuple[Optional[datetime], Optional[datetime], Optional[datetime]]:
+) -> tuple[datetime | None, datetime | None, datetime | None]:
     """
     Parse and validate dates from command line arguments.
 
@@ -285,7 +284,7 @@ def main() -> int:
         # Initialize strategy runner with the trading strategy
         logger.info("Initializing strategy runner...")
         strategy_runner = StrategyRunnerService(
-            trading_strategy=trading_strategy, 
+            trading_strategy=trading_strategy,
             time_frame_unit=TimeFrameUnit.DAY
         )
 

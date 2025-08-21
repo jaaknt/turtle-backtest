@@ -23,7 +23,6 @@ import logging.handlers
 import pathlib
 import sys
 from datetime import datetime, timedelta
-from typing import Optional, Tuple
 
 from dotenv import load_dotenv
 
@@ -63,7 +62,7 @@ def setup_logging(verbose: bool = False) -> None:
         )
 
 
-def get_previous_trading_day(reference_date: Optional[datetime] = None) -> datetime:
+def get_previous_trading_day(reference_date: datetime | None = None) -> datetime:
     """
     Get the previous trading day from the reference date.
 
@@ -148,7 +147,7 @@ def validate_update_success(
         return False
 
 
-def parse_and_validate_dates(args: 'argparse.Namespace') -> Tuple[datetime, datetime]:
+def parse_and_validate_dates(args: 'argparse.Namespace') -> tuple[datetime, datetime]:
     """
     Parse and validate start and end dates from command line arguments.
 

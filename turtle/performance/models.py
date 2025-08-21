@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import Any
 import pandas as pd
 
 from turtle.performance.period_return import PeriodReturn, PeriodReturnResult
@@ -27,18 +27,18 @@ class SignalResult:
     signal_date: datetime
     entry_price: float
     entry_date: datetime
-    period_results: dict[str, Optional[float]]  # period_name -> closing_price (backward compatibility)
+    period_results: dict[str, float | None]  # period_name -> closing_price (backward compatibility)
     ranking: int = 0
-    period_data: Optional[Dict[str, Dict[str, Any]]] = None  # period_name -> {target_date, data}
-    closing_date: Optional[datetime] = None
-    closing_price: Optional[float] = None
+    period_data: dict[str, dict[str, Any]] | None = None  # period_name -> {target_date, data}
+    closing_date: datetime | None = None
+    closing_price: float | None = None
 
     def get_return_for_period(
-        self, 
-        period_name: str, 
+        self,
+        period_name: str,
         strategy_name: str = 'buy_and_hold',
         **strategy_kwargs: Any
-    ) -> Optional[float]:
+    ) -> float | None:
         """
         Calculate percentage return for a specific period using specified strategy.
 
@@ -56,7 +56,7 @@ class SignalResult:
                 period_info = self.period_data[period_name]
                 target_date = period_info['target_date']
                 data = period_info['data']
-                
+
                 period_return = PeriodReturn(strategy_name, **strategy_kwargs)
                 result = period_return.calculate_return(
                     data=data,
@@ -64,14 +64,14 @@ class SignalResult:
                     entry_date=self.entry_date,
                     target_date=target_date
                 )
-                
+
                 if result:
                     return result.return_pct
-                    
+
             except Exception:
                 # Fall back to legacy calculation
                 pass
-        
+
         # Fallback to legacy calculation for backward compatibility
         if period_name not in self.period_results:
             return None
@@ -81,13 +81,13 @@ class SignalResult:
             return None
 
         return ((closing_price - self.entry_price) / self.entry_price) * 100
-    
+
     def get_return_result_for_period(
-        self, 
-        period_name: str, 
+        self,
+        period_name: str,
         strategy_name: str = 'buy_and_hold',
         **strategy_kwargs: Any
-    ) -> Optional[PeriodReturnResult]:
+    ) -> PeriodReturnResult | None:
         """
         Get detailed period return result including exit reason and date.
 
@@ -101,12 +101,12 @@ class SignalResult:
         """
         if not self.period_data or period_name not in self.period_data:
             return None
-            
+
         try:
             period_info = self.period_data[period_name]
             target_date = period_info['target_date']
             data = period_info['data']
-            
+
             period_return = PeriodReturn(strategy_name, **strategy_kwargs)
             return period_return.calculate_return(
                 data=data,
@@ -114,7 +114,7 @@ class SignalResult:
                 entry_date=self.entry_date,
                 target_date=target_date
             )
-            
+
         except Exception:
             return None
 
@@ -142,11 +142,11 @@ class PerformanceResult:
     win_rate: float
     best_return: float
     worst_return: float
-    returns: List[float]
+    returns: list[float]
 
     @classmethod
     def from_returns(
-        cls, period_name: str, total_signals: int, returns: List[float]
+        cls, period_name: str, total_signals: int, returns: list[float]
     ) -> "PerformanceResult":
         """
         Create PerformanceResult from a list of returns.
@@ -229,17 +229,17 @@ class TestSummary:
     total_signals_found: int
     period_results: dict[str, PerformanceResult]
     max_holding_period: pd.Timedelta
-    benchmark_results: Optional[dict] = None
-    ranking_results: Optional[dict[str, RankingPerformance]] = None
-    signal_benchmark_data: Optional[List[Dict[str, Any]]] = None
+    benchmark_results: dict | None = None
+    ranking_results: dict[str, RankingPerformance] | None = None
+    signal_benchmark_data: list[dict[str, Any]] | None = None
 
     def get_performance_for_period(
         self, period_name: str
-    ) -> Optional[PerformanceResult]:
+    ) -> PerformanceResult | None:
         """Get performance results for a specific period."""
         return self.period_results.get(period_name)
 
-    def get_all_periods(self) -> List[str]:
+    def get_all_periods(self) -> list[str]:
         """Get list of all tested period names."""
         return list(self.period_results.keys())
 
@@ -355,10 +355,10 @@ class TestSummary:
             lines.append("Individual Signal Benchmark Performance:")
             lines.append("Ticker    Entry Date   Exit Date    Return%    QQQ%     SPY%")
             lines.append("-" * 60)
-            
+
             # Sort by entry date
             sorted_signals = sorted(self.signal_benchmark_data, key=lambda x: x.get('entry_date', datetime.min))
-            
+
             for signal_data in sorted_signals[:10]:  # Show first 10 signals
                 ticker = signal_data.get('ticker', 'N/A')[:8]
                 entry_date = signal_data.get('entry_date')
@@ -366,36 +366,36 @@ class TestSummary:
                 return_pct = signal_data.get('return_pct')
                 return_pct_qqq = signal_data.get('return_pct_qqq')
                 return_pct_spy = signal_data.get('return_pct_spy')
-                
+
                 entry_str = entry_date.strftime('%Y-%m-%d') if entry_date else 'N/A'
                 exit_str = exit_date.strftime('%Y-%m-%d') if exit_date else 'N/A'
                 return_str = f"{return_pct:+6.1f}" if return_pct is not None else "   N/A"
                 qqq_str = f"{return_pct_qqq:+6.1f}" if return_pct_qqq is not None else "   N/A"
                 spy_str = f"{return_pct_spy:+6.1f}" if return_pct_spy is not None else "   N/A"
-                
+
                 lines.append(f"{ticker:8} {entry_str} {exit_str} {return_str}%  {qqq_str}%  {spy_str}%")
-            
+
             if len(self.signal_benchmark_data) > 10:
                 lines.append(f"... and {len(self.signal_benchmark_data) - 10} more signals")
-            
+
             # Calculate and display average benchmark returns
-            valid_qqq: List[float] = []
-            valid_spy: List[float] = []
-            
+            valid_qqq: list[float] = []
+            valid_spy: list[float] = []
+
             for s in self.signal_benchmark_data:
                 qqq_val = s.get('return_pct_qqq')
                 if qqq_val is not None:
                     valid_qqq.append(float(qqq_val))
-                    
+
                 spy_val = s.get('return_pct_spy')
                 if spy_val is not None:
                     valid_spy.append(float(spy_val))
-            
+
             if valid_qqq:
                 avg_qqq = sum(valid_qqq) / len(valid_qqq)
                 lines.append("")
                 lines.append(f"Average QQQ Return: {avg_qqq:+5.1f}% ({len(valid_qqq)} signals)")
-            
+
             if valid_spy:
                 avg_spy = sum(valid_spy) / len(valid_spy)
                 lines.append(f"Average SPY Return: {avg_spy:+5.1f}% ({len(valid_spy)} signals)")
