@@ -1,14 +1,14 @@
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
+
+import numpy as np
 import pandas as pd
 import talib
-import numpy as np
-from typing import List, Tuple
 
-from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
-from turtle.strategy.trading_strategy import TradingStrategy
+from turtle.data.bars_history import BarsHistoryRepo
 from turtle.strategy.models import Signal
+from turtle.strategy.trading_strategy import TradingStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -43,22 +43,16 @@ class DarvasBoxStrategy(TradingStrategy):
         preceding_values = series.iloc[max(0, row_index - preceding_count) : row_index]
 
         # Get the 3 next values (handling end of DataFrame edge cases)
-        following_values = series.iloc[
-            row_index + 1 : min(row_index + following_count + 1, len(series))
-        ]
+        following_values = series.iloc[row_index + 1 : min(row_index + following_count + 1, len(series))]
 
         # Check if all previous 10 and next 3 values are less than current
-        if (preceding_values < current_value).all() and (
-            following_values < current_value
-        ).all():
+        if (preceding_values < current_value).all() and (following_values < current_value).all():
             return True
         else:
             return False
 
     @staticmethod
-    def check_local_min(
-        row_index: int, series: pd.Series, following_count: int = 3
-    ) -> bool:
+    def check_local_min(row_index: int, series: pd.Series, following_count: int = 3) -> bool:
         # return False if there are not enough following values
         if row_index + following_count >= len(series):
             return False
@@ -67,9 +61,7 @@ class DarvasBoxStrategy(TradingStrategy):
         current_value = series.iloc[row_index]
 
         # Get the 3 next values (handling end of DataFrame edge cases)
-        following_values = series.iloc[
-            row_index + 1 : min(row_index + following_count + 1, len(series))
-        ]
+        following_values = series.iloc[row_index + 1 : min(row_index + following_count + 1, len(series))]
 
         # Check if all next 3 values are less than current
         if (following_values >= current_value).all():
@@ -78,9 +70,7 @@ class DarvasBoxStrategy(TradingStrategy):
             return False
 
     @staticmethod
-    def is_local_max_valid(
-        df: pd.DataFrame, local_max: float, following_count: int = 3
-    ):
+    def is_local_max_valid(df: pd.DataFrame, local_max: float, following_count: int = 3):
         # iterate over the following rows
         # return True if 0:following_count high values after is_local_min are less than local_max
         following: int = -1
@@ -95,9 +85,7 @@ class DarvasBoxStrategy(TradingStrategy):
                 return True
         return True
 
-    def collect_historical_data(
-        self, ticker: str, start_date: datetime, end_date: datetime
-    ) -> bool:
+    def collect_historical_data(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
         self.df = self.bars_history.get_ticker_history(
             ticker,
             start_date - timedelta(days=self.warmup_period),
@@ -144,13 +132,9 @@ class DarvasBoxStrategy(TradingStrategy):
         self.df["box_top"] = np.nan
         self.df["box_bottom"] = np.nan
         self.df["is_local_max"] = self.df.index.to_series().apply(
-            lambda i: self.check_local_max(
-                i, self.df["high"], lookback_period, validation_period
-            )
+            lambda i: self.check_local_max(i, self.df["high"], lookback_period, validation_period)
         )
-        self.df["is_local_min"] = self.df.index.to_series().apply(
-            lambda i: self.check_local_min(i, self.df["low"], validation_period)
-        )
+        self.df["is_local_min"] = self.df.index.to_series().apply(lambda i: self.check_local_min(i, self.df["low"], validation_period))
 
         # Initialize variables for box formation
         status: str = "unknown"
@@ -164,9 +148,7 @@ class DarvasBoxStrategy(TradingStrategy):
             # if status is unknown, check if the current row is a local max
             if status == "unknown":
                 if row["is_local_max"]:
-                    if self.is_local_max_valid(
-                        self.df[i:], row["high"], validation_period
-                    ):
+                    if self.is_local_max_valid(self.df[i:], row["high"], validation_period):
                         status = "box_top_set"
                         box_top = row["high"]
                         # self.df_weekly.at[i, "status"] = status
@@ -221,52 +203,38 @@ class DarvasBoxStrategy(TradingStrategy):
 
         # last close > max(close, 20)
         if row["close"] < row["max_close_20"]:
-            logger.debug(
-                f"{ticker} close < max_close_20, close: {row['close']} max_close_20: {row['max_close_20']}"
-            )
+            logger.debug(f"{ticker} close < max_close_20, close: {row['close']} max_close_20: {row['max_close_20']}")
             return False
 
         # last close > EMA(close, 10)
         if row["close"] < row["ema_10"]:
-            logger.debug(
-                f"{ticker} close < EMA_10, close: {row['close']} EMA10: {row['ema_10']}"
-            )
+            logger.debug(f"{ticker} close < EMA_10, close: {row['close']} EMA10: {row['ema_10']}")
             return False
 
         # last close > EMA(close, 20)
         if row["close"] < row["ema_20"]:
-            logger.debug(
-                f"{ticker} close < EMA_20, close: {row['close']} EMA20: {row['ema_20']}"
-            )
+            logger.debug(f"{ticker} close < EMA_20, close: {row['close']} EMA20: {row['ema_20']}")
             return False
 
         # EMA(close, 10) > EMA(close, 20)
         if row["ema_10"] < row["ema_20"]:
-            logger.debug(
-                f"{ticker} EMA_10 < EMA_20, EMA10: {row['ema_10']} EMA20: {row['ema_20']}"
-            )
+            logger.debug(f"{ticker} EMA_10 < EMA_20, EMA10: {row['ema_10']} EMA20: {row['ema_20']}")
             return False
 
         # last close > EMA(close, 50)
         if row["close"] < row["ema_50"]:
-            logger.debug(
-                f"{ticker} close < EMA_50, close: {row['close']} EMA50: {row['ema_50']}"
-            )
+            logger.debug(f"{ticker} close < EMA_50, close: {row['close']} EMA50: {row['ema_50']}")
             return False
 
         if self.time_frame_unit == TimeFrameUnit.DAY:
             # last close > EMA(close, 200)
             if row["close"] < row["ema_200"]:
-                logger.debug(
-                    f"{ticker} close < EMA_200, close: {row['close']} EMA200: {row['ema_200']}"
-                )
+                logger.debug(f"{ticker} close < EMA_200, close: {row['close']} EMA200: {row['ema_200']}")
                 return False
 
             # EMA(close, 50) > EMA(close, 200)
             if row["ema_50"] < row["ema_200"]:
-                logger.debug(
-                    f"{ticker} EMA_50 < EMA_200, EMA50: {row['ema_50']} EMA200: {row['ema_200']}"
-                )
+                logger.debug(f"{ticker} EMA_50 < EMA_200, EMA50: {row['ema_50']} EMA200: {row['ema_200']}")
                 return False
 
         # if last volume < EMA(volume, 10)*1.10
@@ -278,9 +246,7 @@ class DarvasBoxStrategy(TradingStrategy):
 
         # At least 1% raise between close and open
         if (row["close"] - row["open"]) / row["close"] < 0.01:
-            logger.debug(
-                f"{ticker} (close - open) / close < 0.01, close: {row['close']} open: {row['open']}"
-            )
+            logger.debug(f"{ticker} (close - open) / close < 0.01, close: {row['close']} open: {row['open']}")
             return False
 
         return True
@@ -294,15 +260,11 @@ class DarvasBoxStrategy(TradingStrategy):
 
         # compare last row [hdate] with the date_to_check
         if self.df.iloc[-1]["hdate"] != date_to_check:
-            logger.warning(
-                f"{ticker} - last row date {self.df.iloc[-1]['hdate']} does not match {date_to_check}"
-            )
+            logger.warning(f"{ticker} - last row date {self.df.iloc[-1]['hdate']} does not match {date_to_check}")
 
         return self.is_buy_signal(ticker, self.df.iloc[-1])
 
-    def get_trading_signals(
-        self, ticker: str, start_date: datetime, end_date: datetime
-    ) -> List[Signal]:
+    def get_trading_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
         """
         Get trading signals for a ticker within a date range.
 
@@ -335,22 +297,18 @@ class DarvasBoxStrategy(TradingStrategy):
             & (filtered_df["ema_10"] >= filtered_df["ema_20"])
             & (filtered_df["close"] >= filtered_df["ema_50"])
             & (filtered_df["volume"] >= filtered_df["ema_volume_10"] * 1.10)
-            & (
-                (filtered_df["close"] - filtered_df["open"]) / filtered_df["close"]
-                >= 0.01
-            )
+            & ((filtered_df["close"] - filtered_df["open"]) / filtered_df["close"] >= 0.01)
         )
 
         # Add EMA200 conditions only for daily timeframe
         if self.time_frame_unit == TimeFrameUnit.DAY:
             buy_signals = buy_signals & (
-                (filtered_df["close"] >= filtered_df["ema_200"])
-                & (filtered_df["ema_50"] >= filtered_df["ema_200"])
+                (filtered_df["close"] >= filtered_df["ema_200"]) & (filtered_df["ema_50"] >= filtered_df["ema_200"])
             )
 
         # Get the dates where buy signals occur
         signal_dates = filtered_df[buy_signals]["hdate"].tolist()
-        
+
         # Return list of Signal objects
         return [Signal(ticker=ticker, date=signal_date) for signal_date in signal_dates]
 
@@ -358,12 +316,10 @@ class DarvasBoxStrategy(TradingStrategy):
     # parameters - self, ticker, start_date, end_date
     # adds a new column to the DataFrame - df["buy_signal"] with boolean values
     # returns count of buy signals
-    def trading_signals_count(
-        self, ticker: str, start_date: datetime, end_date: datetime
-    ) -> int:
+    def trading_signals_count(self, ticker: str, start_date: datetime, end_date: datetime) -> int:
         """
         Count the number of trading signals for a ticker within a date range.
-        
+
         This method now uses get_trading_signals internally for consistency.
 
         Args:
@@ -426,9 +382,7 @@ class DarvasBoxStrategy(TradingStrategy):
 
         # Calculate percentage change
         pct_change = (current_ema200 - past_ema200) / past_ema200
-        logger.debug(
-            f"EMA200 1M - Current: {current_ema200}, Past: {past_ema200}, Pct Change: {pct_change}"
-        )
+        logger.debug(f"EMA200 1M - Current: {current_ema200}, Past: {past_ema200}, Pct Change: {pct_change}")
 
         # Convert to ranking score: 20 for +10%, scale linearly
         # Positive changes get higher scores, negative changes get lower scores
@@ -593,10 +547,4 @@ class DarvasBoxStrategy(TradingStrategy):
             f"Period High: {period_high_ranking}"
         )
         # Return combined score
-        return (
-            price_ranking
-            + ema200_1month_ranking
-            + ema200_3month_ranking
-            + ema200_6month_ranking
-            + period_high_ranking
-        )
+        return price_ranking + ema200_1month_ranking + ema200_3month_ranking + ema200_6month_ranking + period_high_ranking
