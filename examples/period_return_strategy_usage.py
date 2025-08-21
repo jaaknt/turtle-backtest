@@ -10,8 +10,6 @@ This example shows how to:
 """
 
 
-
-
 def example_usage() -> None:
     """Demonstrate different ways to use StrategyPerformanceTester with period return strategies."""
 
@@ -49,7 +47,7 @@ def example_usage() -> None:
         profit_target=15.0,  # Take profit at 15% gain
         stop_loss=8.0        # Stop loss at 8% loss
     )
-    
+
     tester_profit_loss = StrategyPerformanceTester(
         strategy=my_trading_strategy,
         bars_history=my_bars_history,
@@ -70,7 +68,7 @@ def example_usage() -> None:
     """
     # Using EMA-based exits
     ema_strategy = EMAExitStrategy(ema_period=20)
-    
+
     tester_ema = StrategyPerformanceTester(
         strategy=my_trading_strategy,
         bars_history=my_bars_history,
@@ -119,7 +117,7 @@ def example_usage() -> None:
         ("EMA-20 Exit", EMAExitStrategy(ema_period=20)),
         ("EMA-50 Exit", EMAExitStrategy(ema_period=50)),
     ]
-    
+
     results = {}
     for name, strategy in strategies_to_test:
         tester = StrategyPerformanceTester(
@@ -130,11 +128,11 @@ def example_usage() -> None:
             max_holding_period=pd.Timedelta(days=14),
             period_return_strategy=strategy
         )
-        
+
         signals = tester.generate_signals(['AAPL', 'MSFT', 'GOOGL'])
         performance = tester.calculate_performance()
         results[name] = performance
-    
+
     # Compare results
     for name, perf in results.items():
         avg_return_1w = perf.period_results['1W'].average_return

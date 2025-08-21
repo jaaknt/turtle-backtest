@@ -37,8 +37,8 @@ class SymbolRepo:
                     SELECT symbol, name, exchange, country
                         FROM turtle.ticker
                         WHERE country = %s
-                          AND status = 'ACTIVE'     
-                        ORDER BY symbol       
+                          AND status = 'ACTIVE'
+                        ORDER BY symbol
                     """,
                     (country,),
                 )
@@ -58,25 +58,22 @@ class SymbolRepo:
     def save_symbol_list(self, place_holders: dict[str, Any]) -> None:
         with self.pool.connection() as connection:
             with connection.cursor() as cursor:
-                logger.debug(
-                    f"Inserting symbol {place_holders['symbol']} into database"
-                )
+                logger.debug(f"Inserting symbol {place_holders['symbol']} into database")
                 cursor.execute(
                     """
                     INSERT INTO turtle.ticker
                     (symbol, "name", exchange, country, currency, isin, symbol_type, source, status)
-                    VALUES(%(symbol)s, %(name)s, %(exchange)s, %(country)s, %(currency)s, %(isin)s, %(symbol_type)s, %(source)s, %(status)s) 
-                        ON CONFLICT (symbol) DO UPDATE SET              
-                    ("name", exchange, country, currency, isin, symbol_type, source, modified_at) = 
-                    (EXCLUDED."name", EXCLUDED.exchange, EXCLUDED.country, EXCLUDED.currency, EXCLUDED.isin, EXCLUDED.symbol_type, EXCLUDED."source", CURRENT_TIMESTAMP)         
+                    VALUES(%(symbol)s, %(name)s, %(exchange)s, %(country)s, %(currency)s, %(isin)s, %(symbol_type)s, %(source)s, %(status)s)
+                        ON CONFLICT (symbol) DO UPDATE SET
+                    ("name", exchange, country, currency, isin, symbol_type, source, modified_at) =
+                    (EXCLUDED."name", EXCLUDED.exchange, EXCLUDED.country, EXCLUDED.currency, EXCLUDED.isin,
+                    EXCLUDED.symbol_type, EXCLUDED."source", CURRENT_TIMESTAMP)
                     """,
                     place_holders,
                 )
                 connection.commit()
 
-    def get_eodhd_exchange_symbol_list(
-        self, exchange_code: str
-    ) -> list[dict[str, Any]]:
+    def get_eodhd_exchange_symbol_list(self, exchange_code: str) -> list[dict[str, Any]]:
         url = f"https://eodhd.com/api/exchange-symbol-list/{exchange_code}?api_token={self.api_key}&fmt=json&type=stock"
         response = httpx.get(url)
         response.raise_for_status()

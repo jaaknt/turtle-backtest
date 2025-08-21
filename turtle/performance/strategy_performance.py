@@ -25,11 +25,11 @@ class StrategyPerformanceTester:
         end_date: datetime,
         max_holding_period: pd.Timedelta,
         period_return_strategy: TradeExitStrategy | None = None,
-        period_return_strategy_kwargs: dict | None = None
+        period_return_strategy_kwargs: dict | None = None,
     ):
         """
         Initialize the strategy performance tester.
-        
+
         Args:
             strategy: Trading strategy instance to test
             bars_history: Repository for accessing historical bar data
@@ -52,10 +52,10 @@ class StrategyPerformanceTester:
     def generate_signals(self, tickers: list[str]) -> list[SignalResult]:
         """
         Generate trading signals for given tickers within the date range.
-        
+
         Args:
             tickers: List of stock symbols to analyze
-            
+
         Returns:
             List of SignalResult objects containing signal information
         """
@@ -79,7 +79,7 @@ class StrategyPerformanceTester:
                 if signals_count > 0:
                     # Get the DataFrame with buy signals
                     df = self.strategy.df
-                    signal_dates = df[df['buy_signal']]['hdate'].tolist()
+                    signal_dates = df[df["buy_signal"]]["hdate"].tolist()
 
                     for signal_date in signal_dates:
                         signal_result = self._process_signal(ticker, signal_date)
@@ -96,11 +96,11 @@ class StrategyPerformanceTester:
     def _process_signal(self, ticker: str, signal_date: datetime) -> SignalResult | None:
         """
         Process a single trading signal and calculate returns for all test periods.
-        
+
         Args:
             ticker: Stock symbol
             signal_date: Date when the signal was generated
-            
+
         Returns:
             SignalResult object or None if processing failed
         """
@@ -124,10 +124,7 @@ class StrategyPerformanceTester:
             ohlcv_data = self._get_period_data(ticker, entry_date, target_date)
             period_data = {}
             if ohlcv_data is not None:
-                period_data[period_name] = {
-                    'target_date': target_date,
-                    'data': ohlcv_data
-                }
+                period_data[period_name] = {"target_date": target_date, "data": ohlcv_data}
 
             # Calculate ranking for this signal
             ranking = self.strategy.ranking(ticker, signal_date)
@@ -139,7 +136,7 @@ class StrategyPerformanceTester:
                 entry_date=entry_date,
                 period_results=period_results,
                 ranking=ranking,
-                period_data=period_data if period_data else None
+                period_data=period_data if period_data else None,
             )
 
         except Exception as e:
@@ -149,11 +146,11 @@ class StrategyPerformanceTester:
     def _get_entry_price(self, ticker: str, signal_date: datetime) -> tuple[datetime | None, float | None]:
         """
         Get the opening price of the next trading day after the signal.
-        
+
         Args:
             ticker: Stock symbol
             signal_date: Date when signal was generated
-            
+
         Returns:
             Tuple of (entry_date, entry_price) or (None, None) if not found
         """
@@ -162,17 +159,15 @@ class StrategyPerformanceTester:
             start_search = signal_date + timedelta(days=1)
             end_search = signal_date + timedelta(days=5)
 
-            df = self.bars_history.get_ticker_history(
-                ticker, start_search, end_search, self.strategy.time_frame_unit
-            )
+            df = self.bars_history.get_ticker_history(ticker, start_search, end_search, self.strategy.time_frame_unit)
 
             if df.empty:
                 return None, None
 
             # Get the first available trading day's opening price
             first_row = df.iloc[0]
-            entry_date = pd.to_datetime(df.index[0]) if isinstance(df.index[0], (str, pd.Timestamp)) else df.index[0]
-            entry_price = first_row['open']
+            entry_date = pd.to_datetime(df.index[0]) if isinstance(df.index[0], str | pd.Timestamp) else df.index[0]
+            entry_price = first_row["open"]
 
             return entry_date, float(entry_price)
 
@@ -183,12 +178,12 @@ class StrategyPerformanceTester:
     def _get_closing_price_after_period(self, ticker: str, entry_date: datetime, period: pd.Timedelta) -> float | None:
         """
         Get the closing price after a specific period from entry date.
-        
+
         Args:
             ticker: Stock symbol
             entry_date: Date when position was entered
             period: Time period to wait before getting closing price
-            
+
         Returns:
             Closing price or None if not available
         """
@@ -199,16 +194,14 @@ class StrategyPerformanceTester:
                 target_date = entry_date + period
             else:
                 # For longer periods, use business day calculation
-                business_days = period.days * (5/7)  # Approximate business days
+                business_days = period.days * (5 / 7)  # Approximate business days
                 target_date = entry_date + pd.Timedelta(days=business_days)
 
             # Get data around the target date (±5 days to handle weekends/holidays)
             start_search = target_date - timedelta(days=2)
             end_search = target_date + timedelta(days=5)
 
-            df = self.bars_history.get_ticker_history(
-                ticker, start_search, end_search, self.strategy.time_frame_unit
-            )
+            df = self.bars_history.get_ticker_history(ticker, start_search, end_search, self.strategy.time_frame_unit)
 
             if df.empty:
                 return None
@@ -224,26 +217,27 @@ class StrategyPerformanceTester:
                     diff_days = abs((pd.to_datetime(idx) - target_date).days)
                 date_diffs.append(diff_days)
 
-            df_copy['date_diff'] = date_diffs
-            closest_idx = df_copy['date_diff'].idxmin()
+            df_copy["date_diff"] = date_diffs
+            closest_idx = df_copy["date_diff"].idxmin()
             closest_row = df_copy.loc[closest_idx]
 
             # Ensure we get a scalar value from the Series
-            close_value = closest_row['close']
+            close_value = closest_row["close"]
 
             # Handle various pandas types to get a scalar value
             import numpy as np
-            if isinstance(close_value, (pd.Series, pd.DataFrame)):
+
+            if isinstance(close_value, pd.Series | pd.DataFrame):
                 if len(close_value) > 0:
                     close_value = close_value.iloc[0]
                 else:
                     return None
-            elif hasattr(close_value, 'item'):
+            elif hasattr(close_value, "item"):
                 # Use .item() for numpy scalars
                 close_value = close_value.item()
 
             # Convert to Python float with comprehensive type handling
-            if isinstance(close_value, (int, float, np.number)):
+            if isinstance(close_value, int | float | np.number):
                 return float(close_value)
             else:
                 try:
@@ -259,12 +253,12 @@ class StrategyPerformanceTester:
     def _get_period_data(self, ticker: str, entry_date: datetime, target_date: datetime) -> pd.DataFrame | None:
         """
         Get OHLCV data for the entire period from entry to target date.
-        
+
         Args:
             ticker: Stock symbol
             entry_date: Date when position was entered
             target_date: Target end date for the period
-            
+
         Returns:
             DataFrame with OHLCV data or None if not available
         """
@@ -274,15 +268,13 @@ class StrategyPerformanceTester:
             start_date = entry_date - timedelta(days=buffer_days)
             end_date = target_date + timedelta(days=5)  # Buffer after target
 
-            df = self.bars_history.get_ticker_history(
-                ticker, start_date, end_date, self.strategy.time_frame_unit
-            )
+            df = self.bars_history.get_ticker_history(ticker, start_date, end_date, self.strategy.time_frame_unit)
 
             if df.empty:
                 return None
 
             # Ensure we have the required columns
-            required_columns = ['open', 'high', 'low', 'close', 'volume']
+            required_columns = ["open", "high", "low", "close", "volume"]
             if not all(col in df.columns for col in required_columns):
                 logger.warning(f"Missing required OHLCV columns for {ticker}")
                 return None
@@ -296,11 +288,11 @@ class StrategyPerformanceTester:
     def _calculate_benchmark_returns(self, entry_date: datetime, exit_date: datetime) -> tuple[float | None, float | None]:
         """
         Calculate QQQ and SPY benchmark returns for the same period as a signal.
-        
+
         Args:
             entry_date: Date when position was entered
             exit_date: Date when position was exited
-            
+
         Returns:
             Tuple of (qqq_return_pct, spy_return_pct) or (None, None) if data not available
         """
@@ -314,9 +306,7 @@ class StrategyPerformanceTester:
                 start_date = entry_date - timedelta(days=1)
                 end_date = exit_date + timedelta(days=2)
 
-                df = self.bars_history.get_ticker_history(
-                    symbol, start_date, end_date, self.strategy.time_frame_unit
-                )
+                df = self.bars_history.get_ticker_history(symbol, start_date, end_date, self.strategy.time_frame_unit)
 
                 if df.empty:
                     logger.debug(f"No benchmark data available for {symbol}")
@@ -329,7 +319,7 @@ class StrategyPerformanceTester:
                     logger.debug(f"No entry data for {symbol} on {entry_date}")
                     continue
 
-                entry_price = entry_data.iloc[0]['open']
+                entry_price = entry_data.iloc[0]["open"]
 
                 # Find closing price on or closest to exit_date
                 exit_mask = df.index <= pd.Timestamp(exit_date)
@@ -340,10 +330,10 @@ class StrategyPerformanceTester:
 
                 # Get the closest trading day to exit date
                 target_timestamp = pd.Timestamp(exit_date)
-                date_diffs = np.abs((exit_data.index - target_timestamp).astype('timedelta64[ns]'))
+                date_diffs = np.abs((exit_data.index - target_timestamp).astype("timedelta64[ns]"))
                 min_diff_idx = int(np.argmin(date_diffs))
                 closest_idx = exit_data.index[min_diff_idx]
-                exit_price = exit_data.loc[closest_idx, 'close']
+                exit_price = exit_data.loc[closest_idx, "close"]
 
                 # Calculate percentage return
                 if entry_price > 0:
@@ -353,8 +343,7 @@ class StrategyPerformanceTester:
                     elif symbol == "SPY":
                         spy_return = return_pct
 
-                    logger.debug(f"Benchmark {symbol}: {return_pct:.2f}% "
-                               f"({entry_price:.2f} -> {exit_price:.2f})")
+                    logger.debug(f"Benchmark {symbol}: {return_pct:.2f}% ({entry_price:.2f} -> {exit_price:.2f})")
 
             except Exception as e:
                 logger.error(f"Error calculating {symbol} benchmark return: {e}")
@@ -365,11 +354,11 @@ class StrategyPerformanceTester:
     def _calculate_signal_return_with_benchmarks(self, signal_result: SignalResult, period_name: str) -> PeriodReturnResult | None:
         """
         Calculate return for a signal with benchmark data using the configured period return strategy.
-        
+
         Args:
             signal_result: SignalResult to calculate return for
             period_name: Name of the period (e.g., '1W', '2W', '1M')
-            
+
         Returns:
             PeriodReturnResult with benchmark data or None if calculation failed
         """
@@ -378,21 +367,17 @@ class StrategyPerformanceTester:
         if signal_result.period_data and period_name in signal_result.period_data:
             try:
                 period_info = signal_result.period_data[period_name]
-                target_date = period_info['target_date']
-                data = period_info['data']
+                target_date = period_info["target_date"]
+                data = period_info["data"]
 
                 result = self.period_return_strategy.calculate_return(
-                    data=data,
-                    entry_price=signal_result.entry_price,
-                    entry_date=signal_result.entry_date,
-                    target_date=target_date
+                    data=data, entry_price=signal_result.entry_price, entry_date=signal_result.entry_date, target_date=target_date
                 )
 
                 if result:
                     # Calculate benchmark returns for the same period
                     qqq_return, spy_return = self._calculate_benchmark_returns(
-                        result.entry_date or signal_result.entry_date,
-                        result.exit_date
+                        result.entry_date or signal_result.entry_date, result.exit_date
                     )
 
                     # Update the result with benchmark data
@@ -413,20 +398,17 @@ class StrategyPerformanceTester:
             target_date = signal_result.entry_date + self.max_holding_period
 
             # Calculate benchmark returns
-            qqq_return, spy_return = self._calculate_benchmark_returns(
-                signal_result.entry_date,
-                target_date
-            )
+            qqq_return, spy_return = self._calculate_benchmark_returns(signal_result.entry_date, target_date)
 
             return PeriodReturnResult(
                 return_pct=return_pct,
                 exit_price=0.0,  # Not available from legacy method
                 exit_date=target_date,
-                exit_reason='period_end',
+                exit_reason="period_end",
                 entry_date=signal_result.entry_date,
                 entry_price=signal_result.entry_price,
                 return_pct_qqq=qqq_return,
-                return_pct_spy=spy_return
+                return_pct_spy=spy_return,
             )
 
         return None
@@ -434,11 +416,11 @@ class StrategyPerformanceTester:
     def _calculate_signal_return(self, signal_result: SignalResult, period_name: str) -> float | None:
         """
         Calculate return for a signal using the configured period return strategy.
-        
+
         Args:
             signal_result: SignalResult to calculate return for
             period_name: Name of the period (e.g., '1W', '2W', '1M')
-            
+
         Returns:
             Percentage return or None if calculation failed
         """
@@ -446,14 +428,11 @@ class StrategyPerformanceTester:
         if signal_result.period_data and period_name in signal_result.period_data:
             try:
                 period_info = signal_result.period_data[period_name]
-                target_date = period_info['target_date']
-                data = period_info['data']
+                target_date = period_info["target_date"]
+                data = period_info["data"]
 
                 result = self.period_return_strategy.calculate_return(
-                    data=data,
-                    entry_price=signal_result.entry_price,
-                    entry_date=signal_result.entry_date,
-                    target_date=target_date
+                    data=data, entry_price=signal_result.entry_price, entry_date=signal_result.entry_date, target_date=target_date
                 )
 
                 if result:
@@ -469,10 +448,10 @@ class StrategyPerformanceTester:
     def _format_period_name(self, period: pd.Timedelta) -> str:
         """
         Format a pandas Timedelta into a readable period name.
-        
+
         Args:
             period: pandas Timedelta object
-            
+
         Returns:
             Formatted period name (e.g., '3d', '1W', '2W', '1M')
         """
@@ -488,7 +467,7 @@ class StrategyPerformanceTester:
     def calculate_performance(self) -> TestSummary:
         """
         Calculate performance statistics from generated signals.
-        
+
         Returns:
             TestSummary object containing aggregated performance results
         """
@@ -500,7 +479,7 @@ class StrategyPerformanceTester:
                 test_end_date=self.end_date,
                 total_signals_found=0,
                 period_results={},
-                max_holding_period=self.max_holding_period
+                max_holding_period=self.max_holding_period,
             )
 
         # Calculate performance for single holding period
@@ -514,20 +493,18 @@ class StrategyPerformanceTester:
             if result is not None:
                 returns.append(result.return_pct)
                 # Store benchmark data for this signal
-                benchmark_data.append({
-                    'ticker': signal_result.ticker,
-                    'entry_date': result.entry_date,
-                    'exit_date': result.exit_date,
-                    'return_pct': result.return_pct,
-                    'return_pct_qqq': result.return_pct_qqq,
-                    'return_pct_spy': result.return_pct_spy
-                })
+                benchmark_data.append(
+                    {
+                        "ticker": signal_result.ticker,
+                        "entry_date": result.entry_date,
+                        "exit_date": result.exit_date,
+                        "return_pct": result.return_pct,
+                        "return_pct_qqq": result.return_pct_qqq,
+                        "return_pct_spy": result.return_pct_spy,
+                    }
+                )
 
-        performance = PerformanceResult.from_returns(
-            period_name=period_name,
-            total_signals=len(self.signal_results),
-            returns=returns
-        )
+        performance = PerformanceResult.from_returns(period_name=period_name, total_signals=len(self.signal_results), returns=returns)
         period_results = {period_name: performance}
 
         # Calculate ranking-based performance
@@ -541,51 +518,36 @@ class StrategyPerformanceTester:
             period_results=period_results,
             max_holding_period=self.max_holding_period,
             ranking_results=ranking_results,
-            signal_benchmark_data=benchmark_data
+            signal_benchmark_data=benchmark_data,
         )
 
-    def _calculate_ranking_performance(self) -> dict[str, 'RankingPerformance']:
+    def _calculate_ranking_performance(self) -> dict[str, "RankingPerformance"]:
         """
         Calculate performance statistics grouped by ranking ranges.
-        
+
         Returns:
             Dictionary mapping ranking ranges to RankingPerformance objects
         """
         from turtle.performance.models import RankingPerformance
 
         # Define ranking ranges
-        ranking_ranges = {
-            "0-20": (0, 20),
-            "21-40": (21, 40),
-            "41-60": (41, 60),
-            "61-80": (61, 80),
-            "81-100": (81, 100)
-        }
+        ranking_ranges = {"0-20": (0, 20), "21-40": (21, 40), "41-60": (41, 60), "61-80": (61, 80), "81-100": (81, 100)}
 
         ranking_results = {}
 
         for range_name, (min_rank, max_rank) in ranking_ranges.items():
             # Filter signals by ranking range
-            range_signals = [
-                signal for signal in self.signal_results
-                if min_rank <= signal.ranking <= max_rank
-            ]
+            range_signals = [signal for signal in self.signal_results if min_rank <= signal.ranking <= max_rank]
 
             if not range_signals:
                 # Create empty performance results for this range
                 period_performance = {}
                 period_name = self._format_period_name(self.max_holding_period)
-                performance = PerformanceResult.from_returns(
-                    period_name=period_name,
-                    total_signals=0,
-                    returns=[]
-                )
+                performance = PerformanceResult.from_returns(period_name=period_name, total_signals=0, returns=[])
                 period_performance = {period_name: performance}
 
                 ranking_results[range_name] = RankingPerformance(
-                    ranking_range=range_name,
-                    period_results=period_performance,
-                    total_signals=0
+                    ranking_range=range_name, period_results=period_performance, total_signals=0
                 )
                 continue
 
@@ -598,17 +560,11 @@ class StrategyPerformanceTester:
                 if return_pct is not None:
                     returns.append(return_pct)
 
-            performance = PerformanceResult.from_returns(
-                period_name=period_name,
-                total_signals=len(range_signals),
-                returns=returns
-            )
+            performance = PerformanceResult.from_returns(period_name=period_name, total_signals=len(range_signals), returns=returns)
             period_performance = {period_name: performance}
 
             ranking_results[range_name] = RankingPerformance(
-                ranking_range=range_name,
-                period_results=period_performance,
-                total_signals=len(range_signals)
+                ranking_range=range_name, period_results=period_performance, total_signals=len(range_signals)
             )
 
         return ranking_results
@@ -616,7 +572,7 @@ class StrategyPerformanceTester:
     def get_results(self) -> TestSummary:
         """
         Get the complete test results.
-        
+
         Returns:
             TestSummary object with all performance statistics
         """
