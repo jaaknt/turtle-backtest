@@ -5,6 +5,7 @@ import talib
 
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
+from turtle.ranking.ranking_strategy import RankingStrategy
 from turtle.strategy.trading_strategy import TradingStrategy
 from turtle.strategy.models import Signal
 
@@ -17,11 +18,12 @@ class MarsStrategy(TradingStrategy):
     def __init__(
         self,
         bars_history: BarsHistoryRepo,
+        ranking_strategy: RankingStrategy,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.WEEK,
-        warmup_period: int = 300,
-        min_bars: int = 30,
+        warmup_period: int = 720,  # 2 years for daily EMA200 + weekly data
+        min_bars: int = 240,
     ):
-        super().__init__(bars_history, time_frame_unit, warmup_period, min_bars)
+        super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars)
 
         self.df_orig = pd.DataFrame()
 

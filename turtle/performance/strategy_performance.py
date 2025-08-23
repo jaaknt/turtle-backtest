@@ -127,7 +127,8 @@ class StrategyPerformanceTester:
                 period_data[period_name] = {"target_date": target_date, "data": ohlcv_data}
 
             # Calculate ranking for this signal
-            ranking = self.strategy.ranking(ticker, signal_date)
+            # ranking = self.strategy.ranking(ticker, signal_date)
+            ranking = 0
 
             return SignalResult(
                 ticker=ticker,

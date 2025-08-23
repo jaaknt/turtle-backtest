@@ -10,6 +10,8 @@ from psycopg import Connection
 
 from turtle.data.symbol import SymbolRepo
 from turtle.data.bars_history import BarsHistoryRepo
+from turtle.ranking.momentum import MomentumRanking
+from turtle.ranking.ranking_strategy import RankingStrategy
 from turtle.strategy.trading_strategy import TradingStrategy
 from turtle.strategy.darvas_box import DarvasBoxStrategy
 from turtle.strategy.mars import MarsStrategy
@@ -42,6 +44,7 @@ class StrategyPerformanceService:
     def __init__(
         self,
         strategy_class: type[TradingStrategy],
+        ranking_strategy: RankingStrategy,
         signal_start_date: datetime,
         signal_end_date: datetime,
         max_holding_period: pd.Timedelta | None = None,
@@ -60,6 +63,7 @@ class StrategyPerformanceService:
             dsn: Database connection string
         """
         self.strategy_class = strategy_class
+        self.ranking_strategy = ranking_strategy
         self.signal_start_date = signal_start_date
         self.signal_end_date = signal_end_date
         self.max_holding_period = max_holding_period or self.DEFAULT_HOLDING_PERIOD
@@ -75,7 +79,9 @@ class StrategyPerformanceService:
         )
 
         # Initialize strategy instance
-        self.strategy = self.strategy_class(bars_history=self.bars_history, time_frame_unit=self.time_frame_unit)
+        self.strategy = self.strategy_class(
+            bars_history=self.bars_history, ranking_strategy=self.ranking_strategy, time_frame_unit=self.time_frame_unit
+        )
 
     @classmethod
     def from_strategy_name(
@@ -111,6 +117,7 @@ class StrategyPerformanceService:
 
         return cls(
             strategy_class=strategy_class,
+            ranking_strategy=MomentumRanking(),  # Default ranking strategy; can be modified as needed
             signal_start_date=signal_start_date,
             signal_end_date=signal_end_date,
             max_holding_period=max_holding_period,
@@ -366,6 +373,7 @@ class StrategyPerformanceService:
         import json
 
         from typing import Any
+
         data: dict[str, Any] = {
             "strategy_name": test_summary.strategy_name,
             "test_start_date": test_summary.test_start_date.isoformat(),

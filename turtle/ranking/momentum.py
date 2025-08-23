@@ -17,7 +17,7 @@ class MomentumRanking(RankingStrategy):
     - Period high performance (how long the stock has been at its highest close)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initialize MomentumRanking strategy.
 
