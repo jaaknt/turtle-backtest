@@ -184,7 +184,7 @@ class MarsStrategy(TradingStrategy):
         signals = []
         for _, row in filtered_df.iterrows():
             if self.is_buy_signal(ticker, row):
-                signals.append(Signal(ticker=ticker, date=row["hdate"]))
+                signals.append(Signal(ticker=ticker, date=row["hdate"], ranking=0))
 
         return signals
 
