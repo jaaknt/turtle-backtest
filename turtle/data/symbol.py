@@ -13,7 +13,6 @@ class SymbolRepo:
     def __init__(self, pool: ConnectionPool, api_key: str):
         self.pool = pool
         self.api_key = api_key
-        self.symbol_list: list[Symbol] = []
 
     def map_eodhd_symbol_list(self, ticker: dict[str, Any]) -> dict[str, Any]:
         place_holders = {}
@@ -47,13 +46,13 @@ class SymbolRepo:
 
     def get_symbol_list(self, country: str, symbol: str = "") -> list[Symbol]:
         result = self._get_symbol_list_db(country)
-        self.symbol_list = [Symbol(*symbol) for symbol in result]
+        symbol_list = [Symbol(*symbol) for symbol in result]
         # filter symbols based on symbol parameter
         if symbol:
-            self.symbol_list = [s for s in self.symbol_list if s.symbol >= symbol]
-        logger.debug(f"{len(self.symbol_list)} symbols returned from database")
+            symbol_list = [s for s in symbol_list if s.symbol >= symbol]
+        logger.debug(f"{len(symbol_list)} symbols returned from database")
 
-        return self.symbol_list
+        return symbol_list
 
     def save_symbol_list(self, place_holders: dict[str, Any]) -> None:
         with self.pool.connection() as connection:
