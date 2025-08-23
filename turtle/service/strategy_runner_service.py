@@ -1,5 +1,6 @@
 import os
-import pandas as pd
+
+# import pandas as pd
 from psycopg_pool import ConnectionPool
 from datetime import datetime
 # from typing import List, Tuple
@@ -9,7 +10,6 @@ import logging
 from turtle.data.symbol import SymbolRepo
 from turtle.data.company import CompanyRepo
 from turtle.data.bars_history import BarsHistoryRepo
-from turtle.data.models import Symbol
 from turtle.strategy.market import MarketData
 
 # from turtle.strategy.momentum import MomentumStrategy
@@ -44,16 +44,6 @@ class StrategyRunnerService:
         )
         self.market_data = MarketData(self.bars_history)
 
-    def get_tickers_list(self, date_to_check: datetime) -> list[dict]:
-        symbol_list: list[Symbol] = self.symbol_repo.get_symbol_list("USA")
-        stock_list: list[dict] = []
-        ranking: int = 0
-        for symbol_rec in symbol_list:
-            if self.trading_strategy.is_trading_signal(symbol_rec.symbol, date_to_check):
-                ranking = self.trading_strategy.ranking(symbol_rec.symbol, date_to_check)
-                stock_list.append({"symbol": symbol_rec.symbol, "ranking": ranking})
-        return stock_list
-
     def is_trading_signal(self, ticker: str, date_to_check: datetime) -> bool:
         """Wrapper function for TradingStrategy.is_trading_signal()."""
         return self.trading_strategy.is_trading_signal(ticker, date_to_check)
@@ -66,27 +56,17 @@ class StrategyRunnerService:
         """Wrapper function for TradingStrategy.get_trading_signals."""
         return self.trading_strategy.get_trading_signals(ticker, start_date, end_date)
 
-    def get_tickers_count(self, start_date: datetime, end_date: datetime) -> list[tuple]:
-        symbol_list: list[Symbol] = self.symbol_repo.get_symbol_list("USA")
-        momentum_stock_list = []
-        for symbol_rec in symbol_list:
-            count = self.trading_strategy.trading_signals_count(
-                symbol_rec.symbol,
-                start_date,
-                end_date,
-            )
-            if count > 0:
-                momentum_stock_list.append((symbol_rec.symbol, count))
-                logger.info(f"Trading signal for {symbol_rec.symbol} - count {count}")
+    def get_symbol_list(self, symbol_filter: str = "USA", max_symbols: int = 10_000) -> list[str]:
+        """
+        Get list of symbols to test.
 
-        # top_100 = sorted(self.momentum_stock_list, key=lambda x: x[1], reverse=True)[:100]
-        # logger.info(f"Top 100 stocks with trade counts: {top_100}")
-        # convert top_20 to list of symbols
-        # logger.info(f"Top 100 stocks: {[x[0] for x in top_100]}")
+        Args:
+            symbol_filter: Filter for symbol selection
+            max_symbols: Optional limit on number of symbols
 
-        return momentum_stock_list
-
-    def get_company_list(self, symbol_list: list[str]) -> pd.DataFrame:
-        self.company_repo.get_company_list(symbol_list)
-        df = self.company_repo.convert_df()
-        return df
+        Returns:
+            List of symbol strings
+        """
+        symbols = self.symbol_repo.get_symbol_list(symbol_filter)
+        symbol_list = [symbol.symbol for symbol in symbols][:max_symbols]  # limits list to max symbols
+        return symbol_list
