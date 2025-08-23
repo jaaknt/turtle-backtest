@@ -20,13 +20,15 @@ DatabasePool = ConnectionPool[Connection[TupleRow]]
 # Load environment variables
 load_dotenv()
 
-end_date = datetime(year=2024, month=8, day=30)
+end_date = datetime(year=2025, month=8, day=12)
 
 # Create database connection and bars_history for strategy
-pool = cast(DatabasePool, ConnectionPool(
-    conninfo="host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres",
-    min_size=5, max_size=50, max_idle=600
-))
+pool = cast(
+    DatabasePool,
+    ConnectionPool(
+        conninfo="host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres", min_size=5, max_size=50, max_idle=600
+    ),
+)
 bars_history = BarsHistoryRepo(
     pool,
     str(os.getenv("ALPACA_API_KEY")),
@@ -44,10 +46,12 @@ darvas_strategy = DarvasBoxStrategy(
 strategy_runner = StrategyRunnerService(trading_strategy=darvas_strategy)
 
 # Get ticker list (now with correct method signature)
-ticker_list = strategy_runner.get_tickers_list(end_date)
+for ticker in strategy_runner.get_symbol_list():
+    signals = strategy_runner.get_trading_signals(ticker, end_date, end_date)
+
 
 # Extract just the symbol names for get_company_list
-symbol_names = [ticker['symbol'] for ticker in ticker_list]
+symbol_names = [ticker.ticker for ticker in signals]
 df: pd.DataFrame = strategy_runner.get_company_list(symbol_names)
 
 # Streamlit commands to visualize the DataFrame

@@ -1,6 +1,5 @@
 import os
-
-# import pandas as pd
+import pandas as pd
 from psycopg_pool import ConnectionPool
 from datetime import datetime
 # from typing import List, Tuple
@@ -70,3 +69,16 @@ class StrategyRunnerService:
         symbols = self.symbol_repo.get_symbol_list(symbol_filter)
         symbol_list = [symbol.symbol for symbol in symbols][:max_symbols]  # limits list to max symbols
         return symbol_list
+
+    def get_company_list(self, symbol_names: list[str]) -> pd.DataFrame:
+        """
+        Get company information for the provided list of symbols.
+
+        Args:
+            symbol_names: List of stock symbols to get company data for
+
+        Returns:
+            DataFrame containing company information
+        """
+        self.company_repo.get_company_list(symbol_names)
+        return self.company_repo.convert_df()
