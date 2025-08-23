@@ -9,7 +9,7 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.strategy.models import Signal
 from turtle.strategy.trading_strategy import TradingStrategy
-from turtle.ranking.momentum import MomentumRanking
+from turtle.ranking.ranking_strategy import RankingStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +20,12 @@ class DarvasBoxStrategy(TradingStrategy):
     def __init__(
         self,
         bars_history: BarsHistoryRepo,
+        ranking_strategy: RankingStrategy,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         warmup_period: int = 730,
         min_bars: int = 420,
     ):
-        super().__init__(bars_history, time_frame_unit, warmup_period, min_bars)
+        super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars)
 
     @staticmethod
     def check_local_max(
@@ -311,9 +312,9 @@ class DarvasBoxStrategy(TradingStrategy):
         signal_dates = filtered_df[buy_signals]["hdate"].tolist()
 
         # Return list of Signal objects
-        self.ranking_strategy = MomentumRanking(self.df)
         return [
-            Signal(ticker=ticker, date=signal_date, ranking=self.ranking_strategy.ranking(date=signal_date)) for signal_date in signal_dates
+            Signal(ticker=ticker, date=signal_date, ranking=self.ranking_strategy.ranking(self.df, date=signal_date))
+            for signal_date in signal_dates
         ]
 
     # create similar procedure as is_trading_signal that will calculate trading signals for all dates in df DataFrame
