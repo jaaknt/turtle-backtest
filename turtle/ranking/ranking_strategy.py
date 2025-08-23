@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
+import pandas as pd
 
 
 class RankingStrategy(ABC):
@@ -11,7 +12,7 @@ class RankingStrategy(ABC):
     """
 
     @abstractmethod
-    def ranking(self, date: datetime) -> int:
+    def ranking(self, df: pd.DataFrame, date: datetime) -> int:
         """
         Calculate a ranking score for the given signal.
 

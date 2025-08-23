@@ -17,14 +17,11 @@ class MomentumRanking(RankingStrategy):
     - Period high performance (how long the stock has been at its highest close)
     """
 
-    def __init__(self, df: pd.DataFrame):
+    def __init__(self):
         """
         Initialize MomentumRanking strategy.
 
-        Args:
-            df: DataFrame containing OHLCV data
         """
-        self.df = df
 
     def _price_to_ranking(self, price: float) -> int:
         """
@@ -199,7 +196,7 @@ class MomentumRanking(RankingStrategy):
         # Ensure minimum score of 1 if current close is at least a 1-day high
         return max(1, score) if days_as_high > 0 else 0
 
-    def ranking(self, date: datetime) -> int:
+    def ranking(self, df: pd.DataFrame, date: datetime) -> int:
         """
         Calculate a combined ranking score for a signal based on price and EMA200 performance.
 
@@ -215,7 +212,7 @@ class MomentumRanking(RankingStrategy):
                  - Period high component: 0-20 (higher scores for longer period as highest close)
         """
 
-        self.filtered_df = self.df[self.df["hdate"] <= date].copy()
+        self.filtered_df = df[df["hdate"] <= date].copy()
 
         # Get the closing price from the target date
         closing_price = self.filtered_df.iloc[-1]["close"]

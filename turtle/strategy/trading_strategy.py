@@ -3,6 +3,7 @@ from datetime import datetime
 from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.strategy.models import Signal
+from turtle.ranking.ranking_strategy import RankingStrategy
 
 import pandas as pd
 
@@ -18,6 +19,7 @@ class TradingStrategy(ABC):
     def __init__(
         self,
         bars_history: BarsHistoryRepo,
+        ranking_strategy: RankingStrategy,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         warmup_period: int = 730,
         min_bars: int = 420,
@@ -33,6 +35,7 @@ class TradingStrategy(ABC):
         """
 
         self.bars_history = bars_history
+        self.ranking_strategy = ranking_strategy
         self.time_frame_unit = time_frame_unit
         self.warmup_period = warmup_period
         self.min_bars = min_bars
@@ -110,19 +113,3 @@ class TradingStrategy(ABC):
         The indicators will be used by trading signal methods.
         """
         pass
-
-    def ranking(self, ticker: str, date_to_check: datetime) -> int:
-        """
-        Calculate a ranking score for a ticker on a specific date.
-
-        Default implementation returns 0. Strategies that support ranking
-        should override this method.
-
-        Args:
-            ticker: The stock symbol to rank
-            date_to_check: The specific date to evaluate the stock
-
-        Returns:
-            int: Ranking score (default: 0)
-        """
-        return 0

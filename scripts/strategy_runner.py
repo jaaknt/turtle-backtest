@@ -41,6 +41,7 @@ from turtle.service.strategy_runner_service import StrategyRunnerService
 from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.strategy.trading_strategy import TradingStrategy
+from turtle.ranking.momentum import MomentumRanking
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +101,7 @@ def get_trading_strategy_instance(strategy_name: str) -> TradingStrategy:
     # Create strategy instance with common parameters
     return strategy_class(
         bars_history=bars_history,
+        ranking_strategy=MomentumRanking(),
         time_frame_unit=TimeFrameUnit.DAY,
         warmup_period=730,
     )
