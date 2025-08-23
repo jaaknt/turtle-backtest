@@ -206,7 +206,7 @@ class MomentumStrategy(TradingStrategy):
         # Check weekly (every 7 days) for signals
         while current_date <= end_date:
             if self.weekly_momentum(ticker, current_date):
-                signals.append(Signal(ticker=ticker, date=current_date))
+                signals.append(Signal(ticker=ticker, date=current_date, ranking=0))
             current_date += timedelta(days=7)
 
         return signals

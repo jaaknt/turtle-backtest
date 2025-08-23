@@ -13,3 +13,4 @@ class Signal:
 
     ticker: str
     date: datetime
+    ranking: int

@@ -111,18 +111,18 @@ class TradingStrategy(ABC):
         """
         pass
 
-    @abstractmethod
     def ranking(self, ticker: str, date_to_check: datetime) -> int:
         """
-        Calculate a ranking score for a ticker based on its closing price on a given date.
+        Calculate a ranking score for a ticker on a specific date.
 
-        The ranking is integer between 0-100, where 100 is the highest rank.
+        Default implementation returns 0. Strategies that support ranking
+        should override this method.
 
         Args:
             ticker: The stock symbol to rank
-            date_to_check: The specific date to evaluate the stock price
+            date_to_check: The specific date to evaluate the stock
 
         Returns:
-            int: Ranking score between 0-100, with higher scores for lower-priced stocks
+            int: Ranking score (default: 0)
         """
-        pass
+        return 0

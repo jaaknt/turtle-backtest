@@ -5,6 +5,7 @@ from datetime import datetime
 
 from turtle.strategy.darvas_box import DarvasBoxStrategy
 from turtle.data.bars_history import BarsHistoryRepo
+from turtle.ranking.momentum import MomentumRanking
 
 with warnings.catch_warnings():
     warnings.filterwarnings(
@@ -138,83 +139,90 @@ def test_is_local_max_valid():
 
 def test_price_to_ranking():
     """Test the price to ranking conversion logic."""
-    bars_history_mock = MagicMock(spec=BarsHistoryRepo)
-    strategy = DarvasBoxStrategy(bars_history_mock)
-
-    # Test each price range
-    assert strategy._price_to_ranking(5.0) == 20    # $0-10 range
-    assert strategy._price_to_ranking(10.0) == 20   # Boundary: exactly $10
-    assert strategy._price_to_ranking(15.0) == 16   # $10-20 range
-    assert strategy._price_to_ranking(20.0) == 16   # Boundary: exactly $20
-    assert strategy._price_to_ranking(40.0) == 12   # $20-60 range
-    assert strategy._price_to_ranking(60.0) == 12   # Boundary: exactly $60
-    assert strategy._price_to_ranking(150.0) == 8   # $60-240 range
-    assert strategy._price_to_ranking(240.0) == 8   # Boundary: exactly $240
-    assert strategy._price_to_ranking(500.0) == 4   # $240-1000 range
-    assert strategy._price_to_ranking(1000.0) == 4  # Boundary: exactly $1000
-    assert strategy._price_to_ranking(1500.0) == 0  # >$1000 range
-
-    # Test edge cases
-    assert strategy._price_to_ranking(0.0) == 0     # Zero price
-    assert strategy._price_to_ranking(-10.0) == 0   # Negative price
-
-
-def test_ranking():
-    """Test the ranking method with mock data."""
-    bars_history_mock = MagicMock(spec=BarsHistoryRepo)
-    strategy = DarvasBoxStrategy(bars_history_mock, min_bars=1)  # Lower min_bars for testing
-
-    # Mock successful data collection
-    test_date = datetime(2024, 1, 15)
-
-    # Test case 1: Stock with $50 price (should return rank 12)
-    mock_df = pd.DataFrame({
-        'hdate': [test_date],
+    # Create test DataFrame for MomentumRanking
+    test_df = pd.DataFrame({
+        'hdate': [datetime.now()],
         'close': [50.0],
         'open': [49.0],
         'high': [51.0],
         'low': [48.0],
         'volume': [1000000]
     })
+    
+    ranking_strategy = MomentumRanking(test_df)
 
-    # Mock the return value for sufficient data
-    bars_history_mock.get_ticker_history.return_value = mock_df
+    # Test each price range
+    assert ranking_strategy._price_to_ranking(5.0) == 20    # $0-10 range
+    assert ranking_strategy._price_to_ranking(10.0) == 20   # Boundary: exactly $10
+    assert ranking_strategy._price_to_ranking(15.0) == 16   # $10-20 range
+    assert ranking_strategy._price_to_ranking(20.0) == 16   # Boundary: exactly $20
+    assert ranking_strategy._price_to_ranking(40.0) == 12   # $20-60 range
+    assert ranking_strategy._price_to_ranking(60.0) == 12   # Boundary: exactly $60
+    assert ranking_strategy._price_to_ranking(150.0) == 8   # $60-240 range
+    assert ranking_strategy._price_to_ranking(240.0) == 8   # Boundary: exactly $240
+    assert ranking_strategy._price_to_ranking(500.0) == 4   # $240-1000 range
+    assert ranking_strategy._price_to_ranking(1000.0) == 4  # Boundary: exactly $1000
+    assert ranking_strategy._price_to_ranking(1500.0) == 0  # >$1000 range
 
-    ranking = strategy.ranking("TEST", test_date)
-    assert ranking == 12
+    # Test edge cases
+    assert ranking_strategy._price_to_ranking(0.0) == 0     # Zero price
+    assert ranking_strategy._price_to_ranking(-10.0) == 0   # Negative price
 
-    # Test case 2: No data available (empty DataFrame)
-    bars_history_mock.get_ticker_history.return_value = pd.DataFrame()
 
-    ranking = strategy.ranking("NODATA", test_date)
-    assert ranking == 0
+def test_ranking():
+    """Test the ranking method with mock data."""
+    test_date = datetime(2024, 1, 15)
 
-    # Test case 3: High-priced stock (should return rank 0)
+    # Test case 1: Stock with $50 price (should return rank 12 for price component only)
+    mock_df = pd.DataFrame({
+        'hdate': [test_date],
+        'close': [50.0],
+        'open': [49.0],
+        'high': [51.0],
+        'low': [48.0],
+        'volume': [1000000],
+        'ema_10': [50.0],
+        'ema_20': [50.0],
+        'ema_50': [50.0],
+        'ema_200': [50.0]
+    })
+
+    ranking_strategy = MomentumRanking(mock_df)
+    ranking = ranking_strategy.ranking(test_date)
+    assert ranking == 12  # Only price ranking since no historical data for EMA trends
+
+    # Test case 2: High-priced stock (should return rank 0)
     mock_df_expensive = pd.DataFrame({
         'hdate': [test_date],
         'close': [1500.0],
         'open': [1480.0],
         'high': [1520.0],
         'low': [1470.0],
-        'volume': [500000]
+        'volume': [500000],
+        'ema_10': [1500.0],
+        'ema_20': [1500.0],
+        'ema_50': [1500.0],
+        'ema_200': [1500.0]
     })
 
-    bars_history_mock.get_ticker_history.return_value = mock_df_expensive
-
-    ranking = strategy.ranking("EXPENSIVE", test_date)
+    ranking_strategy = MomentumRanking(mock_df_expensive)
+    ranking = ranking_strategy.ranking(test_date)
     assert ranking == 0
 
-    # Test case 4: Low-priced stock (should return rank 20)
+    # Test case 3: Low-priced stock (should return rank 20 for price component)
     mock_df_cheap = pd.DataFrame({
         'hdate': [test_date],
         'close': [8.50],
         'open': [8.20],
         'high': [8.80],
         'low': [8.10],
-        'volume': [2000000]
+        'volume': [2000000],
+        'ema_10': [8.50],
+        'ema_20': [8.50],
+        'ema_50': [8.50],
+        'ema_200': [8.50]
     })
 
-    bars_history_mock.get_ticker_history.return_value = mock_df_cheap
-
-    ranking = strategy.ranking("CHEAP", test_date)
+    ranking_strategy = MomentumRanking(mock_df_cheap)
+    ranking = ranking_strategy.ranking(test_date)
     assert ranking == 20
