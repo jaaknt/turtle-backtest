@@ -3,7 +3,8 @@ from datetime import datetime
 from typing import Any
 import pandas as pd
 
-from turtle.performance.period_return import PeriodReturn, PeriodReturnResult
+from turtle.backtest.period_return import PeriodReturn, PeriodReturnResult
+from turtle.strategy.models import Signal
 
 
 @dataclass
@@ -12,24 +13,42 @@ class SignalResult:
     Represents a single trading signal and its outcomes.
 
     Attributes:
-        ticker: Stock symbol that generated the signal
-        signal_date: Date when the trading signal was generated
-        entry_price: Opening price of the next trading day after signal
-        entry_date: Date when entry price was recorded
-        period_results: Dictionary mapping period names to closing prices (for backward compatibility)
-        ranking: Strategy ranking score (0-100) for this signal
-        period_data: <Optional> Dictionary mapping period names to target dates and OHLCV data
-        closing_date: <Optional> Date when the position was closed
-        closing_price: <Optional> Price at which the position was closed
+        signal: Signal that is input for calculation
+        entry_date: Date when position was entered
+        entry_price: Price at which position was entered
+        exit_date: Date when position was exited
+        exit_price: Price at which position was exited
+        exit_reason: Reason for exit (e.g., 'period_end', 'profit_target', 'stop_loss', 'ema_exit')
+        return_pct: Percentage return between entry_price and exit_price
+        return_pct_qqq: QQQ benchmark percentage return for the same period
+        return_pct_spy: SPY benchmark percentage return for the same period
+    """
+
+    signal: Signal
+    entry_date: datetime
+    entry_price: float
+    exit_date: datetime
+    exit_price: float
+    exit_reason: str
+    return_pct: float
+    return_pct_qqq: float
+    return_pct_spy: float
+
+
+@dataclass
+class LegacySignalResult:
+    """
+    Legacy SignalResult for backward compatibility during transition.
+    This class maintains the old API to support existing code.
     """
 
     ticker: str
     signal_date: datetime
     entry_price: float
     entry_date: datetime
-    period_results: dict[str, float | None]  # period_name -> closing_price (backward compatibility)
+    period_results: dict[str, float | None]
     ranking: int = 0
-    period_data: dict[str, dict[str, Any]] | None = None  # period_name -> {target_date, data}
+    period_data: dict[str, dict[str, Any]] | None = None
     closing_date: datetime | None = None
     closing_price: float | None = None
 
@@ -39,17 +58,7 @@ class SignalResult:
         strategy_name: str = 'buy_and_hold',
         **strategy_kwargs: Any
     ) -> float | None:
-        """
-        Calculate percentage return for a specific period using specified strategy.
-
-        Args:
-            period_name: Name of the period (e.g., '3D', '1W', '2W', '1M')
-            strategy_name: Name of period return strategy to use
-            **strategy_kwargs: Additional arguments for strategy initialization
-
-        Returns:
-            Percentage return or None if data not available
-        """
+        """Calculate percentage return for a specific period using specified strategy."""
         # Try new period return calculation first
         if self.period_data and period_name in self.period_data:
             try:
@@ -88,17 +97,7 @@ class SignalResult:
         strategy_name: str = 'buy_and_hold',
         **strategy_kwargs: Any
     ) -> PeriodReturnResult | None:
-        """
-        Get detailed period return result including exit reason and date.
-
-        Args:
-            period_name: Name of the period (e.g., '3D', '1W', '2W', '1M')
-            strategy_name: Name of period return strategy to use
-            **strategy_kwargs: Additional arguments for strategy initialization
-
-        Returns:
-            PeriodReturnResult or None if data not available
-        """
+        """Get detailed period return result including exit reason and date."""
         if not self.period_data or period_name not in self.period_data:
             return None
 
@@ -117,6 +116,7 @@ class SignalResult:
 
         except Exception:
             return None
+
 
 
 @dataclass

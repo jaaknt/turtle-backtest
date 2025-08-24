@@ -17,11 +17,11 @@ from turtle.strategy.darvas_box import DarvasBoxStrategy
 from turtle.strategy.mars import MarsStrategy
 from turtle.strategy.momentum import MomentumStrategy
 from turtle.common.enums import TimeFrameUnit
-from turtle.performance.strategy_performance import StrategyPerformanceTester
+from turtle.backtest.strategy_performance import StrategyPerformanceTester
 
-# from turtle.performance.period_return import ProfitLossTargetStrategy
-from turtle.performance.period_return import EMAExitStrategy
-from turtle.performance.models import TestSummary, PerformanceResult
+# from turtle.backtest.period_return import ProfitLossTargetStrategy
+from turtle.backtest.period_return import EMAExitStrategy
+from turtle.backtest.models import TestSummary, PerformanceResult
 
 logger = logging.getLogger(__name__)
 

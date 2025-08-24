@@ -156,10 +156,26 @@ Custom stock groupings (e.g., NASDAQ-100) can be created and managed via the `sy
 
 ### Special Installation Notes
 - **TA-lib**: Requires special installation steps (see .github/workflows/build.yml)
-- **Python 3.12+**: Required for optimal performance
+- **Python 3.13+**: Required for optimal performance
+
+## Design patterns
+- All functionality must be encapsulated in classes, only exception is /scripts, main.py app.py
+### Single Responsibility Principle
+Each class should have one clear purpose and reason to change. If you can't describe what a class does in a single
+sentence without using "and," it's probably doing too much.
+### Encapsulation and Data Hiding
+Keep internal state private and expose behavior through well-defined methods. 
+Use properties for controlled access to data.
+### Immutability Where Appropriate
+Make objects immutable when possible to reduce bugs and enable safe sharing between threads.
+### Method Design
+Methods should be small, focused, and have clear names. Avoid long parameter lists and 
+prefer returning new objects over modifying state when possible.
+### Dataclasses
+Use dataclasses to define business objects and use them to exchange information and also define class boundaries
+Keep dataclasses in models.py and all classes that use them in separate files
 
 ## Testing Strategy
-
 Tests are organized by component:
 - `test_bars_history.py`: Historical data operations
 - `test_company.py`: Company data operations  

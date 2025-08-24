@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 from datetime import datetime
-from turtle.performance.period_return import (
+from turtle.backtest.period_return import (
     PeriodReturn,
     BuyAndHoldStrategy,
     ProfitLossTargetStrategy,

@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.strategy.trading_strategy import TradingStrategy
-from turtle.performance.models import SignalResult, PerformanceResult, TestSummary, RankingPerformance
-from turtle.performance.period_return import TradeExitStrategy, BuyAndHoldStrategy, PeriodReturnResult
+from turtle.backtest.models import LegacySignalResult, PerformanceResult, TestSummary, RankingPerformance
+from turtle.backtest.period_return import TradeExitStrategy, BuyAndHoldStrategy, PeriodReturnResult
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +47,9 @@ class StrategyPerformanceTester:
         self.max_holding_period = max_holding_period
         self.period_return_strategy = period_return_strategy or BuyAndHoldStrategy()
         self.period_return_strategy_kwargs = period_return_strategy_kwargs or {}
-        self.signal_results: list[SignalResult] = []
+        self.signal_results: list[LegacySignalResult] = []
 
-    def generate_signals(self, tickers: list[str]) -> list[SignalResult]:
+    def generate_signals(self, tickers: list[str]) -> list[LegacySignalResult]:
         """
         Generate trading signals for given tickers within the date range.
 
@@ -57,7 +57,7 @@ class StrategyPerformanceTester:
             tickers: List of stock symbols to analyze
 
         Returns:
-            List of SignalResult objects containing signal information
+            List of LegacySignalResult objects containing signal information
         """
         signal_results = []
 
@@ -93,7 +93,7 @@ class StrategyPerformanceTester:
         self.signal_results = signal_results
         return signal_results
 
-    def _process_signal(self, ticker: str, signal_date: datetime) -> SignalResult | None:
+    def _process_signal(self, ticker: str, signal_date: datetime) -> LegacySignalResult | None:
         """
         Process a single trading signal and calculate returns for all test periods.
 
@@ -102,7 +102,7 @@ class StrategyPerformanceTester:
             signal_date: Date when the signal was generated
 
         Returns:
-            SignalResult object or None if processing failed
+            LegacySignalResult object or None if processing failed
         """
         try:
             # Get entry price (opening price of next trading day)
@@ -130,7 +130,7 @@ class StrategyPerformanceTester:
             # ranking = self.strategy.ranking(ticker, signal_date)
             ranking = 0
 
-            return SignalResult(
+            return LegacySignalResult(
                 ticker=ticker,
                 signal_date=signal_date,
                 entry_price=entry_price,
@@ -352,12 +352,12 @@ class StrategyPerformanceTester:
 
         return qqq_return, spy_return
 
-    def _calculate_signal_return_with_benchmarks(self, signal_result: SignalResult, period_name: str) -> PeriodReturnResult | None:
+    def _calculate_signal_return_with_benchmarks(self, signal_result: LegacySignalResult, period_name: str) -> PeriodReturnResult | None:
         """
         Calculate return for a signal with benchmark data using the configured period return strategy.
 
         Args:
-            signal_result: SignalResult to calculate return for
+            signal_result: LegacySignalResult to calculate return for
             period_name: Name of the period (e.g., '1W', '2W', '1M')
 
         Returns:
@@ -414,12 +414,12 @@ class StrategyPerformanceTester:
 
         return None
 
-    def _calculate_signal_return(self, signal_result: SignalResult, period_name: str) -> float | None:
+    def _calculate_signal_return(self, signal_result: LegacySignalResult, period_name: str) -> float | None:
         """
         Calculate return for a signal using the configured period return strategy.
 
         Args:
-            signal_result: SignalResult to calculate return for
+            signal_result: LegacySignalResult to calculate return for
             period_name: Name of the period (e.g., '1W', '2W', '1M')
 
         Returns:
@@ -529,7 +529,7 @@ class StrategyPerformanceTester:
         Returns:
             Dictionary mapping ranking ranges to RankingPerformance objects
         """
-        from turtle.performance.models import RankingPerformance
+        from turtle.backtest.models import RankingPerformance
 
         # Define ranking ranges
         ranking_ranges = {"0-20": (0, 20), "21-40": (21, 40), "41-60": (41, 60), "61-80": (61, 80), "81-100": (81, 100)}
