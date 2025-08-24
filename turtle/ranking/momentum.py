@@ -31,10 +31,10 @@ class MomentumRanking(RankingStrategy):
             price: The stock price to convert
 
         Returns:
-            int: Ranking score (0-20)
+            int: Ranking score (1-20)
         """
         if price <= 0.0:
-            return 0
+            return 1
         elif price <= 10.0:
             return 20
         elif price <= 20.0:
@@ -46,7 +46,7 @@ class MomentumRanking(RankingStrategy):
         elif price <= 1000.0:
             return 4
         else:
-            return 0
+            return 1
 
     def _ranking_ema200_1month(self) -> int:
         """
@@ -204,8 +204,8 @@ class MomentumRanking(RankingStrategy):
             date: The date for which to calculate the ranking
 
         Returns:
-            int: Combined ranking score (0-100):
-                 - Price component: 0-20 (higher scores for lower-priced stocks)
+            int: Combined ranking score (1-100):
+                 - Price component: 1-20 (higher scores for lower-priced stocks)
                  - EMA200 1-month component: 0-20 (higher scores for EMA200 growth vs 1 month ago)
                  - EMA200 3-month component: 0-20 (higher scores for EMA200 growth vs 3 months ago)
                  - EMA200 6-month component: 0-20 (higher scores for EMA200 growth vs 6 months ago)
@@ -231,6 +231,5 @@ class MomentumRanking(RankingStrategy):
             f"EMA200 6M: {ema200_6month_ranking}, "
             f"Period High: {period_high_ranking}"
         )
-
-        # Return combined score
-        return price_ranking + ema200_1month_ranking + ema200_3month_ranking + ema200_6month_ranking + period_high_ranking
+        score = price_ranking + ema200_1month_ranking + ema200_3month_ranking + ema200_6month_ranking + period_high_ranking
+        return score
