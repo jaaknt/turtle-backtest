@@ -8,28 +8,37 @@ from turtle.strategy.models import Signal
 
 
 @dataclass
+class Trade:
+    """
+    Represents a single trade.
+
+    Attributes:
+        date: Trade date and time
+        price: Price at which the trade was executed
+    """
+
+    date: datetime
+    price: float
+    reason: str | None = None  # Default reason for exit
+
+
+@dataclass
 class SignalResult:
     """
     Represents a single trading signal and its outcomes.
 
     Attributes:
         signal: Signal that is input for calculation
-        entry_date: Date when position was entered
-        entry_price: Price at which position was entered
-        exit_date: Date when position was exited
-        exit_price: Price at which position was exited
-        exit_reason: Reason for exit (e.g., 'period_end', 'profit_target', 'stop_loss', 'ema_exit')
-        return_pct: Percentage return between entry_price and exit_price
+        entry: Trade object containing entry date, price, and reason
+        exit: Trade object containing exit date, price, and reason
+        return_pct: Percentage return between entry.price and exit.price
         return_pct_qqq: QQQ benchmark percentage return for the same period
         return_pct_spy: SPY benchmark percentage return for the same period
     """
 
     signal: Signal
-    entry_date: datetime
-    entry_price: float
-    exit_date: datetime
-    exit_price: float
-    exit_reason: str
+    entry: Trade
+    exit: Trade
     return_pct: float
     return_pct_qqq: float
     return_pct_spy: float
@@ -52,26 +61,18 @@ class LegacySignalResult:
     closing_date: datetime | None = None
     closing_price: float | None = None
 
-    def get_return_for_period(
-        self,
-        period_name: str,
-        strategy_name: str = 'buy_and_hold',
-        **strategy_kwargs: Any
-    ) -> float | None:
+    def get_return_for_period(self, period_name: str, strategy_name: str = "buy_and_hold", **strategy_kwargs: Any) -> float | None:
         """Calculate percentage return for a specific period using specified strategy."""
         # Try new period return calculation first
         if self.period_data and period_name in self.period_data:
             try:
                 period_info = self.period_data[period_name]
-                target_date = period_info['target_date']
-                data = period_info['data']
+                target_date = period_info["target_date"]
+                data = period_info["data"]
 
                 period_return = PeriodReturn(strategy_name, **strategy_kwargs)
                 result = period_return.calculate_return(
-                    data=data,
-                    entry_price=self.entry_price,
-                    entry_date=self.entry_date,
-                    target_date=target_date
+                    data=data, entry_price=self.entry_price, entry_date=self.entry_date, target_date=target_date
                 )
 
                 if result:
@@ -92,10 +93,7 @@ class LegacySignalResult:
         return ((closing_price - self.entry_price) / self.entry_price) * 100
 
     def get_return_result_for_period(
-        self,
-        period_name: str,
-        strategy_name: str = 'buy_and_hold',
-        **strategy_kwargs: Any
+        self, period_name: str, strategy_name: str = "buy_and_hold", **strategy_kwargs: Any
     ) -> PeriodReturnResult | None:
         """Get detailed period return result including exit reason and date."""
         if not self.period_data or period_name not in self.period_data:
@@ -103,20 +101,16 @@ class LegacySignalResult:
 
         try:
             period_info = self.period_data[period_name]
-            target_date = period_info['target_date']
-            data = period_info['data']
+            target_date = period_info["target_date"]
+            data = period_info["data"]
 
             period_return = PeriodReturn(strategy_name, **strategy_kwargs)
             return period_return.calculate_return(
-                data=data,
-                entry_price=self.entry_price,
-                entry_date=self.entry_date,
-                target_date=target_date
+                data=data, entry_price=self.entry_price, entry_date=self.entry_date, target_date=target_date
             )
 
         except Exception:
             return None
-
 
 
 @dataclass
@@ -145,9 +139,7 @@ class PerformanceResult:
     returns: list[float]
 
     @classmethod
-    def from_returns(
-        cls, period_name: str, total_signals: int, returns: list[float]
-    ) -> "PerformanceResult":
+    def from_returns(cls, period_name: str, total_signals: int, returns: list[float]) -> "PerformanceResult":
         """
         Create PerformanceResult from a list of returns.
 
@@ -233,9 +225,7 @@ class TestSummary:
     ranking_results: dict[str, RankingPerformance] | None = None
     signal_benchmark_data: list[dict[str, Any]] | None = None
 
-    def get_performance_for_period(
-        self, period_name: str
-    ) -> PerformanceResult | None:
+    def get_performance_for_period(self, period_name: str) -> PerformanceResult | None:
         """Get performance results for a specific period."""
         return self.period_results.get(period_name)
 
@@ -269,9 +259,7 @@ class TestSummary:
             else:
                 return 999  # Unknown format, put at end
 
-        sorted_strategy_periods = sorted(
-            self.period_results.keys(), key=period_sort_key
-        )
+        sorted_strategy_periods = sorted(self.period_results.keys(), key=period_sort_key)
 
         for period_name in sorted_strategy_periods:
             result = self.period_results[period_name]
@@ -304,18 +292,13 @@ class TestSummary:
                         else:
                             return 999  # Unknown format, put at end
 
-                    sorted_periods = sorted(
-                        benchmark_periods.keys(), key=period_sort_key
-                    )
+                    sorted_periods = sorted(benchmark_periods.keys(), key=period_sort_key)
 
                     for period_name in sorted_periods:
                         result = benchmark_periods[period_name]
                         if result.valid_signals > 0:
                             # For benchmarks, we just show the single period return
-                            lines.append(
-                                f"{period_name:8}: Return: {result.average_return:+5.1f}% "
-                                f"(Start to End of Period)"
-                            )
+                            lines.append(f"{period_name:8}: Return: {result.average_return:+5.1f}% (Start to End of Period)")
                         else:
                             lines.append(f"{period_name:8}: No data available")
 
@@ -325,19 +308,13 @@ class TestSummary:
             lines.append("Performance by Ranking Groups:")
 
             # Sort ranking groups by range start (0-20, 21-40, 41-60, 61-80, 81-100)
-            sorted_ranking_groups = sorted(
-                self.ranking_results.keys(), key=lambda x: int(x.split("-")[0])
-            )
+            sorted_ranking_groups = sorted(self.ranking_results.keys(), key=lambda x: int(x.split("-")[0]))
 
             for ranking_range in sorted_ranking_groups:
                 ranking_perf = self.ranking_results[ranking_range]
-                lines.append(
-                    f"\nRanking {ranking_range} ({ranking_perf.total_signals} signals):"
-                )
+                lines.append(f"\nRanking {ranking_range} ({ranking_perf.total_signals} signals):")
 
-                sorted_periods = sorted(
-                    ranking_perf.period_results.keys(), key=period_sort_key
-                )
+                sorted_periods = sorted(ranking_perf.period_results.keys(), key=period_sort_key)
 
                 for period_name in sorted_periods:
                     result = ranking_perf.period_results[period_name]
@@ -357,18 +334,18 @@ class TestSummary:
             lines.append("-" * 60)
 
             # Sort by entry date
-            sorted_signals = sorted(self.signal_benchmark_data, key=lambda x: x.get('entry_date', datetime.min))
+            sorted_signals = sorted(self.signal_benchmark_data, key=lambda x: x.get("entry_date", datetime.min))
 
             for signal_data in sorted_signals[:10]:  # Show first 10 signals
-                ticker = signal_data.get('ticker', 'N/A')[:8]
-                entry_date = signal_data.get('entry_date')
-                exit_date = signal_data.get('exit_date')
-                return_pct = signal_data.get('return_pct')
-                return_pct_qqq = signal_data.get('return_pct_qqq')
-                return_pct_spy = signal_data.get('return_pct_spy')
+                ticker = signal_data.get("ticker", "N/A")[:8]
+                entry_date = signal_data.get("entry_date")
+                exit_date = signal_data.get("exit_date")
+                return_pct = signal_data.get("return_pct")
+                return_pct_qqq = signal_data.get("return_pct_qqq")
+                return_pct_spy = signal_data.get("return_pct_spy")
 
-                entry_str = entry_date.strftime('%Y-%m-%d') if entry_date else 'N/A'
-                exit_str = exit_date.strftime('%Y-%m-%d') if exit_date else 'N/A'
+                entry_str = entry_date.strftime("%Y-%m-%d") if entry_date else "N/A"
+                exit_str = exit_date.strftime("%Y-%m-%d") if exit_date else "N/A"
                 return_str = f"{return_pct:+6.1f}" if return_pct is not None else "   N/A"
                 qqq_str = f"{return_pct_qqq:+6.1f}" if return_pct_qqq is not None else "   N/A"
                 spy_str = f"{return_pct_spy:+6.1f}" if return_pct_spy is not None else "   N/A"
@@ -383,11 +360,11 @@ class TestSummary:
             valid_spy: list[float] = []
 
             for s in self.signal_benchmark_data:
-                qqq_val = s.get('return_pct_qqq')
+                qqq_val = s.get("return_pct_qqq")
                 if qqq_val is not None:
                     valid_qqq.append(float(qqq_val))
 
-                spy_val = s.get('return_pct_spy')
+                spy_val = s.get("return_pct_spy")
                 if spy_val is not None:
                     valid_spy.append(float(spy_val))
 

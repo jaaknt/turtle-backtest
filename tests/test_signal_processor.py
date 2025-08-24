@@ -5,8 +5,8 @@ from unittest.mock import Mock
 
 from turtle.backtest.processor import SignalProcessor
 from turtle.strategy.models import Signal
-from turtle.backtest.models import SignalResult
-from turtle.backtest.period_return import BuyAndHoldStrategy, PeriodReturnResult
+from turtle.backtest.models import SignalResult, Trade
+from turtle.backtest.exit_strategy import BuyAndHoldStrategy
 from turtle.common.enums import TimeFrameUnit
 
 
@@ -32,6 +32,7 @@ class TestSignalProcessor:
         """Create sample OHLCV data for ticker."""
         dates = pd.date_range('2024-01-16', periods=10, freq='D')
         data = {
+            'hdate': dates,
             'open': [100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0],
             'high': [102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0, 111.0],
             'low': [99.0, 100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0],
@@ -161,10 +162,11 @@ class TestSignalProcessor:
         # Mock get_ticker_history to return sample data
         mock_bars_history.get_ticker_history.return_value = sample_ticker_data
 
-        entry_date, entry_price = processor._calculate_entry_data(sample_signal)
+        entry = processor._calculate_entry_data(sample_signal)
 
-        assert entry_date == datetime(2024, 1, 16)
-        assert entry_price == 100.0
+        assert entry.date == pd.Timestamp(datetime(2024, 1, 16))
+        assert entry.price == 100.0
+        assert entry.reason == "next_day_open"
 
     def test_calculate_entry_data_no_data(self, mock_bars_history, exit_strategy, sample_signal):
         """Test entry data calculation when no data available."""
@@ -215,27 +217,22 @@ class TestSignalProcessor:
         )
 
         # Mock the exit strategy to return a result
-        mock_result = PeriodReturnResult(
-            return_pct=5.0,
-            exit_price=105.0,
-            exit_date=datetime(2024, 1, 20),
-            exit_reason="period_end",
-            entry_date=datetime(2024, 1, 16),
-            entry_price=100.0
+        mock_result = Trade(
+            date=datetime(2024, 1, 20),
+            price=105.0,
+            reason="period_end"
         )
-        exit_strategy.calculate_return.return_value = mock_result
+        exit_strategy.calculate_exit.return_value = mock_result
         mock_bars_history.get_ticker_history.return_value = sample_ticker_data
 
         entry_date = datetime(2024, 1, 16)
         entry_price = 100.0
 
-        exit_date, exit_price, exit_reason = processor._calculate_exit_data(
-            sample_signal, entry_date, entry_price
-        )
+        exit = processor._calculate_exit_data(sample_signal, entry_date, entry_price)
 
-        assert exit_date == datetime(2024, 1, 20)
-        assert exit_price == 105.0
-        assert exit_reason == "period_end"
+        assert exit.date == datetime(2024, 1, 20)
+        assert exit.price == 105.0
+        assert exit.reason == "period_end"
 
     def test_calculate_exit_data_strategy_fails(self, mock_bars_history, exit_strategy, sample_signal, sample_ticker_data):
         """Test exit data calculation when strategy fails."""
@@ -247,7 +244,7 @@ class TestSignalProcessor:
         )
 
         # Mock strategy to return None
-        exit_strategy.calculate_return.return_value = None
+        exit_strategy.calculate_exit.return_value = None
         mock_bars_history.get_ticker_history.return_value = sample_ticker_data
 
         entry_date = datetime(2024, 1, 16)
@@ -378,19 +375,16 @@ class TestSignalProcessor:
         # Verify result structure
         assert isinstance(result, SignalResult)
         assert result.signal == sample_signal
-        assert isinstance(result.entry_date, datetime)
-        assert isinstance(result.entry_price, float)
-        assert isinstance(result.exit_date, datetime)
-        assert isinstance(result.exit_price, float)
-        assert isinstance(result.exit_reason, str)
+        assert isinstance(result.entry, Trade)
+        assert isinstance(result.exit, Trade)
         assert isinstance(result.return_pct, float)
         assert isinstance(result.return_pct_qqq, float)
         assert isinstance(result.return_pct_spy, float)
 
         # Verify some basic constraints
-        assert result.entry_price > 0
-        assert result.exit_price > 0
-        assert result.entry_date >= sample_signal.date
+        assert result.entry.price > 0
+        assert result.exit.price > 0
+        assert result.entry.date >= pd.Timestamp(sample_signal.date)
 
 
 class TestSignalProcessorEdgeCases:
