@@ -21,49 +21,45 @@ class TestSignalProcessor:
     @pytest.fixture
     def sample_signal(self):
         """Create a sample signal for testing."""
-        return Signal(
-            ticker="TEST",
-            date=datetime(2024, 1, 15),
-            ranking=75
-        )
+        return Signal(ticker="TEST", date=datetime(2024, 1, 15), ranking=75)
 
     @pytest.fixture
     def sample_ticker_data(self):
         """Create sample OHLCV data for ticker."""
-        dates = pd.date_range('2024-01-16', periods=10, freq='D')
+        dates = pd.date_range("2024-01-16", periods=10, freq="D")
         data = {
-            'hdate': dates,
-            'open': [100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0],
-            'high': [102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0, 111.0],
-            'low': [99.0, 100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0],
-            'close': [101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0],
-            'volume': [1000000] * 10
+            "hdate": dates,
+            "open": [100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0],
+            "high": [102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0, 111.0],
+            "low": [99.0, 100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0],
+            "close": [101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0],
+            "volume": [1000000] * 10,
         }
         return pd.DataFrame(data, index=dates)
 
     @pytest.fixture
     def sample_spy_data(self):
         """Create sample SPY benchmark data."""
-        dates = pd.date_range('2024-01-01', periods=30, freq='D')
+        dates = pd.date_range("2024-01-01", periods=30, freq="D")
         data = {
-            'open': [400.0 + i for i in range(30)],
-            'high': [402.0 + i for i in range(30)],
-            'low': [399.0 + i for i in range(30)],
-            'close': [401.0 + i for i in range(30)],
-            'volume': [1000000] * 30
+            "open": [400.0 + i for i in range(30)],
+            "high": [402.0 + i for i in range(30)],
+            "low": [399.0 + i for i in range(30)],
+            "close": [401.0 + i for i in range(30)],
+            "volume": [1000000] * 30,
         }
         return pd.DataFrame(data, index=dates)
 
     @pytest.fixture
     def sample_qqq_data(self):
         """Create sample QQQ benchmark data."""
-        dates = pd.date_range('2024-01-01', periods=30, freq='D')
+        dates = pd.date_range("2024-01-01", periods=30, freq="D")
         data = {
-            'open': [300.0 + i * 0.5 for i in range(30)],
-            'high': [302.0 + i * 0.5 for i in range(30)],
-            'low': [299.0 + i * 0.5 for i in range(30)],
-            'close': [301.0 + i * 0.5 for i in range(30)],
-            'volume': [1000000] * 30
+            "open": [300.0 + i * 0.5 for i in range(30)],
+            "high": [302.0 + i * 0.5 for i in range(30)],
+            "low": [299.0 + i * 0.5 for i in range(30)],
+            "close": [301.0 + i * 0.5 for i in range(30)],
+            "volume": [1000000] * 30,
         }
         return pd.DataFrame(data, index=dates)
 
@@ -83,7 +79,7 @@ class TestSignalProcessor:
             end_date=end_date,
             bars_history=mock_bars_history,
             exit_strategy=exit_strategy,
-            time_frame_unit=TimeFrameUnit.DAY
+            time_frame_unit=TimeFrameUnit.DAY,
         )
 
         assert processor.start_date == start_date
@@ -97,10 +93,7 @@ class TestSignalProcessor:
     def test_init_benchmarks_success(self, mock_bars_history, exit_strategy, sample_spy_data, sample_qqq_data):
         """Test successful benchmark initialization."""
         processor = SignalProcessor(
-            start_date=datetime(2024, 1, 1),
-            end_date=datetime(2024, 1, 31),
-            bars_history=mock_bars_history,
-            exit_strategy=exit_strategy
+            start_date=datetime(2024, 1, 1), end_date=datetime(2024, 1, 31), bars_history=mock_bars_history, exit_strategy=exit_strategy
         )
 
         # Mock the get_ticker_history calls
@@ -117,6 +110,8 @@ class TestSignalProcessor:
         end_date = datetime(2024, 1, 25)
         processor.init_benchmarks(start_date, end_date)
 
+        assert processor.df_spy is not None
+        assert processor.df_qqq is not None
         assert not processor.df_spy.empty
         assert not processor.df_qqq.empty
         assert len(processor.df_spy) == 30
@@ -125,10 +120,7 @@ class TestSignalProcessor:
     def test_init_benchmarks_with_error(self, mock_bars_history, exit_strategy):
         """Test benchmark initialization when data loading fails."""
         processor = SignalProcessor(
-            start_date=datetime(2024, 1, 1),
-            end_date=datetime(2024, 1, 31),
-            bars_history=mock_bars_history,
-            exit_strategy=exit_strategy
+            start_date=datetime(2024, 1, 1), end_date=datetime(2024, 1, 31), bars_history=mock_bars_history, exit_strategy=exit_strategy
         )
 
         # Mock get_ticker_history to raise exception
@@ -141,10 +133,7 @@ class TestSignalProcessor:
     def test_run_without_ticker_data(self, mock_bars_history, exit_strategy, sample_signal):
         """Test that run() raises error when no ticker data is available."""
         processor = SignalProcessor(
-            start_date=datetime(2024, 1, 1),
-            end_date=datetime(2024, 1, 31),
-            bars_history=mock_bars_history,
-            exit_strategy=exit_strategy
+            start_date=datetime(2024, 1, 1), end_date=datetime(2024, 1, 31), bars_history=mock_bars_history, exit_strategy=exit_strategy
         )
 
         # Mock get_ticker_history to return empty DataFrame for ticker data
@@ -156,10 +145,7 @@ class TestSignalProcessor:
     def test_calculate_entry_data_success(self, mock_bars_history, exit_strategy, sample_signal, sample_ticker_data):
         """Test successful entry data calculation."""
         processor = SignalProcessor(
-            start_date=datetime(2024, 1, 1),
-            end_date=datetime(2024, 1, 31),
-            bars_history=mock_bars_history,
-            exit_strategy=exit_strategy
+            start_date=datetime(2024, 1, 1), end_date=datetime(2024, 1, 31), bars_history=mock_bars_history, exit_strategy=exit_strategy
         )
 
         # Mock get_ticker_history to return sample data
@@ -174,10 +160,7 @@ class TestSignalProcessor:
     def test_calculate_entry_data_no_data(self, mock_bars_history, exit_strategy, sample_signal):
         """Test entry data calculation when no data available."""
         processor = SignalProcessor(
-            start_date=datetime(2024, 1, 1),
-            end_date=datetime(2024, 1, 31),
-            bars_history=mock_bars_history,
-            exit_strategy=exit_strategy
+            start_date=datetime(2024, 1, 1), end_date=datetime(2024, 1, 31), bars_history=mock_bars_history, exit_strategy=exit_strategy
         )
 
         # Mock get_ticker_history to return empty DataFrame
@@ -189,21 +172,21 @@ class TestSignalProcessor:
     def test_calculate_entry_data_invalid_price(self, mock_bars_history, exit_strategy, sample_signal):
         """Test entry data calculation with invalid opening price."""
         processor = SignalProcessor(
-            start_date=datetime(2024, 1, 1),
-            end_date=datetime(2024, 1, 31),
-            bars_history=mock_bars_history,
-            exit_strategy=exit_strategy
+            start_date=datetime(2024, 1, 1), end_date=datetime(2024, 1, 31), bars_history=mock_bars_history, exit_strategy=exit_strategy
         )
 
         # Create data with invalid opening price
-        dates = pd.date_range('2024-01-16', periods=1, freq='D')
-        invalid_data = pd.DataFrame({
-            'open': [0.0],  # Invalid price
-            'high': [102.0],
-            'low': [99.0],
-            'close': [101.0],
-            'volume': [1000000]
-        }, index=dates)
+        dates = pd.date_range("2024-01-16", periods=1, freq="D")
+        invalid_data = pd.DataFrame(
+            {
+                "open": [0.0],  # Invalid price
+                "high": [102.0],
+                "low": [99.0],
+                "close": [101.0],
+                "volume": [1000000],
+            },
+            index=dates,
+        )
 
         mock_bars_history.get_ticker_history.return_value = invalid_data
 
@@ -213,18 +196,11 @@ class TestSignalProcessor:
     def test_calculate_exit_data_success(self, mock_bars_history, exit_strategy, sample_signal, sample_ticker_data):
         """Test successful exit data calculation."""
         processor = SignalProcessor(
-            start_date=datetime(2024, 1, 1),
-            end_date=datetime(2024, 1, 31),
-            bars_history=mock_bars_history,
-            exit_strategy=exit_strategy
+            start_date=datetime(2024, 1, 1), end_date=datetime(2024, 1, 31), bars_history=mock_bars_history, exit_strategy=exit_strategy
         )
 
         # Mock the exit strategy to return a result
-        mock_result = Trade(
-            date=datetime(2024, 1, 20),
-            price=105.0,
-            reason="period_end"
-        )
+        mock_result = Trade(date=datetime(2024, 1, 20), price=105.0, reason="period_end")
         exit_strategy.calculate_exit.return_value = mock_result
         mock_bars_history.get_ticker_history.return_value = sample_ticker_data
 
@@ -240,10 +216,7 @@ class TestSignalProcessor:
     def test_calculate_exit_data_strategy_fails(self, mock_bars_history, exit_strategy, sample_signal, sample_ticker_data):
         """Test exit data calculation when strategy fails."""
         processor = SignalProcessor(
-            start_date=datetime(2024, 1, 1),
-            end_date=datetime(2024, 1, 31),
-            bars_history=mock_bars_history,
-            exit_strategy=exit_strategy
+            start_date=datetime(2024, 1, 1), end_date=datetime(2024, 1, 31), bars_history=mock_bars_history, exit_strategy=exit_strategy
         )
 
         # Mock strategy to return None
@@ -259,10 +232,7 @@ class TestSignalProcessor:
     def test_calculate_return_pct(self, mock_bars_history, exit_strategy):
         """Test return percentage calculation."""
         processor = SignalProcessor(
-            start_date=datetime(2024, 1, 1),
-            end_date=datetime(2024, 1, 31),
-            bars_history=mock_bars_history,
-            exit_strategy=exit_strategy
+            start_date=datetime(2024, 1, 1), end_date=datetime(2024, 1, 31), bars_history=mock_bars_history, exit_strategy=exit_strategy
         )
 
         # Test positive return
@@ -280,10 +250,7 @@ class TestSignalProcessor:
     def test_calculate_return_pct_invalid_entry_price(self, mock_bars_history, exit_strategy):
         """Test return percentage calculation with invalid entry price."""
         processor = SignalProcessor(
-            start_date=datetime(2024, 1, 1),
-            end_date=datetime(2024, 1, 31),
-            bars_history=mock_bars_history,
-            exit_strategy=exit_strategy
+            start_date=datetime(2024, 1, 1), end_date=datetime(2024, 1, 31), bars_history=mock_bars_history, exit_strategy=exit_strategy
         )
 
         with pytest.raises(ValueError, match="Invalid entry price"):
@@ -292,18 +259,13 @@ class TestSignalProcessor:
     def test_calculate_single_benchmark_return_success(self, mock_bars_history, exit_strategy, sample_spy_data):
         """Test single benchmark return calculation."""
         processor = SignalProcessor(
-            start_date=datetime(2024, 1, 1),
-            end_date=datetime(2024, 1, 31),
-            bars_history=mock_bars_history,
-            exit_strategy=exit_strategy
+            start_date=datetime(2024, 1, 1), end_date=datetime(2024, 1, 31), bars_history=mock_bars_history, exit_strategy=exit_strategy
         )
 
         entry_date = datetime(2024, 1, 16)
         exit_date = datetime(2024, 1, 20)
 
-        return_pct = processor._calculate_single_benchmark_return(
-            sample_spy_data, "SPY", entry_date, exit_date
-        )
+        return_pct = processor._calculate_single_benchmark_return(sample_spy_data, "SPY", entry_date, exit_date)
 
         # Entry price should be open on 2024-01-16 (index 15): 415.0
         # Exit price should be close on 2024-01-20 (index 19): 420.0
@@ -313,26 +275,18 @@ class TestSignalProcessor:
     def test_calculate_single_benchmark_return_empty_data(self, mock_bars_history, exit_strategy):
         """Test benchmark return calculation with empty data."""
         processor = SignalProcessor(
-            start_date=datetime(2024, 1, 1),
-            end_date=datetime(2024, 1, 31),
-            bars_history=mock_bars_history,
-            exit_strategy=exit_strategy
+            start_date=datetime(2024, 1, 1), end_date=datetime(2024, 1, 31), bars_history=mock_bars_history, exit_strategy=exit_strategy
         )
 
         empty_df = pd.DataFrame()
-        return_pct = processor._calculate_single_benchmark_return(
-            empty_df, "SPY", datetime(2024, 1, 16), datetime(2024, 1, 20)
-        )
+        return_pct = processor._calculate_single_benchmark_return(empty_df, "SPY", datetime(2024, 1, 16), datetime(2024, 1, 20))
 
         assert return_pct == 0.0
 
     def test_calculate_benchmark_returns(self, mock_bars_history, exit_strategy, sample_spy_data, sample_qqq_data):
         """Test calculation of both benchmark returns."""
         processor = SignalProcessor(
-            start_date=datetime(2024, 1, 1),
-            end_date=datetime(2024, 1, 31),
-            bars_history=mock_bars_history,
-            exit_strategy=exit_strategy
+            start_date=datetime(2024, 1, 1), end_date=datetime(2024, 1, 31), bars_history=mock_bars_history, exit_strategy=exit_strategy
         )
 
         processor.df_spy = sample_spy_data
@@ -353,10 +307,7 @@ class TestSignalProcessor:
         exit_strategy = BuyAndHoldStrategy()
 
         processor = SignalProcessor(
-            start_date=datetime(2024, 1, 1),
-            end_date=datetime(2024, 1, 31),
-            bars_history=mock_bars_history,
-            exit_strategy=exit_strategy
+            start_date=datetime(2024, 1, 1), end_date=datetime(2024, 1, 31), bars_history=mock_bars_history, exit_strategy=exit_strategy
         )
 
         # Setup mock data
