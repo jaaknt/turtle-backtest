@@ -67,6 +67,11 @@ uv run pytest -v
   - `mars.py`: Mars momentum strategy (@marsrides)
   - `momentum.py`: Traditional momentum strategy
   - `market.py`: General market analysis
+- **turtle/backtest/**: Backtesting and signal processing
+  - `models.py`: SignalResult and performance data models
+  - `period_return.py`: Exit strategies (BuyAndHold, ProfitLoss, EMA)
+  - `strategy_performance.py`: Strategy performance testing framework
+  - `processor.py`: SignalProcessor for converting signals to results
 - **turtle/service/**: Business logic layer
   - `data_update.py`: Main service for data ingestion and strategy execution
 
