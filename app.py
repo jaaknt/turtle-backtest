@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 from typing import cast
 
+from turtle.ranking.momentum import MomentumRanking
 from turtle.service.strategy_runner_service import StrategyRunnerService
 from turtle.strategy.darvas_box import DarvasBoxStrategy
 from turtle.data.bars_history import BarsHistoryRepo
@@ -38,6 +39,7 @@ bars_history = BarsHistoryRepo(
 # Create DarvasBoxStrategy instance
 darvas_strategy = DarvasBoxStrategy(
     bars_history=bars_history,
+    ranking_strategy=MomentumRanking(),
     time_frame_unit=TimeFrameUnit.DAY,
     warmup_period=730,
 )
