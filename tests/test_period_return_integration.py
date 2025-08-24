@@ -1,8 +1,8 @@
 import pytest
 import pandas as pd
 from datetime import datetime
-from turtle.performance.models import SignalResult
-from turtle.performance.period_return import PeriodReturnResult
+from turtle.backtest.models import LegacySignalResult
+from turtle.backtest.period_return import PeriodReturnResult
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def sample_ohlcv_data():
 
 @pytest.fixture
 def signal_result_with_period_data(sample_ohlcv_data):
-    """Create a SignalResult with period data for testing."""
+    """Create a LegacySignalResult with period data for testing."""
     entry_date = datetime(2024, 1, 5)
     target_date = datetime(2024, 1, 15)
 
@@ -32,7 +32,7 @@ def signal_result_with_period_data(sample_ohlcv_data):
         }
     }
 
-    return SignalResult(
+    return LegacySignalResult(
         ticker='TEST',
         signal_date=datetime(2024, 1, 4),
         entry_price=102.5,
@@ -45,8 +45,8 @@ def signal_result_with_period_data(sample_ohlcv_data):
 
 @pytest.fixture
 def legacy_signal_result():
-    """Create a legacy SignalResult without period data."""
-    return SignalResult(
+    """Create a legacy LegacySignalResult without period data."""
+    return LegacySignalResult(
         ticker='TEST',
         signal_date=datetime(2024, 1, 4),
         entry_price=102.5,
@@ -60,7 +60,7 @@ def legacy_signal_result():
 class TestPeriodReturnIntegration:
 
     def test_signal_result_with_buy_and_hold_strategy(self, signal_result_with_period_data):
-        """Test SignalResult with new buy_and_hold strategy."""
+        """Test LegacySignalResult with new buy_and_hold strategy."""
         return_pct = signal_result_with_period_data.get_return_for_period('1W', 'buy_and_hold')
 
         assert return_pct is not None
@@ -68,7 +68,7 @@ class TestPeriodReturnIntegration:
         assert return_pct > 0  # Should be positive due to increasing prices
 
     def test_signal_result_with_profit_loss_target_strategy(self, signal_result_with_period_data):
-        """Test SignalResult with profit_loss_target strategy."""
+        """Test LegacySignalResult with profit_loss_target strategy."""
         return_pct = signal_result_with_period_data.get_return_for_period(
             '1W', 'profit_loss_target', profit_target=5.0, stop_loss=3.0
         )
@@ -77,7 +77,7 @@ class TestPeriodReturnIntegration:
         assert isinstance(return_pct, float)
 
     def test_signal_result_with_ema_exit_strategy(self, signal_result_with_period_data):
-        """Test SignalResult with ema_exit strategy."""
+        """Test LegacySignalResult with ema_exit strategy."""
         return_pct = signal_result_with_period_data.get_return_for_period(
             '1W', 'ema_exit', ema_period=5
         )
@@ -97,7 +97,7 @@ class TestPeriodReturnIntegration:
         assert isinstance(result.exit_date, datetime)
 
     def test_legacy_fallback(self, legacy_signal_result):
-        """Test backward compatibility with legacy SignalResult."""
+        """Test backward compatibility with legacy LegacySignalResult."""
         return_pct = legacy_signal_result.get_return_for_period('1W', 'buy_and_hold')
 
         assert return_pct is not None
@@ -171,7 +171,7 @@ class TestStrategyDemonstration:
         }
         df = pd.DataFrame(data, index=dates)
 
-        signal_result = SignalResult(
+        signal_result = LegacySignalResult(
             ticker='DEMO',
             signal_date=datetime(2024, 1, 1),
             entry_price=100.0,

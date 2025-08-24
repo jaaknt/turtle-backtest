@@ -2,9 +2,9 @@ import pytest
 import pandas as pd
 from datetime import datetime
 
-from turtle.performance.strategy_performance import StrategyPerformanceTester
-from turtle.performance.period_return import BuyAndHoldStrategy, ProfitLossTargetStrategy, EMAExitStrategy
-from turtle.performance.models import SignalResult
+from turtle.backtest.strategy_performance import StrategyPerformanceTester
+from turtle.backtest.period_return import BuyAndHoldStrategy, ProfitLossTargetStrategy, EMAExitStrategy
+from turtle.backtest.models import LegacySignalResult
 
 
 class TestStrategyPerformanceTesterBasic:
@@ -127,7 +127,7 @@ class TestStrategyPerformanceTesterBasic:
         period_df = pd.DataFrame(data, index=dates)
 
         # Create signal result with period data
-        signal_result = SignalResult(
+        signal_result = LegacySignalResult(
             ticker='TEST',
             signal_date=datetime(2024, 1, 1),
             entry_price=100.0,
@@ -147,7 +147,7 @@ class TestStrategyPerformanceTesterBasic:
         assert abs(return_pct - 15.0) < 1.0
 
     def test_calculate_signal_return_fallback_to_legacy(self):
-        """Test fallback to SignalResult method when no period data."""
+        """Test fallback to LegacySignalResult method when no period data."""
         from unittest.mock import Mock
 
         mock_strategy = Mock()
@@ -163,7 +163,7 @@ class TestStrategyPerformanceTesterBasic:
         )
 
         # Create signal result without period data (legacy format)
-        signal_result = SignalResult(
+        signal_result = LegacySignalResult(
             ticker='TEST',
             signal_date=datetime(2024, 1, 1),
             entry_price=100.0,
