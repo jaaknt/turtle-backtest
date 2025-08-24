@@ -28,9 +28,9 @@ data_updater.update_company_list()
 data_updater.update_bars_history(start_date, end_date)
 ```
 
-## StrategyRunnerService
+## SignalService
 
-The `StrategyRunnerService` provides strategy execution capabilities for running trading strategies against historical market data. It serves as a wrapper around trading strategy implementations.
+The `SignalService` provides strategy execution capabilities for running trading strategies against historical market data. It serves as a wrapper around trading strategy implementations.
 
 **Key Features:**
 - Executes trading strategies on US stock symbols
@@ -48,7 +48,7 @@ The `StrategyRunnerService` provides strategy execution capabilities for running
 
 **Usage:**
 ```python
-strategy_runner = StrategyRunnerService(time_frame_unit=TimeFrameUnit.DAY)
+strategy_runner = SignalService(time_frame_unit=TimeFrameUnit.DAY)
 signals = strategy_runner.get_tickers_list(target_date, darvas_strategy)
 has_signal = strategy_runner.is_trading_signal("AAPL", target_date, darvas_strategy)
 ```

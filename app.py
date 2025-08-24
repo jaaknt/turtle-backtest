@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import cast
 
 from turtle.ranking.momentum import MomentumRanking
-from turtle.service.strategy_runner_service import StrategyRunnerService
+from turtle.service.signal_service import SignalService
 from turtle.strategy.darvas_box import DarvasBoxStrategy
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
@@ -45,7 +45,7 @@ darvas_strategy = DarvasBoxStrategy(
 )
 
 # Create strategy runner with the trading strategy
-strategy_runner = StrategyRunnerService(trading_strategy=darvas_strategy)
+strategy_runner = SignalService(trading_strategy=darvas_strategy)
 
 # Get ticker list (now with correct method signature)
 for ticker in strategy_runner.get_symbol_list():

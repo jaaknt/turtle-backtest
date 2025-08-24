@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
 
 
-class StrategyRunnerService:
+class SignalService:
     def __init__(
         self,
         trading_strategy: TradingStrategy,
