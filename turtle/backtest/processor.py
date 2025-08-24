@@ -175,16 +175,12 @@ class SignalProcessor:
         Raises:
             ValueError: If exit calculation fails
         """
-        # Estimate target date for data retrieval (add buffer for strategy calculations)
-        # Different strategies may need different time horizons
-        buffer_days = 60  # Allow for up to 2 months of data
-        data_end_date = min(entry_date + timedelta(days=buffer_days), self.end_date)
 
         # Get historical data for the ticker from entry date onwards
         df = self.bars_history.get_ticker_history(
             signal.ticker,
-            entry_date - timedelta(days=30),  # Include some history for indicators
-            data_end_date,
+            entry_date,
+            self.end_date,
             self.time_frame_unit,
         )
 
@@ -254,8 +250,7 @@ class SignalProcessor:
                 return 0.0
 
             # Find entry price (open price on or after entry_date)
-            entry_mask = df.index >= pd.Timestamp(entry_date)
-            entry_data = df[entry_mask]
+            entry_data = df[df.index == pd.Timestamp(entry_date)]
 
             if entry_data.empty:
                 logger.warning(f"No {symbol} entry data available for {entry_date}")
@@ -264,8 +259,7 @@ class SignalProcessor:
             entry_price = float(entry_data.iloc[0]["open"])
 
             # Find exit price (close price on or closest to exit_date)
-            exit_mask = df.index <= pd.Timestamp(exit_date)
-            exit_data = df[exit_mask]
+            exit_data = df[df.index == pd.Timestamp(exit_date)]
 
             if exit_data.empty:
                 logger.warning(f"No {symbol} exit data available for {exit_date}")
