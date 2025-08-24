@@ -2,12 +2,12 @@
 """
 Strategy Runner Script
 
-This script runs trading strategy analysis using the StrategyRunnerService class.
+This script runs trading strategy analysis using the SignalService class.
 It can get ticker lists, ticker counts, check individual ticker signals, or count signals
 for specific tickers using different trading strategies.
 
 Usage:
-    python scripts/strategy_runner.py [options]
+    python scripts/signal_runner.py [options]
 
 Options:
     --start-date YYYY-MM-DD  Start date for analysis (required for count mode)
@@ -37,7 +37,7 @@ from psycopg.rows import TupleRow
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
-from turtle.service.strategy_runner_service import StrategyRunnerService
+from turtle.service.signal_service import SignalService
 from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.strategy.trading_strategy import TradingStrategy
@@ -107,7 +107,7 @@ def get_trading_strategy_instance(strategy_name: str) -> TradingStrategy:
     )
 
 
-def get_trading_strategy(strategy_runner: StrategyRunnerService, strategy_name: str) -> TradingStrategy:
+def get_trading_strategy(strategy_runner: SignalService, strategy_name: str) -> TradingStrategy:
     """Create and return a trading strategy instance by name (deprecated - kept for compatibility)."""
     return get_trading_strategy_instance(strategy_name)
 
@@ -203,7 +203,7 @@ def main() -> int:
 
         # Initialize strategy runner with the trading strategy
         logger.info("Initializing strategy runner...")
-        strategy_runner = StrategyRunnerService(trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY)
+        strategy_runner = SignalService(trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY)
 
         # Run analysis based on mode
         if args.mode == "list":

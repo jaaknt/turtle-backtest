@@ -56,7 +56,7 @@ data_updater.update_bars_history(start_date, end_date)
 
 For comprehensive strategy analysis and performance testing, use the command-line scripts:
 
-- **`scripts/strategy_runner.py`** - Strategy analysis with 4 modes (list/count/signal/signal_count)
+- **`scripts/signal_runner.py`** - Strategy analysis with 4 modes (list/count/signal/signal_count)
 - **`scripts/strategy_performance.py`** - Performance backtesting with metrics and benchmarks
 
 See [scripts.md](scripts.md) for complete documentation, usage examples, and all available options.

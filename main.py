@@ -50,7 +50,7 @@ def main() -> None:
     # start_date: datetime = datetime(year=2022, month=1, day=1)  # noqa: F841
     # end_date: datetime = datetime(year=2023, month=12, day=31)  # noqa: F841
 
-    # strategy_runner = StrategyRunnerService(time_frame_unit=TimeFrameUnit.DAY)
+    # strategy_runner = SignalService(time_frame_unit=TimeFrameUnit.DAY)
     # strategy_runner.mars_strategy.calculate_entries(
     #    ticker,
     #    start_date,
@@ -61,7 +61,7 @@ def main() -> None:
     # data_updater.update_company_list()
     # data_updater.update_bars_history(start_date, end_date)
 
-    # strategy_runner = StrategyRunnerService(time_frame_unit=TimeFrameUnit.DAY)
+    # strategy_runner = SignalService(time_frame_unit=TimeFrameUnit.DAY)
     # from turtle.strategy.darvas_box import DarvasBoxStrategy
     # darvas_strategy = DarvasBoxStrategy(strategy_runner.bars_history)
     # symbol_list = strategy_runner.get_tickers_list(end_date, darvas_strategy)

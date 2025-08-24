@@ -40,34 +40,34 @@ uv run python scripts/daily_eod_update.py --start-date 2024-12-01 --verbose
 - Checks at least 80% success rate for validation to pass
 - Provides detailed feedback on update success/failure
 
-## strategy_runner.py
+## signal_runner.py
 
-The `strategy_runner.py` script provides comprehensive strategy analysis capabilities with four distinct analysis modes for examining trading signals across different time periods and symbols.
+The `signal_runner.py` script provides comprehensive strategy analysis capabilities with four distinct analysis modes for examining trading signals across different time periods and symbols.
 
 **Analysis Modes:**
 
 ### Mode 1: List - Get Tickers with Signals
 Find all tickers that have trading signals on a specific date:
 ```bash
-uv run python scripts/strategy_runner.py --mode list --date 2024-08-30 --strategy darvas_box
+uv run python scripts/signal_runner.py --mode list --date 2024-08-30 --strategy darvas_box
 ```
 
 ### Mode 2: Count - Get Signal Counts for Date Range
 Count trading signals for all tickers across a date range:
 ```bash
-uv run python scripts/strategy_runner.py --mode count --start-date 2024-08-01 --end-date 2024-08-31 --strategy darvas_box
+uv run python scripts/signal_runner.py --mode count --start-date 2024-08-01 --end-date 2024-08-31 --strategy darvas_box
 ```
 
 ### Mode 3: Signal - Check Individual Ticker Signal
 Check if a specific ticker has a trading signal on a specific date:
 ```bash
-uv run python scripts/strategy_runner.py --mode signal --ticker AAPL --date 2024-08-30 --strategy darvas_box
+uv run python scripts/signal_runner.py --mode signal --ticker AAPL --date 2024-08-30 --strategy darvas_box
 ```
 
 ### Mode 4: Signal Count - Count Signals for Specific Ticker
 Count signals for a specific ticker over a date range:
 ```bash
-uv run python scripts/strategy_runner.py --mode signal_count --ticker AAPL --start-date 2024-08-01 --end-date 2024-08-31 --strategy darvas_box
+uv run python scripts/signal_runner.py --mode signal_count --ticker AAPL --start-date 2024-08-01 --end-date 2024-08-31 --strategy darvas_box
 ```
 
 **Available Strategies:**
