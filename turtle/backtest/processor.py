@@ -47,7 +47,7 @@ class SignalProcessor:
         self.exit_strategy = exit_strategy
         self.time_frame_unit = time_frame_unit
 
-        # Will be populated by initialize()
+        # Will be populated by init_benchmarks()
         self.df_spy: pd.DataFrame | None = None
         self.df_qqq: pd.DataFrame | None = None
 

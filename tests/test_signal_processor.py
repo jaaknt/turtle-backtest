@@ -94,8 +94,8 @@ class TestSignalProcessor:
         assert processor.df_spy is None
         assert processor.df_qqq is None
 
-    def test_initialize_success(self, mock_bars_history, exit_strategy, sample_spy_data, sample_qqq_data):
-        """Test successful initialization with benchmark data."""
+    def test_init_benchmarks_success(self, mock_bars_history, exit_strategy, sample_spy_data, sample_qqq_data):
+        """Test successful benchmark initialization."""
         processor = SignalProcessor(
             start_date=datetime(2024, 1, 1),
             end_date=datetime(2024, 1, 31),
@@ -113,15 +113,17 @@ class TestSignalProcessor:
 
         mock_bars_history.get_ticker_history.side_effect = mock_get_ticker_history
 
-        processor.initialize()
+        start_date = datetime(2024, 1, 16)
+        end_date = datetime(2024, 1, 25)
+        processor.init_benchmarks(start_date, end_date)
 
         assert not processor.df_spy.empty
         assert not processor.df_qqq.empty
         assert len(processor.df_spy) == 30
         assert len(processor.df_qqq) == 30
 
-    def test_initialize_with_error(self, mock_bars_history, exit_strategy):
-        """Test initialization when benchmark data loading fails."""
+    def test_init_benchmarks_with_error(self, mock_bars_history, exit_strategy):
+        """Test benchmark initialization when data loading fails."""
         processor = SignalProcessor(
             start_date=datetime(2024, 1, 1),
             end_date=datetime(2024, 1, 31),
@@ -132,14 +134,12 @@ class TestSignalProcessor:
         # Mock get_ticker_history to raise exception
         mock_bars_history.get_ticker_history.side_effect = Exception("Data fetch failed")
 
-        processor.initialize()
+        # This should raise an exception since benchmark loading failed
+        with pytest.raises(Exception, match="Data fetch failed"):
+            processor.init_benchmarks(datetime(2024, 1, 16), datetime(2024, 1, 25))
 
-        # Should create empty DataFrames when errors occur
-        assert processor.df_spy.empty
-        assert processor.df_qqq.empty
-
-    def test_run_without_initialization(self, mock_bars_history, exit_strategy, sample_signal):
-        """Test that run() raises error if not initialized."""
+    def test_run_without_ticker_data(self, mock_bars_history, exit_strategy, sample_signal):
+        """Test that run() raises error when no ticker data is available."""
         processor = SignalProcessor(
             start_date=datetime(2024, 1, 1),
             end_date=datetime(2024, 1, 31),
@@ -147,7 +147,10 @@ class TestSignalProcessor:
             exit_strategy=exit_strategy
         )
 
-        with pytest.raises(RuntimeError, match="must be initialized"):
+        # Mock get_ticker_history to return empty DataFrame for ticker data
+        mock_bars_history.get_ticker_history.return_value = pd.DataFrame()
+
+        with pytest.raises(ValueError, match="No trading data available"):
             processor.run(sample_signal)
 
     def test_calculate_entry_data_success(self, mock_bars_history, exit_strategy, sample_signal, sample_ticker_data):
@@ -368,8 +371,7 @@ class TestSignalProcessor:
 
         mock_bars_history.get_ticker_history.side_effect = mock_get_ticker_history
 
-        # Initialize and run
-        processor.initialize()
+        # Run the processor (benchmarks will be initialized automatically)
         result = processor.run(sample_signal)
 
         # Verify result structure
