@@ -20,6 +20,6 @@ class RankingStrategy(ABC):
             signal: The Signal object containing ticker and date information
 
         Returns:
-            int: Ranking score where higher values indicate better-ranked stocks
+            int: Ranking score where higher values indicate better-ranked stocks 1-100
         """
         pass

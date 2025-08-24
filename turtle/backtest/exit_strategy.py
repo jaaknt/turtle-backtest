@@ -36,7 +36,7 @@ class BuyAndHoldExitStrategy(ExitStrategy):
 
         # find last record in DataFrame
         last_record = data.iloc[-1]
-        return Trade(date=last_record["hdate"], price=last_record["close"], reason="period_end")
+        return Trade(date=data.index[-1], price=last_record["close"], reason="period_end")
 
 
 class ProfitLossExitStrategy(ExitStrategy):
@@ -78,18 +78,18 @@ class ProfitLossExitStrategy(ExitStrategy):
         if first_profit_date is not None and first_loss_date is not None:
             # Both targets hit - use whichever came first
             if first_profit_date <= first_loss_date:
-                return Trade(date=profit_hits.index[0]["hdate"], price=self.profit_price, reason="profit_target")
+                return Trade(date=profit_hits.index[0], price=self.profit_price, reason="profit_target")
             else:
-                return Trade(date=loss_hits.index[0]["hdate"], price=self.stop_price, reason="stop_loss")
+                return Trade(date=loss_hits.index[0], price=self.stop_price, reason="stop_loss")
         elif first_profit_date is not None:
             # Only profit target hit
-            return Trade(date=profit_hits.index[0]["hdate"], price=self.profit_price, reason="profit_target")
+            return Trade(date=profit_hits.index[0], price=self.profit_price, reason="profit_target")
         elif first_loss_date is not None:
             # Only stop loss hit
-            return Trade(date=loss_hits.index[0]["hdate"], price=self.stop_price, reason="stop_loss")
+            return Trade(date=loss_hits.index[0], price=self.stop_price, reason="stop_loss")
         else:
             last_record = data.iloc[-1]
-            return Trade(date=last_record["hdate"], price=last_record["close"], reason="period_end")
+            return Trade(date=data.index[-1], price=last_record["close"], reason="period_end")
 
 
 class EMAExitStrategy(ExitStrategy):
@@ -128,7 +128,7 @@ class EMAExitStrategy(ExitStrategy):
 
         if not below_ema.empty:
             # Exit on first close below EMA
-            return Trade(date=below_ema.index[0]["hdate"], price=below_ema.index[0]["close"], reason="stop_loss")
+            return Trade(date=below_ema.index[0], price=below_ema.iloc[0]["close"], reason="stop_loss")
         else:
             last_record = data.iloc[-1]
-            return Trade(date=last_record["hdate"], price=last_record["close"], reason="period_end")
+            return Trade(date=data.index[-1], price=last_record["close"], reason="period_end")

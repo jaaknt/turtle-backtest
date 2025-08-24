@@ -31,8 +31,10 @@ class BacktestService:
                 signals = self.signal_service.get_trading_signals(ticker, start_date, end_date)
         else:
             tickers = self.signal_service.get_symbol_list()
+            logger.info(f"Running backtest for {len(tickers)} tickers")
+            signals = []
             for ticker in tickers:
-                signals = self.signal_service.get_trading_signals(ticker, start_date, end_date)
+                signals.extend(self.signal_service.get_trading_signals(ticker, start_date, end_date))
 
         # raise value error if no signals found
         if not signals:
@@ -40,8 +42,9 @@ class BacktestService:
 
         signal_results = []
         for signal in signals:
-            signal_result = self.signal_processor.run(signal)
-            signal_results.append(signal_result)
+            signal_result: SignalResult | None = self.signal_processor.run(signal)
+            if signal_result is not None:
+                signal_results.append(signal_result)
         self._print_summary(signal_results)
         return signal_results
 
@@ -51,7 +54,7 @@ class BacktestService:
         Print total trades and winning trades and win rate
 
         Print average(return_pct), average(return_pct_qqq), average(return_pct_spy)
-        for ranking 0-19, 20-39, 40-59, 60-79, 80-100
+        for ranking 1-20, 21-40, 41-60, 61-80, 81-100
         """
         if not signal_results:
             logger.warning("No signal results to summarize.")
@@ -61,14 +64,14 @@ class BacktestService:
         avg_return_pct_qqq = sum(result.return_pct_qqq for result in signal_results) / len(signal_results)
         avg_return_pct_spy = sum(result.return_pct_spy for result in signal_results) / len(signal_results)
 
-        logger.info(
+        print(
             f"Backtest Summary:"
-            f" Average Return (Ticker): {avg_return_pct:.2f}%"
+            f" Average Return (Ticker): {avg_return_pct:.2f}% count: {len(signal_results)}"
             f" Average Return (QQQ): {avg_return_pct_qqq:.2f}%"
             f" Average Return (SPY): {avg_return_pct_spy:.2f}%"
         )
-        for i in range(0, 101, 20):
-            ranked_results = [result for result in signal_results if i <= result.signal.ranking < i + 20]
+        for i in range(0, 100, 20):
+            ranked_results = [result for result in signal_results if i < result.signal.ranking < i + 21]
             if ranked_results:
                 avg_ranked_return_pct = sum(result.return_pct for result in ranked_results) / len(ranked_results)
-                logger.info(f" Average Return Rank [{i}-{i + 19}]: {avg_ranked_return_pct:.2f}%")
+                print(f" Average Return Rank [{i + 1}-{i + 20}]: {avg_ranked_return_pct:.2f}% count: {len(ranked_results)}")

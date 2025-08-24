@@ -128,7 +128,7 @@ class TestSignalProcessor:
             processor.init_benchmarks(datetime(2024, 1, 16), datetime(2024, 1, 25))
 
     def test_run_without_ticker_data(self, mock_bars_history, exit_strategy, sample_signal):
-        """Test that run() raises error when no ticker data is available."""
+        """Test that run() returns None when no ticker data is available."""
         processor = SignalProcessor(
             max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy
         )
@@ -136,8 +136,8 @@ class TestSignalProcessor:
         # Mock get_ticker_history to return empty DataFrame for ticker data
         mock_bars_history.get_ticker_history.return_value = pd.DataFrame()
 
-        with pytest.raises(ValueError, match="No trading data available"):
-            processor.run(sample_signal)
+        result = processor.run(sample_signal)
+        assert result is None
 
     def test_calculate_entry_data_success(self, mock_bars_history, exit_strategy, sample_signal, sample_ticker_data):
         """Test successful entry data calculation."""
@@ -163,8 +163,8 @@ class TestSignalProcessor:
         # Mock get_ticker_history to return empty DataFrame
         mock_bars_history.get_ticker_history.return_value = pd.DataFrame()
 
-        with pytest.raises(ValueError, match="No trading data available"):
-            processor._calculate_entry_data(sample_signal)
+        result = processor._calculate_entry_data(sample_signal)
+        assert result is None
 
     def test_calculate_entry_data_invalid_price(self, mock_bars_history, exit_strategy, sample_signal):
         """Test entry data calculation with invalid opening price."""

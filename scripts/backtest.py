@@ -134,7 +134,7 @@ def _get_exit_strategy(strategy_name: str) -> ExitStrategy:
     if strategy_name == "buy_and_hold":
         return BuyAndHoldExitStrategy()
     elif strategy_name == "profit_loss":
-        return ProfitLossExitStrategy(profit_target=20.0, stop_loss=7.0)
+        return ProfitLossExitStrategy(profit_target=15.0, stop_loss=5.0)
     elif strategy_name == "ema":
         return EMAExitStrategy()
     else:
@@ -178,7 +178,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--trading_strategy",
+        "--trading-strategy",
         type=str,
         default="darvas_box",
         choices=["darvas_box", "mars", "momentum"],
@@ -186,7 +186,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--exit_strategy",
+        "--exit-strategy",
         type=str,
         default="buy_and_hold",
         choices=["buy_and_hold", "profit_loss", "ema"],
@@ -194,7 +194,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--ranking_strategy",
+        "--ranking-strategy",
         type=str,
         default="momentum",
         choices=["momentum"],
@@ -246,7 +246,7 @@ def main() -> int:
         # Initialize strategy runner with the trading strategy
         logger.info("Initializing strategy runner...")
         signal_service = SignalService(trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY)
-        signal_processor = SignalProcessor(max_holding_period=30, bars_history=signal_service.bars_history, exit_strategy=exit_strategy)
+        signal_processor = SignalProcessor(max_holding_period=60, bars_history=signal_service.bars_history, exit_strategy=exit_strategy)
         backtest_service = BacktestService(signal_service=signal_service, signal_processor=signal_processor)
 
         # Run analysis based on mode

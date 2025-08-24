@@ -54,7 +54,6 @@ class SignalProcessor:
         Initialize processor by pre-loading benchmark data for SPY and QQQ.
         This should be called once before processing signals to improve performance.
         """
-        logger.info("Initializing SignalProcessor with benchmark data...")
 
         self.df_spy = self.bars_history.get_ticker_history(
             "SPY",
@@ -71,9 +70,9 @@ class SignalProcessor:
             self.time_frame_unit,
         )
         logger.debug(f"Loaded QQQ data: {len(self.df_qqq)} records")
-        logger.info("Benchmarks initialization complete")
+        # logger.info("Benchmarks initialization complete")
 
-    def run(self, signal: Signal) -> SignalResult:
+    def run(self, signal: Signal) -> SignalResult | None:
         """
         Process a Signal object to create a complete SignalResult.
 
@@ -91,11 +90,19 @@ class SignalProcessor:
         logger.debug(f"Processing signal for {signal.ticker} on {signal.date}")
 
         # Step 1: Calculate entry data
-        entry: Trade = self._calculate_entry_data(signal)
+        entry: Trade | None = self._calculate_entry_data(signal)
+        if entry is None:  # No trading data available for entry
+            logger.warning(f"Skipping signal for {signal.ticker} on {signal.date}: No entry data")
+            return None
+
         logger.debug(f"Entry calculated: {entry.date} at ${entry.price}")
 
         # Step 2: Calculate exit data using strategy
-        exit: Trade = self._calculate_exit_data(signal, entry.date, entry.price)
+        exit: Trade | None = self._calculate_exit_data(signal, entry.date, entry.price)
+        if exit is None:  # No trading data available for exit
+            logger.warning(f"Skipping signal for {signal.ticker} on {signal.date}: No exit data")
+            return None
+
         logger.debug(f"Exit calculated: {exit.date} at ${exit.price} ({exit.reason})")
 
         # Step 3: Initialize benchmarks
@@ -124,7 +131,7 @@ class SignalProcessor:
         logger.debug(f"Signal processing complete for {signal.ticker}")
         return self.result
 
-    def _calculate_entry_data(self, signal: Signal) -> Trade:
+    def _calculate_entry_data(self, signal: Signal) -> Trade | None:
         """
         Calculate entry date and price based on signal.
         Entry date is the next trading date after signal date.
@@ -146,7 +153,8 @@ class SignalProcessor:
         df = self.bars_history.get_ticker_history(signal.ticker, search_start, search_end, self.time_frame_unit)
 
         if df.empty:
-            raise ValueError(f"No trading data available for {signal.ticker} after {signal.date}")
+            logger.warning(f"No trading data available for {signal.ticker} after {signal.date}")
+            return None
 
         # Get first available trading day
         first_row = df.iloc[0]
