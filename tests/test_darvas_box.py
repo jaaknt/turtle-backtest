@@ -39,7 +39,8 @@ def test_check_local_min():
 
 def test_collect():
     bars_history_mock = MagicMock(spec=BarsHistoryRepo)
-    strategy = DarvasBoxStrategy(bars_history_mock, warmup_period=3, min_bars=3)
+    ranking_strategy_mock = MagicMock(spec=MomentumRanking)
+    strategy = DarvasBoxStrategy(bars_history_mock, ranking_strategy_mock, warmup_period=3, min_bars=3)
 
     # Mock the return value of get_ticker_history
     bars_history_mock.get_ticker_history.return_value = pd.DataFrame(
@@ -67,7 +68,8 @@ def test_collect():
 def test_calculate_indicators():
     # Call the method
     bars_history_mock = MagicMock(spec=BarsHistoryRepo)
-    strategy = DarvasBoxStrategy(bars_history_mock, warmup_period=3, min_bars=3)
+    ranking_strategy_mock = MagicMock(spec=MomentumRanking)
+    strategy = DarvasBoxStrategy(bars_history_mock, ranking_strategy_mock, warmup_period=3, min_bars=3)
 
     strategy.df = pd.DataFrame(
         {
@@ -139,17 +141,7 @@ def test_is_local_max_valid():
 
 def test_price_to_ranking():
     """Test the price to ranking conversion logic."""
-    # Create test DataFrame for MomentumRanking
-    test_df = pd.DataFrame({
-        'hdate': [datetime.now()],
-        'close': [50.0],
-        'open': [49.0],
-        'high': [51.0],
-        'low': [48.0],
-        'volume': [1000000]
-    })
-    
-    ranking_strategy = MomentumRanking(test_df)
+    ranking_strategy = MomentumRanking()
 
     # Test each price range
     assert ranking_strategy._price_to_ranking(5.0) == 20    # $0-10 range
@@ -187,8 +179,8 @@ def test_ranking():
         'ema_200': [50.0]
     })
 
-    ranking_strategy = MomentumRanking(mock_df)
-    ranking = ranking_strategy.ranking(test_date)
+    ranking_strategy = MomentumRanking()
+    ranking = ranking_strategy.ranking(mock_df, test_date)
     assert ranking == 12  # Only price ranking since no historical data for EMA trends
 
     # Test case 2: High-priced stock (should return rank 0)
@@ -205,8 +197,8 @@ def test_ranking():
         'ema_200': [1500.0]
     })
 
-    ranking_strategy = MomentumRanking(mock_df_expensive)
-    ranking = ranking_strategy.ranking(test_date)
+    ranking_strategy = MomentumRanking()
+    ranking = ranking_strategy.ranking(mock_df_expensive, test_date)
     assert ranking == 0
 
     # Test case 3: Low-priced stock (should return rank 20 for price component)
@@ -223,6 +215,6 @@ def test_ranking():
         'ema_200': [8.50]
     })
 
-    ranking_strategy = MomentumRanking(mock_df_cheap)
-    ranking = ranking_strategy.ranking(test_date)
+    ranking_strategy = MomentumRanking()
+    ranking = ranking_strategy.ranking(mock_df_cheap, test_date)
     assert ranking == 20
