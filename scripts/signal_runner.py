@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Strategy Runner Script
+Signal Runner Script
 
 This script runs trading strategy analysis using the SignalService class.
 It can get ticker lists, ticker counts, check individual ticker signals, or count signals
@@ -12,7 +12,7 @@ Usage:
 Options:
     --start-date YYYY-MM-DD  Start date for analysis (required for count mode)
     --end-date YYYY-MM-DD    End date for analysis (required for count mode)
-    --tickers TICKER         Comma-separated list of specific tickers to test
+    --tickers TICKER         Space separated list of specific tickers to test
     --trading_strategy STRATEGY      Trading strategy: darvas_box, mars, momentum (default: darvas_box)
     --max-tickers NUM        Maximum number of tickers to test (default: 10000)
     --mode MODE              Analysis mode: signal, list, top (default: signal)
@@ -118,11 +118,6 @@ def iso_date_type(date_string: str) -> datetime:
         return datetime.fromisoformat(date_string)
     except ValueError as err:
         raise argparse.ArgumentTypeError(f"Invalid date format: '{date_string}'. Expected ISO format (YYYY-MM-DD)") from err
-
-
-def parse_symbols(symbols_str: str) -> list[str]:
-    """Parse comma-separated symbols string."""
-    return [symbol.strip().upper() for symbol in symbols_str.split(",")]
 
 
 def create_argument_parser() -> argparse.ArgumentParser:
