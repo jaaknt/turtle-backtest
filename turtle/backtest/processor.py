@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from turtle.strategy.models import Signal
 from turtle.backtest.models import SignalResult, Trade
-from turtle.backtest.exit_strategy import TradeExitStrategy
+from turtle.backtest.exit_strategy import ExitStrategy, ProfitLossExitStrategy
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
 
@@ -25,10 +25,9 @@ class SignalProcessor:
 
     def __init__(
         self,
-        start_date: datetime,  # minimum date for OHLCV history
-        end_date: datetime,  # maximum date for OHLCV history
+        max_holding_period: int,
         bars_history: BarsHistoryRepo,
-        exit_strategy: TradeExitStrategy,
+        exit_strategy: ExitStrategy,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
     ):
         """
@@ -41,8 +40,7 @@ class SignalProcessor:
             exit_strategy: Strategy for determining exit conditions
             time_frame_unit: Time frame for data (default: DAY)
         """
-        self.start_date = start_date
-        self.end_date = end_date
+        self.max_holding_period = max_holding_period
         self.bars_history = bars_history
         self.exit_strategy = exit_strategy
         self.time_frame_unit = time_frame_unit
@@ -180,7 +178,7 @@ class SignalProcessor:
         df = self.bars_history.get_ticker_history(
             signal.ticker,
             entry_date,
-            self.end_date,
+            entry_date + timedelta(days=self.max_holding_period),  # Limit to max_holding_period days max for exit search
             self.time_frame_unit,
         )
 
@@ -188,6 +186,8 @@ class SignalProcessor:
             raise ValueError(f"No historical data available for {signal.ticker} from {entry_date}")
 
         # Use exit strategy to calculate return
+        if isinstance(self.exit_strategy, ProfitLossExitStrategy):
+            self.exit_strategy.set_trade_data(entry_price)
         trade: Trade = self.exit_strategy.calculate_exit(data=df)
 
         if trade is None:

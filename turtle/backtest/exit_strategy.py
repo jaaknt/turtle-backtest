@@ -4,7 +4,7 @@ import pandas as pd
 from turtle.backtest.models import Trade
 
 
-class TradeExitStrategy(ABC):
+class ExitStrategy(ABC):
     """
     Abstract base class for period return calculation strategies.
     """
@@ -23,7 +23,7 @@ class TradeExitStrategy(ABC):
         pass
 
 
-class BuyAndHoldStrategy(TradeExitStrategy):
+class BuyAndHoldExitStrategy(ExitStrategy):
     """
     Simple buy and hold strategy - exit at period end.
     """
@@ -39,12 +39,12 @@ class BuyAndHoldStrategy(TradeExitStrategy):
         return Trade(date=last_record["hdate"], price=last_record["close"], reason="period_end")
 
 
-class ProfitLossTargetStrategy(TradeExitStrategy):
+class ProfitLossExitStrategy(ExitStrategy):
     """
     Exit when 10% profit target or 5% stop loss is hit, whichever comes first.
     """
 
-    def __init__(self, entry_price: float, profit_target: float = 20.0, stop_loss: float = 7.0):
+    def __init__(self, profit_target: float = 20.0, stop_loss: float = 7.0):
         """
         Initialize with profit and loss targets.
 
@@ -52,11 +52,13 @@ class ProfitLossTargetStrategy(TradeExitStrategy):
             profit_target: Profit target percentage (default 20%)
             stop_loss: Stop loss percentage (default 7%)
         """
-        self.entry_price = entry_price
         self.profit_target = profit_target
         self.stop_loss = stop_loss
-        self.profit_price: float = entry_price * (1 + profit_target / 100)
-        self.stop_price: float = entry_price * (1 - stop_loss / 100)
+
+    def set_trade_data(self, entry_price: float) -> None:
+        self.entry_price = entry_price
+        self.profit_price = entry_price * (1 + self.profit_target / 100)
+        self.stop_price = entry_price * (1 - self.stop_loss / 100)
 
     def calculate_exit(self, data: pd.DataFrame) -> Trade:
         """Calculate return with profit/loss targets."""
@@ -90,7 +92,7 @@ class ProfitLossTargetStrategy(TradeExitStrategy):
             return Trade(date=last_record["hdate"], price=last_record["close"], reason="period_end")
 
 
-class EMAExitStrategy(TradeExitStrategy):
+class EMAExitStrategy(ExitStrategy):
     """
     Exit when price closes below EMA or at period end.
 

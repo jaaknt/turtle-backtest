@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Signal Runner Script
+Backtest Script
 
 This script runs trading strategy analysis using the SignalService class.
 It can get ticker lists, ticker counts, check individual ticker signals, or count signals
@@ -12,10 +12,12 @@ Usage:
 Options:
     --start-date YYYY-MM-DD  Start date for analysis (required for count mode)
     --end-date YYYY-MM-DD    End date for analysis (required for count mode)
-    --tickers TICKER         Space separated list of specific tickers to test
-    --trading_strategy STRATEGY      Trading strategy: darvas_box, mars, momentum (default: darvas_box)
+    --tickers TICKER         Comma-separated list of specific tickers to test
+    --trading-strategy STRATEGY      Trading strategy: darvas_box, mars, momentum (default: darvas_box)
+    --exit-strategy STRATEGY         Exit strategy: buy_and_hold, profit_loss, ema (default: buy_and_hold)
+    --ranking-strategy STRATEGY      Ranking strategy: momentum (default: momentum)
     --max-tickers NUM        Maximum number of tickers to test (default: 10000)
-    --mode MODE              Analysis mode: signal, list, top (default: signal)
+    --mode MODE              Analysis mode: list (default: list)
     --verbose                Enable verbose logging
     --help                   Show this help message
 """
@@ -37,11 +39,22 @@ from psycopg.rows import TupleRow
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
+from turtle.backtest.processor import SignalProcessor
+from turtle.ranking.ranking_strategy import RankingStrategy
+from turtle.service.backtest_service import BacktestService
+from turtle.strategy.darvas_box import DarvasBoxStrategy
+from turtle.strategy.momentum import MomentumStrategy
+from turtle.strategy.mars import MarsStrategy
+
+# Add project root to path to import turtle modules
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
+
 from turtle.service.signal_service import SignalService
 from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.strategy.trading_strategy import TradingStrategy
 from turtle.ranking.momentum import MomentumRanking
+from turtle.backtest.exit_strategy import ExitStrategy, BuyAndHoldExitStrategy, EMAExitStrategy, ProfitLossExitStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -71,23 +84,8 @@ def setup_logging(verbose: bool = False) -> None:
         logging.basicConfig(level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
-def get_trading_strategy_instance(strategy_name: str) -> TradingStrategy:
-    """Create and return a trading strategy instance by name."""
-    from turtle.strategy.darvas_box import DarvasBoxStrategy
-    from turtle.strategy.mars import MarsStrategy
-    from turtle.strategy.momentum import MomentumStrategy
-
-    strategy_classes: dict[str, type[TradingStrategy]] = {
-        "darvas_box": DarvasBoxStrategy,
-        "mars": MarsStrategy,
-        "momentum": MomentumStrategy,
-    }
-
-    strategy_class = strategy_classes.get(strategy_name.lower())
-    if strategy_class is None:
-        available_strategies = ", ".join(strategy_classes.keys())
-        raise ValueError(f"Unknown strategy '{strategy_name}'. Available strategies: {available_strategies}")
-
+def _get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy) -> TradingStrategy:
+    """Get the trading strategy instance by name."""
     # Create database connection and bars_history for strategy
     pool: ConnectionPool[Connection[TupleRow]] = ConnectionPool(
         conninfo="host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres", min_size=5, max_size=50, max_idle=600
@@ -98,18 +96,49 @@ def get_trading_strategy_instance(strategy_name: str) -> TradingStrategy:
         str(os.getenv("ALPACA_SECRET_KEY")),
     )
 
-    # Create strategy instance with common parameters
-    return strategy_class(
-        bars_history=bars_history,
-        ranking_strategy=MomentumRanking(),
-        time_frame_unit=TimeFrameUnit.DAY,
-        warmup_period=730,
-    )
+    if strategy_name == "darvas_box":
+        return DarvasBoxStrategy(
+            bars_history=bars_history,
+            ranking_strategy=ranking_strategy,
+            time_frame_unit=TimeFrameUnit.DAY,
+            warmup_period=730,
+        )
+    elif strategy_name == "mars":
+        return MarsStrategy(
+            bars_history=bars_history,
+            ranking_strategy=ranking_strategy,
+            time_frame_unit=TimeFrameUnit.DAY,
+            warmup_period=730,
+        )
+    elif strategy_name == "momentum":
+        return MomentumStrategy(
+            bars_history=bars_history,
+            ranking_strategy=ranking_strategy,
+            time_frame_unit=TimeFrameUnit.DAY,
+            warmup_period=730,
+        )
+    else:
+        raise ValueError(f"Unknown trading strategy '{strategy_name}'")
 
 
-def get_trading_strategy(strategy_runner: SignalService, strategy_name: str) -> TradingStrategy:
-    """Create and return a trading strategy instance by name (deprecated - kept for compatibility)."""
-    return get_trading_strategy_instance(strategy_name)
+def _get_ranking_strategy(strategy_name: str) -> RankingStrategy:
+    """Get the ranking strategy instance by name."""
+    if strategy_name == "momentum":
+        return MomentumRanking()
+    else:
+        raise ValueError(f"Unknown ranking strategy '{strategy_name}'")
+
+
+def _get_exit_strategy(strategy_name: str) -> ExitStrategy:
+    """Get the exit strategy instance by name."""
+    if strategy_name == "buy_and_hold":
+        return BuyAndHoldExitStrategy()
+    elif strategy_name == "profit_loss":
+        return ProfitLossExitStrategy(profit_target=20.0, stop_loss=7.0)
+    elif strategy_name == "ema":
+        return EMAExitStrategy()
+    else:
+        raise ValueError(f"Unknown exit strategy '{strategy_name}'")
 
 
 def iso_date_type(date_string: str) -> datetime:
@@ -145,7 +174,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--tickers",
         nargs="*",  # Zero or more arguments
-        help="Stock ticker symbols (required for signal mode)",
+        help="Stock ticker symbols",
     )
 
     parser.add_argument(
@@ -154,6 +183,22 @@ def create_argument_parser() -> argparse.ArgumentParser:
         default="darvas_box",
         choices=["darvas_box", "mars", "momentum"],
         help="Trading strategy to use (default: darvas_box)",
+    )
+
+    parser.add_argument(
+        "--exit_strategy",
+        type=str,
+        default="buy_and_hold",
+        choices=["buy_and_hold", "profit_loss", "ema"],
+        help="Exit strategy to use (default: buy_and_hold)",
+    )
+
+    parser.add_argument(
+        "--ranking_strategy",
+        type=str,
+        default="momentum",
+        choices=["momentum"],
+        help="Ranking strategy to use (default: momentum)",
     )
 
     parser.add_argument("--max-tickers", type=int, default=10000, help="Maximum number of tickers to test")
@@ -191,52 +236,27 @@ def main() -> int:
 
         # Get the trading strategy first (we need it for service initialization)
         try:
-            trading_strategy = get_trading_strategy_instance(args.trading_strategy)
+            ranking_strategy: RankingStrategy = _get_ranking_strategy(args.ranking_strategy)
+            exit_strategy: ExitStrategy = _get_exit_strategy(args.exit_strategy)
+            trading_strategy: TradingStrategy = _get_trading_strategy(args.trading_strategy, ranking_strategy)
         except ValueError as e:
             logger.error(str(e))
             return 1
 
         # Initialize strategy runner with the trading strategy
         logger.info("Initializing strategy runner...")
-        strategy_runner = SignalService(trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY)
+        signal_service = SignalService(trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY)
+        signal_processor = SignalProcessor(max_holding_period=30, bars_history=signal_service.bars_history, exit_strategy=exit_strategy)
+        backtest_service = BacktestService(signal_service=signal_service, signal_processor=signal_processor)
 
         # Run analysis based on mode
         if args.mode == "list":
             if args.tickers:
-                logger.warning("Tickers parameter is ignored in list mode")
-            for ticker in strategy_runner.get_symbol_list(max_symbols=args.max_tickers):
-                signals = strategy_runner.get_trading_signals(ticker, start_date, end_date)
-
-                if len(signals) > 0:
-                    for signal in signals:
-                        print(f"  ✓ Signal {ticker} on {signal.date.date()} ranking: {signal.ranking} ")
-
-        elif args.mode == "top":
-            logger.info("Getting top 20 signals...")
-            signal_list = []
-            for ticker in strategy_runner.get_symbol_list(max_symbols=args.max_tickers):
-                signal_list.extend(strategy_runner.get_trading_signals(ticker, start_date, end_date))
-
-            # Flatten the list and get top 20 signals
-            if not signal_list:
-                top_signals = []
+                backtest_service.run(start_date, end_date, args.tickers)
             else:
-                top_signals = sorted(signal_list, key=lambda s: s.ranking, reverse=True)[:20]
-                for signal in top_signals:
-                    print(f"  ✓ Signal {signal.ticker} on {signal.date.date()} ranking: {signal.ranking} ")
+                backtest_service.run(start_date, end_date, None)
 
-        elif args.mode == "signal":
-            if not args.tickers:
-                logger.error("Tickers is required for signal mode")
-                return 1
-            for ticker in args.tickers:
-                signals = strategy_runner.get_trading_signals(ticker, start_date, end_date)
-
-                if len(signals) > 0:
-                    for signal in signals:
-                        print(f"  ✓ Signal {ticker} on {signal.date.date()} ranking: {signal.ranking} ")
-
-        logger.info("Strategy analysis completed successfully")
+        logger.info("Backtest analysis completed successfully")
         return 0
 
     except KeyboardInterrupt:
