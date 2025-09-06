@@ -13,7 +13,7 @@ with warnings.catch_warnings():
     )
 
 
-def test_check_local_max():
+def test_check_local_max() -> None:
     series = pd.Series([1, 2, 3, 10, 3, 2, 1])
     assert DarvasBoxStrategy.check_local_max(0, series, 3, 3) is False
     assert DarvasBoxStrategy.check_local_max(1, series, 3, 3) is False
@@ -24,7 +24,7 @@ def test_check_local_max():
     assert DarvasBoxStrategy.check_local_max(6, series, 3, 3) is False
 
 
-def test_check_local_min():
+def test_check_local_min() -> None:
     series = pd.Series([10, 9, 8, 7, 1, 7, 8, 9, 10])
     assert DarvasBoxStrategy.check_local_min(0, series, 2) is False
     assert DarvasBoxStrategy.check_local_min(1, series, 2) is False
@@ -37,7 +37,7 @@ def test_check_local_min():
     assert DarvasBoxStrategy.check_local_min(8, series, 2) is False
 
 
-def test_collect():
+def test_collect() -> None:
     bars_history_mock = MagicMock(spec=BarsHistoryRepo)
     ranking_strategy_mock = MagicMock(spec=MomentumRanking)
     strategy = DarvasBoxStrategy(bars_history_mock, ranking_strategy_mock, warmup_period=3, min_bars=3)
@@ -65,7 +65,7 @@ def test_collect():
     assert strategy.collect_historical_data("GOOG", datetime.now(), datetime.now()) is False
 
 
-def test_calculate_indicators():
+def test_calculate_indicators() -> None:
     # Call the method
     bars_history_mock = MagicMock(spec=BarsHistoryRepo)
     ranking_strategy_mock = MagicMock(spec=MomentumRanking)
@@ -100,7 +100,7 @@ def test_calculate_indicators():
     #     assert strategy.df[column].isnull().all()
 
 
-def test_is_local_max_valid():
+def test_is_local_max_valid() -> None:
     df = pd.DataFrame(
         {
             "high": [1, 2, 3, 10, 3, 2, 1, 5, 6, 7, 8, 9, 10],
@@ -139,7 +139,7 @@ def test_is_local_max_valid():
     assert DarvasBoxStrategy.is_local_max_valid(df, 10, 5) is True
 
 
-def test_price_to_ranking():
+def test_price_to_ranking() -> None:
     """Test the price to ranking conversion logic."""
     ranking_strategy = MomentumRanking()
 
@@ -161,7 +161,7 @@ def test_price_to_ranking():
     assert ranking_strategy._price_to_ranking(-10.0) == 1   # Negative price
 
 
-def test_ranking():
+def test_ranking() -> None:
     """Test the ranking method with mock data."""
     test_date = datetime(2024, 1, 15)
 

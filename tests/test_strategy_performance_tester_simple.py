@@ -10,7 +10,7 @@ from turtle.backtest.models import LegacySignalResult
 class TestStrategyPerformanceTesterBasic:
     """Test basic functionality of StrategyPerformanceTester with period return strategies."""
 
-    def test_initialization_with_default_strategy(self):
+    def test_initialization_with_default_strategy(self) -> None:
         """Test that StrategyPerformanceTester initializes with default BuyAndHoldStrategy."""
         from unittest.mock import Mock
 
@@ -29,7 +29,7 @@ class TestStrategyPerformanceTesterBasic:
         assert isinstance(tester.period_return_strategy, BuyAndHoldStrategy)
         assert tester.period_return_strategy_kwargs == {}
 
-    def test_initialization_with_custom_strategy(self):
+    def test_initialization_with_custom_strategy(self) -> None:
         """Test initialization with custom TradeExitStrategy."""
         from unittest.mock import Mock
 
@@ -52,7 +52,7 @@ class TestStrategyPerformanceTesterBasic:
         assert tester.period_return_strategy.profit_target == 15.0
         assert tester.period_return_strategy.stop_loss == 8.0
 
-    def test_initialization_with_ema_strategy(self):
+    def test_initialization_with_ema_strategy(self) -> None:
         """Test initialization with EMAExitStrategy."""
         from unittest.mock import Mock
 
@@ -74,7 +74,7 @@ class TestStrategyPerformanceTesterBasic:
         assert isinstance(tester.period_return_strategy, EMAExitStrategy)
         assert tester.period_return_strategy.ema_period == 25
 
-    def test_period_return_strategy_kwargs(self):
+    def test_period_return_strategy_kwargs(self) -> None:
         """Test that strategy kwargs are stored correctly."""
         from unittest.mock import Mock
 
@@ -95,7 +95,7 @@ class TestStrategyPerformanceTesterBasic:
 
         assert tester.period_return_strategy_kwargs == kwargs
 
-    def test_calculate_signal_return_with_period_data(self):
+    def test_calculate_signal_return_with_period_data(self) -> None:
         """Test _calculate_signal_return method with period data."""
         from unittest.mock import Mock
 
@@ -146,7 +146,7 @@ class TestStrategyPerformanceTesterBasic:
         # Should be around 15% since profit target triggers at 115
         assert abs(return_pct - 15.0) < 1.0
 
-    def test_calculate_signal_return_fallback_to_legacy(self):
+    def test_calculate_signal_return_fallback_to_legacy(self) -> None:
         """Test fallback to LegacySignalResult method when no period data."""
         from unittest.mock import Mock
 
@@ -179,7 +179,7 @@ class TestStrategyPerformanceTesterBasic:
         assert return_pct is not None
         assert return_pct == 15.0  # (115 - 100) / 100 * 100
 
-    def test_backward_compatibility(self):
+    def test_backward_compatibility(self) -> None:
         """Test that existing code patterns still work."""
         from unittest.mock import Mock
 
@@ -211,7 +211,7 @@ class TestStrategyPerformanceTesterBasic:
 class TestStrategyComparison:
     """Test that different strategies produce different results."""
 
-    def test_different_strategies_different_behaviors(self):
+    def test_different_strategies_different_behaviors(self) -> None:
         """Test that different period return strategies have different characteristics."""
 
         # Create test data where strategies would behave differently

@@ -1,16 +1,15 @@
 import streamlit as st
 import pandas as pd
-import os
 from dotenv import load_dotenv
 
 from datetime import datetime
-from typing import cast
 
 from turtle.ranking.momentum import MomentumRanking
 from turtle.service.signal_service import SignalService
 from turtle.strategy.darvas_box import DarvasBoxStrategy
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
+from turtle.config.settings import Settings
 from psycopg_pool import ConnectionPool
 from psycopg import Connection
 from psycopg.rows import TupleRow
@@ -23,17 +22,13 @@ load_dotenv()
 
 end_date = datetime(year=2025, month=8, day=12)
 
-# Create database connection and bars_history for strategy
-pool = cast(
-    DatabasePool,
-    ConnectionPool(
-        conninfo="host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres", min_size=5, max_size=50, max_idle=600
-    ),
-)
+# Create settings and database connection
+settings = Settings.from_toml()
+pool = settings.pool
 bars_history = BarsHistoryRepo(
     pool,
-    str(os.getenv("ALPACA_API_KEY")),
-    str(os.getenv("ALPACA_SECRET_KEY")),
+    settings.app.alpaca["api_key"],
+    settings.app.alpaca["secret_key"],
 )
 
 # Create DarvasBoxStrategy instance
@@ -45,7 +40,11 @@ darvas_strategy = DarvasBoxStrategy(
 )
 
 # Create strategy runner with the trading strategy
-strategy_runner = SignalService(trading_strategy=darvas_strategy)
+strategy_runner = SignalService(
+    pool=pool,
+    app_config=settings.app,
+    trading_strategy=darvas_strategy
+)
 
 # Get ticker list (now with correct method signature)
 for ticker in strategy_runner.get_symbol_list():

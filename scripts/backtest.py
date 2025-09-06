@@ -31,10 +31,11 @@ import pathlib
 import sys
 from datetime import datetime
 
-from dotenv import load_dotenv
 from psycopg_pool import ConnectionPool
 from psycopg import Connection
 from psycopg.rows import TupleRow
+
+from turtle.config.settings import Settings
 
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
@@ -221,12 +222,10 @@ def main() -> int:
     """Main entry point for strategy runner."""
     parser = create_argument_parser()
     args = parser.parse_args()
+    settings = Settings.from_toml()
 
     # Setup logging
     setup_logging(args.verbose)
-
-    # Load environment variables
-    load_dotenv()
 
     logger.info(f"Starting strategy analysis with {args.trading_strategy} strategy")
 
@@ -245,7 +244,9 @@ def main() -> int:
 
         # Initialize strategy runner with the trading strategy
         logger.info("Initializing strategy runner...")
-        signal_service = SignalService(trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY)
+        signal_service = SignalService(
+            pool=settings.pool, app_config=settings.app, trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY
+        )
         signal_processor = SignalProcessor(max_holding_period=60, bars_history=signal_service.bars_history, exit_strategy=exit_strategy)
         backtest_service = BacktestService(signal_service=signal_service, signal_processor=signal_processor)
 

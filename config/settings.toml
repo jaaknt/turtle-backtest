@@ -1,0 +1,20 @@
+[app]
+name = "turtle-backtest"
+debug = true
+eodhd.api_key = "YOUR_EODHD_API_KEY"
+alpaca.api_key = "YOUR_ALPACA_API_KEY"
+alpaca.secret_key = "YOUR_ALPACA_SECRET_KEY"
+
+[database]
+host = "localhost"
+port = 5432
+dbname = "postgres"
+user = "postgres"
+password = "***"    # Use environment variable or secret management in production
+
+[database.pool]
+min_size = 10
+max_size = 30
+max_idle = 300
+max_lifetime = 3600
+timeout = 30

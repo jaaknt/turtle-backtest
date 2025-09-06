@@ -1,4 +1,3 @@
-import os
 import pandas as pd
 from psycopg_pool import ConnectionPool
 from datetime import datetime
@@ -6,6 +5,7 @@ from datetime import datetime
 
 import logging
 
+from turtle.config.model import AppConfig
 from turtle.data.symbol import SymbolRepo
 from turtle.data.company import CompanyRepo
 from turtle.data.bars_history import BarsHistoryRepo
@@ -19,12 +19,13 @@ from turtle.strategy.models import Signal
 from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)
-DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
 
 
 class SignalService:
     def __init__(
         self,
+        pool: ConnectionPool,
+        app_config: AppConfig,
         trading_strategy: TradingStrategy,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         warmup_period: int = 730,
@@ -33,13 +34,13 @@ class SignalService:
         self.time_frame_unit = time_frame_unit
         self.warmup_period = warmup_period
 
-        self.pool: ConnectionPool = ConnectionPool(conninfo=DSN, min_size=5, max_size=50, max_idle=600)
-        self.symbol_repo = SymbolRepo(self.pool, str(os.getenv("EODHD_API_KEY")))
+        self.pool = pool
+        self.symbol_repo = SymbolRepo(self.pool, app_config.eodhd["api_key"])
         self.company_repo = CompanyRepo(self.pool)
         self.bars_history = BarsHistoryRepo(
             self.pool,
-            str(os.getenv("ALPACA_API_KEY")),
-            str(os.getenv("ALPACA_SECRET_KEY")),
+            app_config.alpaca["api_key"],
+            app_config.alpaca["secret_key"],
         )
         self.market_data = MarketData(self.bars_history)
 
