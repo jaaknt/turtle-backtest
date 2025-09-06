@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 from turtle.service.data_update_service import DataUpdateService
 from turtle.common.enums import TimeFrameUnit
+from turtle.config.settings import Settings
 
 logger = logging.getLogger(__name__)
 DSN = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
@@ -22,7 +23,12 @@ def setup_logging() -> None:
 
 def init_db() -> None:
     """Initialize the database with the required tables and data."""
-    data_updater = DataUpdateService(time_frame_unit=TimeFrameUnit.DAY)
+    settings = Settings.from_toml()
+    data_updater = DataUpdateService(
+        pool=settings.pool,
+        app_config=settings.app,
+        time_frame_unit=TimeFrameUnit.DAY
+    )
     start_date: datetime = datetime(year=2017, month=1, day=1)
     end_date: datetime = datetime(year=2025, month=6, day=27)
 

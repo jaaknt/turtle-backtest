@@ -1,13 +1,11 @@
-import os
 import logging
 import pandas as pd
 from datetime import datetime
 
 # from typing import Dict
 from psycopg_pool import ConnectionPool
-from psycopg.rows import TupleRow
-from psycopg import Connection
 
+from turtle.config.model import AppConfig
 from turtle.data.symbol import SymbolRepo
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.ranking.momentum import MomentumRanking
@@ -43,14 +41,15 @@ class StrategyPerformanceService:
 
     def __init__(
         self,
+        pool: ConnectionPool,
+        app_config: AppConfig,
         strategy_class: type[TradingStrategy],
         ranking_strategy: RankingStrategy,
         signal_start_date: datetime,
         signal_end_date: datetime,
         max_holding_period: pd.Timedelta | None = None,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
-        dsn: str = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres",
-    ):
+    ) -> None:
         """
         Initialize the strategy performance service.
 
@@ -70,12 +69,12 @@ class StrategyPerformanceService:
         self.time_frame_unit = time_frame_unit
 
         # Initialize database connection and repositories
-        self.pool: ConnectionPool[Connection[TupleRow]] = ConnectionPool(conninfo=dsn, min_size=5, max_size=50, max_idle=600)
-        self.symbol_repo = SymbolRepo(self.pool, str(os.getenv("EODHD_API_KEY")))
+        self.pool: ConnectionPool = pool
+        self.symbol_repo = SymbolRepo(self.pool, str(app_config.eodhd["api_key"]))
         self.bars_history = BarsHistoryRepo(
             self.pool,
-            str(os.getenv("ALPACA_API_KEY")),
-            str(os.getenv("ALPACA_SECRET_KEY")),
+            str(app_config.alpaca["api_key"]),
+            str(app_config.alpaca["secret_key"]),
         )
 
         # Initialize strategy instance
@@ -91,7 +90,6 @@ class StrategyPerformanceService:
         signal_end_date: datetime,
         max_holding_period: pd.Timedelta | None = None,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
-        dsn: str = "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres",
     ) -> "StrategyPerformanceService":
         """
         Create StrategyPerformanceService instance from strategy name.
@@ -102,7 +100,6 @@ class StrategyPerformanceService:
             signal_end_date: End date for signal generation
             max_holding_period: Maximum holding period for analysis
             time_frame_unit: Time frame for analysis
-            dsn: Database connection string
 
         Returns:
             StrategyPerformanceService instance
@@ -115,14 +112,19 @@ class StrategyPerformanceService:
 
         strategy_class = cls.AVAILABLE_STRATEGIES[strategy_name]
 
+        # Create settings and get database connection
+        from turtle.config.settings import Settings
+        settings = Settings.from_toml()
+
         return cls(
+            pool=settings.pool,
+            app_config=settings.app,
             strategy_class=strategy_class,
             ranking_strategy=MomentumRanking(),  # Default ranking strategy; can be modified as needed
             signal_start_date=signal_start_date,
             signal_end_date=signal_end_date,
             max_holding_period=max_holding_period,
             time_frame_unit=time_frame_unit,
-            dsn=dsn,
         )
 
     def run_test(

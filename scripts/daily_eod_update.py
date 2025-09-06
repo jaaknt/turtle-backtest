@@ -24,13 +24,13 @@ import pathlib
 import sys
 from datetime import datetime, timedelta
 
-from dotenv import load_dotenv
 
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
+from turtle.config.settings import Settings
 from turtle.service.data_update_service import DataUpdateService
-from turtle.common.enums import TimeFrameUnit
+# from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +57,7 @@ def setup_logging(verbose: bool = False) -> None:
     else:
         # Fallback to basic config if json config not found
         level = logging.DEBUG if verbose else logging.INFO
-        logging.basicConfig(
-            level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+        logging.basicConfig(level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
 def get_previous_trading_day(reference_date: datetime | None = None) -> datetime:
@@ -88,9 +86,7 @@ def get_previous_trading_day(reference_date: datetime | None = None) -> datetime
     return target_date
 
 
-def validate_update_success(
-    data_updater: DataUpdateService, start_date: datetime, end_date: datetime
-) -> bool:
+def validate_update_success(data_updater: DataUpdateService, start_date: datetime, end_date: datetime) -> bool:
     """
     Validate that the data update was successful.
 
@@ -119,25 +115,17 @@ def validate_update_success(
 
         for symbol_rec in sample_symbols:
             try:
-                bars = data_updater.bars_history.get_bars_history(
-                    symbol_rec.symbol, start_date, end_date
-                )
+                bars = data_updater.bars_history.get_bars_history(symbol_rec.symbol, start_date, end_date)
                 if bars:
                     successful_updates += 1
-                    logger.debug(
-                        f"✓ Data found for {symbol_rec.symbol} from {start_date.date()} to {end_date.date()}"
-                    )
+                    logger.debug(f"✓ Data found for {symbol_rec.symbol} from {start_date.date()} to {end_date.date()}")
                 else:
-                    logger.warning(
-                        f"✗ No data for {symbol_rec.symbol} from {start_date.date()} to {end_date.date()}"
-                    )
+                    logger.warning(f"✗ No data for {symbol_rec.symbol} from {start_date.date()} to {end_date.date()}")
             except Exception as e:
                 logger.warning(f"✗ Error checking {symbol_rec.symbol}: {e}")
 
         success_rate = successful_updates / len(sample_symbols)
-        logger.info(
-            f"Validation: {successful_updates}/{len(sample_symbols)} sample symbols have data ({success_rate:.1%})"
-        )
+        logger.info(f"Validation: {successful_updates}/{len(sample_symbols)} sample symbols have data ({success_rate:.1%})")
 
         # Consider successful if at least 80% of sampled symbols have data
         return success_rate >= 0.8
@@ -147,7 +135,7 @@ def validate_update_success(
         return False
 
 
-def parse_and_validate_dates(args: 'argparse.Namespace') -> tuple[datetime, datetime]:
+def parse_and_validate_dates(args: "argparse.Namespace") -> tuple[datetime, datetime]:
     """
     Parse and validate start and end dates from command line arguments.
 
@@ -221,9 +209,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         help="Show what would be updated without making changes",
     )
 
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose logging"
-    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
 
     return parser
 
@@ -232,14 +218,18 @@ def main() -> int:
     """Main entry point for daily EOD update."""
     parser = create_argument_parser()
     args = parser.parse_args()
+    settings = Settings.from_toml()
 
     # Setup logging
     setup_logging(args.verbose)
 
     # Load environment variables
-    load_dotenv()
+    # load_dotenv()
 
     logger.info("Starting daily EOD database update")
+
+    print(f"settings.database: {settings.database}")
+    print(f"settings.app: {settings.app}")
 
     try:
         # Parse and validate dates
@@ -250,27 +240,21 @@ def main() -> int:
             logger.info("DRY RUN MODE - No actual updates will be performed")
 
             # Initialize data updater to get symbol count
-            data_updater = DataUpdateService(time_frame_unit=TimeFrameUnit.DAY)
+            data_updater = DataUpdateService(pool=settings.pool, app_config=settings.app)
             symbol_list = data_updater.symbol_repo.get_symbol_list("USA")
 
             if start_date == end_date:
-                logger.info(
-                    f"Would update {len(symbol_list)} symbols for date: {start_date.date()}"
-                )
+                logger.info(f"Would update {len(symbol_list)} symbols for date: {start_date.date()}")
             else:
-                logger.info(
-                    f"Would update {len(symbol_list)} symbols from {start_date.date()} to {end_date.date()}"
-                )
+                logger.info(f"Would update {len(symbol_list)} symbols from {start_date.date()} to {end_date.date()}")
             logger.info("Dry run complete - no data was actually updated")
             return 0
 
         # Actual update
         logger.info("Initializing data updater...")
-        data_updater = DataUpdateService(time_frame_unit=TimeFrameUnit.DAY)
+        data_updater = DataUpdateService(pool=settings.pool, app_config=settings.app)
 
-        logger.info(
-            f"Starting bars history update from {start_date.date()} to {end_date.date()}"
-        )
+        logger.info(f"Starting bars history update from {start_date.date()} to {end_date.date()}")
 
         update_start_time = datetime.now()
 

@@ -29,7 +29,6 @@ import pathlib
 import sys
 from datetime import datetime
 
-from dotenv import load_dotenv
 from psycopg_pool import ConnectionPool
 from psycopg import Connection
 from psycopg.rows import TupleRow
@@ -37,6 +36,7 @@ from psycopg.rows import TupleRow
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
+from turtle.config.settings import Settings
 from turtle.service.signal_service import SignalService
 from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
@@ -176,12 +176,10 @@ def main() -> int:
     """Main entry point for strategy runner."""
     parser = create_argument_parser()
     args = parser.parse_args()
+    settings = Settings.from_toml()
 
     # Setup logging
     setup_logging(args.verbose)
-
-    # Load environment variables
-    load_dotenv()
 
     logger.info(f"Starting strategy analysis with {args.trading_strategy} strategy")
 
@@ -198,7 +196,9 @@ def main() -> int:
 
         # Initialize strategy runner with the trading strategy
         logger.info("Initializing strategy runner...")
-        strategy_runner = SignalService(trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY)
+        strategy_runner = SignalService(
+            pool=settings.pool, app_config=settings.app, trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY
+        )
 
         # Run analysis based on mode
         if args.mode == "list":

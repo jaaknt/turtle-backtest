@@ -1,6 +1,7 @@
 import pytest
 import pandas as pd
 from datetime import datetime
+from typing import Any
 from turtle.backtest.period_return import (
     PeriodReturn,
     BuyAndHoldStrategy,
@@ -11,7 +12,7 @@ from turtle.backtest.period_return import (
 
 
 @pytest.fixture
-def sample_data():
+def sample_data() -> pd.DataFrame:
     """Create sample OHLCV data for testing."""
     dates = pd.date_range('2024-01-01', periods=30, freq='D')
     data = {
@@ -28,7 +29,7 @@ def sample_data():
 
 
 @pytest.fixture
-def declining_data():
+def declining_data() -> pd.DataFrame:
     """Create sample declining OHLCV data for testing stop loss."""
     dates = pd.date_range('2024-01-01', periods=20, freq='D')
     data = {
@@ -42,7 +43,7 @@ def declining_data():
 
 
 @pytest.fixture
-def volatile_data():
+def volatile_data() -> pd.DataFrame:
     """Create volatile data that goes above EMA then below."""
     dates = pd.date_range('2024-01-01', periods=40, freq='D')
     # Start high, then decline below EMA
@@ -62,7 +63,7 @@ def volatile_data():
 
 class TestBuyAndHoldStrategy:
 
-    def test_calculate_return_basic(self, sample_data):
+    def test_calculate_return_basic(self, sample_data: pd.DataFrame) -> None:
         """Test basic buy and hold return calculation."""
         strategy = BuyAndHoldStrategy()
         entry_price = 100.0
@@ -76,7 +77,7 @@ class TestBuyAndHoldStrategy:
         assert result.exit_reason == 'period_end'
         assert result.return_pct > 0  # Should be positive due to increasing prices
 
-    def test_calculate_return_no_data(self, sample_data):
+    def test_calculate_return_no_data(self, sample_data: pd.DataFrame) -> None:
         """Test when no data is available."""
         strategy = BuyAndHoldStrategy()
         entry_price = 100.0
@@ -90,7 +91,7 @@ class TestBuyAndHoldStrategy:
 
 class TestProfitLossTargetStrategy:
 
-    def test_profit_target_hit(self, sample_data):
+    def test_profit_target_hit(self, sample_data: pd.DataFrame) -> None:
         """Test when profit target is reached."""
         strategy = ProfitLossTargetStrategy(profit_target=5.0, stop_loss=10.0)
         entry_price = 100.0
@@ -103,7 +104,7 @@ class TestProfitLossTargetStrategy:
         assert result.exit_reason == 'profit_target'
         assert result.return_pct >= 5.0
 
-    def test_stop_loss_hit(self, declining_data):
+    def test_stop_loss_hit(self, declining_data: pd.DataFrame) -> None:
         """Test when stop loss is triggered."""
         strategy = ProfitLossTargetStrategy(profit_target=20.0, stop_loss=5.0)
         entry_price = 100.0
@@ -116,7 +117,7 @@ class TestProfitLossTargetStrategy:
         assert result.exit_reason == 'stop_loss'
         assert result.return_pct <= -5.0
 
-    def test_period_end_no_trigger(self, sample_data):
+    def test_period_end_no_trigger(self, sample_data: pd.DataFrame) -> None:
         """Test when neither profit nor loss target is hit."""
         strategy = ProfitLossTargetStrategy(profit_target=50.0, stop_loss=50.0)  # Very high thresholds
         entry_price = 100.0
@@ -128,7 +129,7 @@ class TestProfitLossTargetStrategy:
         assert result is not None
         assert result.exit_reason == 'period_end'
 
-    def test_stop_loss_before_profit_target(self):
+    def test_stop_loss_before_profit_target(self) -> None:
         """Test when stop loss is hit before profit target by date."""
         # Create data where stop loss happens first, then profit
         dates = pd.date_range('2024-01-01', periods=10, freq='D')
@@ -155,7 +156,7 @@ class TestProfitLossTargetStrategy:
         # Should exit on day when 90 hit (10% loss = 10% stop loss)
         assert result.exit_date.day == 3  # 2024-01-03
 
-    def test_profit_target_before_stop_loss(self):
+    def test_profit_target_before_stop_loss(self) -> None:
         """Test when profit target is hit before stop loss by date."""
         # Create data where profit happens first, then loss would happen
         dates = pd.date_range('2024-01-01', periods=10, freq='D')
@@ -182,7 +183,7 @@ class TestProfitLossTargetStrategy:
         # Should exit on day when 115 hit (15% gain > 10% profit target)
         assert result.exit_date.day == 3  # 2024-01-03
 
-    def test_both_targets_same_day(self):
+    def test_both_targets_same_day(self) -> None:
         """Test when both targets could be hit on the same day - first one chronologically wins."""
         # Create data where both profit and loss targets are hit on same day
         # We'll use intraday scenario: price drops early (hitting stop loss), then recovers (hitting profit)
@@ -214,7 +215,7 @@ class TestProfitLossTargetStrategy:
 
 class TestEMAExitStrategy:
 
-    def test_ema_exit_triggered(self, volatile_data):
+    def test_ema_exit_triggered(self, volatile_data: pd.DataFrame) -> None:
         """Test when price goes below EMA."""
         strategy = EMAExitStrategy(ema_period=20)
         entry_price = 100.0
@@ -226,7 +227,7 @@ class TestEMAExitStrategy:
         assert result is not None
         assert result.exit_reason == 'ema_exit'
 
-    def test_ema_no_exit(self, sample_data):
+    def test_ema_no_exit(self, sample_data: pd.DataFrame) -> None:
         """Test when price never goes below EMA."""
         strategy = EMAExitStrategy(ema_period=5)  # Short EMA period
         entry_price = 100.0
@@ -238,7 +239,7 @@ class TestEMAExitStrategy:
         assert result is not None
         assert result.exit_reason == 'period_end'
 
-    def test_missing_ema_column_raises_error(self, sample_data):
+    def test_missing_ema_column_raises_error(self, sample_data: pd.DataFrame) -> None:
         """Test that missing EMA column raises ValueError."""
         strategy = EMAExitStrategy(ema_period=100)  # ema_100 column doesn't exist
         entry_price = 100.0
@@ -252,7 +253,7 @@ class TestEMAExitStrategy:
         assert "Available columns:" in str(exc_info.value)
         assert "Please ensure the data contains pre-calculated EMA values" in str(exc_info.value)
 
-    def test_ema_with_existing_column(self, sample_data):
+    def test_ema_with_existing_column(self, sample_data: pd.DataFrame) -> None:
         """Test that EMA strategy works when the required column exists."""
         strategy = EMAExitStrategy(ema_period=20)  # ema_20 column exists in sample_data
         entry_price = 100.0
@@ -266,7 +267,7 @@ class TestEMAExitStrategy:
         # Since close prices are always above EMA in sample_data, should exit at period end
         assert result.exit_reason == 'period_end'
 
-    def test_ema_strategy_with_data_without_ema_columns(self):
+    def test_ema_strategy_with_data_without_ema_columns(self) -> None:
         """Test that EMA strategy raises error when data doesn't have EMA columns."""
         # Create data without EMA columns
         dates = pd.date_range('2024-01-01', periods=10, freq='D')
@@ -295,7 +296,7 @@ class TestEMAExitStrategy:
 
 class TestPeriodReturn:
 
-    def test_strategy_initialization(self):
+    def test_strategy_initialization(self) -> None:
         """Test strategy initialization and validation."""
         # Valid strategies
         pr1 = PeriodReturn('buy_and_hold')
@@ -311,7 +312,7 @@ class TestPeriodReturn:
         with pytest.raises(ValueError):
             PeriodReturn('invalid_strategy')
 
-    def test_get_available_strategies(self):
+    def test_get_available_strategies(self) -> None:
         """Test getting list of available strategies."""
         strategies = PeriodReturn.get_available_strategies()
         assert 'buy_and_hold' in strategies
@@ -319,13 +320,13 @@ class TestPeriodReturn:
         assert 'ema_exit' in strategies
         assert len(strategies) == 3
 
-    def test_strategy_integration(self, sample_data):
+    def test_strategy_integration(self, sample_data: pd.DataFrame) -> None:
         """Test that all strategies work through main interface."""
         entry_price = 100.0
         entry_date = datetime(2024, 1, 5)
         target_date = datetime(2024, 1, 15)
 
-        strategies_to_test = [
+        strategies_to_test: list[tuple[str, dict[str, Any]]] = [
             ('buy_and_hold', {}),
             ('profit_loss_target', {'profit_target': 10.0, 'stop_loss': 5.0}),
             ('ema_exit', {'ema_period': 5})
@@ -350,7 +351,7 @@ class TestPeriodReturn:
 
 class TestPeriodReturnResult:
 
-    def test_result_attributes(self):
+    def test_result_attributes(self) -> None:
         """Test PeriodReturnResult dataclass."""
         result = PeriodReturnResult(
             return_pct=10.5,
@@ -367,7 +368,7 @@ class TestPeriodReturnResult:
 
 class TestEdgeCases:
 
-    def test_zero_entry_price(self, sample_data):
+    def test_zero_entry_price(self, sample_data: pd.DataFrame) -> None:
         """Test handling of zero entry price."""
         strategy = BuyAndHoldStrategy()
         entry_price = 0.0
@@ -379,7 +380,7 @@ class TestEdgeCases:
         # Should handle gracefully and return valid result
         assert result is not None
 
-    def test_negative_entry_price(self, sample_data):
+    def test_negative_entry_price(self, sample_data: pd.DataFrame) -> None:
         """Test handling of negative entry price."""
         strategy = BuyAndHoldStrategy()
         entry_price = -100.0
@@ -391,7 +392,7 @@ class TestEdgeCases:
         # Should handle gracefully
         assert result is not None
 
-    def test_entry_after_target_date(self, sample_data):
+    def test_entry_after_target_date(self, sample_data: pd.DataFrame) -> None:
         """Test when entry date is after target date."""
         strategy = BuyAndHoldStrategy()
         entry_price = 100.0
