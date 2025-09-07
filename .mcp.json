@@ -22,6 +22,13 @@
         "@playwright/mcp@latest",
         "--user-data-dir=./.playwright-profile"
       ]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
     }
   }
 }
