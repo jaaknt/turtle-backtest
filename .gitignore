@@ -47,3 +47,6 @@ MANIFEST
 
 # Playwright profile
 .playwright-profile/
+
+# Ruff cache
+.ruff_cache/
