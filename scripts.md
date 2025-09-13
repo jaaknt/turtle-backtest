@@ -47,27 +47,21 @@ The `signal_runner.py` script provides comprehensive strategy analysis capabilit
 **Analysis Modes:**
 
 ### Mode 1: List - Get Tickers with Signals
-Find all tickers that have trading signals on a specific date:
+Find all tickers that have trading signals for a date range:
 ```bash
-uv run python scripts/signal_runner.py --mode list --date 2024-08-30 --strategy darvas_box
+uv run python scripts/signal_runner.py --mode list --start-date 2024-08-01 --end-date 2024-08-31 --trading_strategy darvas_box
 ```
 
-### Mode 2: Count - Get Signal Counts for Date Range
-Count trading signals for all tickers across a date range:
+### Mode 2: Signal - Check Individual Ticker Signal
+Check if a specific ticker has a trading signal:
 ```bash
-uv run python scripts/signal_runner.py --mode count --start-date 2024-08-01 --end-date 2024-08-31 --strategy darvas_box
+uv run python scripts/signal_runner.py --mode signal --tickers AAPL --start-date 2024-08-01 --end-date 2024-08-31 --trading_strategy darvas_box
 ```
 
-### Mode 3: Signal - Check Individual Ticker Signal
-Check if a specific ticker has a trading signal on a specific date:
+### Mode 3: Top - Get Top Trading Signals
+Get the top trading signals for a date range:
 ```bash
-uv run python scripts/signal_runner.py --mode signal --ticker AAPL --date 2024-08-30 --strategy darvas_box
-```
-
-### Mode 4: Signal Count - Count Signals for Specific Ticker
-Count signals for a specific ticker over a date range:
-```bash
-uv run python scripts/signal_runner.py --mode signal_count --ticker AAPL --start-date 2024-08-01 --end-date 2024-08-31 --strategy darvas_box
+uv run python scripts/signal_runner.py --mode top --start-date 2024-08-01 --end-date 2024-08-31 --trading_strategy darvas_box
 ```
 
 **Available Strategies:**
@@ -76,10 +70,13 @@ uv run python scripts/signal_runner.py --mode signal_count --ticker AAPL --start
 - `momentum` - Traditional momentum strategy
 
 **Common Options:**
-- `--strategy` - Trading strategy to use (default: darvas_box)
+- `--trading_strategy` - Trading strategy to use (default: darvas_box)
 - `--mode` - Analysis mode (default: list)
+- `--start-date` - Start date for analysis (YYYY-MM-DD format, required)
+- `--end-date` - End date for analysis (YYYY-MM-DD format, required)
+- `--tickers` - Stock ticker symbols (required for signal mode)
+- `--max-tickers` - Maximum number of tickers to test (default: 10000)
 - `--verbose` - Enable detailed logging
-- Date parameters vary by mode (--date for single date, --start-date/--end-date for ranges)
 
 ## strategy_performance.py
 
