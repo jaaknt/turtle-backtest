@@ -10,39 +10,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check out the code
-      uses: actions/checkout@v4
+      - name: Check out the code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.13'  
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
 
-    #- name: Install system dependencies for ta-lib
-    #  run: |
-    #    sudo apt-get update
-    #    sudo apt-get install -y build-essential autoconf automake libtool
-    #    sudo apt-get install -y libta-lib0 libta-lib0-dev        
+      #- name: Install system dependencies for ta-lib
+      #  run: |
+      #    sudo apt-get update
+      #    sudo apt-get install -y build-essential autoconf automake libtool
+      #    sudo apt-get install -y libta-lib0 libta-lib0-dev
 
-    - name: Install system dependencies for ta-lib
-      run: |
-        wget https://github.com/ta-lib/ta-lib/releases/download/v0.6.4/ta-lib-0.6.4-src.tar.gz
-        tar xvfz ta-lib-0.6.4-src.tar.gz
-        cd ta-lib-0.6.4
-        ./configure
-        make
-        sudo make install
+      #- name: Install system dependencies for ta-lib
+      #  run: |
+      #    wget https://github.com/ta-lib/ta-lib/releases/download/v0.6.4/ta-lib-0.6.4-src.tar.gz
+      #    tar xvfz ta-lib-0.6.4-src.tar.gz
+      #    cd ta-lib-0.6.4
+      #    ./configure
+      #    make
+      #    sudo make install
 
-    - name: Install uv
-      run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Install dependencies
-      run: uv sync --extra dev --extra lint
+      - name: Install dependencies
+        run: uv sync --extra dev --extra lint
 
-    - name: Run mypy for static type checking
-      run: uv run mypy turtle/ main.py app.py
+      - name: Run mypy for static type checking
+        run: uv run mypy turtle/ main.py app.py
 
-    - name: Run tests
-      run: uv run pytest
+      - name: Run tests
+        run: uv run pytest
