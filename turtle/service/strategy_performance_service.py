@@ -114,6 +114,7 @@ class StrategyPerformanceService:
 
         # Create settings and get database connection
         from turtle.config.settings import Settings
+
         settings = Settings.from_toml()
 
         return cls(
@@ -162,7 +163,7 @@ class StrategyPerformanceService:
             end_date=self.signal_end_date,
             max_holding_period=self.max_holding_period,
             # period_return_strategy=ProfitLossTargetStrategy(profit_target=15.0, stop_loss=10.0),
-            period_return_strategy=EMAExitStrategy(ema_period=10),
+            period_return_strategy=EMAExitStrategy(ema_period=20),
         )
 
         # Generate signals for all symbols
