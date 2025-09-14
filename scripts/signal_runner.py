@@ -10,14 +10,14 @@ Usage:
     python scripts/signal_runner.py [options]
 
 Options:
-    --start-date YYYY-MM-DD  Start date for analysis (required for count mode)
-    --end-date YYYY-MM-DD    End date for analysis (required for count mode)
-    --tickers TICKER         Space separated list of specific tickers to test
-    --trading_strategy STRATEGY      Trading strategy: darvas_box, mars, momentum (default: darvas_box)
-    --max-tickers NUM        Maximum number of tickers to test (default: 10000)
-    --mode MODE              Analysis mode: signal, list, top (default: signal)
-    --verbose                Enable verbose logging
-    --help                   Show this help message
+    --start-date YYYY-MM-DD      Start date for analysis (required for count mode)
+    --end-date YYYY-MM-DD        End date for analysis (required for count mode)
+    --tickers TICKER             Space separated list of specific tickers to test
+    --trading-strategy STRATEGY  Trading strategy: darvas_box, mars, momentum (default: darvas_box)
+    --max-tickers NUM            Maximum number of tickers to test (default: 10000)
+    --mode MODE                  Analysis mode: signal, list, top (default: signal)
+    --verbose                    Enable verbose logging
+    --help                       Show this help message
 """
 
 import argparse
@@ -72,11 +72,6 @@ def get_trading_strategy_instance(strategy_name: str, pool: ConnectionPool, app:
     )
 
 
-# def get_trading_strategy(strategy_runner: SignalService, strategy_name: str) -> TradingStrategy:
-#    """Create and return a trading strategy instance by name (deprecated - kept for compatibility)."""
-#    return get_trading_strategy_instance(strategy_name, strategy_runner.trading_strategy.verbose)
-
-
 def iso_date_type(date_string: str) -> datetime:
     """Custom argparse type for ISO date validation"""
     try:
@@ -114,7 +109,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--trading_strategy",
+        "--trading-strategy",
         type=str,
         default="darvas_box",
         choices=["darvas_box", "mars", "momentum"],

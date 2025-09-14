@@ -23,22 +23,18 @@ Options:
 """
 
 import argparse
-import json
-import logging.config
-import logging.handlers
-import os
+import logging
 import pathlib
 import sys
 from datetime import datetime
-
 from psycopg_pool import ConnectionPool
-from psycopg import Connection
-from psycopg.rows import TupleRow
-
-from turtle.config.settings import Settings
 
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
+
+from turtle.config.logging import LogConfig
+from turtle.config.model import AppConfig
+from turtle.config.settings import Settings
 
 from turtle.backtest.processor import SignalProcessor
 from turtle.ranking.ranking_strategy import RankingStrategy
@@ -46,9 +42,6 @@ from turtle.service.backtest_service import BacktestService
 from turtle.strategy.darvas_box import DarvasBoxStrategy
 from turtle.strategy.momentum import MomentumStrategy
 from turtle.strategy.mars import MarsStrategy
-
-# Add project root to path to import turtle modules
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
 from turtle.service.signal_service import SignalService
 from turtle.common.enums import TimeFrameUnit
@@ -60,41 +53,14 @@ from turtle.backtest.exit_strategy import ExitStrategy, BuyAndHoldExitStrategy, 
 logger = logging.getLogger(__name__)
 
 
-def setup_logging(verbose: bool = False) -> None:
-    """Setup logging configuration."""
-    config_file = pathlib.Path(__file__).parent.parent / "config" / "stdout.json"
-
-    if config_file.exists():
-        with open(config_file) as f_in:
-            config = json.load(f_in)
-
-        # Adjust log level if verbose
-        if verbose:
-            if "root" in config:
-                config["root"]["level"] = "DEBUG"
-            if "loggers" in config and "root" in config["loggers"]:
-                config["loggers"]["root"]["level"] = "DEBUG"
-            for handler in config["handlers"].values():
-                if "level" in handler:
-                    handler["level"] = "DEBUG"
-
-        logging.config.dictConfig(config)
-    else:
-        # Fallback to basic config if json config not found
-        level = logging.DEBUG if verbose else logging.INFO
-        logging.basicConfig(level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-
-
-def _get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy) -> TradingStrategy:
+def _get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, pool: ConnectionPool, app: AppConfig) -> TradingStrategy:
     """Get the trading strategy instance by name."""
     # Create database connection and bars_history for strategy
-    pool: ConnectionPool[Connection[TupleRow]] = ConnectionPool(
-        conninfo="host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres", min_size=5, max_size=50, max_idle=600
-    )
+
     bars_history = BarsHistoryRepo(
         pool,
-        str(os.getenv("ALPACA_API_KEY")),
-        str(os.getenv("ALPACA_SECRET_KEY")),
+        alpaca_api_key=app.alpaca["api_key"],
+        alpaca_api_secret=app.alpaca["secret_key"],
     )
 
     if strategy_name == "darvas_box":
@@ -225,7 +191,7 @@ def main() -> int:
     settings = Settings.from_toml()
 
     # Setup logging
-    setup_logging(args.verbose)
+    LogConfig.setup(args.verbose)
 
     logger.info(f"Starting strategy analysis with {args.trading_strategy} strategy")
 
@@ -237,7 +203,9 @@ def main() -> int:
         try:
             ranking_strategy: RankingStrategy = _get_ranking_strategy(args.ranking_strategy)
             exit_strategy: ExitStrategy = _get_exit_strategy(args.exit_strategy)
-            trading_strategy: TradingStrategy = _get_trading_strategy(args.trading_strategy, ranking_strategy)
+            trading_strategy: TradingStrategy = _get_trading_strategy(
+                args.trading_strategy, ranking_strategy, pool=settings.pool, app=settings.app
+            )
         except ValueError as e:
             logger.error(str(e))
             return 1

@@ -17,9 +17,6 @@ Options:
 """
 
 import argparse
-import json
-import logging.config
-import logging.handlers
 import pathlib
 import sys
 from datetime import datetime, timedelta
@@ -28,40 +25,15 @@ from datetime import datetime, timedelta
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
+from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
 from turtle.service.data_update_service import DataUpdateService
 # from turtle.common.enums import TimeFrameUnit
+import logging
 
 logger = logging.getLogger(__name__)
 
 
-def setup_logging(verbose: bool = False) -> None:
-    """Setup logging configuration."""
-    config_file = pathlib.Path(__file__).parent.parent / "config" / "stdout.json"
-
-    if config_file.exists():
-        with open(config_file) as f_in:
-            config = json.load(f_in)
-
-        # Adjust log level if verbose
-        if verbose:
-            if "root" in config:
-                config["root"]["level"] = "DEBUG"
-            if "loggers" in config and "root" in config["loggers"]:
-                config["loggers"]["root"]["level"] = "DEBUG"
-            if "loggers" in config and "turtle" in config["loggers"]:
-                config["loggers"]["turtle"]["level"] = "DEBUG"
-            for handler in config["handlers"].values():
-                if "level" in handler:
-                    handler["level"] = "DEBUG"
-
-        print("Logging configuration:")
-        print(json.dumps(config, indent=4))
-        logging.config.dictConfig(config)
-    else:
-        # Fallback to basic config if json config not found
-        level = logging.DEBUG if verbose else logging.INFO
-        logging.basicConfig(level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
 def get_previous_trading_day(reference_date: datetime | None = None) -> datetime:
@@ -225,7 +197,7 @@ def main() -> int:
     settings = Settings.from_toml()
 
     # Setup logging
-    setup_logging(args.verbose)
+    LogConfig.setup(args.verbose)
 
     # Load environment variables
     # load_dotenv()
