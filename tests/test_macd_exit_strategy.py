@@ -2,47 +2,116 @@
 
 import pandas as pd
 import pytest
+from datetime import datetime
+from unittest.mock import Mock
 
 from turtle.backtest.exit_strategy import MACDExitStrategy
 from turtle.backtest.models import Trade
+from turtle.data.bars_history import BarsHistoryRepo
 
 
 class TestMACDExitStrategy:
     """Test cases for MACDExitStrategy."""
 
+    def create_mock_bars_history(self) -> Mock:
+        """Create a mock BarsHistoryRepo for testing."""
+        mock_bars_history = Mock(spec=BarsHistoryRepo)
+        return mock_bars_history
+
     def test_init(self) -> None:
         """Test MACDExitStrategy initialization."""
-        strategy = MACDExitStrategy()
-        assert strategy.fastperiod == 12
-        assert strategy.slowperiod == 26
-        assert strategy.signalperiod == 9
-        assert strategy.use_histogram is True
+        mock_bars_history = self.create_mock_bars_history()
+        strategy = MACDExitStrategy(mock_bars_history)
 
-        # Test custom parameters
-        strategy = MACDExitStrategy(fastperiod=8, slowperiod=21, signalperiod=5, use_histogram=False)
-        assert strategy.fastperiod == 8
-        assert strategy.slowperiod == 21
-        assert strategy.signalperiod == 5
-        assert strategy.use_histogram is False
+        # Test that it has the required attributes from parent
+        assert hasattr(strategy, 'bars_history')
+        assert strategy.bars_history == mock_bars_history
 
     def test_empty_data(self) -> None:
         """Test handling of empty data."""
-        strategy = MACDExitStrategy()
+        mock_bars_history = self.create_mock_bars_history()
+        strategy = MACDExitStrategy(mock_bars_history)
         empty_data = pd.DataFrame()
 
         with pytest.raises(ValueError, match="No valid data available"):
             strategy.calculate_exit(empty_data)
 
-    def test_insufficient_data(self) -> None:
-        """Test handling when insufficient data for MACD calculation."""
-        strategy = MACDExitStrategy()
+    def test_initialize(self) -> None:
+        """Test strategy initialization."""
+        mock_bars_history = self.create_mock_bars_history()
+        strategy = MACDExitStrategy(mock_bars_history)
 
-        # Create minimal data (less than required for MACD)
+        ticker = "AAPL"
+        start_date = datetime(2024, 1, 1)
+        end_date = datetime(2024, 1, 31)
+
+        strategy.initialize(ticker, start_date, end_date, fastperiod=8, slowperiod=21, signalperiod=5)
+
+        assert strategy.ticker == ticker
+        assert strategy.start_date == start_date
+        assert strategy.end_date == end_date
+        assert strategy.fastperiod == 8
+        assert strategy.slowperiod == 21
+        assert strategy.signalperiod == 5
+
+    def test_calculate_indicators(self) -> None:
+        """Test calculate_indicators method."""
+        mock_bars_history = self.create_mock_bars_history()
+        strategy = MACDExitStrategy(mock_bars_history)
+
+        # Set up mock data
+        dates = pd.date_range(start="2024-01-01", periods=60, freq="D")
+        mock_data = pd.DataFrame({
+            "close": [100.0 + i * 0.5 for i in range(60)],
+            "high": [101.0 + i * 0.5 for i in range(60)],
+            "low": [99.0 + i * 0.5 for i in range(60)],
+            "open": [100.0 + i * 0.5 for i in range(60)],
+            "volume": [1000000] * 60
+        }, index=dates)
+
+        mock_bars_history.get_ticker_history.return_value = mock_data
+
+        # Initialize strategy
+        strategy.initialize("AAPL", datetime(2024, 1, 15), datetime(2024, 1, 31))
+
+        # Test calculate_indicators
+        result = strategy.calculate_indicators()
+
+        assert isinstance(result, pd.DataFrame)
+        assert "macd_line" in result.columns
+        assert "macd_signal" in result.columns
+        assert not result.empty
+
+    def test_calculate_exit_with_signal(self) -> None:
+        """Test calculate_exit method with MACD signal data."""
+        mock_bars_history = self.create_mock_bars_history()
+        strategy = MACDExitStrategy(mock_bars_history)
+
+        # Create test data with MACD indicators where close drops below signal
         dates = pd.date_range(start="2024-01-01", periods=10, freq="D")
         data = pd.DataFrame({
-            "close": [100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0],
-            "high": [101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0],
-            "low": [99.0, 100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0],
+            "close": [100.0, 101.0, 102.0, 101.5, 100.5, 99.0, 98.0, 97.0, 96.0, 95.0],
+            "macd_signal": [99.0, 100.0, 101.0, 101.0, 101.0, 100.0, 99.0, 98.0, 97.0, 96.0],
+        }, index=dates)
+
+        result = strategy.calculate_exit(data)
+
+        assert isinstance(result, Trade)
+        assert result.reason == "below_signal"
+        # Should exit when close first goes below macd_signal (at index 4)
+        assert result.date == dates[4]
+        assert result.price == 100.5
+
+    def test_calculate_exit_period_end(self) -> None:
+        """Test calculate_exit when no signal is triggered."""
+        mock_bars_history = self.create_mock_bars_history()
+        strategy = MACDExitStrategy(mock_bars_history)
+
+        # Create test data where close stays above signal
+        dates = pd.date_range(start="2024-01-01", periods=5, freq="D")
+        data = pd.DataFrame({
+            "close": [100.0, 101.0, 102.0, 103.0, 104.0],
+            "macd_signal": [99.0, 100.0, 101.0, 102.0, 103.0],
         }, index=dates)
 
         result = strategy.calculate_exit(data)
@@ -50,101 +119,17 @@ class TestMACDExitStrategy:
         assert isinstance(result, Trade)
         assert result.reason == "period_end"
         assert result.date == dates[-1]
-        assert result.price == 109.0
+        assert result.price == 104.0
 
-    def test_period_end_exit(self) -> None:
-        """Test exit at period end when no signals found."""
-        strategy = MACDExitStrategy()
+    def test_default_initialization_parameters(self) -> None:
+        """Test strategy with default MACD parameters."""
+        mock_bars_history = self.create_mock_bars_history()
+        strategy = MACDExitStrategy(mock_bars_history)
 
-        # Create data with gradually increasing prices (no bearish signals)
-        dates = pd.date_range(start="2024-01-01", periods=60, freq="D")
-        closes = [100 + i * 0.5 for i in range(60)]  # Steadily increasing
-        data = pd.DataFrame({
-            "close": closes,
-            "high": [c + 1 for c in closes],
-            "low": [c - 1 for c in closes],
-        }, index=dates)
+        # Test default initialization
+        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 31))
 
-        result = strategy.calculate_exit(data)
-
-        assert isinstance(result, Trade)
-        assert result.reason == "period_end"
-        assert result.date == dates[-1]
-        assert result.price == closes[-1]
-
-    def test_macd_bearish_crossover(self) -> None:
-        """Test exit on MACD bearish crossover."""
-        strategy = MACDExitStrategy(use_histogram=False)  # Only use signal crossover
-
-        # Create data that should generate a bearish MACD crossover
-        dates = pd.date_range(start="2024-01-01", periods=60, freq="D")
-
-        # Rising then falling prices to create MACD crossover
-        closes = []
-        for i in range(60):
-            if i < 30:
-                closes.append(100 + i * 2)  # Rising
-            else:
-                closes.append(160 - (i - 30) * 3)  # Falling faster
-
-        data = pd.DataFrame({
-            "close": closes,
-            "high": [c + 1 for c in closes],
-            "low": [c - 1 for c in closes],
-        }, index=dates)
-
-        result = strategy.calculate_exit(data)
-
-        assert isinstance(result, Trade)
-        # Should exit due to MACD crossover, not at period end
-        assert result.reason in ["macd_bearish_cross", "period_end"]
-        assert result.date <= dates[-1]
-
-    def test_histogram_strategy(self) -> None:
-        """Test MACD histogram strategy."""
-        strategy = MACDExitStrategy(use_histogram=True)
-
-        # Create data with price movement that should trigger histogram signal
-        dates = pd.date_range(start="2024-01-01", periods=60, freq="D")
-
-        # Create a pattern that goes up then down to trigger histogram changes
-        closes = []
-        for i in range(60):
-            if i < 20:
-                closes.append(100.0 + i)  # Rising
-            elif i < 35:
-                closes.append(120.0 - (i - 20) * 0.5)  # Slight decline
-            else:
-                closes.append(112.5 - (i - 35) * 2.0)  # Steeper decline
-
-        data = pd.DataFrame({
-            "close": closes,
-            "high": [c + 1 for c in closes],
-            "low": [c - 1 for c in closes],
-        }, index=dates)
-
-        result = strategy.calculate_exit(data)
-
-        assert isinstance(result, Trade)
-        # Should detect some kind of bearish signal or exit at period end
-        assert result.reason in ["macd_bearish_cross", "macd_histogram_negative", "period_end"]
-        assert result.date <= dates[-1]
-
-    def test_custom_parameters(self) -> None:
-        """Test strategy with custom MACD parameters."""
-        strategy = MACDExitStrategy(fastperiod=8, slowperiod=21, signalperiod=5)
-
-        dates = pd.date_range(start="2024-01-01", periods=50, freq="D")
-        closes = [100 + i * 0.5 for i in range(50)]
-        data = pd.DataFrame({
-            "close": closes,
-            "high": [c + 1 for c in closes],
-            "low": [c - 1 for c in closes],
-        }, index=dates)
-
-        result = strategy.calculate_exit(data)
-
-        assert isinstance(result, Trade)
-        assert result.date in data.index
-        assert isinstance(result.price, float)
-        assert result.reason in ["macd_bearish_cross", "macd_histogram_negative", "period_end"]
+        # Check default parameters
+        assert strategy.fastperiod == 12
+        assert strategy.slowperiod == 26
+        assert strategy.signalperiod == 9

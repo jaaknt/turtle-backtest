@@ -14,7 +14,7 @@ Options:
     --end-date YYYY-MM-DD    End date for analysis (required for count mode)
     --tickers TICKER         Comma-separated list of specific tickers to test
     --trading-strategy STRATEGY      Trading strategy: darvas_box, mars, momentum (default: darvas_box)
-    --exit-strategy STRATEGY         Exit strategy: buy_and_hold, profit_loss, ema, macd (default: buy_and_hold)
+    --exit-strategy STRATEGY         Exit strategy: buy_and_hold, profit_loss, ema, macd, atr (default: buy_and_hold)
     --ranking-strategy STRATEGY      Ranking strategy: momentum (default: momentum)
     --max-tickers NUM        Maximum number of tickers to test (default: 10000)
     --mode MODE              Analysis mode: list (default: list)
@@ -27,13 +27,11 @@ import logging
 import pathlib
 import sys
 from datetime import datetime
-from psycopg_pool import ConnectionPool
 
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
 from turtle.config.logging import LogConfig
-from turtle.config.model import AppConfig
 from turtle.config.settings import Settings
 
 from turtle.backtest.processor import SignalProcessor
@@ -48,20 +46,20 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.strategy.trading_strategy import TradingStrategy
 from turtle.ranking.momentum import MomentumRanking
-from turtle.backtest.exit_strategy import ExitStrategy, BuyAndHoldExitStrategy, EMAExitStrategy, ProfitLossExitStrategy, MACDExitStrategy
+from turtle.backtest.exit_strategy import (
+    ExitStrategy,
+    BuyAndHoldExitStrategy,
+    EMAExitStrategy,
+    ProfitLossExitStrategy,
+    MACDExitStrategy,
+    ATRExitStrategy,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def _get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, pool: ConnectionPool, app: AppConfig) -> TradingStrategy:
+def _get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, bars_history: BarsHistoryRepo) -> TradingStrategy:
     """Get the trading strategy instance by name."""
-    # Create database connection and bars_history for strategy
-
-    bars_history = BarsHistoryRepo(
-        pool,
-        alpaca_api_key=app.alpaca["api_key"],
-        alpaca_api_secret=app.alpaca["secret_key"],
-    )
 
     if strategy_name == "darvas_box":
         return DarvasBoxStrategy(
@@ -96,16 +94,18 @@ def _get_ranking_strategy(strategy_name: str) -> RankingStrategy:
         raise ValueError(f"Unknown ranking strategy '{strategy_name}'")
 
 
-def _get_exit_strategy(strategy_name: str) -> ExitStrategy:
+def _get_exit_strategy(strategy_name: str, bars_history: BarsHistoryRepo) -> ExitStrategy:
     """Get the exit strategy instance by name."""
     if strategy_name == "buy_and_hold":
-        return BuyAndHoldExitStrategy()
+        return BuyAndHoldExitStrategy(bars_history=bars_history)
     elif strategy_name == "profit_loss":
-        return ProfitLossExitStrategy(profit_target=15.0, stop_loss=5.0)
+        return ProfitLossExitStrategy(bars_history=bars_history)
     elif strategy_name == "ema":
-        return EMAExitStrategy()
+        return EMAExitStrategy(bars_history=bars_history)
     elif strategy_name == "macd":
-        return MACDExitStrategy()
+        return MACDExitStrategy(bars_history=bars_history)
+    elif strategy_name == "atr":
+        return ATRExitStrategy(bars_history=bars_history)
     else:
         raise ValueError(f"Unknown exit strategy '{strategy_name}'")
 
@@ -158,7 +158,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--exit-strategy",
         type=str,
         default="buy_and_hold",
-        choices=["buy_and_hold", "profit_loss", "ema", "macd"],
+        choices=["buy_and_hold", "profit_loss", "ema", "macd", "atr"],
         help="Exit strategy to use (default: buy_and_hold)",
     )
 
@@ -203,11 +203,17 @@ def main() -> int:
 
         # Get the trading strategy first (we need it for service initialization)
         try:
-            ranking_strategy: RankingStrategy = _get_ranking_strategy(args.ranking_strategy)
-            exit_strategy: ExitStrategy = _get_exit_strategy(args.exit_strategy)
-            trading_strategy: TradingStrategy = _get_trading_strategy(
-                args.trading_strategy, ranking_strategy, pool=settings.pool, app=settings.app
+            # Create database connection and bars_history for strategy
+
+            bars_history = BarsHistoryRepo(
+                pool=settings.pool,
+                alpaca_api_key=settings.app.alpaca["api_key"],
+                alpaca_api_secret=settings.app.alpaca["secret_key"],
             )
+
+            ranking_strategy: RankingStrategy = _get_ranking_strategy(args.ranking_strategy)
+            exit_strategy: ExitStrategy = _get_exit_strategy(args.exit_strategy, bars_history)
+            trading_strategy: TradingStrategy = _get_trading_strategy(args.trading_strategy, ranking_strategy, bars_history)
         except ValueError as e:
             logger.error(str(e))
             return 1
