@@ -49,10 +49,14 @@ def setup_logging(verbose: bool = False) -> None:
                 config["root"]["level"] = "DEBUG"
             if "loggers" in config and "root" in config["loggers"]:
                 config["loggers"]["root"]["level"] = "DEBUG"
+            if "loggers" in config and "turtle" in config["loggers"]:
+                config["loggers"]["turtle"]["level"] = "DEBUG"
             for handler in config["handlers"].values():
                 if "level" in handler:
                     handler["level"] = "DEBUG"
 
+        print("Logging configuration:")
+        print(json.dumps(config, indent=4))
         logging.config.dictConfig(config)
     else:
         # Fallback to basic config if json config not found
