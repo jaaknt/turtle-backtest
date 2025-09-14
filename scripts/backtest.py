@@ -14,7 +14,7 @@ Options:
     --end-date YYYY-MM-DD    End date for analysis (required for count mode)
     --tickers TICKER         Comma-separated list of specific tickers to test
     --trading-strategy STRATEGY      Trading strategy: darvas_box, mars, momentum (default: darvas_box)
-    --exit-strategy STRATEGY         Exit strategy: buy_and_hold, profit_loss, ema (default: buy_and_hold)
+    --exit-strategy STRATEGY         Exit strategy: buy_and_hold, profit_loss, ema, macd (default: buy_and_hold)
     --ranking-strategy STRATEGY      Ranking strategy: momentum (default: momentum)
     --max-tickers NUM        Maximum number of tickers to test (default: 10000)
     --mode MODE              Analysis mode: list (default: list)
@@ -48,7 +48,7 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.strategy.trading_strategy import TradingStrategy
 from turtle.ranking.momentum import MomentumRanking
-from turtle.backtest.exit_strategy import ExitStrategy, BuyAndHoldExitStrategy, EMAExitStrategy, ProfitLossExitStrategy
+from turtle.backtest.exit_strategy import ExitStrategy, BuyAndHoldExitStrategy, EMAExitStrategy, ProfitLossExitStrategy, MACDExitStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +104,8 @@ def _get_exit_strategy(strategy_name: str) -> ExitStrategy:
         return ProfitLossExitStrategy(profit_target=15.0, stop_loss=5.0)
     elif strategy_name == "ema":
         return EMAExitStrategy()
+    elif strategy_name == "macd":
+        return MACDExitStrategy()
     else:
         raise ValueError(f"Unknown exit strategy '{strategy_name}'")
 
@@ -156,7 +158,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--exit-strategy",
         type=str,
         default="buy_and_hold",
-        choices=["buy_and_hold", "profit_loss", "ema"],
+        choices=["buy_and_hold", "profit_loss", "ema", "macd"],
         help="Exit strategy to use (default: buy_and_hold)",
     )
 

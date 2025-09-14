@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import pandas as pd
+import talib
 
 from turtle.backtest.models import Trade
 
@@ -132,3 +133,95 @@ class EMAExitStrategy(ExitStrategy):
         else:
             last_record = data.iloc[-1]
             return Trade(date=data.index[-1], price=last_record["close"], reason="period_end")
+
+
+class MACDExitStrategy(ExitStrategy):
+    """
+    Exit when MACD signal turns bearish or at period end.
+
+    Uses MACD (Moving Average Convergence Divergence) to determine exit points:
+    - MACD line crosses below signal line (bearish crossover)
+    - Or MACD histogram turns negative after being positive
+
+    The strategy calculates MACD indicators if not present in the data.
+    """
+
+    def __init__(self, fastperiod: int = 12, slowperiod: int = 26, signalperiod: int = 9, use_histogram: bool = False):
+        """
+        Initialize with MACD parameters.
+
+        Args:
+            fastperiod: Fast EMA period for MACD calculation (default 12)
+            slowperiod: Slow EMA period for MACD calculation (default 26)
+            signalperiod: Signal line EMA period (default 9)
+            use_histogram: Whether to use histogram crossover in addition to signal crossover (default False)
+        """
+        self.fastperiod = fastperiod
+        self.slowperiod = slowperiod
+        self.signalperiod = signalperiod
+        self.use_histogram = use_histogram
+
+    def calculate_exit(self, data: pd.DataFrame) -> Trade:
+        """Calculate return with MACD exit logic."""
+        if data.empty:
+            raise ValueError("No valid data available for exit calculation.")
+
+        # Make a copy to avoid modifying original data
+        df = data.copy()
+
+        # Calculate MACD indicators if not present
+        close_values = df["close"].values.astype(float)
+        macd_line, macd_signal, macd_histogram = talib.MACD(
+            close_values, fastperiod=self.fastperiod, slowperiod=self.slowperiod, signalperiod=self.signalperiod
+        )
+
+        df["macd_line"] = macd_line
+        df["macd_signal"] = macd_signal
+        df["macd_histogram"] = macd_histogram
+
+        # Skip initial NaN values from MACD calculation
+        # Need enough data for MACD calculation (typically slowperiod + signalperiod)
+        min_periods_needed = self.slowperiod + self.signalperiod
+        if len(df) < min_periods_needed:
+            # Not enough data for MACD calculation, exit at period end
+            last_record = df.iloc[-1]
+            return Trade(date=df.index[-1], price=last_record["close"], reason="period_end")
+
+        # Remove rows with NaN MACD values
+        valid_data = df.dropna(subset=["macd_line", "macd_signal"])
+        if valid_data.empty:
+            last_record = df.iloc[-1]
+            return Trade(date=df.index[-1], price=last_record["close"], reason="period_end")
+
+        # Look for bearish signals
+        exit_signals = []
+
+        # Signal 1: MACD line crosses below signal line (bearish crossover)
+        for i in range(1, len(valid_data)):
+            current_row = valid_data.iloc[i]
+            prev_row = valid_data.iloc[i - 1]
+
+            # Bearish crossover: MACD was above signal, now below
+            if prev_row["macd_line"] >= prev_row["macd_signal"] and current_row["macd_line"] < current_row["macd_signal"]:
+                exit_signals.append((valid_data.index[i], current_row["close"], "macd_bearish_cross"))
+
+        # Signal 2: MACD histogram turns negative (optional)
+        if self.use_histogram:
+            for i in range(1, len(valid_data)):
+                current_row = valid_data.iloc[i]
+                prev_row = valid_data.iloc[i - 1]
+
+                # Histogram turns negative: was positive, now negative
+                if prev_row["macd_histogram"] > 0 and current_row["macd_histogram"] <= 0:
+                    exit_signals.append((valid_data.index[i], current_row["close"], "macd_histogram_negative"))
+
+        # Use the first (earliest) exit signal if any found
+        if exit_signals:
+            # Sort by date and take the earliest
+            exit_signals.sort(key=lambda x: x[0])
+            exit_date, exit_price, exit_reason = exit_signals[0]
+            return Trade(date=exit_date, price=exit_price, reason=exit_reason)
+
+        # No exit signals found, hold until period end
+        last_record = df.iloc[-1]
+        return Trade(date=df.index[-1], price=last_record["close"], reason="period_end")
