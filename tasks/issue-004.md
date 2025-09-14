@@ -1,5 +1,10 @@
 # Add ABC to be implemented by different strategies
 
+> **Note**: This document references the original package structure. As of recent refactoring:
+> - `turtle/strategy/` has been renamed to `turtle/signal/`
+> - `trading_strategy.py` has been renamed to `base.py`
+> - Exit strategies have been moved from `turtle/backtest/exit_strategy.py` to separate files in `turtle/exit/`
+
 ## Task
 1. Add new ABC trading_strategy.py that has 2 functions
    - is_trading_signal (parameters same as in @darvas_box.py)

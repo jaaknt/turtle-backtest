@@ -1,5 +1,10 @@
 # Amend ranking calculation in DarvasBox implementation
 
+> **Note**: This document references the original package structure. As of recent refactoring:
+> - `turtle/strategy/` has been renamed to `turtle/signal/`
+> - `trading_strategy.py` has been renamed to `base.py`
+> - Exit strategies have been moved from `turtle/backtest/exit_strategy.py` to separate files in `turtle/exit/`
+
 ## Task
 1. Amend darvas_box.py 
    - Add additional ranking function with signature:
@@ -65,4 +70,3 @@
   - `0% to -10%`: Linear scale (10-0 points)  
   - `<-10%`: 0 points
 - **Error Handling**: Returns 0 for insufficient data (<21 rows) or invalid EMA values
-

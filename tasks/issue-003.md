@@ -1,5 +1,10 @@
 # Refactor strategy functions names to provide more abstract and meaningful names
 
+> **Note**: This document references the original package structure. As of recent refactoring:
+> - `turtle/strategy/` has been renamed to `turtle/signal/`
+> - `trading_strategy.py` has been renamed to `base.py`
+> - Exit strategies have been moved from `turtle/backtest/exit_strategy.py` to separate files in `turtle/exit/`
+
 ## Task
 1. In @turtle/strategy folder rename functions
    - validate_momentum -> is_trading_signal

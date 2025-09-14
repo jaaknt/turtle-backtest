@@ -1,5 +1,10 @@
 # Add ranking method to TradingStrategy class
 
+> **Note**: This document references the original package structure. As of recent refactoring:
+> - `turtle/strategy/` has been renamed to `turtle/signal/`
+> - `trading_strategy.py` has been renamed to `base.py`
+> - Exit strategies have been moved from `turtle/backtest/exit_strategy.py` to separate files in `turtle/exit/`
+
 ## Task
 1. Refactor @trading_strategy.py 
    - Add ranking function with signature:
@@ -147,4 +152,3 @@ ranking = strategy.ranking("AAPL", datetime(2024, 1, 15))  # Returns 0-20
 ```
 
 This enhancement provides a solid foundation for portfolio optimization and stock selection based on price categories while maintaining full backward compatibility.
-

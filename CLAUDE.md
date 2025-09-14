@@ -62,14 +62,23 @@ uv run pytest -v
   - `company.py`: Company fundamental data
   - `symbol.py`: Stock symbol management
   - `symbol_group.py`: Custom symbol groupings
-- **turtle/strategy/**: Trading strategy implementations
+- **turtle/signal/**: Trading signal implementations (renamed from strategy)
+  - `base.py`: TradingStrategy abstract base class (renamed from trading_strategy.py)
   - `darvas_box.py`: Darvas Box trend-following strategy
   - `mars.py`: Mars momentum strategy (@marsrides)
   - `momentum.py`: Traditional momentum strategy
   - `market.py`: General market analysis
+  - `models.py`: Signal data models
+- **turtle/exit/**: Exit strategy implementations (refactored from monolithic file)
+  - `base.py`: ExitStrategy abstract base class
+  - `buy_and_hold.py`: BuyAndHoldExitStrategy
+  - `profit_loss.py`: ProfitLossExitStrategy with profit targets and stop losses
+  - `ema.py`: EMAExitStrategy based on exponential moving average
+  - `macd.py`: MACDExitStrategy using MACD technical indicators
+  - `atr.py`: ATRExitStrategy with volatility-based stop losses
 - **turtle/backtest/**: Backtesting and signal processing
   - `models.py`: SignalResult and performance data models
-  - `period_return.py`: Exit strategies (BuyAndHold, ProfitLoss, EMA)
+  - `period_return.py`: Period return strategies (BuyAndHold, ProfitLoss)
   - `strategy_performance.py`: Strategy performance testing framework
   - `processor.py`: SignalProcessor for converting signals to results
 - **turtle/service/**: Business logic layer
@@ -102,10 +111,11 @@ Configurable via `TimeFrameUnit` enum: `DAY`, `WEEK`, `MONTH`
 ## Working with Strategies
 
 ### Adding New Strategies
-1. Create new file in `turtle/strategy/`
-2. Implement strategy logic with entry/exit signals
-3. Add integration to `DataUpdateService` service
-4. Create corresponding test file in `tests/`
+1. Create new file in `turtle/signal/` (signal generation)
+2. Implement strategy logic with entry/exit signals extending TradingStrategy base class
+3. For custom exit strategies, create file in `turtle/exit/` extending ExitStrategy base class
+4. Add integration to `DataUpdateService` service
+5. Create corresponding test file in `tests/`
 
 ### Strategy Testing
 - Use `examples/backtesting.ipynb` for interactive backtesting

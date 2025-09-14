@@ -4,7 +4,7 @@ This document analyzes the stock selection conditions implemented in the three t
 
 ## 1. Momentum Strategy
 
-The Momentum Strategy (`turtle/strategy/momentum.py`) identifies stocks based on weekly momentum signals with the following selection criteria:
+The Momentum Strategy (`turtle/signal/momentum.py`) identifies stocks based on weekly momentum signals with the following selection criteria:
 
 ### Data Requirements
 - **Time Frame**: Weekly data for momentum analysis, daily data for EMA validation
@@ -26,7 +26,7 @@ The Momentum Strategy (`turtle/strategy/momentum.py`) identifies stocks based on
 
 ## 2. Darvas Box Strategy
 
-The Darvas Box Strategy (`turtle/strategy/darvas_box.py`) identifies breakout opportunities from consolidation patterns:
+The Darvas Box Strategy (`turtle/signal/darvas_box.py`) identifies breakout opportunities from consolidation patterns:
 
 ### Data Requirements
 - **Time Frame**: Configurable (default: weekly)
@@ -53,7 +53,7 @@ The Darvas Box Strategy (`turtle/strategy/darvas_box.py`) identifies breakout op
 
 ## 3. Mars Strategy
 
-The Mars Strategy (`turtle/strategy/mars.py`) focuses on breakouts from tight consolidation patterns:
+The Mars Strategy (`turtle/signal/mars.py`) focuses on breakouts from tight consolidation patterns:
 
 ### Data Requirements
 - **Time Frame**: Weekly (default)
@@ -101,3 +101,34 @@ All strategies share these key principles:
 - **Mars Strategy**: Optimal for tight consolidation breakouts with defined risk parameters
 
 Each strategy can be backtested using the provided framework with historical data to validate performance across different market conditions.
+
+## Exit Strategies
+
+The system provides multiple exit strategy implementations in `turtle/exit/` that can be combined with any signal strategy:
+
+### Available Exit Strategies
+
+| Strategy | File | Description | Key Parameters |
+|----------|------|-------------|----------------|
+| **Buy and Hold** | `buy_and_hold.py` | Hold until period end | None |
+| **Profit/Loss Target** | `profit_loss.py` | Exit on profit target or stop loss | profit_target, stop_loss |
+| **EMA Exit** | `ema.py` | Exit when price closes below EMA | ema_period |
+| **MACD Exit** | `macd.py` | Exit on MACD bearish signals | fastperiod, slowperiod, signalperiod |
+| **ATR Stop Loss** | `atr.py` | Volatility-based stop losses | atr_period, atr_multiplier |
+
+### Usage with Signal Strategies
+
+Exit strategies are designed to work with any signal strategy through the `StrategyPerformanceTester`:
+
+```python
+from turtle.signal.darvas_box import DarvasBoxStrategy
+from turtle.exit import ATRExitStrategy, EMAExitStrategy
+
+# Use ATR-based stops with Darvas Box signals
+atr_exit = ATRExitStrategy(bars_history, atr_multiplier=2.5)
+
+# Or use EMA-based exits
+ema_exit = EMAExitStrategy(bars_history, ema_period=20)
+```
+
+This modular approach allows testing any combination of signal generation and exit logic to optimize strategy performance.
