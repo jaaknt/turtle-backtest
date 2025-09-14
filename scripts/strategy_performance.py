@@ -35,8 +35,6 @@ Options:
 """
 
 import argparse
-import json
-import logging.config
 import pathlib
 import sys
 from datetime import datetime
@@ -47,35 +45,13 @@ from dotenv import load_dotenv
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
+from turtle.config.logging import LogConfig
+from turtle.config.settings import Settings
 from turtle.service.strategy_performance_service import StrategyPerformanceService
 from turtle.common.enums import TimeFrameUnit
+import logging
 
 logger = logging.getLogger(__name__)
-
-
-def setup_logging(verbose: bool = False) -> None:
-    """Setup logging configuration."""
-    config_file = pathlib.Path(__file__).parent.parent / "config" / "stdout.json"
-
-    if config_file.exists():
-        with open(config_file) as f_in:
-            config = json.load(f_in)
-
-        # Adjust log level if verbose
-        if verbose:
-            if "root" in config:
-                config["root"]["level"] = "DEBUG"
-            for handler in config.get("handlers", {}).values():
-                if isinstance(handler, dict) and "level" in handler:
-                    handler["level"] = "DEBUG"
-
-        logging.config.dictConfig(config)
-    else:
-        # Fallback logging configuration
-        level = logging.DEBUG if verbose else logging.INFO
-        logging.basicConfig(
-            level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
 
 
 def parse_period(period_str: str) -> pd.Timedelta:
@@ -100,9 +76,7 @@ def parse_period(period_str: str) -> pd.Timedelta:
         months = int(period_str[:-1])
         return pd.Timedelta(days=months * 30)  # Approximate month as 30 days
     else:
-        raise ValueError(
-            f"Invalid period format: {period_str}. Use format like '3d', '1W', '2W', '1M'"
-        )
+        raise ValueError(f"Invalid period format: {period_str}. Use format like '3d', '1W', '2W', '1M'")
 
 
 def parse_symbols(symbols_str: str) -> list[str]:
@@ -129,13 +103,11 @@ def validate_date(date_str: str) -> datetime:
     try:
         return datetime.strptime(date_str, "%Y-%m-%d")
     except ValueError as err:
-        raise argparse.ArgumentTypeError(
-            f"Invalid date format: {date_str}. Use YYYY-MM-DD"
-        ) from err
+        raise argparse.ArgumentTypeError(f"Invalid date format: {date_str}. Use YYYY-MM-DD") from err
 
 
-def main() -> None:
-    """Main function."""
+def create_argument_parser() -> argparse.ArgumentParser:
+    """Create and configure the argument parser."""
     parser = argparse.ArgumentParser(
         description="Test trading strategy performance by analyzing historical signals",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -144,7 +116,7 @@ def main() -> None:
 
     # Required arguments
     parser.add_argument(
-        "--strategy",
+        "--trading-strategy",
         required=True,
         choices=list(StrategyPerformanceService.AVAILABLE_STRATEGIES.keys()),
         help="Strategy to test",
@@ -168,15 +140,9 @@ def main() -> None:
         default="1M",
         help="Maximum holding period for analysis (default: 1M)",
     )
-    parser.add_argument(
-        "--symbols", help="Comma-separated list of specific symbols to test"
-    )
-    parser.add_argument(
-        "--max-symbols", type=int, help="Maximum number of symbols to test"
-    )
-    parser.add_argument(
-        "--time-frame", default="DAY", help="Time frame for analysis (default: DAY)"
-    )
+    parser.add_argument("--symbols", help="Comma-separated list of specific symbols to test")
+    parser.add_argument("--max-symbols", type=int, help="Maximum number of symbols to test")
+    parser.add_argument("--time-frame", default="DAY", help="Time frame for analysis (default: DAY)")
     parser.add_argument(
         "--output",
         choices=["console", "csv", "json"],
@@ -191,10 +157,17 @@ def main() -> None:
         help="Show what would be tested without running",
     )
 
+    return parser
+
+
+def main() -> None:
+    """Main function."""
+    parser = create_argument_parser()
     args = parser.parse_args()
+    settings = Settings.from_toml()
 
     # Setup logging
-    setup_logging(args.verbose)
+    LogConfig.setup(args.verbose)
 
     # Load environment variables
     load_dotenv()
@@ -211,10 +184,8 @@ def main() -> None:
             sys.exit(1)
 
         logger.info("Strategy Performance Test Configuration:")
-        logger.info(f"  Strategy: {args.strategy}")
-        logger.info(
-            f"  Signal period: {args.start_date.strftime('%Y-%m-%d')} to {args.end_date.strftime('%Y-%m-%d')}"
-        )
+        logger.info(f"  Trading Strategy: {args.trading_strategy}")
+        logger.info(f"  Signal period: {args.start_date.strftime('%Y-%m-%d')} to {args.end_date.strftime('%Y-%m-%d')}")
         logger.info(f"  Max holding period: {max_holding_period}")
         logger.info(f"  Time frame: {time_frame}")
         if symbols:
@@ -231,7 +202,9 @@ def main() -> None:
 
         # Create strategy tester service
         service = StrategyPerformanceService.from_strategy_name(
-            strategy_name=args.strategy,
+            trading_strategy_name=args.trading_strategy,
+            pool=settings.pool,
+            app=settings.app,
             signal_start_date=args.start_date,
             signal_end_date=args.end_date,
             max_holding_period=max_holding_period,

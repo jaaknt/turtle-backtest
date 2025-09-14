@@ -85,7 +85,9 @@ class StrategyPerformanceService:
     @classmethod
     def from_strategy_name(
         cls,
-        strategy_name: str,
+        trading_strategy_name: str,
+        pool: ConnectionPool,
+        app: AppConfig,
         signal_start_date: datetime,
         signal_end_date: datetime,
         max_holding_period: pd.Timedelta | None = None,
@@ -107,19 +109,14 @@ class StrategyPerformanceService:
         Raises:
             ValueError: If strategy name is not recognized
         """
-        if strategy_name not in cls.AVAILABLE_STRATEGIES:
-            raise ValueError(f"Unknown strategy: {strategy_name}. Available: {list(cls.AVAILABLE_STRATEGIES.keys())}")
+        if trading_strategy_name not in cls.AVAILABLE_STRATEGIES:
+            raise ValueError(f"Unknown strategy: {trading_strategy_name}. Available: {list(cls.AVAILABLE_STRATEGIES.keys())}")
 
-        strategy_class = cls.AVAILABLE_STRATEGIES[strategy_name]
-
-        # Create settings and get database connection
-        from turtle.config.settings import Settings
-
-        settings = Settings.from_toml()
+        strategy_class = cls.AVAILABLE_STRATEGIES[trading_strategy_name]
 
         return cls(
-            pool=settings.pool,
-            app_config=settings.app,
+            pool=pool,
+            app_config=app,
             strategy_class=strategy_class,
             ranking_strategy=MomentumRanking(),  # Default ranking strategy; can be modified as needed
             signal_start_date=signal_start_date,
