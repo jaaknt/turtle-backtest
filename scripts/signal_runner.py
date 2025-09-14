@@ -21,57 +21,28 @@ Options:
 """
 
 import argparse
-import json
-import logging.config
-import logging.handlers
-import os
 import pathlib
 import sys
+import logging
 from datetime import datetime
-
 from psycopg_pool import ConnectionPool
-from psycopg import Connection
-from psycopg.rows import TupleRow
 
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
+from turtle.config.model import AppConfig
+from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
-from turtle.service.signal_service import SignalService
 from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
-from turtle.strategy.trading_strategy import TradingStrategy
 from turtle.ranking.momentum import MomentumRanking
+from turtle.service.signal_service import SignalService
+from turtle.strategy.trading_strategy import TradingStrategy
 
 logger = logging.getLogger(__name__)
 
 
-def setup_logging(verbose: bool = False) -> None:
-    """Setup logging configuration."""
-    config_file = pathlib.Path(__file__).parent.parent / "config" / "stdout.json"
-
-    if config_file.exists():
-        with open(config_file) as f_in:
-            config = json.load(f_in)
-
-        # Adjust log level if verbose
-        if verbose:
-            if "root" in config:
-                config["root"]["level"] = "DEBUG"
-            if "loggers" in config and "root" in config["loggers"]:
-                config["loggers"]["root"]["level"] = "DEBUG"
-            for handler in config["handlers"].values():
-                if "level" in handler:
-                    handler["level"] = "DEBUG"
-
-        logging.config.dictConfig(config)
-    else:
-        # Fallback to basic config if json config not found
-        level = logging.DEBUG if verbose else logging.INFO
-        logging.basicConfig(level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-
-
-def get_trading_strategy_instance(strategy_name: str, verbose: bool) -> TradingStrategy:
+def get_trading_strategy_instance(strategy_name: str, pool: ConnectionPool, app: AppConfig) -> TradingStrategy:
     """Create and return a trading strategy instance by name."""
     from turtle.strategy.darvas_box import DarvasBoxStrategy
     from turtle.strategy.mars import MarsStrategy
@@ -88,23 +59,16 @@ def get_trading_strategy_instance(strategy_name: str, verbose: bool) -> TradingS
         available_strategies = ", ".join(strategy_classes.keys())
         raise ValueError(f"Unknown strategy '{strategy_name}'. Available strategies: {available_strategies}")
 
-    # Create database connection and bars_history for strategy
-    pool: ConnectionPool[Connection[TupleRow]] = ConnectionPool(
-        conninfo="host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres", min_size=5, max_size=50, max_idle=600
-    )
+    # Create BarsHistoryRepo instance for strategy
     bars_history = BarsHistoryRepo(
         pool,
-        str(os.getenv("ALPACA_API_KEY")),
-        str(os.getenv("ALPACA_SECRET_KEY")),
+        alpaca_api_key=app.alpaca["api_key"],
+        alpaca_api_secret=app.alpaca["secret_key"],
     )
 
     # Create strategy instance with common parameters
     return strategy_class(
-        bars_history=bars_history,
-        ranking_strategy=MomentumRanking(),
-        time_frame_unit=TimeFrameUnit.DAY,
-        warmup_period=730,
-        verbose=verbose,
+        bars_history=bars_history, ranking_strategy=MomentumRanking(), time_frame_unit=TimeFrameUnit.DAY, warmup_period=730
     )
 
 
@@ -180,7 +144,7 @@ def main() -> int:
     settings = Settings.from_toml()
 
     # Setup logging
-    setup_logging(args.verbose)
+    LogConfig.setup(args.verbose)
 
     logger.info(f"Starting strategy analysis with {args.trading_strategy} strategy")
 
@@ -190,7 +154,7 @@ def main() -> int:
 
         # Get the trading strategy first (we need it for service initialization)
         try:
-            trading_strategy = get_trading_strategy_instance(args.trading_strategy, args.verbose)
+            trading_strategy = get_trading_strategy_instance(args.trading_strategy, pool=settings.pool, app=settings.app)
         except ValueError as e:
             logger.error(str(e))
             return 1

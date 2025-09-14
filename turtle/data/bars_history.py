@@ -3,7 +3,8 @@ import pandas as pd
 from datetime import datetime
 from typing import Any
 from psycopg.rows import TupleRow
-from psycopg import Connection
+
+# from psycopg import Connection
 from dataclasses import asdict
 from psycopg_pool import ConnectionPool
 
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 class BarsHistoryRepo:
     def __init__(
         self,
-        pool: ConnectionPool[Connection[TupleRow]],
+        pool: ConnectionPool,  # [Connection[TupleRow]],
         alpaca_api_key: str,
         alpaca_api_secret: str,
     ):
