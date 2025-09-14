@@ -1,5 +1,10 @@
 # Amend TradingStrategy class
 
+> **Note**: This document references the original package structure. As of recent refactoring:
+> - `turtle/strategy/` has been renamed to `turtle/signal/`
+> - `trading_strategy.py` has been renamed to `base.py`
+> - Exit strategies have been moved from `turtle/backtest/exit_strategy.py` to separate files in `turtle/exit/`
+
 ## Task
 1. add trading_strategy.py 2 functions
    - collect_historical_data (parameters same as in @darvas_box.py collect function)

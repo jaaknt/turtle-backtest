@@ -1,5 +1,10 @@
 # Amend TradingStrategy class and create runner class
 
+> **Note**: This document references the original package structure. As of recent refactoring:
+> - `turtle/strategy/` has been renamed to `turtle/signal/`
+> - `trading_strategy.py` has been renamed to `base.py`
+> - Exit strategies have been moved from `turtle/backtest/exit_strategy.py` to separate files in `turtle/exit/`
+
 ## Task
 1. refactor strategy_runner.py 
    - rename momentum_stocks -> get_tickers_list 
@@ -106,4 +111,3 @@ uv run python scripts/strategy_runner.py --help
 - **Command Line Tool**: Easy to run strategy analysis from command line
 - **Strategy Flexibility**: Script can work with different trading strategies
 - **Consistent Patterns**: Follows same pattern as existing scripts
-

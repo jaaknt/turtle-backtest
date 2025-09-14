@@ -1,4 +1,9 @@
 # Refactor @service/strategy_runner_service.py 
+
+> **Note**: This document references the original package structure. As of recent refactoring:
+> - `turtle/strategy/` has been renamed to `turtle/signal/`
+> - `trading_strategy.py` has been renamed to `base.py`
+> - Exit strategies have been moved from `turtle/backtest/exit_strategy.py` to separate files in `turtle/exit/`
 The goal is to add TradingStrategy instance as constructor parameter
 and remove TradingStrategy parameter from all existing methods
 in StrategyRunnerService and use instance variable instead.
