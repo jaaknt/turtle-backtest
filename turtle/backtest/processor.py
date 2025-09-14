@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from turtle.strategy.models import Signal
 from turtle.backtest.models import SignalResult, Trade
-from turtle.backtest.exit_strategy import ExitStrategy, ProfitLossExitStrategy
+from turtle.backtest.exit_strategy import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
 
@@ -195,7 +195,24 @@ class SignalProcessor:
 
         # Use exit strategy to calculate return
         if isinstance(self.exit_strategy, ProfitLossExitStrategy):
-            self.exit_strategy.set_trade_data(entry_price)
+            self.exit_strategy.initialize(
+                signal.ticker, entry_date, entry_date + timedelta(days=self.max_holding_period), profit_target=10.0, stop_loss=5.0
+            )
+        elif isinstance(self.exit_strategy, EMAExitStrategy):
+            self.exit_strategy.initialize(signal.ticker, entry_date, entry_date + timedelta(days=self.max_holding_period), ema_period=20)
+        elif isinstance(self.exit_strategy, MACDExitStrategy):
+            self.exit_strategy.initialize(
+                signal.ticker,
+                entry_date,
+                entry_date + timedelta(days=self.max_holding_period),
+                fastperiod=12,
+                slowperiod=26,
+                signalperiod=9,
+            )
+        else:
+            self.exit_strategy.initialize(signal.ticker, entry_date, entry_date + timedelta(days=self.max_holding_period))
+
+        df = self.exit_strategy.calculate_indicators()
         trade: Trade = self.exit_strategy.calculate_exit(data=df)
 
         if trade is None:

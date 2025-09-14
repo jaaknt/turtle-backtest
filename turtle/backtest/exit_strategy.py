@@ -1,14 +1,34 @@
 from abc import ABC, abstractmethod
+from datetime import datetime, timedelta
 import pandas as pd
 import talib
 
 from turtle.backtest.models import Trade
+from turtle.common.enums import TimeFrameUnit
+from turtle.data.bars_history import BarsHistoryRepo
 
 
 class ExitStrategy(ABC):
-    """
-    Abstract base class for period return calculation strategies.
-    """
+    """Abstract base class for exit strategies."""
+
+    def __init__(self, bars_history: BarsHistoryRepo):
+        self.bars_history = bars_history
+
+    def initialize(self, ticker: str, start_date: datetime, end_date: datetime) -> None:
+        self.ticker = ticker
+        self.start_date = start_date
+        self.end_date = end_date
+        # self.kwargs = kwargs
+
+    @abstractmethod
+    def calculate_indicators(self) -> pd.DataFrame:
+        """
+        Calculate technical indicators for the given ticker and date range.
+
+        Returns:
+            DataFrame with calculated indicators.
+        """
+        pass
 
     @abstractmethod
     def calculate_exit(self, data: pd.DataFrame) -> Trade:
@@ -29,6 +49,10 @@ class BuyAndHoldExitStrategy(ExitStrategy):
     Simple buy and hold strategy - exit at period end.
     """
 
+    def calculate_indicators(self) -> pd.DataFrame:
+        self.df = self.bars_history.get_ticker_history(self.ticker, self.start_date, self.end_date, time_frame_unit=TimeFrameUnit.DAY)
+        return self.df
+
     def calculate_exit(self, data: pd.DataFrame) -> Trade:
         """Calculate return by holding until target date."""
 
@@ -45,27 +69,31 @@ class ProfitLossExitStrategy(ExitStrategy):
     Exit when 10% profit target or 5% stop loss is hit, whichever comes first.
     """
 
-    def __init__(self, profit_target: float = 20.0, stop_loss: float = 7.0):
-        """
-        Initialize with profit and loss targets.
+    #    def __init__(self, profit_target: float = 20.0, stop_loss: float = 7.0):
+    #        self.profit_target = profit_target
+    #        self.stop_loss = stop_loss
 
-        Args:
-            profit_target: Profit target percentage (default 20%)
-            stop_loss: Stop loss percentage (default 7%)
-        """
+    def initialize(
+        self, ticker: str, start_date: datetime, end_date: datetime, profit_target: float = 10.0, stop_loss: float = 5.0
+    ) -> None:
+        super().initialize(ticker, start_date, end_date)
         self.profit_target = profit_target
         self.stop_loss = stop_loss
 
-    def set_trade_data(self, entry_price: float) -> None:
-        self.entry_price = entry_price
-        self.profit_price = entry_price * (1 + self.profit_target / 100)
-        self.stop_price = entry_price * (1 - self.stop_loss / 100)
+    def calculate_indicators(self) -> pd.DataFrame:
+        self.df = self.bars_history.get_ticker_history(self.ticker, self.start_date, self.end_date, time_frame_unit=TimeFrameUnit.DAY)
+        return self.df
 
     def calculate_exit(self, data: pd.DataFrame) -> Trade:
         """Calculate return with profit/loss targets."""
 
         if data.empty:
             raise ValueError("No valid data available for exit calculation.")
+
+        # Assume entry at open price of first day
+        entry_price = data.iloc[0]["open"]
+        self.profit_price = entry_price * (1 + self.profit_target / 100)
+        self.stop_price = entry_price * (1 - self.stop_loss / 100)
 
         # Find first profit target hit
         profit_hits = data[data["high"] >= self.profit_price]
@@ -101,31 +129,31 @@ class EMAExitStrategy(ExitStrategy):
     (e.g., 'ema_10', 'ema_20', etc.). If the column doesn't exist, an error will be raised.
     """
 
-    def __init__(self, ema_period: int = 20):
-        """
-        Initialize with EMA period.
-
-        Args:
-            ema_period: Period for EMA to look for in data (default 20 days)
-                       Will look for column named 'ema_{ema_period}' in the DataFrame
-        """
+    #    def __init__(self, ema_period: int = 20):
+    #        self.ema_period = ema_period
+    #        self.ema_column = f"ema_{ema_period}"
+    def initialize(self, ticker: str, start_date: datetime, end_date: datetime, ema_period: int = 20) -> None:
+        super().initialize(ticker, start_date, end_date)
         self.ema_period = ema_period
-        self.ema_column = f"ema_{ema_period}"
+
+    def calculate_indicators(self) -> pd.DataFrame:
+        df = self.bars_history.get_ticker_history(
+            self.ticker, self.start_date - timedelta(days=40), self.end_date, time_frame_unit=TimeFrameUnit.DAY
+        )
+        close_values = df["close"].values.astype(float)
+        df["ema"] = talib.EMA(close_values, timeperiod=self.ema_period)
+
+        self.df = df[df.index >= self.start_date].copy()
+        return self.df
 
     def calculate_exit(self, data: pd.DataFrame) -> Trade:
         """Calculate return with EMA exit logic."""
-        # Check if required EMA column exists
-        if self.ema_column not in data.columns:
-            raise ValueError(
-                f"Required EMA column '{self.ema_column}' not found in data. "
-                f"Available columns: {list(data.columns)}. "
-                f"Please ensure the data contains pre-calculated EMA values."
-            )
+
         if data.empty:
             raise ValueError("No valid data available for exit calculation.")
 
         # Find first day where close is below EMA
-        below_ema = data[data["close"] < data[self.ema_column]]
+        below_ema = data[data["close"] < data["ema"]]
 
         if not below_ema.empty:
             # Exit on first close below EMA
@@ -146,82 +174,107 @@ class MACDExitStrategy(ExitStrategy):
     The strategy calculates MACD indicators if not present in the data.
     """
 
-    def __init__(self, fastperiod: int = 12, slowperiod: int = 26, signalperiod: int = 9, use_histogram: bool = False):
-        """
-        Initialize with MACD parameters.
+    #    def __init__(self, fastperiod: int = 12, slowperiod: int = 26, signalperiod: int = 9):
+    #        self.fastperiod = fastperiod
+    #        self.slowperiod = slowperiod
+    #        self.signalperiod = signalperiod
 
-        Args:
-            fastperiod: Fast EMA period for MACD calculation (default 12)
-            slowperiod: Slow EMA period for MACD calculation (default 26)
-            signalperiod: Signal line EMA period (default 9)
-            use_histogram: Whether to use histogram crossover in addition to signal crossover (default False)
-        """
+    def initialize(
+        self, ticker: str, start_date: datetime, end_date: datetime, fastperiod: int = 12, slowperiod: int = 26, signalperiod: int = 9
+    ) -> None:
+        super().initialize(ticker, start_date, end_date)
         self.fastperiod = fastperiod
         self.slowperiod = slowperiod
         self.signalperiod = signalperiod
-        self.use_histogram = use_histogram
+
+    def calculate_indicators(self) -> pd.DataFrame:
+        df = self.bars_history.get_ticker_history(
+            self.ticker, self.start_date - timedelta(days=40), self.end_date, time_frame_unit=TimeFrameUnit.DAY
+        )
+        close_values = df["close"].values.astype(float)
+        df["macd_line"], df["macd_signal"], _ = talib.MACD(
+            close_values, fastperiod=self.fastperiod, slowperiod=self.slowperiod, signalperiod=self.signalperiod
+        )
+        # filter index >= start_date
+        self.df = df[df.index >= self.start_date].copy()
+        return self.df
 
     def calculate_exit(self, data: pd.DataFrame) -> Trade:
         """Calculate return with MACD exit logic."""
         if data.empty:
             raise ValueError("No valid data available for exit calculation.")
 
-        # Make a copy to avoid modifying original data
-        df = data.copy()
+        # Find first day where close is below signal line
+        below_signal = data[data["close"] < data["macd_signal"]]
 
-        # Calculate MACD indicators if not present
-        close_values = df["close"].values.astype(float)
-        macd_line, macd_signal, macd_histogram = talib.MACD(
-            close_values, fastperiod=self.fastperiod, slowperiod=self.slowperiod, signalperiod=self.signalperiod
+        if not below_signal.empty:
+            # Exit on first close below signal line
+            return Trade(date=below_signal.index[0], price=below_signal.iloc[0]["close"], reason="below_signal")
+        else:
+            last_record = data.iloc[-1]
+            return Trade(date=data.index[-1], price=last_record["close"], reason="period_end")
+
+
+class ATRExitStrategy(ExitStrategy):
+    """
+    Exit when price drops below entry - (ATR multiplier * ATR) or at period end.
+
+    Uses Average True Range (ATR) to set volatility-adjusted stop losses:
+    - Stop loss = Entry Price - (ATR Multiplier × ATR)
+    - No profit target - holds until stop loss or period end
+    - ATR provides dynamic stop based on recent volatility
+    """
+
+    def initialize(
+        self, ticker: str, start_date: datetime, end_date: datetime, atr_period: int = 14, atr_multiplier: float = 2.0
+    ) -> None:
+        super().initialize(ticker, start_date, end_date)
+        self.atr_period = atr_period
+        self.atr_multiplier = atr_multiplier
+
+    def calculate_indicators(self) -> pd.DataFrame:
+        # Get extra days for ATR calculation
+        df = self.bars_history.get_ticker_history(
+            self.ticker, self.start_date - timedelta(days=60), self.end_date, time_frame_unit=TimeFrameUnit.DAY
         )
 
-        df["macd_line"] = macd_line
-        df["macd_signal"] = macd_signal
-        df["macd_histogram"] = macd_histogram
+        # Calculate ATR using TA-Lib
+        high_values = df["high"].values.astype(float)
+        low_values = df["low"].values.astype(float)
+        close_values = df["close"].values.astype(float)
 
-        # Skip initial NaN values from MACD calculation
-        # Need enough data for MACD calculation (typically slowperiod + signalperiod)
-        min_periods_needed = self.slowperiod + self.signalperiod
-        if len(df) < min_periods_needed:
-            # Not enough data for MACD calculation, exit at period end
-            last_record = df.iloc[-1]
-            return Trade(date=df.index[-1], price=last_record["close"], reason="period_end")
+        df["atr"] = talib.ATR(high_values, low_values, close_values, timeperiod=self.atr_period)
 
-        # Remove rows with NaN MACD values
-        valid_data = df.dropna(subset=["macd_line", "macd_signal"])
-        if valid_data.empty:
-            last_record = df.iloc[-1]
-            return Trade(date=df.index[-1], price=last_record["close"], reason="period_end")
+        # Filter to requested date range
+        self.df = df[df.index >= self.start_date].copy()
+        return self.df
 
-        # Look for bearish signals
-        exit_signals = []
+    def calculate_exit(self, data: pd.DataFrame) -> Trade:
+        """Calculate return with ATR-based stop loss."""
+        if data.empty:
+            raise ValueError("No valid data available for exit calculation.")
 
-        # Signal 1: MACD line crosses below signal line (bearish crossover)
-        for i in range(1, len(valid_data)):
-            current_row = valid_data.iloc[i]
-            prev_row = valid_data.iloc[i - 1]
+        # Check if ATR column exists
+        if "atr" not in data.columns:
+            raise ValueError("ATR column not found in data. Ensure calculate_indicators() was called first.")
 
-            # Bearish crossover: MACD was above signal, now below
-            if prev_row["macd_line"] >= prev_row["macd_signal"] and current_row["macd_line"] < current_row["macd_signal"]:
-                exit_signals.append((valid_data.index[i], current_row["close"], "macd_bearish_cross"))
+        # Entry price is the open of the first day
+        entry_price = data.iloc[0]["open"]
 
-        # Signal 2: MACD histogram turns negative (optional)
-        if self.use_histogram:
-            for i in range(1, len(valid_data)):
-                current_row = valid_data.iloc[i]
-                prev_row = valid_data.iloc[i - 1]
+        # Calculate stop loss for each day based on current ATR
+        # Stop = Entry Price - (ATR Multiplier × Current ATR)
+        data_copy = data.copy()
+        data_copy["stop_price"] = entry_price - (self.atr_multiplier * data_copy["atr"])
 
-                # Histogram turns negative: was positive, now negative
-                if prev_row["macd_histogram"] > 0 and current_row["macd_histogram"] <= 0:
-                    exit_signals.append((valid_data.index[i], current_row["close"], "macd_histogram_negative"))
+        # Find first day where low touches or goes below stop price
+        stop_hits = data_copy[data_copy["low"] <= data_copy["stop_price"]]
 
-        # Use the first (earliest) exit signal if any found
-        if exit_signals:
-            # Sort by date and take the earliest
-            exit_signals.sort(key=lambda x: x[0])
-            exit_date, exit_price, exit_reason = exit_signals[0]
-            return Trade(date=exit_date, price=exit_price, reason=exit_reason)
-
-        # No exit signals found, hold until period end
-        last_record = df.iloc[-1]
-        return Trade(date=df.index[-1], price=last_record["close"], reason="period_end")
+        if not stop_hits.empty:
+            # Exit at stop price on first stop hit
+            first_stop_date = stop_hits.index[0]
+            stop_price = stop_hits.iloc[0]["stop_price"]
+            return Trade(date=first_stop_date, price=stop_price, reason="atr_stop_loss")
+        else:
+            # Hold until period end
+            last_record = data.iloc[-1]
+            return Trade(date=data.index[-1], price=last_record["close"], reason="period_end")
