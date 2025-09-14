@@ -1,4 +1,4 @@
-from .trading_strategy import TradingStrategy
+from .base import TradingStrategy
 from .darvas_box import DarvasBoxStrategy
 from .mars import MarsStrategy
 from .momentum import MomentumStrategy

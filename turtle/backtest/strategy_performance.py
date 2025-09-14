@@ -4,7 +4,7 @@ import numpy as np
 from datetime import datetime, timedelta
 
 from turtle.data.bars_history import BarsHistoryRepo
-from turtle.strategy.trading_strategy import TradingStrategy
+from turtle.signal.base import TradingStrategy
 from turtle.backtest.models import LegacySignalResult, PerformanceResult, TestSummary, RankingPerformance
 from turtle.backtest.period_return import TradeExitStrategy, BuyAndHoldStrategy, PeriodReturnResult
 

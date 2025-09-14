@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
-from turtle.strategy.models import Signal
+from .models import Signal
 from turtle.ranking.ranking_strategy import RankingStrategy
 
 import pandas as pd

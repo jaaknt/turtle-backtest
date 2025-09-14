@@ -3,7 +3,7 @@ import warnings
 from unittest.mock import MagicMock
 from datetime import datetime
 
-from turtle.strategy.darvas_box import DarvasBoxStrategy
+from turtle.signal.darvas_box import DarvasBoxStrategy
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.ranking.momentum import MomentumRanking
 

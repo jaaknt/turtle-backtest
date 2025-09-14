@@ -5,7 +5,7 @@ import logging
 from turtle.backtest.models import SignalResult
 from turtle.backtest.processor import SignalProcessor
 from turtle.service.signal_service import SignalService
-# from turtle.strategy.models import Signal
+# from turtle.signal.models import Signal
 
 logger = logging.getLogger(__name__)
 

@@ -37,16 +37,16 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.ranking.momentum import MomentumRanking
 from turtle.service.signal_service import SignalService
-from turtle.strategy.trading_strategy import TradingStrategy
+from turtle.signal.base import TradingStrategy
 
 logger = logging.getLogger(__name__)
 
 
 def get_trading_strategy_instance(strategy_name: str, pool: ConnectionPool, app: AppConfig) -> TradingStrategy:
     """Create and return a trading strategy instance by name."""
-    from turtle.strategy.darvas_box import DarvasBoxStrategy
-    from turtle.strategy.mars import MarsStrategy
-    from turtle.strategy.momentum import MomentumStrategy
+    from turtle.signal.darvas_box import DarvasBoxStrategy
+    from turtle.signal.mars import MarsStrategy
+    from turtle.signal.momentum import MomentumStrategy
 
     strategy_classes: dict[str, type[TradingStrategy]] = {
         "darvas_box": DarvasBoxStrategy,

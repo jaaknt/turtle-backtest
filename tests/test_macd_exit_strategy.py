@@ -5,7 +5,7 @@ import pytest
 from datetime import datetime
 from unittest.mock import Mock
 
-from turtle.backtest.exit_strategy import MACDExitStrategy
+from turtle.exit import MACDExitStrategy
 from turtle.backtest.models import Trade
 from turtle.data.bars_history import BarsHistoryRepo
 

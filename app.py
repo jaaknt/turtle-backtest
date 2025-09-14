@@ -6,7 +6,7 @@ from datetime import datetime
 
 from turtle.ranking.momentum import MomentumRanking
 from turtle.service.signal_service import SignalService
-from turtle.strategy.darvas_box import DarvasBoxStrategy
+from turtle.signal.darvas_box import DarvasBoxStrategy
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.settings import Settings

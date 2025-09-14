@@ -37,16 +37,16 @@ from turtle.config.settings import Settings
 from turtle.backtest.processor import SignalProcessor
 from turtle.ranking.ranking_strategy import RankingStrategy
 from turtle.service.backtest_service import BacktestService
-from turtle.strategy.darvas_box import DarvasBoxStrategy
-from turtle.strategy.momentum import MomentumStrategy
-from turtle.strategy.mars import MarsStrategy
+from turtle.signal.darvas_box import DarvasBoxStrategy
+from turtle.signal.momentum import MomentumStrategy
+from turtle.signal.mars import MarsStrategy
 
 from turtle.service.signal_service import SignalService
 from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
-from turtle.strategy.trading_strategy import TradingStrategy
+from turtle.signal.base import TradingStrategy
 from turtle.ranking.momentum import MomentumRanking
-from turtle.backtest.exit_strategy import (
+from turtle.exit import (
     ExitStrategy,
     BuyAndHoldExitStrategy,
     EMAExitStrategy,
