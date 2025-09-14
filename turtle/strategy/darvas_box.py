@@ -24,8 +24,9 @@ class DarvasBoxStrategy(TradingStrategy):
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         warmup_period: int = 730,
         min_bars: int = 420,
+        verbose: bool = False,
     ):
-        super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars)
+        super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars, verbose)
 
     @staticmethod
     def check_local_max(
@@ -111,6 +112,10 @@ class DarvasBoxStrategy(TradingStrategy):
 
         # Rolling window indicators
         self.df["max_close_20"] = self.df["close"].rolling(window=20).max()
+        self.df["max_high_20"] = self.df["high"].rolling(window=20).max()
+
+        # MACD indicator
+        self.df["macd"], self.df["macd_signal"], _ = talib.MACD(close_values, fastperiod=12, slowperiod=26, signalperiod=9)
 
         # Exponential Moving Averages for close prices
         self.df["ema_10"] = talib.EMA(close_values, timeperiod=10)
@@ -299,7 +304,8 @@ class DarvasBoxStrategy(TradingStrategy):
             & (filtered_df["ema_10"] >= filtered_df["ema_20"])
             & (filtered_df["close"] >= filtered_df["ema_50"])
             & (filtered_df["volume"] >= filtered_df["ema_volume_10"] * 1.10)
-            & ((filtered_df["close"] - filtered_df["open"]) / filtered_df["close"] >= 0.01)
+            & (filtered_df["macd"] > filtered_df["macd_signal"])
+            & ((filtered_df["close"] - filtered_df["open"]) / filtered_df["close"] >= 0.008)
         )
 
         # Add EMA200 conditions only for daily timeframe
@@ -307,6 +313,17 @@ class DarvasBoxStrategy(TradingStrategy):
             buy_signals = buy_signals & (
                 (filtered_df["close"] >= filtered_df["ema_200"]) & (filtered_df["ema_50"] >= filtered_df["ema_200"])
             )
+        if self.verbose:
+            # print all values from start_date to end_date where buy_signals is False
+            for _, row in filtered_df[~buy_signals].iterrows():
+                logger.info(f"{ticker} - no buy signal on {row['hdate'].date()}")
+                logger.info(f"  close: {row['close']} max_close_20: {row['max_close_20']} ema_10: {row['ema_10']} ema_20: {row['ema_20']}")
+                logger.info(
+                    f"  ema_50: {row['ema_50']} ema_200: {row['ema_200']} "
+                    f"volume: {row['volume']} ema_volume_10 * 1.10: {row['ema_volume_10'] * 1.10}"
+                )
+                logger.info(f"  macd: {row['macd']} macd_signal: {row['macd_signal']}")
+                logger.info(f"  (close - open) / close: {(row['close'] - row['open']) / row['close']}")
 
         # Get the dates where buy signals occur
         signal_dates = filtered_df[buy_signals]["hdate"].tolist()

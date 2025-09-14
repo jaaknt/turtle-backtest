@@ -23,6 +23,7 @@ class TradingStrategy(ABC):
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         warmup_period: int = 730,
         min_bars: int = 420,
+        verbose: bool = False,
     ):
         """
         Initialize the trading strategy with common parameters.
@@ -39,6 +40,7 @@ class TradingStrategy(ABC):
         self.time_frame_unit = time_frame_unit
         self.warmup_period = warmup_period
         self.min_bars = min_bars
+        self.verbose = verbose
         self.df = pd.DataFrame()
 
     @abstractmethod

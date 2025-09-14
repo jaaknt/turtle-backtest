@@ -71,7 +71,7 @@ def setup_logging(verbose: bool = False) -> None:
         logging.basicConfig(level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
-def get_trading_strategy_instance(strategy_name: str) -> TradingStrategy:
+def get_trading_strategy_instance(strategy_name: str, verbose: bool) -> TradingStrategy:
     """Create and return a trading strategy instance by name."""
     from turtle.strategy.darvas_box import DarvasBoxStrategy
     from turtle.strategy.mars import MarsStrategy
@@ -104,12 +104,13 @@ def get_trading_strategy_instance(strategy_name: str) -> TradingStrategy:
         ranking_strategy=MomentumRanking(),
         time_frame_unit=TimeFrameUnit.DAY,
         warmup_period=730,
+        verbose=verbose,
     )
 
 
-def get_trading_strategy(strategy_runner: SignalService, strategy_name: str) -> TradingStrategy:
-    """Create and return a trading strategy instance by name (deprecated - kept for compatibility)."""
-    return get_trading_strategy_instance(strategy_name)
+# def get_trading_strategy(strategy_runner: SignalService, strategy_name: str) -> TradingStrategy:
+#    """Create and return a trading strategy instance by name (deprecated - kept for compatibility)."""
+#    return get_trading_strategy_instance(strategy_name, strategy_runner.trading_strategy.verbose)
 
 
 def iso_date_type(date_string: str) -> datetime:
@@ -189,7 +190,7 @@ def main() -> int:
 
         # Get the trading strategy first (we need it for service initialization)
         try:
-            trading_strategy = get_trading_strategy_instance(args.trading_strategy)
+            trading_strategy = get_trading_strategy_instance(args.trading_strategy, args.verbose)
         except ValueError as e:
             logger.error(str(e))
             return 1
