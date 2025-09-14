@@ -1,6 +1,6 @@
 [project]
 name = "turtle"
-version = "0.2.0"
+version = "0.3.0"
 description = "Backtest different US stocks trading strategies"
 authors = [{ name = "Jaak Niit", email = "jaak.niit@gmail.com" }]
 readme = "README.md"
