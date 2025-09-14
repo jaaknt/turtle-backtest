@@ -49,19 +49,19 @@ The `signal_runner.py` script provides comprehensive strategy analysis capabilit
 ### Mode 1: List - Get Tickers with Signals
 Find all tickers that have trading signals for a date range:
 ```bash
-uv run python scripts/signal_runner.py --mode list --start-date 2024-08-01 --end-date 2024-08-31 --trading_strategy darvas_box
+uv run python scripts/signal_runner.py --mode list --start-date 2024-08-01 --end-date 2024-08-31 --trading-strategy darvas_box
 ```
 
 ### Mode 2: Signal - Check Individual Ticker Signal
 Check if a specific ticker has a trading signal:
 ```bash
-uv run python scripts/signal_runner.py --mode signal --tickers AAPL --start-date 2024-08-01 --end-date 2024-08-31 --trading_strategy darvas_box
+uv run python scripts/signal_runner.py --mode signal --tickers AAPL --start-date 2024-08-01 --end-date 2024-08-31 --trading-strategy darvas_box
 ```
 
 ### Mode 3: Top - Get Top Trading Signals
 Get the top trading signals for a date range:
 ```bash
-uv run python scripts/signal_runner.py --mode top --start-date 2024-08-01 --end-date 2024-08-31 --trading_strategy darvas_box
+uv run python scripts/signal_runner.py --mode top --start-date 2024-08-01 --end-date 2024-08-31 --trading-strategy darvas_box
 ```
 
 **Available Strategies:**
@@ -70,11 +70,11 @@ uv run python scripts/signal_runner.py --mode top --start-date 2024-08-01 --end-
 - `momentum` - Traditional momentum strategy
 
 **Common Options:**
-- `--trading_strategy` - Trading strategy to use (default: darvas_box)
+- `--trading-strategy` - Trading strategy to use (default: darvas_box)
 - `--mode` - Analysis mode (default: list)
 - `--start-date` - Start date for analysis (YYYY-MM-DD format, required)
 - `--end-date` - End date for analysis (YYYY-MM-DD format, required)
-- `--tickers` - Stock ticker symbols (required for signal mode)
+- `--tickers` - Space-separated stock ticker symbols (required for signal mode)
 - `--max-tickers` - Maximum number of tickers to test (default: 10000)
 - `--verbose` - Enable detailed logging
 
@@ -126,3 +126,69 @@ uv run python scripts/strategy_performance.py --strategy darvas_box --start-date
 - Win rates and success percentages
 - Benchmark performance comparisons
 - Period-based analysis results
+
+## backtest.py
+
+The `backtest.py` script provides comprehensive backtesting capabilities by combining signal generation with exit strategy analysis. It runs complete signal-to-exit backtests using configurable trading and exit strategies.
+
+**Key Features:**
+- Complete signal-to-exit backtesting workflow
+- Multiple trading strategies (Darvas Box, Mars, Momentum)
+- Multiple exit strategies (Buy and Hold, Profit/Loss, EMA, MACD, ATR)
+- Configurable ranking strategies
+- Flexible ticker selection and limiting
+- Multiple analysis modes (list, signal, top)
+- Comprehensive signal processing with benchmark comparisons
+
+**Usage:**
+```bash
+# Basic backtest with Darvas Box strategy and EMA exit
+uv run python scripts/backtest.py --start-date 2024-01-01 --end-date 2024-01-31 --trading-strategy darvas_box --exit-strategy ema
+
+# Test specific tickers with ATR exit strategy
+uv run python scripts/backtest.py --start-date 2024-01-01 --end-date 2024-01-31 --tickers AAPL MSFT NVDA --exit-strategy atr --verbose
+
+# Mars strategy with profit/loss exits and limited ticker count
+uv run python scripts/backtest.py --start-date 2024-02-01 --end-date 2024-02-29 --trading-strategy mars --exit-strategy profit_loss --max-tickers 50
+
+# Top 20 signals mode with MACD exits
+uv run python scripts/backtest.py --start-date 2024-01-15 --end-date 2024-01-15 --mode top --exit-strategy macd
+```
+
+**Required Options:**
+- `--start-date` - Start date for analysis (YYYY-MM-DD format)
+- `--end-date` - End date for analysis (YYYY-MM-DD format)
+
+**Optional Parameters:**
+- `--tickers` - Space-separated list of specific ticker symbols to test
+- `--trading-strategy` - Signal generation strategy (default: darvas_box)
+  - `darvas_box` - Darvas Box trend-following strategy
+  - `mars` - Mars momentum strategy (@marsrides)
+  - `momentum` - Traditional momentum strategy
+- `--exit-strategy` - Exit timing strategy (default: buy_and_hold)
+  - `buy_and_hold` - Hold until period end
+  - `profit_loss` - Exit on profit target or stop loss
+  - `ema` - Exit when price closes below EMA
+  - `macd` - Exit on MACD bearish signals
+  - `atr` - Volatility-based stop losses using ATR
+- `--ranking-strategy` - Signal ranking method (default: momentum)
+  - `momentum` - Momentum-based ranking
+- `--max-tickers` - Maximum number of tickers to test (default: 10000)
+- `--mode` - Analysis mode (default: list)
+  - `list` - Get all tickers with signals in date range
+  - `signal` - Check specific ticker signals
+  - `top` - Get top 20 signals for the period
+- `--verbose` - Enable detailed logging output
+
+**Exit Strategy Details:**
+- **Buy and Hold**: Simple hold until analysis period end
+- **Profit/Loss**: Configurable profit targets and stop losses with early exit
+- **EMA**: Technical analysis exit when price closes below exponential moving average
+- **MACD**: Exit based on MACD indicator bearish crossovers
+- **ATR**: Volatility-adjusted stop losses using Average True Range multipliers
+
+**Output:**
+- Signal processing results with entry/exit analysis
+- Return calculations for individual positions
+- Benchmark comparisons against QQQ and SPY indices
+- Detailed logging of signal analysis workflow
