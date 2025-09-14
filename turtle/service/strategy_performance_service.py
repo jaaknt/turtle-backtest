@@ -18,7 +18,7 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.backtest.strategy_performance import StrategyPerformanceTester
 
 # from turtle.backtest.period_return import ProfitLossTargetStrategy
-from turtle.exit import EMAExitStrategy
+from turtle.backtest.period_return import EMAExitStrategy
 from turtle.backtest.models import TestSummary, PerformanceResult
 
 logger = logging.getLogger(__name__)
