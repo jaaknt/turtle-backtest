@@ -4,9 +4,9 @@ from datetime import datetime
 from unittest.mock import Mock
 
 from turtle.backtest.processor import SignalProcessor
-from turtle.strategy.models import Signal
+from turtle.signal.models import Signal
 from turtle.backtest.models import SignalResult, Trade
-from turtle.backtest.exit_strategy import BuyAndHoldExitStrategy
+from turtle.exit import BuyAndHoldExitStrategy
 from turtle.common.enums import TimeFrameUnit
 
 
@@ -344,14 +344,14 @@ class TestSignalProcessor:
         sample_qqq_data: pd.DataFrame,
     ) -> None:
         """Test full run() method integration."""
-        exit_strategy = BuyAndHoldExitStrategy()
+        exit_strategy = BuyAndHoldExitStrategy(mock_bars_history)
 
         processor = SignalProcessor(
             max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy
         )
 
         # Setup mock data
-        def mock_get_ticker_history(ticker: str, start: datetime, end: datetime, timeframe: TimeFrameUnit) -> pd.DataFrame:
+        def mock_get_ticker_history(ticker: str, start: datetime, end: datetime, timeframe: TimeFrameUnit = None, **kwargs) -> pd.DataFrame:
             if ticker == "TEST":
                 return sample_ticker_data
             elif ticker == "SPY":

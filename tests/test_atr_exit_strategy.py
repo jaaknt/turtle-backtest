@@ -5,7 +5,7 @@ import pytest
 from datetime import datetime
 from unittest.mock import Mock
 
-from turtle.backtest.exit_strategy import ATRExitStrategy
+from turtle.exit import ATRExitStrategy
 from turtle.backtest.models import Trade
 from turtle.data.bars_history import BarsHistoryRepo
 

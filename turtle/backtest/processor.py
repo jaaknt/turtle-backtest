@@ -2,9 +2,9 @@ import logging
 import pandas as pd
 from datetime import datetime, timedelta
 
-from turtle.strategy.models import Signal
+from turtle.signal.models import Signal
 from turtle.backtest.models import SignalResult, Trade
-from turtle.backtest.exit_strategy import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
+from turtle.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
 

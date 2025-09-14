@@ -9,6 +9,7 @@ class Signal:
     Attributes:
         ticker (str): Stock symbol code
         date (datetime): Date when the signal was generated
+        ranking (int): Ranking score of the signal (1-100)
     """
 
     ticker: str

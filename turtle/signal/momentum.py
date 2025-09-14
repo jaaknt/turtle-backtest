@@ -6,8 +6,8 @@ import talib
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
 from turtle.ranking.ranking_strategy import RankingStrategy
-from turtle.strategy.trading_strategy import TradingStrategy
-from turtle.strategy.models import Signal
+from .base import TradingStrategy
+from .models import Signal
 
 
 logger = logging.getLogger(__name__)

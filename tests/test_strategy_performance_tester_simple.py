@@ -3,7 +3,8 @@ import pandas as pd
 from datetime import datetime
 
 from turtle.backtest.strategy_performance import StrategyPerformanceTester
-from turtle.backtest.period_return import BuyAndHoldStrategy, ProfitLossTargetStrategy, EMAExitStrategy
+from turtle.backtest.period_return import BuyAndHoldStrategy, ProfitLossTargetStrategy
+from turtle.exit import EMAExitStrategy
 from turtle.backtest.models import LegacySignalResult
 
 
@@ -60,7 +61,7 @@ class TestStrategyPerformanceTesterBasic:
         mock_bars_history = Mock()
         max_holding_period = pd.Timedelta(days=7)
 
-        custom_period_strategy = EMAExitStrategy(ema_period=25)
+        custom_period_strategy = EMAExitStrategy(mock_bars_history)
 
         tester = StrategyPerformanceTester(
             strategy=mock_strategy,
@@ -72,7 +73,6 @@ class TestStrategyPerformanceTesterBasic:
         )
 
         assert isinstance(tester.period_return_strategy, EMAExitStrategy)
-        assert tester.period_return_strategy.ema_period == 25
 
     def test_period_return_strategy_kwargs(self) -> None:
         """Test that strategy kwargs are stored correctly."""

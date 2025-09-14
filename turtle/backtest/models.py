@@ -4,7 +4,7 @@ from typing import Any
 import pandas as pd
 
 from turtle.backtest.period_return import PeriodReturn, PeriodReturnResult
-from turtle.strategy.models import Signal
+from turtle.signal.models import Signal
 
 
 @dataclass

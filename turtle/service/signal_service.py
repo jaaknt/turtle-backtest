@@ -9,13 +9,13 @@ from turtle.config.model import AppConfig
 from turtle.data.symbol import SymbolRepo
 from turtle.data.company import CompanyRepo
 from turtle.data.bars_history import BarsHistoryRepo
-from turtle.strategy.market import MarketData
+from turtle.signal.market import MarketData
 
-# from turtle.strategy.momentum import MomentumStrategy
-# from turtle.strategy.darvas_box import DarvasBoxStrategy
-# from turtle.strategy.mars import MarsStrategy
-from turtle.strategy.trading_strategy import TradingStrategy
-from turtle.strategy.models import Signal
+# from turtle.signal.momentum import MomentumStrategy
+# from turtle.signal.darvas_box import DarvasBoxStrategy
+# from turtle.signal.mars import MarsStrategy
+from turtle.signal.base import TradingStrategy
+from turtle.signal.models import Signal
 from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)

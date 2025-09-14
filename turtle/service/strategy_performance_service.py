@@ -10,15 +10,15 @@ from turtle.data.symbol import SymbolRepo
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.ranking.momentum import MomentumRanking
 from turtle.ranking.ranking_strategy import RankingStrategy
-from turtle.strategy.trading_strategy import TradingStrategy
-from turtle.strategy.darvas_box import DarvasBoxStrategy
-from turtle.strategy.mars import MarsStrategy
-from turtle.strategy.momentum import MomentumStrategy
+from turtle.signal.base import TradingStrategy
+from turtle.signal.darvas_box import DarvasBoxStrategy
+from turtle.signal.mars import MarsStrategy
+from turtle.signal.momentum import MomentumStrategy
 from turtle.common.enums import TimeFrameUnit
 from turtle.backtest.strategy_performance import StrategyPerformanceTester
 
 # from turtle.backtest.period_return import ProfitLossTargetStrategy
-from turtle.backtest.period_return import EMAExitStrategy
+from turtle.exit import EMAExitStrategy
 from turtle.backtest.models import TestSummary, PerformanceResult
 
 logger = logging.getLogger(__name__)
