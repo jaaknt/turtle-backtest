@@ -66,7 +66,7 @@ class StrategyPerformanceTester:
                 logger.debug(f"Analyzing signals for {ticker}")
 
                 # Collect historical data for the ticker
-                if not self.strategy.collect_historical_data(ticker, self.start_date, self.end_date):
+                if not self.strategy.collect_data(ticker, self.start_date, self.end_date):
                     logger.warning(f"Insufficient data for {ticker}")
                     continue
 
@@ -74,7 +74,7 @@ class StrategyPerformanceTester:
                 self.strategy.calculate_indicators()
 
                 # Find all trading signals in the date range
-                signals_count = self.strategy.trading_signals_count(ticker, self.start_date, self.end_date)
+                signals_count = len(self.strategy.get_signals(ticker, self.start_date, self.end_date))
 
                 if signals_count > 0:
                     # Get the DataFrame with buy signals

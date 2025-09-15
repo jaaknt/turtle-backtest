@@ -119,13 +119,13 @@ class TestATRExitStrategy:
         }, index=dates)
 
         # With entry=100, ATR=1.0, multiplier=2.0: stop = 100 - (2.0 * 1.0) = 98.0
-        # Low on day 0 (98.0) equals stop (98.0), so should exit immediately
+        # Close on day 2 (97.0) is first to be < stop (98.0), so should exit on day 2
 
         result = strategy.calculate_exit(data)
 
         assert isinstance(result, Trade)
         assert result.reason == "atr_stop_loss"
-        assert result.date == dates[0]  # First day when stop is hit
+        assert result.date == dates[2]  # First day when close < stop
         assert result.price == 98.0  # Stop price
 
     def test_calculate_exit_period_end(self) -> None:

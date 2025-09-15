@@ -87,7 +87,7 @@ class DarvasBoxStrategy(TradingStrategy):
                 return True
         return True
 
-    def collect_historical_data(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
+    def collect_data(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
         self.df = self.bars_history.get_ticker_history(
             ticker,
             start_date - timedelta(days=self.warmup_period),
@@ -257,8 +257,8 @@ class DarvasBoxStrategy(TradingStrategy):
 
         return True
 
-    def is_trading_signal(self, ticker: str, date_to_check: datetime) -> bool:
-        if not self.collect_historical_data(ticker, date_to_check, date_to_check):
+    def has_signal(self, ticker: str, date_to_check: datetime) -> bool:
+        if not self.collect_data(ticker, date_to_check, date_to_check):
             logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
             return False
 
@@ -270,7 +270,7 @@ class DarvasBoxStrategy(TradingStrategy):
 
         return self.is_buy_signal(ticker, self.df.iloc[-1])
 
-    def get_trading_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
+    def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
         """
         Get trading signals for a ticker within a date range.
 
@@ -283,7 +283,7 @@ class DarvasBoxStrategy(TradingStrategy):
             List[Signal]: List of Signal objects for each trading signal
         """
         # collect data for the ticker and end_date
-        if not self.collect_historical_data(ticker, start_date, end_date):
+        if not self.collect_data(ticker, start_date, end_date):
             logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
             return []
 
@@ -334,22 +334,3 @@ class DarvasBoxStrategy(TradingStrategy):
         ]
 
     # create similar procedure as is_trading_signal that will calculate trading signals for all dates in df DataFrame
-    # parameters - self, ticker, start_date, end_date
-    # adds a new column to the DataFrame - df["buy_signal"] with boolean values
-    # returns count of buy signals
-    def trading_signals_count(self, ticker: str, start_date: datetime, end_date: datetime) -> int:
-        """
-        Count the number of trading signals for a ticker within a date range.
-
-        This method now uses get_trading_signals internally for consistency.
-
-        Args:
-            ticker: The stock symbol to analyze
-            start_date: The start date of the analysis period
-            end_date: The end date of the analysis period
-
-        Returns:
-            int: The total number of trading signals found in the date range
-        """
-        signals = self.get_trading_signals(ticker, start_date, end_date)
-        return len(signals)

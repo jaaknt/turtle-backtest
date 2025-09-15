@@ -130,7 +130,7 @@ class MomentumStrategy(TradingStrategy):
 
         return True
 
-    def collect_historical_data(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
+    def collect_data(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
         """
         Collect historical market data for momentum analysis.
 
@@ -173,7 +173,7 @@ class MomentumStrategy(TradingStrategy):
         if not self.df_daily.empty:
             self.df_daily["ema_200"] = talib.EMA(self.df_daily["close"].values.astype("float64"), timeperiod=200)
 
-    def is_trading_signal(self, ticker: str, date_to_check: datetime) -> bool:
+    def has_signal(self, ticker: str, date_to_check: datetime) -> bool:
         """
         Check if there is a momentum trading signal for a specific ticker on a given date.
 
@@ -187,7 +187,7 @@ class MomentumStrategy(TradingStrategy):
         # Use the existing weekly_momentum method
         return self.weekly_momentum(ticker, date_to_check)
 
-    def get_trading_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
+    def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
         """
         Get momentum trading signals for a ticker within a date range.
 
@@ -213,22 +213,6 @@ class MomentumStrategy(TradingStrategy):
 
         return signals
 
-    def trading_signals_count(self, ticker: str, start_date: datetime, end_date: datetime) -> int:
-        """
-        Count the number of momentum trading signals for a ticker within a date range.
-
-        This method now uses get_trading_signals internally for consistency.
-
-        Args:
-            ticker: The stock symbol to analyze
-            start_date: The start date of the analysis period
-            end_date: The end date of the analysis period
-
-        Returns:
-            int: The total number of trading signals found in the date range
-        """
-        signals = self.get_trading_signals(ticker, start_date, end_date)
-        return len(signals)
 
     def _price_to_ranking(self, price: float) -> int:
         """
@@ -267,7 +251,7 @@ class MomentumStrategy(TradingStrategy):
             int: Ranking score between 0-20, with higher scores for lower-priced stocks
         """
         # Collect data for the specific date
-        if not self.collect_historical_data(ticker, date_to_check, date_to_check):
+        if not self.collect_data(ticker, date_to_check, date_to_check):
             logger.debug(f"{ticker} - not enough data for ranking on date {date_to_check.date()}")
             return 0
 

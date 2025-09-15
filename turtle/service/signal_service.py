@@ -45,16 +45,16 @@ class SignalService:
         self.market_data = MarketData(self.bars_history)
 
     def is_trading_signal(self, ticker: str, date_to_check: datetime) -> bool:
-        """Wrapper function for TradingStrategy.is_trading_signal()."""
-        return self.trading_strategy.is_trading_signal(ticker, date_to_check)
+        """Wrapper function for TradingStrategy.has_signal()."""
+        return self.trading_strategy.has_signal(ticker, date_to_check)
 
     def trading_signals_count(self, ticker: str, start_date: datetime, end_date: datetime) -> int:
-        """Wrapper function for TradingStrategy.trading_signals_count()."""
-        return self.trading_strategy.trading_signals_count(ticker, start_date, end_date)
+        """Count trading signals using get_trading_signals()."""
+        return len(self.trading_strategy.get_signals(ticker, start_date, end_date))
 
     def get_trading_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
-        """Wrapper function for TradingStrategy.get_trading_signals."""
-        return self.trading_strategy.get_trading_signals(ticker, start_date, end_date)
+        """Wrapper function for TradingStrategy.get_signals."""
+        return self.trading_strategy.get_signals(ticker, start_date, end_date)
 
     def get_symbol_list(self, symbol_filter: str = "USA", max_symbols: int = 10_000) -> list[str]:
         """
