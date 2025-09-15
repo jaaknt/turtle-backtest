@@ -49,10 +49,10 @@ class SignalService:
         return self.trading_strategy.has_signal(ticker, date_to_check)
 
     def trading_signals_count(self, ticker: str, start_date: datetime, end_date: datetime) -> int:
-        """Count trading signals using get_trading_signals()."""
+        """Count trading signals using get_signals()."""
         return len(self.trading_strategy.get_signals(ticker, start_date, end_date))
 
-    def get_trading_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
+    def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
         """Wrapper function for TradingStrategy.get_signals."""
         return self.trading_strategy.get_signals(ticker, start_date, end_date)
 

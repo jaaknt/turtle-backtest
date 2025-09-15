@@ -165,7 +165,7 @@ def main() -> int:
             if args.tickers:
                 logger.warning("Tickers parameter is ignored in list mode")
             for ticker in strategy_runner.get_symbol_list(max_symbols=args.max_tickers):
-                signals = strategy_runner.get_trading_signals(ticker, start_date, end_date)
+                signals = strategy_runner.get_signals(ticker, start_date, end_date)
 
                 if len(signals) > 0:
                     for signal in signals:
@@ -175,7 +175,7 @@ def main() -> int:
             logger.info("Getting top 20 signals...")
             signal_list = []
             for ticker in strategy_runner.get_symbol_list(max_symbols=args.max_tickers):
-                signal_list.extend(strategy_runner.get_trading_signals(ticker, start_date, end_date))
+                signal_list.extend(strategy_runner.get_signals(ticker, start_date, end_date))
 
             # Flatten the list and get top 20 signals
             if not signal_list:
@@ -190,7 +190,7 @@ def main() -> int:
                 logger.error("Tickers is required for signal mode")
                 return 1
             for ticker in args.tickers:
-                signals = strategy_runner.get_trading_signals(ticker, start_date, end_date)
+                signals = strategy_runner.get_signals(ticker, start_date, end_date)
 
                 if len(signals) > 0:
                     for signal in signals:

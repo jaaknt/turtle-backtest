@@ -48,7 +48,7 @@ strategy_runner = SignalService(
 
 # Get ticker list (now with correct method signature)
 for ticker in strategy_runner.get_symbol_list():
-    signals = strategy_runner.get_trading_signals(ticker, end_date, end_date)
+    signals = strategy_runner.get_signals(ticker, end_date, end_date)
 
 
 # Extract just the symbol names for get_company_list
