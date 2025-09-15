@@ -61,9 +61,6 @@ class MomentumStrategy(TradingStrategy):
         # Volume indicators
         self.df["ema_volume_10"] = talib.EMA(volume_values, timeperiod=10)
 
-        # Initialize buy signal column
-        self.df["buy_signal"] = False
-
         self.df = self.df.reset_index()
 
     def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
