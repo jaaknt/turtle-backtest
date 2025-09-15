@@ -33,7 +33,7 @@ data_updater.update_bars_history(start_date, end_date)
 The `SignalService` provides strategy execution capabilities for running trading strategies against historical market data. It serves as a wrapper around trading strategy implementations.
 
 > **Note**: As of recent refactoring, the underlying TradingStrategy interface has been updated:
-> - `is_trading_signal` → `has_signal` (renamed throughout)
+> - `has_signal` method removed completely
 > - `get_trading_signals` → `get_signals` (renamed throughout)
 > - `collect_historical_data` → `collect_data` (in base class)
 > - `trading_signals_count` method removed completely
@@ -48,7 +48,6 @@ The `SignalService` provides strategy execution capabilities for running trading
 
 **Primary Methods:**
 - `get_tickers_list(date_to_check)` - Returns list of tickers with trading signals on specified date
-- `has_signal(ticker, date_to_check)` - Checks if specific ticker has signal on date
 - `get_signals(ticker, start_date, end_date)` - Gets list of Signal objects for ticker over date range
 - `get_tickers_count(start_date, end_date)` - Returns signal counts for all tickers
 - `get_company_list(symbol_list)` - Retrieves company data for symbol list
@@ -57,7 +56,8 @@ The `SignalService` provides strategy execution capabilities for running trading
 ```python
 strategy_runner = SignalService(time_frame_unit=TimeFrameUnit.DAY)
 signals = strategy_runner.get_signals("AAPL", start_date, end_date)
-has_signal = strategy_runner.has_signal("AAPL", target_date)
+signals = strategy_runner.get_signals("AAPL", target_date, target_date)
+has_signal = len(signals) > 0
 ```
 
 ## StrategyPerformanceService

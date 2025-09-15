@@ -132,34 +132,6 @@ class MarsStrategy(TradingStrategy):
         for i, row in self.df.iterrows():
             self.df.at[i, "buy_signal"] = self.is_buy_signal(ticker, row)
 
-    def has_signal(self, ticker: str, date_to_check: datetime) -> bool:
-        """
-        Check if there is a trading signal for a specific ticker on a given date.
-
-        Args:
-            ticker: The stock symbol to check
-            date_to_check: The specific date to evaluate for trading signals
-
-        Returns:
-            bool: True if there is a trading signal, False otherwise
-        """
-        # Collect data for the single date
-        if not self.collect_data(ticker, date_to_check, date_to_check):
-            logger.debug(f"{ticker} - not enough data for date {date_to_check.date()}")
-            return False
-
-        self.calculate_indicators()
-
-        # Filter to the specific date
-        target_df = self.df[self.df["hdate"].dt.date == date_to_check.date()]
-
-        if target_df.empty:
-            logger.debug(f"{ticker} - no data for date {date_to_check.date()}")
-            return False
-
-        # Check buy signal for the target date
-        row = target_df.iloc[-1]  # Get the last row for that date
-        return self.is_buy_signal(ticker, row)
 
     def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
         """
