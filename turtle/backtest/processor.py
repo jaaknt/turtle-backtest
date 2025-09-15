@@ -2,6 +2,7 @@ import logging
 import pandas as pd
 from datetime import datetime, timedelta
 
+from turtle.exit.atr import ATRExitStrategy
 from turtle.signal.models import Signal
 from turtle.backtest.models import SignalResult, Trade
 from turtle.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
@@ -200,6 +201,10 @@ class SignalProcessor:
             )
         elif isinstance(self.exit_strategy, EMAExitStrategy):
             self.exit_strategy.initialize(signal.ticker, entry_date, entry_date + timedelta(days=self.max_holding_period), ema_period=20)
+        elif isinstance(self.exit_strategy, ATRExitStrategy):
+            self.exit_strategy.initialize(
+                signal.ticker, entry_date, entry_date + timedelta(days=self.max_holding_period), atr_period=14, atr_multiplier=1.0
+            )
         elif isinstance(self.exit_strategy, MACDExitStrategy):
             self.exit_strategy.initialize(
                 signal.ticker,

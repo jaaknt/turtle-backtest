@@ -19,12 +19,11 @@ class ATRExitStrategy(ExitStrategy):
     - ATR provides dynamic stop based on recent volatility
     """
 
-    def initialize(
-        self, ticker: str, start_date: datetime, end_date: datetime, atr_period: int = 14, atr_multiplier: float = 2.0
-    ) -> None:
+    def initialize(self, ticker: str, start_date: datetime, end_date: datetime, atr_period: int = 14, atr_multiplier: float = 2.0) -> None:
         super().initialize(ticker, start_date, end_date)
         self.atr_period = atr_period
         self.atr_multiplier = atr_multiplier
+        # print(f"ATRExitStrategy ATR period {atr_period} and multiplier {atr_multiplier}")
 
     def calculate_indicators(self) -> pd.DataFrame:
         # Get extra days for ATR calculation
@@ -60,13 +59,13 @@ class ATRExitStrategy(ExitStrategy):
         data_copy = data.copy()
         data_copy["stop_price"] = entry_price - (self.atr_multiplier * data_copy["atr"])
 
-        # Find first day where low touches or goes below stop price
-        stop_hits = data_copy[data_copy["low"] <= data_copy["stop_price"]]
+        # Find first day where close touches or goes below stop price
+        stop_hits = data_copy[data_copy["close"] <= data_copy["stop_price"]]
 
         if not stop_hits.empty:
             # Exit at stop price on first stop hit
             first_stop_date = stop_hits.index[0]
-            stop_price = stop_hits.iloc[0]["stop_price"]
+            stop_price = stop_hits.iloc[0]["close"]
             return Trade(date=first_stop_date, price=stop_price, reason="atr_stop_loss")
         else:
             # Hold until period end
