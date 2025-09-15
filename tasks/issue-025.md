@@ -20,7 +20,7 @@ class SignalResult:
 ### Current Structure
 The `turtle/performance/` folder contains:
 - `__init__.py` - Package initialization with docstring
-- `models.py` - Data models including existing SignalResult, PerformanceResult, TestSummary, RankingPerformance
+- `models.py` - Data models including existing SignalResult, ~~PerformanceResult, TestSummary, RankingPerformance~~ (removed)
 - `period_return.py` - Period return calculation strategies and classes
 - `strategy_performance.py` - Main StrategyPerformanceTester class
 

@@ -60,54 +60,15 @@ signals = strategy_runner.get_signals("AAPL", target_date, target_date)
 has_signal = len(signals) > 0
 ```
 
-## StrategyPerformanceService
+## ~~StrategyPerformanceService~~ (Removed)
 
-The `StrategyPerformanceService` orchestrates comprehensive strategy backtesting and performance analysis across multiple symbols and time periods. It provides detailed statistical analysis of trading strategy effectiveness.
+~~The `StrategyPerformanceService` orchestrated comprehensive strategy backtesting and performance analysis across multiple symbols and time periods. This service has been removed as part of codebase simplification.~~
 
-**Key Features:**
-- Comprehensive backtesting framework with multiple holding periods
-- Statistical performance analysis including win rates, average returns, and risk metrics
-- Benchmark comparison against market indices (QQQ, SPY)
-- Support for multiple exit strategies (EMA-based, profit/loss targets)
-- Flexible output formats (console, CSV, JSON)
-- Factory method for creating instances from strategy names
+**Previously Available Features:**
+- ~~Comprehensive backtesting framework with multiple holding periods~~
+- ~~Statistical performance analysis including win rates, average returns, and risk metrics~~
+- ~~Benchmark comparison against market indices (QQQ, SPY)~~
+- ~~Support for multiple exit strategies (EMA-based, profit/loss targets)~~
+- ~~Flexible output formats (console, CSV, JSON)~~
 
-**Available Strategies:**
-- `darvas_box` - Darvas Box trend-following strategy
-- `mars` - Mars momentum strategy
-- `momentum` - Traditional momentum strategy
-
-**Primary Methods:**
-- `run_test(symbols, symbol_filter, max_symbols)` - Execute complete performance test
-- `print_results(test_summary, output_format)` - Display results in specified format
-- `save_results(test_summary, filename, output_format)` - Save results to file
-- `from_strategy_name(strategy_name, ...)` - Factory method for creating service instances
-
-**Performance Metrics:**
-- Total and valid signal counts
-- Average, best, and worst returns
-- Win rates and success percentages
-- Benchmark comparisons
-- Period-based analysis (3d, 1w, 2w, 1m)
-
-**Usage:**
-```python
-# Create service for specific strategy
-service = StrategyPerformanceService.from_strategy_name(
-    "darvas_box",
-    signal_start_date=datetime(2024, 1, 1),
-    signal_end_date=datetime(2024, 12, 31)
-)
-
-# Run comprehensive test
-results = service.run_test(max_symbols=100)
-
-# Display results
-service.print_results(results, output_format="console")
-service.save_results(results, "results.csv", output_format="csv")
-```
-
-**Output Formats:**
-- **Console**: Human-readable formatted output with tables
-- **CSV**: Structured data suitable for spreadsheet analysis
-- **JSON**: Machine-readable format for programmatic processing
+**Note:** For strategy testing and backtesting, use the individual strategy classes directly with the `SignalService` and manual analysis tools.
