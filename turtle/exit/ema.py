@@ -19,6 +19,7 @@ class EMAExitStrategy(ExitStrategy):
     def initialize(self, ticker: str, start_date: datetime, end_date: datetime, ema_period: int = 20) -> None:
         super().initialize(ticker, start_date, end_date)
         self.ema_period = ema_period
+        # print(f"EMAExitStrategy EMA period {ema_period}")
 
     def calculate_indicators(self) -> pd.DataFrame:
         df = self.bars_history.get_ticker_history(

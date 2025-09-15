@@ -24,6 +24,7 @@ class MACDExitStrategy(ExitStrategy):
         self.fastperiod = fastperiod
         self.slowperiod = slowperiod
         self.signalperiod = signalperiod
+        # print(f"MACDExitStrategy with fastperiod {fastperiod}, slowperiod {slowperiod}, signalperiod {signalperiod}")
 
     def calculate_indicators(self) -> pd.DataFrame:
         df = self.bars_history.get_ticker_history(

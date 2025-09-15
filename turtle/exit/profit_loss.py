@@ -19,6 +19,7 @@ class ProfitLossExitStrategy(ExitStrategy):
         super().initialize(ticker, start_date, end_date)
         self.profit_target = profit_target
         self.stop_loss = stop_loss
+        print(f"Initialized ProfitLossExitStrategy with profit target {profit_target}% and stop loss {stop_loss}%")
 
     def calculate_indicators(self) -> pd.DataFrame:
         self.df = self.bars_history.get_ticker_history(self.ticker, self.start_date, self.end_date, time_frame_unit=TimeFrameUnit.DAY)

@@ -67,6 +67,7 @@ class BacktestService:
         print(
             f"Backtest Summary:"
             f" Average Return (Ticker): {avg_return_pct:.2f}% count: {len(signal_results)}"
+            f" Average Days Held: {sum((result.exit.date - result.entry.date).days for result in signal_results) / len(signal_results):.2f}"
             f" Average Return (QQQ): {avg_return_pct_qqq:.2f}%"
             f" Average Return (SPY): {avg_return_pct_spy:.2f}%"
         )
