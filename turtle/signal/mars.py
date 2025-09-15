@@ -67,7 +67,7 @@ class MarsStrategy(TradingStrategy):
         self.df["buy_signal"] = False
 
         self.df = self.df.reset_index()
-        self.df["hdate"] = pd.to_datetime(self.df["hdate"]) - pd.Timedelta(days=6)
+        # self.df["hdate"] = pd.to_datetime(self.df["hdate"]) - pd.Timedelta(days=6)
 
     def is_buy_signal(self, ticker: str, row: pd.Series) -> bool:
         # last close > max(close, 10)
@@ -132,7 +132,6 @@ class MarsStrategy(TradingStrategy):
         for i, row in self.df.iterrows():
             self.df.at[i, "buy_signal"] = self.is_buy_signal(ticker, row)
 
-
     def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
         """
         Get trading signals for a ticker within a date range.
@@ -161,7 +160,6 @@ class MarsStrategy(TradingStrategy):
                 signals.append(Signal(ticker=ticker, date=row["hdate"], ranking=0))
 
         return signals
-
 
     def _price_to_ranking(self, price: float) -> int:
         """

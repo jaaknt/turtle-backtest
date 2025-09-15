@@ -20,7 +20,7 @@ class Trade:
 
     date: datetime
     price: float
-    reason: str | None = None  # Default reason for exit
+    reason: str = ""  # Default reason for exit
 
 
 @dataclass
