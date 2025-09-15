@@ -29,12 +29,12 @@ class BacktestService:
         signals: list = []
         if tickers:
             for ticker in tickers:
-                signals.extend(self.signal_service.get_trading_signals(ticker, start_date, end_date))
+                signals.extend(self.signal_service.get_signals(ticker, start_date, end_date))
         else:
             tickers = self.signal_service.get_symbol_list()
             logger.info(f"Running backtest for {len(tickers)} tickers")
             for ticker in tickers:
-                signals.extend(self.signal_service.get_trading_signals(ticker, start_date, end_date))
+                signals.extend(self.signal_service.get_signals(ticker, start_date, end_date))
 
         # raise value error if no signals found
         if not signals:
