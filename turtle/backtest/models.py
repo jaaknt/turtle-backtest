@@ -1,8 +1,5 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
-
-import pandas as pd
 
 from turtle.signal.models import Signal
 
@@ -42,5 +39,3 @@ class SignalResult:
     return_pct: float
     return_pct_qqq: float
     return_pct_spy: float
-
-
