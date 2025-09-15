@@ -36,7 +36,7 @@ The `SignalService` provides strategy execution capabilities for running trading
 > - `is_trading_signal` → `has_signal` (renamed throughout)
 > - `get_trading_signals` → `get_signals` (renamed throughout)
 > - `collect_historical_data` → `collect_data` (in base class)
-> - `trading_signals_count` method removed from base class
+> - `trading_signals_count` method removed completely
 > The SignalService wrapper methods maintain their original names for backward compatibility.
 
 **Key Features:**
@@ -49,7 +49,6 @@ The `SignalService` provides strategy execution capabilities for running trading
 **Primary Methods:**
 - `get_tickers_list(date_to_check)` - Returns list of tickers with trading signals on specified date
 - `has_signal(ticker, date_to_check)` - Checks if specific ticker has signal on date
-- `trading_signals_count(ticker, start_date, end_date)` - Counts signals for ticker over date range
 - `get_signals(ticker, start_date, end_date)` - Gets list of Signal objects for ticker over date range
 - `get_tickers_count(start_date, end_date)` - Returns signal counts for all tickers
 - `get_company_list(symbol_list)` - Retrieves company data for symbol list
