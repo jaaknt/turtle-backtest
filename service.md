@@ -32,6 +32,13 @@ data_updater.update_bars_history(start_date, end_date)
 
 The `SignalService` provides strategy execution capabilities for running trading strategies against historical market data. It serves as a wrapper around trading strategy implementations.
 
+> **Note**: As of recent refactoring, the underlying TradingStrategy interface has been updated:
+> - `is_trading_signal` → `has_signal` (in base class)
+> - `get_trading_signals` → `get_signals` (in base class)
+> - `collect_historical_data` → `collect_data` (in base class)
+> - `trading_signals_count` method removed from base class
+> The SignalService wrapper methods maintain their original names for backward compatibility.
+
 **Key Features:**
 - Executes trading strategies on US stock symbols
 - Checks for trading signals on specific dates
@@ -40,17 +47,18 @@ The `SignalService` provides strategy execution capabilities for running trading
 - Provides ranking and filtering of trading opportunities
 
 **Primary Methods:**
-- `get_tickers_list(date_to_check, trading_strategy)` - Returns list of tickers with trading signals on specified date
-- `is_trading_signal(ticker, date_to_check, trading_strategy)` - Checks if specific ticker has signal on date
-- `trading_signals_count(ticker, start_date, end_date, trading_strategy)` - Counts signals for ticker over date range
-- `get_tickers_count(start_date, end_date, trading_strategy)` - Returns signal counts for all tickers
+- `get_tickers_list(date_to_check)` - Returns list of tickers with trading signals on specified date
+- `is_trading_signal(ticker, date_to_check)` - Checks if specific ticker has signal on date
+- `trading_signals_count(ticker, start_date, end_date)` - Counts signals for ticker over date range
+- `get_trading_signals(ticker, start_date, end_date)` - Gets list of Signal objects for ticker over date range
+- `get_tickers_count(start_date, end_date)` - Returns signal counts for all tickers
 - `get_company_list(symbol_list)` - Retrieves company data for symbol list
 
 **Usage:**
 ```python
 strategy_runner = SignalService(time_frame_unit=TimeFrameUnit.DAY)
-signals = strategy_runner.get_tickers_list(target_date, darvas_strategy)
-has_signal = strategy_runner.is_trading_signal("AAPL", target_date, darvas_strategy)
+signals = strategy_runner.get_trading_signals("AAPL", start_date, end_date)
+has_signal = strategy_runner.is_trading_signal("AAPL", target_date)
 ```
 
 ## StrategyPerformanceService
