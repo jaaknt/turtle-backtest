@@ -333,4 +333,4 @@ class DarvasBoxStrategy(TradingStrategy):
             for signal_date in signal_dates
         ]
 
-    # create similar procedure as is_trading_signal that will calculate trading signals for all dates in df DataFrame
+    # create similar procedure as has_signal that will calculate trading signals for all dates in df DataFrame
