@@ -27,7 +27,7 @@ class MarsStrategy(TradingStrategy):
 
         self.df_orig = pd.DataFrame()
 
-    def collect_historical_data(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
+    def collect_data(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
         self.df = self.bars_history.get_ticker_history(
             ticker,
             start_date - timedelta(days=self.warmup_period),
@@ -119,7 +119,7 @@ class MarsStrategy(TradingStrategy):
 
     def calculate_entries(self, ticker: str, start_date: datetime, end_date: datetime) -> None:
         # collect data for the ticker and end_date
-        if not self.collect_historical_data(ticker, start_date, end_date):
+        if not self.collect_data(ticker, start_date, end_date):
             logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
             return
 
@@ -132,7 +132,7 @@ class MarsStrategy(TradingStrategy):
         for i, row in self.df.iterrows():
             self.df.at[i, "buy_signal"] = self.is_buy_signal(ticker, row)
 
-    def is_trading_signal(self, ticker: str, date_to_check: datetime) -> bool:
+    def has_signal(self, ticker: str, date_to_check: datetime) -> bool:
         """
         Check if there is a trading signal for a specific ticker on a given date.
 
@@ -144,7 +144,7 @@ class MarsStrategy(TradingStrategy):
             bool: True if there is a trading signal, False otherwise
         """
         # Collect data for the single date
-        if not self.collect_historical_data(ticker, date_to_check, date_to_check):
+        if not self.collect_data(ticker, date_to_check, date_to_check):
             logger.debug(f"{ticker} - not enough data for date {date_to_check.date()}")
             return False
 
@@ -161,7 +161,7 @@ class MarsStrategy(TradingStrategy):
         row = target_df.iloc[-1]  # Get the last row for that date
         return self.is_buy_signal(ticker, row)
 
-    def get_trading_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
+    def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
         """
         Get trading signals for a ticker within a date range.
 
@@ -174,7 +174,7 @@ class MarsStrategy(TradingStrategy):
             List[Signal]: List of Signal objects for each trading signal
         """
         # Collect data for the date range
-        if not self.collect_historical_data(ticker, start_date, end_date):
+        if not self.collect_data(ticker, start_date, end_date):
             logger.debug(f"{ticker} - not enough data for range {start_date.date()} to {end_date.date()}")
             return []
 
@@ -190,22 +190,6 @@ class MarsStrategy(TradingStrategy):
 
         return signals
 
-    def trading_signals_count(self, ticker: str, start_date: datetime, end_date: datetime) -> int:
-        """
-        Count the number of trading signals for a ticker within a date range.
-
-        This method now uses get_trading_signals internally for consistency.
-
-        Args:
-            ticker: The stock symbol to analyze
-            start_date: The start date of the analysis period
-            end_date: The end date of the analysis period
-
-        Returns:
-            int: The total number of trading signals found in the date range
-        """
-        signals = self.get_trading_signals(ticker, start_date, end_date)
-        return len(signals)
 
     def _price_to_ranking(self, price: float) -> int:
         """
@@ -244,7 +228,7 @@ class MarsStrategy(TradingStrategy):
             int: Ranking score between 0-20, with higher scores for lower-priced stocks
         """
         # Collect data for the specific date
-        if not self.collect_historical_data(ticker, date_to_check, date_to_check):
+        if not self.collect_data(ticker, date_to_check, date_to_check):
             logger.debug(f"{ticker} - not enough data for ranking on date {date_to_check.date()}")
             return 0
 

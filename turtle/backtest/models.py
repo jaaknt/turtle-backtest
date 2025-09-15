@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+
 import pandas as pd
 
 from turtle.backtest.period_return import PeriodReturn, PeriodReturnResult

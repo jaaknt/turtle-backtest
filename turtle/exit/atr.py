@@ -59,13 +59,13 @@ class ATRExitStrategy(ExitStrategy):
         data_copy = data.copy()
         data_copy["stop_price"] = entry_price - (self.atr_multiplier * data_copy["atr"])
 
-        # Find first day where close touches or goes below stop price
-        stop_hits = data_copy[data_copy["close"] <= data_copy["stop_price"]]
+        # Find first day where close is lower stop price
+        stop_hits = data_copy[data_copy["close"] < data_copy["stop_price"]]
 
         if not stop_hits.empty:
             # Exit at stop price on first stop hit
             first_stop_date = stop_hits.index[0]
-            stop_price = stop_hits.iloc[0]["close"]
+            stop_price = stop_hits.iloc[0]["stop_price"]
             return Trade(date=first_stop_date, price=stop_price, reason="atr_stop_loss")
         else:
             # Hold until period end

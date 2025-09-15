@@ -42,7 +42,7 @@ class TradingStrategy(ABC):
         self.df = pd.DataFrame()
 
     @abstractmethod
-    def is_trading_signal(self, ticker: str, date_to_check: datetime) -> bool:
+    def has_signal(self, ticker: str, date_to_check: datetime) -> bool:
         """
         Check if there is a trading signal for a specific ticker on a given date.
 
@@ -55,23 +55,9 @@ class TradingStrategy(ABC):
         """
         pass
 
-    @abstractmethod
-    def trading_signals_count(self, ticker: str, start_date: datetime, end_date: datetime) -> int:
-        """
-        Count the number of trading signals for a ticker within a date range.
-
-        Args:
-            ticker: The stock symbol to analyze
-            start_date: The start date of the analysis period
-            end_date: The end date of the analysis period
-
-        Returns:
-            int: The total number of trading signals found in the date range
-        """
-        pass
 
     @abstractmethod
-    def get_trading_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
+    def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
         """
         Get trading signals for a ticker within a date range.
 
@@ -86,7 +72,7 @@ class TradingStrategy(ABC):
         pass
 
     @abstractmethod
-    def collect_historical_data(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
+    def collect_data(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
         """
         Collect historical market data for analysis.
 
