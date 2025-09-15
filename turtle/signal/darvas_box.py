@@ -257,18 +257,6 @@ class DarvasBoxStrategy(TradingStrategy):
 
         return True
 
-    def has_signal(self, ticker: str, date_to_check: datetime) -> bool:
-        if not self.collect_data(ticker, date_to_check, date_to_check):
-            logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
-            return False
-
-        self.calculate_indicators()
-
-        # compare last row [hdate] with the date_to_check
-        if self.df.iloc[-1]["hdate"] != date_to_check:
-            logger.warning(f"{ticker} - last row date {self.df.iloc[-1]['hdate']} does not match {date_to_check}")
-
-        return self.is_buy_signal(ticker, self.df.iloc[-1])
 
     def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
         """
@@ -333,4 +321,4 @@ class DarvasBoxStrategy(TradingStrategy):
             for signal_date in signal_dates
         ]
 
-    # create similar procedure as has_signal that will calculate trading signals for all dates in df DataFrame
+    # create similar procedure that will calculate trading signals for all dates in df DataFrame

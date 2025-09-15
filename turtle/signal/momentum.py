@@ -173,19 +173,6 @@ class MomentumStrategy(TradingStrategy):
         if not self.df_daily.empty:
             self.df_daily["ema_200"] = talib.EMA(self.df_daily["close"].values.astype("float64"), timeperiod=200)
 
-    def has_signal(self, ticker: str, date_to_check: datetime) -> bool:
-        """
-        Check if there is a momentum trading signal for a specific ticker on a given date.
-
-        Args:
-            ticker: The stock symbol to check
-            date_to_check: The specific date to evaluate for trading signals
-
-        Returns:
-            bool: True if there is a trading signal, False otherwise
-        """
-        # Use the existing weekly_momentum method
-        return self.weekly_momentum(ticker, date_to_check)
 
     def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
         """

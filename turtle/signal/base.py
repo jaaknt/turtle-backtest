@@ -41,19 +41,6 @@ class TradingStrategy(ABC):
         self.min_bars = min_bars
         self.df = pd.DataFrame()
 
-    @abstractmethod
-    def has_signal(self, ticker: str, date_to_check: datetime) -> bool:
-        """
-        Check if there is a trading signal for a specific ticker on a given date.
-
-        Args:
-            ticker: The stock symbol to check
-            date_to_check: The specific date to evaluate for trading signals
-
-        Returns:
-            bool: True if there is a trading signal, False otherwise
-        """
-        pass
 
 
     @abstractmethod
