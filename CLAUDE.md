@@ -11,7 +11,7 @@ This is a Python-based financial trading strategy backtesting library for US sto
 ### Environment Setup
 ```bash
 # Install dependencies
-uv sync --extra dev
+uv sync --extra dev --extra lint
 
 # Activate virtual environment
 source ./.venv/bin/activate
