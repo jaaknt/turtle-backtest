@@ -52,8 +52,8 @@ After analyzing the existing codebase, I understand the following structure:
 
 3. **Create `/turtle/tester/models.py`** - Data models for test results
    - `SignalResult`: Store signal date, ticker, entry price
-   - `PerformanceResult`: Store performance metrics per period
-   - `TestSummary`: Aggregate results across all signals
+   - ~~`PerformanceResult`: Store performance metrics per period~~ (removed)
+   - ~~`TestSummary`: Aggregate results across all signals~~ (removed)
 
 #### Phase 2: Create Service Layer
 4. **Create `/turtle/service/strategy_performance_service.py`** - Service orchestrating strategy testing

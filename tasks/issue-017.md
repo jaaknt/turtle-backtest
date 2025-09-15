@@ -41,10 +41,10 @@ The requested functionality is **already fully implemented** in the codebase:
 
 **Integration Points**:
 - `_calculate_signal_return_with_benchmarks()` populates benchmark data
-- Results stored in `signal_benchmark_data` list for TestSummary
+- Results stored in `signal_benchmark_data` list for ~~TestSummary~~ (class removed)
 - Data flows from individual signals to aggregate performance reporting
 
-**Display Format** (from TestSummary.format_summary()):
+**Display Format** (from ~~TestSummary.format_summary()~~ - class removed):
 ```
 Individual Signal Benchmark Performance:
 Ticker    Entry Date   Exit Date    Return%    QQQ%     SPY%
