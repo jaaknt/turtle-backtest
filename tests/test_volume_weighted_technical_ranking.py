@@ -60,9 +60,9 @@ def test_ranking_with_insufficient_data():
     """Test ranking behavior with insufficient data."""
     ranking = VolumeWeightedTechnicalRanking()
 
-    # Test with very limited data
-    short_data = create_test_data(5)
-    target_date = datetime(2024, 1, 5)
+    # Test with very limited data (less than 130 required)
+    short_data = create_test_data(50)
+    target_date = datetime(2024, 2, 19)
 
     score = ranking.ranking(short_data, target_date)
     assert score == 0  # Should return 0 for insufficient data
@@ -87,13 +87,13 @@ def test_volume_weighted_momentum_component():
     # Create trending data with volume confirmation
     dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
 
-    # Uptrending prices
-    prices = np.linspace(90, 110, 100)  # 22% gain over period
+    # Strong uptrending prices to meet new selectivity requirements
+    prices = np.linspace(80, 120, 100)  # 50% gain over period for stronger momentum
 
-    # Higher volume on recent days (volume confirmation)
+    # Higher volume on recent days (volume confirmation) - meet new 1.2x threshold
     volumes = np.concatenate([
-        np.full(50, 500000),    # Lower volume early
-        np.full(50, 1500000)    # Higher volume later
+        np.full(50, 1000000),    # Lower volume early
+        np.full(50, 2500000)     # Higher volume later (2.5x increase)
     ])
 
     data = pd.DataFrame({
@@ -148,8 +148,8 @@ def test_liquidity_quality_component():
     dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
     prices = np.full(100, 100.0)  # Stable price
 
-    # Consistent high volume (good liquidity)
-    volumes = np.random.normal(2000000, 200000, 100)  # $200M daily volume
+    # Consistent high volume (good liquidity) - meet new $5M+ requirement
+    volumes = np.random.normal(6000000, 500000, 100)  # $600M daily volume
     volumes = np.abs(volumes)  # Ensure positive
 
     data = pd.DataFrame({
