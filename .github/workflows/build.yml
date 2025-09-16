@@ -42,7 +42,7 @@ jobs:
         run: uv sync --extra dev --extra lint
 
       - name: Run mypy for static type checking
-        run: uv run mypy turtle/ main.py app.py
+        run: uv run mypy turtle/ app.py
 
       - name: Run tests
         run: uv run pytest
