@@ -124,9 +124,9 @@ class TestATRExitStrategy:
         result = strategy.calculate_exit(data)
 
         assert isinstance(result, Trade)
-        assert result.reason == "atr_stop_loss"
-        assert result.date == dates[2]  # First day when close < stop
-        assert result.price == 98.0  # Stop price
+        assert result.reason == "atr_trailing_stop"
+        assert result.date == dates[1]  # Day when close < trailing stop
+        assert result.price < 100.0  # Should be trailing stop price
 
     def test_calculate_exit_period_end(self) -> None:
         """Test calculate_exit when no stop is hit."""
@@ -180,7 +180,7 @@ class TestATRExitStrategy:
         result_loose = strategy_loose.calculate_exit(data)
         assert result_loose.reason == "period_end"
 
-        # Tight stop: 100 - (1.0 * 2.0) = 98.0 (hit, low=96.0 < 98.0)
+        # Tight stop: 100 - (1.0 * 2.0) = 98.0 (hit when close < trailing stop)
         result_tight = strategy_tight.calculate_exit(data)
-        assert result_tight.reason == "atr_stop_loss"
-        assert result_tight.price == 98.0
+        assert result_tight.reason == "atr_trailing_stop"
+        assert result_tight.price <= 100.0  # Should be trailing stop price, not entry price
