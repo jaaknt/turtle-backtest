@@ -43,11 +43,11 @@ class MACDExitStrategy(ExitStrategy):
         if data.empty:
             raise ValueError("No valid data available for exit calculation.")
 
-        # Find first day where close is below signal line
-        below_signal = data[data["close"] < data["macd_signal"]]
+        # Find first day where MACD is below signal line
+        below_signal = data[data["macd_line"] < data["macd_signal"]]
 
         if not below_signal.empty:
-            # Exit on first close below signal line
+            # Exit on first MACD below signal line
             return Trade(date=below_signal.index[0], price=below_signal.iloc[0]["close"], reason="below_signal")
         else:
             last_record = data.iloc[-1]

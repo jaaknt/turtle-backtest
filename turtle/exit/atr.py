@@ -1,12 +1,15 @@
 """ATR-based exit strategy."""
 
 from datetime import datetime, timedelta
+import logging
 import pandas as pd
 import talib
 
 from turtle.backtest.models import Trade
 from turtle.common.enums import TimeFrameUnit
 from .base import ExitStrategy
+
+logger = logging.getLogger(__name__)
 
 
 class ATRExitStrategy(ExitStrategy):
@@ -53,11 +56,13 @@ class ATRExitStrategy(ExitStrategy):
 
         # Entry price is the open of the first day
         entry_price = data.iloc[0]["open"]
+        stop_price = entry_price - (self.atr_multiplier * data.iloc[0]["atr"])
+        logger.debug(f"Entry price: {entry_price}, Initial stop price: {stop_price}")
 
         # Calculate stop loss for each day based on current ATR
         # Stop = Entry Price - (ATR Multiplier × Current ATR)
         data_copy = data.copy()
-        data_copy["stop_price"] = entry_price - (self.atr_multiplier * data_copy["atr"])
+        data_copy["stop_price"] = stop_price
 
         # Find first day where close is lower stop price
         stop_hits = data_copy[data_copy["close"] < data_copy["stop_price"]]
