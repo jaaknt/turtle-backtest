@@ -9,7 +9,7 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
 from .models import Signal
 from .base import TradingStrategy
-from turtle.ranking.ranking_strategy import RankingStrategy
+from turtle.ranking.base import RankingStrategy
 
 logger = logging.getLogger(__name__)
 

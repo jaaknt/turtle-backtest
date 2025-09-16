@@ -5,7 +5,8 @@ This module provides different ranking strategies for evaluating stocks
 based on various technical and fundamental criteria.
 """
 
-from .ranking_strategy import RankingStrategy
+from .base import RankingStrategy
 from .momentum import MomentumRanking
+from .volume_weighted_technical import VolumeWeightedTechnicalRanking
 
-__all__ = ["RankingStrategy", "MomentumRanking"]
+__all__ = ["RankingStrategy", "MomentumRanking", "VolumeWeightedTechnicalRanking"]
