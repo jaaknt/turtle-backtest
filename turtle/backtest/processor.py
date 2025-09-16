@@ -203,7 +203,7 @@ class SignalProcessor:
             self.exit_strategy.initialize(signal.ticker, entry_date, entry_date + timedelta(days=self.max_holding_period), ema_period=20)
         elif isinstance(self.exit_strategy, ATRExitStrategy):
             self.exit_strategy.initialize(
-                signal.ticker, entry_date, entry_date + timedelta(days=self.max_holding_period), atr_period=14, atr_multiplier=2.0
+                signal.ticker, entry_date, entry_date + timedelta(days=self.max_holding_period), atr_period=14, atr_multiplier=1.0
             )
         elif isinstance(self.exit_strategy, MACDExitStrategy):
             self.exit_strategy.initialize(
