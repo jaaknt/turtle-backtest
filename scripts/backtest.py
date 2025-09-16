@@ -15,7 +15,7 @@ Options:
     --tickers TICKER         Comma-separated list of specific tickers to test
     --trading-strategy STRATEGY      Trading strategy: darvas_box, mars, momentum (default: darvas_box)
     --exit-strategy STRATEGY         Exit strategy: buy_and_hold, profit_loss, ema, macd, atr (default: buy_and_hold)
-    --ranking-strategy STRATEGY      Ranking strategy: momentum (default: momentum)
+    --ranking-strategy STRATEGY      Ranking strategy: momentum, volume_weighted_technical (default: momentum)
     --max-tickers NUM        Maximum number of tickers to test (default: 10000)
     --mode MODE              Analysis mode: list (default: list)
     --verbose                Enable verbose logging
@@ -46,6 +46,7 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.signal.base import TradingStrategy
 from turtle.ranking.momentum import MomentumRanking
+from turtle.ranking.volume_weighted_technical import VolumeWeightedTechnicalRanking
 from turtle.exit import (
     ExitStrategy,
     BuyAndHoldExitStrategy,
@@ -90,6 +91,8 @@ def _get_ranking_strategy(strategy_name: str) -> RankingStrategy:
     """Get the ranking strategy instance by name."""
     if strategy_name == "momentum":
         return MomentumRanking()
+    elif strategy_name == "volume_weighted_technical":
+        return VolumeWeightedTechnicalRanking()
     else:
         raise ValueError(f"Unknown ranking strategy '{strategy_name}'")
 
@@ -166,8 +169,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--ranking-strategy",
         type=str,
         default="momentum",
-        choices=["momentum"],
-        help="Ranking strategy to use (default: momentum)",
+        choices=["momentum", "volume_weighted_technical"],
+        help="Ranking strategy to use: momentum (EMA200-based), volume_weighted_technical (volume+volatility-based) (default: momentum)",
     )
 
     parser.add_argument("--max-tickers", type=int, default=10000, help="Maximum number of tickers to test")
@@ -223,7 +226,7 @@ def main() -> int:
         signal_service = SignalService(
             pool=settings.pool, app_config=settings.app, trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY
         )
-        signal_processor = SignalProcessor(max_holding_period=40, bars_history=signal_service.bars_history, exit_strategy=exit_strategy)
+        signal_processor = SignalProcessor(max_holding_period=60, bars_history=signal_service.bars_history, exit_strategy=exit_strategy)
         backtest_service = BacktestService(signal_service=signal_service, signal_processor=signal_processor)
 
         # Run analysis based on mode
