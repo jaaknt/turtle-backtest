@@ -25,9 +25,6 @@ docker-compose down
 
 ### Running the Application
 ```bash
-# Run main data update/strategy execution
-uv run python main.py
-
 # Run daily EOD data update (requires start date)
 uv run python scripts/daily_eod_update.py --start-date 2025-06-28
 
@@ -174,7 +171,7 @@ Custom stock groupings (e.g., NASDAQ-100) can be created and managed via the `sy
 - **Python 3.13+**: Required for optimal performance
 
 ## Design patterns
-- All functionality must be encapsulated in classes, only exception is /scripts, main.py app.py
+- All functionality must be encapsulated in classes, only exception is /scripts, app.py
 ### Single Responsibility Principle
 Each class should have one clear purpose and reason to change. If you can't describe what a class does in a single
 sentence without using "and," it's probably doing too much.

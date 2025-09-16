@@ -26,7 +26,7 @@ Use the `scripts/daily_eod_update.py` script for convenient command-line data do
 
 ### Method 2: Programmatic API
 
-For integration into other scripts, you can use the DataUpdateService class directly as shown in [main.py](https://github.com/jaaknt/turtle-backtest/blob/main/main.py):
+For integration into other scripts, you can use the DataUpdateService class directly:
 
 ```python
 from turtle.service.data_update_service import DataUpdateService
