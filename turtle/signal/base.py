@@ -3,7 +3,7 @@ from datetime import datetime
 from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
 from .models import Signal
-from turtle.ranking.ranking_strategy import RankingStrategy
+from turtle.ranking.base import RankingStrategy
 
 import pandas as pd
 

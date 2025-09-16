@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 
 import pandas as pd
-from turtle.ranking.ranking_strategy import RankingStrategy
+from turtle.ranking.base import RankingStrategy
 
 logger = logging.getLogger(__name__)
 

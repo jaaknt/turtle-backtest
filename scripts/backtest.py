@@ -35,7 +35,7 @@ from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
 
 from turtle.backtest.processor import SignalProcessor
-from turtle.ranking.ranking_strategy import RankingStrategy
+from turtle.ranking.base import RankingStrategy
 from turtle.service.backtest_service import BacktestService
 from turtle.signal.darvas_box import DarvasBoxStrategy
 from turtle.signal.momentum import MomentumStrategy
