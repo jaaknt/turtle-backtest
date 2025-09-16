@@ -87,10 +87,11 @@ class TestMACDExitStrategy:
         mock_bars_history = self.create_mock_bars_history()
         strategy = MACDExitStrategy(mock_bars_history)
 
-        # Create test data with MACD indicators where close drops below signal
+        # Create test data with MACD indicators where macd_line drops below signal
         dates = pd.date_range(start="2024-01-01", periods=10, freq="D")
         data = pd.DataFrame({
             "close": [100.0, 101.0, 102.0, 101.5, 100.5, 99.0, 98.0, 97.0, 96.0, 95.0],
+            "macd_line": [100.0, 101.0, 102.0, 101.0, 100.0, 98.0, 97.0, 96.0, 95.0, 94.0],
             "macd_signal": [99.0, 100.0, 101.0, 101.0, 101.0, 100.0, 99.0, 98.0, 97.0, 96.0],
         }, index=dates)
 
@@ -98,7 +99,7 @@ class TestMACDExitStrategy:
 
         assert isinstance(result, Trade)
         assert result.reason == "below_signal"
-        # Should exit when close first goes below macd_signal (at index 4)
+        # Should exit when macd_line first goes below macd_signal (at index 4)
         assert result.date == dates[4]
         assert result.price == 100.5
 
@@ -107,10 +108,11 @@ class TestMACDExitStrategy:
         mock_bars_history = self.create_mock_bars_history()
         strategy = MACDExitStrategy(mock_bars_history)
 
-        # Create test data where close stays above signal
+        # Create test data where macd_line stays above signal
         dates = pd.date_range(start="2024-01-01", periods=5, freq="D")
         data = pd.DataFrame({
             "close": [100.0, 101.0, 102.0, 103.0, 104.0],
+            "macd_line": [100.0, 101.0, 102.0, 103.0, 104.0],
             "macd_signal": [99.0, 100.0, 101.0, 102.0, 103.0],
         }, index=dates)
 
