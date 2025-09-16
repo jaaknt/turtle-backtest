@@ -69,18 +69,20 @@ class VolumeWeightedTechnicalRanking(RankingStrategy):
 
         logger.debug(f"Volume Momentum - Volume factor: {volume_factor}")
 
-        # Combine momentum and volume, scale to 0-25
-        if price_momentum >= 0.15:  # 15% or more gain
+        # More selective momentum scoring - require stronger performance
+        if price_momentum >= 0.20:  # 20% or more gain (was 15%)
             base_score = 25
-        elif price_momentum >= 0.0:  # 0% to 15% gain
-            base_score = int(25 * (price_momentum / 0.15))
-        elif price_momentum >= -0.05:  # -5% to 0% change
-            base_score = int(10 * (price_momentum + 0.05) / 0.05)
-        else:  # More than -5% decline
+        elif price_momentum >= 0.05:  # 5% to 20% gain (was 0%)
+            base_score = int(25 * (price_momentum - 0.05) / 0.15)
+        else:  # Less than 5% gain - no points
             base_score = 0
 
-        # Apply volume weighting
-        score = int(base_score * volume_factor)
+        # Apply volume weighting - require at least 1.2x average volume
+        if volume_factor < 1.2:
+            score = int(base_score * 0.5)  # Penalize low volume
+        else:
+            score = int(base_score * min(volume_factor, 2.0))
+
         return min(25, max(0, score))
 
     def _volatility_adjusted_strength(self) -> int:
@@ -121,12 +123,12 @@ class VolumeWeightedTechnicalRanking(RankingStrategy):
 
         logger.debug(f"Volatility Strength - Stock return: {stock_return}, Volatility: {volatility}, Risk-adjusted: {risk_adjusted_return}")
 
-        # Scale to 0-25 points
-        # Target: risk-adjusted return of 2.0 = 25 points
-        if risk_adjusted_return >= 2.0:
+        # More selective volatility-adjusted scoring
+        # Target: risk-adjusted return of 1.5 = 25 points (was 2.0)
+        if risk_adjusted_return >= 1.5:
             return 25
-        elif risk_adjusted_return >= 0.0:
-            return int(25 * (risk_adjusted_return / 2.0))
+        elif risk_adjusted_return >= 0.5:  # Require minimum 0.5 ratio
+            return int(25 * (risk_adjusted_return - 0.5) / 1.0)
         else:
             return 0
 
@@ -164,15 +166,15 @@ class VolumeWeightedTechnicalRanking(RankingStrategy):
 
         dollar_volume = avg_volume * avg_price
 
-        # Scale dollar volume score (target: $1M+ daily = good liquidity)
-        if dollar_volume >= 1_000_000:  # $1M+
+        # More stringent liquidity requirements
+        if dollar_volume >= 5_000_000:  # $5M+ (was $1M+)
             volume_score = 1.0
-        elif dollar_volume >= 100_000:  # $100K - $1M
-            volume_score = 0.7
-        elif dollar_volume >= 10_000:   # $10K - $100K
-            volume_score = 0.4
-        else:  # < $10K
-            volume_score = 0.1
+        elif dollar_volume >= 1_000_000:  # $1M - $5M
+            volume_score = 0.8
+        elif dollar_volume >= 500_000:  # $500K - $1M
+            volume_score = 0.5
+        else:  # < $500K - insufficient liquidity
+            volume_score = 0.0
 
         # Combine scores
         final_score = int(25 * consistency_score * volume_score)
@@ -233,16 +235,15 @@ class VolumeWeightedTechnicalRanking(RankingStrategy):
         # Convert to scalar for comparison
         rsi_value = float(current_rsi)
 
-        # Prefer RSI in 30-70 range (not overbought/oversold)
-        if 30 <= rsi_value <= 70:
-            if 40 <= rsi_value <= 60:
-                return 100  # Neutral zone
-            else:
-                return 80   # Acceptable range
-        elif rsi_value > 70:
-            return max(0, 100 - int((rsi_value - 70) * 2))  # Overbought penalty
+        # More selective RSI scoring - prefer rising momentum
+        if 40 <= rsi_value <= 65:  # Narrower optimal range
+            return 100  # Sweet spot for momentum
+        elif 30 <= rsi_value <= 75:  # Acceptable range (was 30-70)
+            return 60  # Reduced score for wider range
+        elif rsi_value > 75:
+            return max(0, 60 - int((rsi_value - 75) * 3))  # Stronger overbought penalty
         else:  # RSI < 30
-            return max(0, 100 - int((30 - rsi_value) * 2))  # Oversold penalty
+            return max(0, 40 - int((30 - rsi_value) * 2))  # Oversold penalty
 
     def _calculate_ma_score(self) -> int:
         """Calculate moving average relationship score (0-100)."""
@@ -260,18 +261,24 @@ class VolumeWeightedTechnicalRanking(RankingStrategy):
 
         score = 0
 
-        # Price above both EMAs
+        # More stringent MA requirements
+        # Price must be above both EMAs
         if current_price > ema_20 and current_price > ema_50:
-            score += 40
+            score += 50  # Increased importance
+        else:
+            return 0  # Fail fast if not in uptrend
 
-        # EMA 20 above EMA 50 (bullish alignment)
-        if ema_20 > ema_50:
+        # EMA 20 above EMA 50 with meaningful separation
+        ema_separation = (ema_20 - ema_50) / ema_50
+        if ema_separation > 0.02:  # Require at least 2% separation
             score += 40
-
-        # Distance from EMAs (closer = more stable)
-        price_ema20_diff = abs(current_price - ema_20) / current_price
-        if price_ema20_diff < 0.02:  # Within 2%
+        elif ema_separation > 0:
             score += 20
+
+        # Price momentum relative to EMA20
+        price_ema20_momentum = (current_price - ema_20) / ema_20
+        if price_ema20_momentum > 0.01:  # Price above EMA20 by 1%+
+            score += 10
 
         return min(100, score)
 
@@ -293,17 +300,22 @@ class VolumeWeightedTechnicalRanking(RankingStrategy):
 
         score = 0
 
-        # Positive 5-day momentum
-        if momentum_5d > 0.02:  # > 2%
-            score += 50
-        elif momentum_5d > 0:
-            score += 25
+        # More selective momentum requirements
+        # Both 5-day and 10-day must be positive for any points
+        if momentum_5d <= 0 or momentum_10d <= 0:
+            return 0
 
-        # Positive 10-day momentum
-        if momentum_10d > 0.05:  # > 5%
-            score += 50
-        elif momentum_10d > 0:
-            score += 25
+        # Strong 5-day momentum (accelerating)
+        if momentum_5d > 0.03:  # > 3% (was 2%)
+            score += 60  # Increased weight
+        elif momentum_5d > 0.01:  # 1-3%
+            score += 30
+
+        # Strong 10-day momentum (sustained)
+        if momentum_10d > 0.08:  # > 8% (was 5%)
+            score += 40
+        elif momentum_10d > 0.03:  # 3-8%
+            score += 20
 
         return min(100, score)
 
@@ -317,15 +329,17 @@ class VolumeWeightedTechnicalRanking(RankingStrategy):
 
         Returns:
             int: Combined ranking score (0-100):
-                 - Volume-weighted momentum: 0-25
-                 - Volatility-adjusted strength: 0-25
-                 - Liquidity quality: 0-25
-                 - Technical confluence: 0-25
+                 - Volume-weighted momentum: 0-30 (increased weight)
+                 - Volatility-adjusted strength: 0-30 (increased weight)
+                 - Liquidity quality: 0-20 (decreased weight)
+                 - Technical confluence: 0-20 (decreased weight)
+
+        Quality gates applied for selectivity improvement.
         """
         self.filtered_df = df[df["hdate"] <= date].copy()
 
-        if len(self.filtered_df) < 2:
-            return 0
+        if len(self.filtered_df) < 130:  # Require more data for quality analysis
+            return 1
 
         # Calculate all ranking components
         volume_momentum = self._volume_weighted_momentum()
@@ -333,12 +347,37 @@ class VolumeWeightedTechnicalRanking(RankingStrategy):
         liquidity_quality = self._liquidity_quality()
         technical_confluence = self._technical_confluence()
 
+        # Apply quality gates - require minimum performance in key areas
+        if volume_momentum < 5:  # Must have some momentum
+            return 1
+
+        if volatility_strength < 5:  # Must have some risk-adjusted strength
+            return 1
+
+        if liquidity_quality < 8:  # Must have decent liquidity
+            return 1
+
+        # Reweight components to favor momentum and volatility-adjusted strength
+        # Scale volume_momentum and volatility_strength from 0-25 to 0-30
+        weighted_volume_momentum = int(volume_momentum * 1.2)  # 25 * 1.2 = 30 max
+        weighted_volatility_strength = int(volatility_strength * 1.2)  # 25 * 1.2 = 30 max
+
+        # Scale liquidity_quality and technical_confluence from 0-25 to 0-20
+        weighted_liquidity_quality = int(liquidity_quality * 0.8)  # 25 * 0.8 = 20 max
+        weighted_technical_confluence = int(technical_confluence * 0.8)  # 25 * 0.8 = 20 max
+
         logger.debug(
-            f"Volume Momentum: {volume_momentum}, "
-            f"Volatility Strength: {volatility_strength}, "
-            f"Liquidity Quality: {liquidity_quality}, "
-            f"Technical Confluence: {technical_confluence}"
+            f"Volume Momentum: {volume_momentum} -> {weighted_volume_momentum}, "
+            f"Volatility Strength: {volatility_strength} -> {weighted_volatility_strength}, "
+            f"Liquidity Quality: {liquidity_quality} -> {weighted_liquidity_quality}, "
+            f"Technical Confluence: {technical_confluence} -> {weighted_technical_confluence}"
         )
 
-        total_score = volume_momentum + volatility_strength + liquidity_quality + technical_confluence
-        return min(100, max(0, total_score))
+        total_score = weighted_volume_momentum + weighted_volatility_strength + weighted_liquidity_quality + weighted_technical_confluence
+
+        # Additional selectivity filter - only return scores above 40 (was 0)
+        final_score = min(100, max(1, total_score))
+        if final_score < 40:
+            return 1
+
+        return final_score

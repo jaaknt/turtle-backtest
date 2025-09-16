@@ -46,6 +46,7 @@ class BacktestService:
             if signal_result is not None:
                 signal_results.append(signal_result)
         self._print_summary(signal_results)
+        self._print_top_signals(signal_results)
         return signal_results
 
     def _print_summary(self, signal_results: list[SignalResult]) -> None:
@@ -76,3 +77,29 @@ class BacktestService:
             if ranked_results:
                 avg_ranked_return_pct = sum(result.return_pct for result in ranked_results) / len(ranked_results)
                 print(f" Average Return Rank [{i + 1}-{i + 20}]: {avg_ranked_return_pct:.2f}% count: {len(ranked_results)}")
+
+    def _print_top_signals(self, signal_results: list[SignalResult]) -> None:
+        """
+        Print the top 5 performing signals by return percentage.
+
+        Args:
+            signal_results: List of SignalResult objects to analyze
+        """
+        if not signal_results:
+            logger.warning("No signal results to display top performers.")
+            return
+
+        # Sort by return percentage in descending order and take top 5
+        top_signals = sorted(signal_results, key=lambda x: x.return_pct, reverse=True)[:5]
+
+        print("\nTop 5 Performing Signals:")
+        print("-" * 80)
+        print(f"{'Rank':<4} {'Ticker':<8} {'Return%':<8} {'Ranking':<8} {'Entry Date':<12} {'Exit Date':<12} {'Days':<5}")
+        print("-" * 80)
+
+        for i, result in enumerate(top_signals, 1):
+            days_held = (result.exit.date - result.entry.date).days
+            print(f"{i:<4} {result.signal.ticker:<8} {result.return_pct:>7.2f}% "
+                  f"{result.signal.ranking:<8} {result.entry.date.strftime('%Y-%m-%d'):<12} "
+                  f"{result.exit.date.strftime('%Y-%m-%d'):<12} {days_held:<5}")
+        print("-" * 80)
