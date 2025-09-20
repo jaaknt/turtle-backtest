@@ -2,8 +2,16 @@
 
 import logging
 from datetime import datetime
+from typing import Any
 import pandas as pd
 import numpy as np
+
+try:
+    import quantstats as qs  # type: ignore[import-untyped]
+    QUANTSTATS_AVAILABLE = True
+except ImportError:
+    QUANTSTATS_AVAILABLE = False
+    qs = None  # type: ignore[assignment]
 
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
@@ -287,12 +295,13 @@ class PortfolioAnalytics:
 
         return max(snapshot.positions_count for snapshot in portfolio_state.daily_snapshots)
 
-    def print_performance_summary(self, results: PortfolioResults) -> None:
+    def print_performance_summary(self, results: PortfolioResults, include_quantstats: bool = True) -> None:
         """
-        Print formatted performance summary.
+        Print formatted performance summary with optional quantstats metrics.
 
         Args:
             results: Portfolio results to summarize
+            include_quantstats: Whether to include additional quantstats metrics
         """
         print(f"\n{'='*60}")
         print("PORTFOLIO BACKTEST RESULTS")
@@ -319,17 +328,183 @@ class PortfolioAnalytics:
             for ticker, return_pct in results.benchmark_returns.items():
                 print(f"{ticker}: {return_pct:.2f}%")
 
+        # Add quantstats metrics if available and requested
+        if include_quantstats and QUANTSTATS_AVAILABLE and not results.daily_returns.empty:
+            qs_metrics = self.get_quantstats_metrics(results)
+            if qs_metrics:
+                print("\nQUANTSTATS ENHANCED METRICS:")
+                print(f"CAGR: {qs_metrics['cagr']:.2f}%")
+                print(f"Sortino Ratio: {qs_metrics['sortino_ratio']:.2f}")
+                print(f"Calmar Ratio: {qs_metrics['calmar_ratio']:.2f}")
+                print(f"Value at Risk (95%): {qs_metrics['value_at_risk']:.2f}%")
+                print(f"Conditional VaR (95%): {qs_metrics['conditional_value_at_risk']:.2f}%")
+                print(f"Profit Factor: {qs_metrics['profit_factor']:.2f}")
+                print(f"Gain to Pain Ratio: {qs_metrics['gain_to_pain_ratio']:.2f}")
+                print(f"Tail Ratio: {qs_metrics['tail_ratio']:.2f}")
+                print(f"Skewness: {qs_metrics['skewness']:.3f}")
+                print(f"Kurtosis: {qs_metrics['kurtosis']:.3f}")
+
         print(f"{'='*60}")
 
-    def create_quantstats_report(self, results: PortfolioResults) -> object | None:
+    def create_quantstats_report(
+        self,
+        results: PortfolioResults,
+        benchmark_ticker: str = "SPY",
+        output_file: str | None = None,
+        title: str = "Portfolio Performance Report",
+    ) -> str | None:
         """
-        Create quantstats report (placeholder for future implementation).
+        Create comprehensive quantstats HTML tearsheet report.
 
         Args:
-            results: Portfolio results
+            results: Portfolio results with daily returns and performance data
+            benchmark_ticker: Benchmark ticker for comparison (default: SPY)
+            output_file: Optional file path to save HTML report
+            title: Report title
 
         Returns:
-            Quantstats report object (when implemented)
+            HTML report as string, or None if quantstats unavailable
         """
-        logger.info("Quantstats integration not implemented yet")
-        return None
+        if not QUANTSTATS_AVAILABLE:
+            logger.warning("QuantStats library not available. Install with: pip install quantstats")
+            return None
+
+        if results.daily_returns.empty:
+            logger.warning("No daily returns data available for quantstats report")
+            return None
+
+        try:
+            # Prepare portfolio returns for quantstats
+            portfolio_returns = self._prepare_returns_for_quantstats(results.daily_returns)
+
+            # Get benchmark returns if available
+            benchmark_returns = None
+            if benchmark_ticker and results.benchmark_returns and benchmark_ticker in results.benchmark_returns:
+                # If we have benchmark returns in results, we need daily data for quantstats
+                logger.info(f"Benchmark {benchmark_ticker} total return available, but daily data needed for full analysis")
+
+            # Generate comprehensive HTML report
+            logger.info(f"Generating quantstats tearsheet with {len(portfolio_returns)} return periods")
+
+            # Create the HTML tearsheet
+            # Only pass download_filename if output_file is provided
+            if output_file:
+                html_report = qs.reports.html(  # type: ignore[union-attr]
+                    portfolio_returns,
+                    benchmark=benchmark_returns,
+                    output=output_file,
+                    title=title,
+                    download_filename=output_file
+                )
+            else:
+                html_report = qs.reports.html(  # type: ignore[union-attr]
+                    portfolio_returns,
+                    benchmark=benchmark_returns,
+                    title=title
+                )
+
+            logger.info(f"QuantStats report generated successfully"
+                       f"{f' and saved to {output_file}' if output_file else ''}")
+
+            return str(html_report)
+
+        except Exception as e:
+            logger.error(f"Error generating quantstats report: {e}")
+            return None
+
+    def get_quantstats_metrics(self, results: PortfolioResults) -> dict[str, Any] | None:
+        """
+        Get comprehensive quantstats metrics for programmatic access.
+
+        Args:
+            results: Portfolio results with daily returns
+
+        Returns:
+            Dictionary of quantstats metrics, or None if unavailable
+        """
+        if not QUANTSTATS_AVAILABLE:
+            logger.warning("QuantStats library not available")
+            return None
+
+        if results.daily_returns.empty:
+            logger.warning("No daily returns data available for quantstats metrics")
+            return None
+
+        try:
+            # Prepare portfolio returns for quantstats
+            portfolio_returns = self._prepare_returns_for_quantstats(results.daily_returns)
+
+            # Calculate comprehensive metrics
+            metrics = {
+                # Basic Performance
+                "total_return": qs.stats.comp(portfolio_returns),  # type: ignore[union-attr]
+                "cagr": qs.stats.cagr(portfolio_returns),  # type: ignore[union-attr]
+                "volatility": qs.stats.volatility(portfolio_returns),  # type: ignore[union-attr]
+
+                # Risk Metrics
+                "sharpe_ratio": qs.stats.sharpe(portfolio_returns),  # type: ignore[union-attr]
+                "sortino_ratio": qs.stats.sortino(portfolio_returns),  # type: ignore[union-attr]
+                "calmar_ratio": qs.stats.calmar(portfolio_returns),  # type: ignore[union-attr]
+                "max_drawdown": qs.stats.max_drawdown(portfolio_returns),  # type: ignore[union-attr]
+                "value_at_risk": qs.stats.value_at_risk(portfolio_returns),  # type: ignore[union-attr]
+                "conditional_value_at_risk": qs.stats.conditional_value_at_risk(portfolio_returns),  # type: ignore[union-attr]
+
+                # Trade Statistics
+                "win_rate": qs.stats.win_rate(portfolio_returns),  # type: ignore[union-attr]
+                "profit_factor": qs.stats.profit_factor(portfolio_returns),  # type: ignore[union-attr]
+                "profit_ratio": qs.stats.profit_ratio(portfolio_returns),  # type: ignore[union-attr]
+                "gain_to_pain_ratio": qs.stats.gain_to_pain_ratio(portfolio_returns),  # type: ignore[union-attr]
+
+                # Distribution Metrics
+                "skewness": qs.stats.skew(portfolio_returns),  # type: ignore[union-attr]
+                "kurtosis": qs.stats.kurtosis(portfolio_returns),  # type: ignore[union-attr]
+                "tail_ratio": qs.stats.tail_ratio(portfolio_returns),  # type: ignore[union-attr]
+
+                # Risk Measures
+                "ulcer_index": qs.stats.ulcer_index(portfolio_returns),  # type: ignore[union-attr]
+                "recovery_factor": qs.stats.recovery_factor(portfolio_returns),  # type: ignore[union-attr]
+                "expected_return": qs.stats.expected_return(portfolio_returns),  # type: ignore[union-attr]
+            }
+
+            # Add time-based metrics if sufficient data
+            if len(portfolio_returns) >= 12:  # At least 12 periods for meaningful monthly analysis
+                metrics.update({
+                    "best_month": qs.stats.best(portfolio_returns),  # type: ignore[union-attr]
+                    "worst_month": qs.stats.worst(portfolio_returns),  # type: ignore[union-attr]
+                    "avg_win": qs.stats.avg_win(portfolio_returns),  # type: ignore[union-attr]
+                    "avg_loss": qs.stats.avg_loss(portfolio_returns),  # type: ignore[union-attr]
+                })
+
+            logger.info(f"Generated {len(metrics)} quantstats metrics")
+            return metrics
+
+        except Exception as e:
+            logger.error(f"Error calculating quantstats metrics: {e}")
+            return None
+
+    def _prepare_returns_for_quantstats(self, daily_returns: pd.Series) -> pd.Series:
+        """
+        Prepare daily returns data for quantstats analysis.
+
+        Args:
+            daily_returns: Portfolio daily returns as percentage
+
+        Returns:
+            Returns series formatted for quantstats (decimal format)
+        """
+        # Ensure returns are in decimal format (quantstats expects this)
+        # If returns are in percentage format, convert to decimal
+        returns_decimal = daily_returns / 100.0 if daily_returns.abs().mean() > 1.0 else daily_returns
+
+        # Ensure datetime index
+        if not isinstance(returns_decimal.index, pd.DatetimeIndex):
+            returns_decimal.index = pd.to_datetime(returns_decimal.index)
+
+        # Remove any NaN or infinite values
+        returns_decimal = returns_decimal.dropna()
+        returns_decimal = returns_decimal.replace([np.inf, -np.inf], 0)
+
+        # Set name for better reporting
+        returns_decimal.name = "Portfolio Returns"
+
+        return returns_decimal

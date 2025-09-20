@@ -20,6 +20,7 @@ dependencies = [
     "backtesting>=0.3.3",
     "bokeh==2.4.3",
     "plotly>=5.24.1",
+    "quantstats>=0.0.62",          # Portfolio analytics for quantitative analysis
 ]
 
 [project.optional-dependencies]
