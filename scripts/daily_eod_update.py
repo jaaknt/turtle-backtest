@@ -28,12 +28,11 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
 from turtle.service.data_update_service import DataUpdateService
+
 # from turtle.common.enums import TimeFrameUnit
 import logging
 
 logger = logging.getLogger(__name__)
-
-
 
 
 def get_previous_trading_day(reference_date: datetime | None = None) -> datetime:
@@ -204,8 +203,8 @@ def main() -> int:
 
     logger.info("Starting daily EOD database update")
 
-    print(f"settings.database: {settings.database}")
-    print(f"settings.app: {settings.app}")
+    # print(f"settings.database: {settings.database}")
+    # print(f"settings.app: {settings.app}")
 
     try:
         # Parse and validate dates
