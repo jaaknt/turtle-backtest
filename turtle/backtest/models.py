@@ -39,3 +39,13 @@ class ClosedTrade:
     return_pct: float
     return_pct_qqq: float
     return_pct_spy: float
+
+    @property
+    def holding_days(self) -> int:
+        """
+        Calculate the number of days the position was held.
+
+        Returns:
+            Number of days between entry and exit dates
+        """
+        return (self.exit.date - self.entry.date).days

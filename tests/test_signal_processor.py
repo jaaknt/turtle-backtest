@@ -382,6 +382,12 @@ class TestSignalProcessor:
         assert result.exit.price > 0
         assert result.entry.date >= pd.Timestamp(sample_signal.date)
 
+        # Verify holding_days property
+        expected_holding_days = (result.exit.date - result.entry.date).days
+        assert result.holding_days == expected_holding_days
+        assert isinstance(result.holding_days, int)
+        assert result.holding_days >= 0
+
 
 class TestSignalProcessorEdgeCases:
     """Test edge cases and error scenarios."""
