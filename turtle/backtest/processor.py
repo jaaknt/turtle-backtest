@@ -2,12 +2,16 @@ import logging
 import pandas as pd
 from datetime import datetime, timedelta
 
+from typing import Any
 from turtle.exit.atr import ATRExitStrategy
 from turtle.signal.models import Signal
 from turtle.backtest.models import SignalResult, Trade
 from turtle.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
+from .benchmark_utils import get_benchmark_data, calculate_single_benchmark_return
+
+from turtle.portfolio.models import Position
 
 logger = logging.getLogger(__name__)
 
@@ -55,23 +59,16 @@ class SignalProcessor:
         Initialize processor by pre-loading benchmark data for SPY and QQQ.
         This should be called once before processing signals to improve performance.
         """
-
-        self.df_spy = self.bars_history.get_ticker_history(
-            "SPY",
+        benchmark_data = get_benchmark_data(
+            self.bars_history,
+            ["SPY", "QQQ"],
             start_date,
             end_date,
             self.time_frame_unit,
         )
-        logger.debug(f"Loaded SPY data: {len(self.df_spy)} records")
 
-        self.df_qqq = self.bars_history.get_ticker_history(
-            "QQQ",
-            start_date,
-            end_date,
-            self.time_frame_unit,
-        )
-        logger.debug(f"Loaded QQQ data: {len(self.df_qqq)} records")
-        # logger.info("Benchmarks initialization complete")
+        self.df_spy = benchmark_data.get("SPY")
+        self.df_qqq = benchmark_data.get("QQQ")
 
     def run(self, signal: Signal) -> SignalResult | None:
         """
@@ -91,7 +88,7 @@ class SignalProcessor:
         logger.debug(f"Processing signal for {signal.ticker} on {signal.date}")
 
         # Step 1: Calculate entry data
-        entry: Trade | None = self._calculate_entry_data(signal)
+        entry: Trade | None = self.calculate_entry_data(signal)
         if entry is None:  # No trading data available for entry
             logger.warning(f"Skipping signal for {signal.ticker} on {signal.date}: No entry data")
             return None
@@ -99,7 +96,7 @@ class SignalProcessor:
         logger.debug(f"Entry calculated: {entry.date} at ${entry.price}")
 
         # Step 2: Calculate exit data using strategy
-        exit: Trade | None = self._calculate_exit_data(signal, entry.date, entry.price)
+        exit: Trade | None = self.calculate_exit_data(signal, entry.date, entry.price)
         if exit is None:  # No trading data available for exit
             logger.warning(f"Skipping signal for {signal.ticker} on {signal.date}: No exit data")
             return None
@@ -132,7 +129,7 @@ class SignalProcessor:
         logger.debug(f"Signal processing complete for {signal.ticker}")
         return self.result
 
-    def _calculate_entry_data(self, signal: Signal) -> Trade | None:
+    def calculate_entry_data(self, signal: Signal) -> Trade | None:
         """
         Calculate entry date and price based on signal.
         Entry date is the next trading date after signal date.
@@ -167,7 +164,7 @@ class SignalProcessor:
 
         return Trade(date=entry_date, price=entry_price, reason="next_day_open")
 
-    def _calculate_exit_data(self, signal: Signal, entry_date: datetime, entry_price: float) -> Trade:
+    def calculate_exit_data(self, signal: Signal, entry_date: datetime, entry_price: float) -> Trade:
         """
         Calculate exit date, price, and reason using the configured exit strategy.
 
@@ -264,46 +261,80 @@ class SignalProcessor:
     def _calculate_single_benchmark_return(self, df: pd.DataFrame, symbol: str, entry_date: datetime, exit_date: datetime) -> float:
         """
         Calculate return for a single benchmark symbol.
+        """
+        return calculate_single_benchmark_return(df, symbol, entry_date, exit_date)
+
+    def calculate_batch_entry_data(self, signals: list[Signal]) -> dict[str, Trade | None]:
+        """
+        Calculate entry data for multiple signals in batch.
 
         Args:
-            df: DataFrame with benchmark data
-            symbol: Symbol name for logging
-            entry_date: Position entry date
-            exit_date: Position exit date
+            signals: List of signals to process
 
         Returns:
-            Percentage return, or 0.0 if calculation fails
+            Dictionary mapping signal ticker to entry Trade or None
         """
-        try:
-            if df.empty:
-                logger.warning(f"No {symbol} data available for benchmark calculation")
-                return 0.0
+        entry_data = {}
 
-            # Find entry price (open price on or after entry_date)
-            entry_data = df[df.index == pd.Timestamp(entry_date)]
+        for signal in signals:
+            try:
+                entry_data[signal.ticker] = self.calculate_entry_data(signal)
+            except Exception as e:
+                logger.error(f"Error calculating entry for {signal.ticker}: {e}")
+                entry_data[signal.ticker] = None
 
-            if entry_data.empty:
-                logger.warning(f"No {symbol} entry data available for {entry_date}")
-                return 0.0
+        return entry_data
 
-            entry_price = float(entry_data.iloc[0]["open"])
+    def evaluate_exit_conditions(self, positions: dict[str, "Position"], current_date: datetime) -> list[dict[str, Any]]:
+        """
+        Evaluate exit conditions for multiple positions.
 
-            # Find exit price (close price on or closest to exit_date)
-            exit_data = df[df.index == pd.Timestamp(exit_date)]
+        Args:
+            positions: Dictionary of current positions (ticker -> position object)
+            current_date: Current date for evaluation
 
-            if exit_data.empty:
-                logger.warning(f"No {symbol} exit data available for {exit_date}")
-                return 0.0
+        Returns:
+            List of exit signals with ticker, price, and reason
+        """
+        exit_signals = []
 
-            # Get last available date up to exit_date
-            exit_price = float(exit_data.iloc[-1]["close"])
+        for ticker, position in positions.items():
+            try:
+                # Get current price data for exit evaluation
+                search_end = current_date + timedelta(days=1)
+                df = self.bars_history.get_ticker_history(ticker, position.entry_date, search_end, self.time_frame_unit)
 
-            if entry_price <= 0:
-                logger.warning(f"Invalid {symbol} entry price: {entry_price}")
-                return 0.0
+                if df.empty:
+                    logger.warning(f"No price data for exit evaluation: {ticker} on {current_date}")
+                    continue
 
-            return ((exit_price - entry_price) / entry_price) * 100.0
+                # Initialize exit strategy for this position
+                self.exit_strategy.initialize(ticker, position.entry_date, current_date)
 
-        except Exception as e:
-            logger.error(f"Error calculating {symbol} benchmark return: {e}")
-            return 0.0
+                # Calculate indicators and check exit conditions
+                df_with_indicators = self.exit_strategy.calculate_indicators()
+
+                if df_with_indicators.empty:
+                    continue
+
+                # Check if we should exit on current date
+                current_row = df_with_indicators[df_with_indicators.index == pd.Timestamp(current_date)]
+
+                if not current_row.empty:
+                    # Use exit strategy to determine if we should exit
+                    exit_trade = self.exit_strategy.calculate_exit(df_with_indicators)
+
+                    if exit_trade and exit_trade.date.date() == current_date.date():
+                        exit_signals.append(
+                            {
+                                "ticker": ticker,
+                                "exit_price": float(exit_trade.price),
+                                "exit_reason": str(exit_trade.reason),
+                            }
+                        )
+
+            except Exception as e:
+                logger.error(f"Error evaluating exit for {ticker}: {e}")
+                continue
+
+        return exit_signals
