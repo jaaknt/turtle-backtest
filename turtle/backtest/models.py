@@ -20,6 +20,20 @@ class Trade:
 
 
 @dataclass
+class Benchmark:
+    """
+    Represents a benchmark return comparison.
+
+    Attributes:
+        ticker: Benchmark ticker symbol (e.g., 'SPY', 'QQQ')
+        return_pct: Percentage return for the benchmark over the same period
+    """
+
+    ticker: str
+    return_pct: float
+
+
+@dataclass
 class ClosedTrade:
     """
     Represents a completed trading signal and its outcomes.
@@ -29,16 +43,14 @@ class ClosedTrade:
         entry: Trade object containing entry date, price, and reason
         exit: Trade object containing exit date, price, and reason
         return_pct: Percentage return between entry.price and exit.price
-        return_pct_qqq: QQQ benchmark percentage return for the same period
-        return_pct_spy: SPY benchmark percentage return for the same period
+        benchmark_list: List of benchmark comparisons for the same period
     """
 
     signal: Signal
     entry: Trade
     exit: Trade
     return_pct: float
-    return_pct_qqq: float
-    return_pct_spy: float
+    benchmark_list: list[Benchmark]
 
     @property
     def holding_days(self) -> int:

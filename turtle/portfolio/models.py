@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime
 import pandas as pd
 
+from turtle.backtest.models import Benchmark
+
 
 @dataclass
 class Position:
@@ -160,7 +162,7 @@ class PortfolioResults:
         max_drawdown_pct: Maximum drawdown percentage
         sharpe_ratio: Sharpe ratio
         volatility: Portfolio volatility
-        benchmark_returns: Benchmark comparison data
+        benchmark_returns: List of benchmark comparison data
     """
     start_date: datetime
     end_date: datetime
@@ -183,4 +185,4 @@ class PortfolioResults:
     max_drawdown_pct: float
     sharpe_ratio: float
     volatility: float
-    benchmark_returns: dict[str, float] | None = None
+    benchmark_returns: list[Benchmark] | None = None

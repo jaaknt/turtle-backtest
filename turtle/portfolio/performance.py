@@ -14,7 +14,7 @@ except ImportError:
     qs = None  # type: ignore[assignment]
 
 from turtle.data.bars_history import BarsHistoryRepo
-from turtle.backtest.benchmark_utils import calculate_benchmark_returns
+from turtle.backtest.benchmark_utils import calculate_benchmark_list
 from .models import PortfolioState, PortfolioResults
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ class PortfolioAnalytics:
         risk_metrics = self._calculate_risk_metrics(daily_returns, daily_values)
 
         # Calculate benchmark returns
-        benchmark_returns = calculate_benchmark_returns(
+        benchmark_returns = calculate_benchmark_list(
             start_date, end_date, benchmark_tickers, bars_history
         )
 
@@ -287,8 +287,8 @@ class PortfolioAnalytics:
 
         if results.benchmark_returns:
             print("\nBENCHMARK COMPARISON:")
-            for ticker, return_pct in results.benchmark_returns.items():
-                print(f"{ticker}: {return_pct:.2f}%")
+            for benchmark in results.benchmark_returns:
+                print(f"{benchmark.ticker}: {benchmark.return_pct:.2f}%")
 
         # Add quantstats metrics if available and requested
         if include_quantstats and QUANTSTATS_AVAILABLE and not results.daily_returns.empty:
