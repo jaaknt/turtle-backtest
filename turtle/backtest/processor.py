@@ -2,22 +2,24 @@ import logging
 import pandas as pd
 from datetime import datetime, timedelta
 
+from typing import TYPE_CHECKING
 from turtle.exit.atr import ATRExitStrategy
 from turtle.signal.models import Signal
-from turtle.backtest.models import SignalResult, Trade
+from turtle.backtest.models import ClosedTrade, Trade
 from turtle.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
 from .benchmark_utils import get_benchmark_data, calculate_single_benchmark_return
 
-from turtle.portfolio.models import Position
+if TYPE_CHECKING:
+    from turtle.portfolio.models import Position
 
 logger = logging.getLogger(__name__)
 
 
 class SignalProcessor:
     """
-    Processes Signal objects to create complete SignalResult objects with entry/exit data,
+    Processes Signal objects to create complete ClosedTrade objects with entry/exit data,
     returns, and benchmark comparisons.
 
     The SignalProcessor is responsible for:
@@ -69,15 +71,15 @@ class SignalProcessor:
         self.df_spy = benchmark_data.get("SPY")
         self.df_qqq = benchmark_data.get("QQQ")
 
-    def run(self, signal: Signal) -> SignalResult | None:
+    def run(self, signal: Signal) -> ClosedTrade | None:
         """
-        Process a Signal object to create a complete SignalResult.
+        Process a Signal object to create a complete ClosedTrade.
 
         Args:
             signal: Signal object containing ticker, date, and ranking
 
         Returns:
-            SignalResult with all calculated fields
+            ClosedTrade with all calculated fields
 
         Raises:
             ValueError: If entry data cannot be calculated or required data is missing
@@ -115,8 +117,8 @@ class SignalProcessor:
         return_pct_qqq, return_pct_spy = self._calculate_benchmark_returns(entry.date, exit.date)
         logger.debug(f"Benchmark returns - QQQ: {return_pct_qqq:.2f}%, SPY: {return_pct_spy:.2f}%")
 
-        # Create and return SignalResult
-        self.result = SignalResult(
+        # Create and return ClosedTrade
+        self.result = ClosedTrade(
             signal=signal,
             entry=entry,
             exit=exit,
@@ -284,7 +286,7 @@ class SignalProcessor:
 
         return entry_data
 
-    def evaluate_exit_conditions(self, positions: dict[str, Position], current_date: datetime) -> list[dict[str, Trade]]:
+    def evaluate_exit_conditions(self, positions: dict[str, "Position"], current_date: datetime) -> list[dict[str, object]]:
         """
         Evaluate exit conditions for multiple positions.
 
