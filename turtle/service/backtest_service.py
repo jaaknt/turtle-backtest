@@ -2,7 +2,7 @@ from datetime import datetime
 
 import logging
 
-from turtle.backtest.models import SignalResult
+from turtle.backtest.models import ClosedTrade
 from turtle.backtest.processor import SignalProcessor
 from turtle.service.signal_service import SignalService
 # from turtle.signal.models import Signal
@@ -15,7 +15,7 @@ class BacktestService:
         self.signal_service = signal_service
         self.signal_processor = signal_processor
 
-    def run(self, start_date: datetime, end_date: datetime, tickers: list[str] | None) -> list[SignalResult]:
+    def run(self, start_date: datetime, end_date: datetime, tickers: list[str] | None) -> list[ClosedTrade]:
         """
         Run the backtest for the specified date range.
 
@@ -24,7 +24,7 @@ class BacktestService:
             end_date: The end date for the backtest.
 
         Returns:
-            A list of SignalResult objects containing the backtest results.
+            A list of ClosedTrade objects containing the backtest results.
         """
         signals: list = []
         if tickers:
@@ -42,14 +42,14 @@ class BacktestService:
 
         signal_results = []
         for signal in signals:
-            signal_result: SignalResult | None = self.signal_processor.run(signal)
+            signal_result: ClosedTrade | None = self.signal_processor.run(signal)
             if signal_result is not None:
                 signal_results.append(signal_result)
         self._print_summary(signal_results)
         self._print_top_signals(signal_results)
         return signal_results
 
-    def _print_summary(self, signal_results: list[SignalResult]) -> None:
+    def _print_summary(self, signal_results: list[ClosedTrade]) -> None:
         """
         Print average(return_pct), average(return_pct_qqq), average(return_pct_spy)
         Print total trades and winning trades and win rate
@@ -78,12 +78,12 @@ class BacktestService:
                 avg_ranked_return_pct = sum(result.return_pct for result in ranked_results) / len(ranked_results)
                 print(f" Average Return Rank [{i + 1}-{i + 20}]: {avg_ranked_return_pct:.2f}% count: {len(ranked_results)}")
 
-    def _print_top_signals(self, signal_results: list[SignalResult]) -> None:
+    def _print_top_signals(self, signal_results: list[ClosedTrade]) -> None:
         """
         Print the top 5 performing signals by return percentage.
 
         Args:
-            signal_results: List of SignalResult objects to analyze
+            signal_results: List of ClosedTrade objects to analyze
         """
         if not signal_results:
             logger.warning("No signal results to display top performers.")

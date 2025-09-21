@@ -147,7 +147,7 @@ class PortfolioBacktester:
         # Step 5: Record daily snapshot
         self.portfolio_manager.record_daily_snapshot(current_date)
 
-    def _evaluate_exit_conditions(self, current_date: datetime) -> list[dict[str, Trade]]:
+    def _evaluate_exit_conditions(self, current_date: datetime) -> list[dict[str, object]]:
         """
         Evaluate exit conditions for all current positions.
 
@@ -159,7 +159,7 @@ class PortfolioBacktester:
         """
         return self.signal_processor.evaluate_exit_conditions(self.portfolio_manager.state.positions, current_date)
 
-    def _process_exits(self, exit_signals: list[dict[str, Trade]], current_date: datetime) -> None:
+    def _process_exits(self, exit_signals: list[dict[str, object]], current_date: datetime) -> None:
         """
         Process position exits.
 

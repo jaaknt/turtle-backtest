@@ -16,13 +16,13 @@ class Trade:
 
     date: datetime
     price: float
-    reason: str = ""  # Default reason for exit
+    reason: str = ""  # Default reason for entry or exit
 
 
 @dataclass
-class SignalResult:
+class ClosedTrade:
     """
-    Represents a single trading signal and its outcomes.
+    Represents a completed trading signal and its outcomes.
 
     Attributes:
         signal: Signal that is input for calculation

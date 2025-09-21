@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 from turtle.backtest.processor import SignalProcessor
 from turtle.signal.models import Signal
-from turtle.backtest.models import SignalResult, Trade
+from turtle.backtest.models import ClosedTrade, Trade
 from turtle.exit import BuyAndHoldExitStrategy
 from turtle.common.enums import TimeFrameUnit
 
@@ -369,7 +369,7 @@ class TestSignalProcessor:
         result = processor.run(sample_signal)
 
         # Verify result structure
-        assert isinstance(result, SignalResult)
+        assert isinstance(result, ClosedTrade)
         assert result.signal == sample_signal
         assert isinstance(result.entry, Trade)
         assert isinstance(result.exit, Trade)
