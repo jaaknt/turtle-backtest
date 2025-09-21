@@ -1,10 +1,11 @@
 """Data models for portfolio backtesting."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 import pandas as pd
+from collections import defaultdict
 
-from turtle.backtest.models import Benchmark
+from turtle.backtest.models import Benchmark, ClosedTrade
 
 
 @dataclass
@@ -18,6 +19,7 @@ class Position:
         entry_price: Price at which position was entered
         shares: Number of shares held
         entry_signal_ranking: Original signal ranking when position was opened
+        closed_trade: Associated ClosedTrade with pre-calculated exit data
         current_price: Latest known price
         current_value: Current market value of position
         unrealized_pnl: Unrealized profit/loss in dollars
@@ -28,6 +30,7 @@ class Position:
     entry_price: float
     shares: int
     entry_signal_ranking: int
+    closed_trade: "ClosedTrade"
     current_price: float = 0.0
     current_value: float = 0.0
     unrealized_pnl: float = 0.0
@@ -106,6 +109,7 @@ class PortfolioState:
         total_value: Total portfolio value (cash + positions)
         daily_snapshots: Historical daily snapshots
         closed_positions: List of all closed positions
+        scheduled_exits: Pre-calculated exits mapped by date
         last_update_date: Date of last portfolio update
     """
     cash: float
@@ -113,6 +117,7 @@ class PortfolioState:
     total_value: float
     daily_snapshots: list[DailyPortfolioSnapshot]
     closed_positions: list[ClosedPosition]
+    scheduled_exits: dict[datetime, list[ClosedTrade]] = field(default_factory=lambda: defaultdict(list))
     last_update_date: datetime | None = None
 
     @property

@@ -7,6 +7,23 @@ from turtle.portfolio.models import Position, PortfolioState
 from turtle.portfolio.manager import PortfolioManager
 from turtle.portfolio.selector import PortfolioSignalSelector
 from turtle.signal.models import Signal
+from turtle.backtest.models import ClosedTrade, Trade, Benchmark
+
+
+def create_mock_closed_trade(ticker: str, entry_date: datetime, entry_price: float) -> ClosedTrade:
+    """Create a mock ClosedTrade for testing purposes."""
+    signal = Signal(ticker=ticker, date=entry_date, ranking=85)
+    entry = Trade(date=entry_date, price=entry_price, reason="signal")
+    exit = Trade(date=entry_date, price=entry_price * 1.1, reason="profit_target")  # 10% profit
+    benchmarks = [Benchmark(ticker="SPY", return_pct=5.0)]
+
+    return ClosedTrade(
+        signal=signal,
+        entry=entry,
+        exit=exit,
+        return_pct=10.0,
+        benchmark_list=benchmarks
+    )
 
 
 class TestPortfolioModels:
@@ -14,12 +31,16 @@ class TestPortfolioModels:
 
     def test_position_update_price(self) -> None:
         """Test position price update calculations."""
+        entry_date = datetime(2024, 1, 1)
+        closed_trade = create_mock_closed_trade("AAPL", entry_date, 100.0)
+
         position = Position(
             ticker="AAPL",
-            entry_date=datetime(2024, 1, 1),
+            entry_date=entry_date,
             entry_price=100.0,
             shares=10,
             entry_signal_ranking=85,
+            closed_trade=closed_trade,
         )
 
         # Test price increase
@@ -38,9 +59,35 @@ class TestPortfolioModels:
 
     def test_portfolio_state_properties(self) -> None:
         """Test portfolio state calculated properties."""
-        # Create sample positions
-        position1 = Position("AAPL", datetime(2024, 1, 1), 100.0, 10, 85, 110.0, 1100.0, 100.0, 10.0)
-        position2 = Position("GOOGL", datetime(2024, 1, 1), 200.0, 5, 90, 220.0, 1100.0, 100.0, 10.0)
+        # Create sample positions with ClosedTrade objects
+        entry_date = datetime(2024, 1, 1)
+        closed_trade1 = create_mock_closed_trade("AAPL", entry_date, 100.0)
+        closed_trade2 = create_mock_closed_trade("GOOGL", entry_date, 200.0)
+
+        position1 = Position(
+            ticker="AAPL",
+            entry_date=entry_date,
+            entry_price=100.0,
+            shares=10,
+            entry_signal_ranking=85,
+            closed_trade=closed_trade1,
+            current_price=110.0,
+            current_value=1100.0,
+            unrealized_pnl=100.0,
+            unrealized_pnl_pct=10.0
+        )
+        position2 = Position(
+            ticker="GOOGL",
+            entry_date=entry_date,
+            entry_price=200.0,
+            shares=5,
+            entry_signal_ranking=90,
+            closed_trade=closed_trade2,
+            current_price=220.0,
+            current_value=1100.0,
+            unrealized_pnl=100.0,
+            unrealized_pnl_pct=10.0
+        )
 
         state = PortfolioState(
             cash=5000.0,
@@ -100,7 +147,8 @@ class TestPortfolioManager:
         manager = PortfolioManager(initial_capital=10000.0, position_size_amount=1000.0)
 
         signal = Signal(ticker="AAPL", date=datetime(2024, 1, 1), ranking=85)
-        position = manager.open_position(signal, datetime(2024, 1, 2), 100.0)
+        closed_trade = create_mock_closed_trade("AAPL", datetime(2024, 1, 1), 100.0)
+        position = manager.open_position(signal, datetime(2024, 1, 2), 100.0, closed_trade)
 
         assert position is not None
         assert position.ticker == "AAPL"
@@ -115,7 +163,8 @@ class TestPortfolioManager:
 
         # Open position first
         signal = Signal(ticker="AAPL", date=datetime(2024, 1, 1), ranking=85)
-        manager.open_position(signal, datetime(2024, 1, 2), 100.0)
+        closed_trade = create_mock_closed_trade("AAPL", datetime(2024, 1, 1), 100.0)
+        manager.open_position(signal, datetime(2024, 1, 2), 100.0, closed_trade)
 
         # Close position
         closed_position = manager.close_position(
