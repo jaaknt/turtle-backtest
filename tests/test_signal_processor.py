@@ -1,6 +1,7 @@
 import pytest
 import pandas as pd
 from datetime import datetime
+from typing import Any
 from unittest.mock import Mock
 
 from turtle.backtest.processor import SignalProcessor
@@ -77,15 +78,16 @@ class TestSignalProcessor:
             max_holding_period=max_holding_period,
             bars_history=mock_bars_history,
             exit_strategy=exit_strategy,
+            benchmark_tickers=["SPY", "QQQ"],
             time_frame_unit=TimeFrameUnit.DAY,
         )
 
         assert processor.max_holding_period == max_holding_period
         assert processor.bars_history == mock_bars_history
         assert processor.exit_strategy == exit_strategy
+        assert processor.benchmark_tickers == ["SPY", "QQQ"]
         assert processor.time_frame_unit == TimeFrameUnit.DAY
-        assert processor.df_spy is None
-        assert processor.df_qqq is None
+        assert processor.benchmark_data == {}
 
     def test_init_benchmarks_success(
         self,
@@ -96,7 +98,7 @@ class TestSignalProcessor:
     ) -> None:
         """Test successful benchmark initialization."""
         processor = SignalProcessor(
-            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
         # Mock the get_ticker_history calls
@@ -113,17 +115,19 @@ class TestSignalProcessor:
         end_date = datetime(2024, 1, 25)
         processor.init_benchmarks(start_date, end_date)
 
-        assert processor.df_spy is not None
-        assert processor.df_qqq is not None
-        assert not processor.df_spy.empty
-        assert not processor.df_qqq.empty
-        assert len(processor.df_spy) == 30
-        assert len(processor.df_qqq) == 30
+        assert "SPY" in processor.benchmark_data
+        assert "QQQ" in processor.benchmark_data
+        assert processor.benchmark_data["SPY"] is not None
+        assert processor.benchmark_data["QQQ"] is not None
+        assert not processor.benchmark_data["SPY"].empty
+        assert not processor.benchmark_data["QQQ"].empty
+        assert len(processor.benchmark_data["SPY"]) == 30
+        assert len(processor.benchmark_data["QQQ"]) == 30
 
     def test_init_benchmarks_with_error(self, mock_bars_history: Mock, exit_strategy: Mock) -> None:
         """Test benchmark initialization when data loading fails."""
         processor = SignalProcessor(
-            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
         # Mock get_ticker_history to raise exception
@@ -132,14 +136,13 @@ class TestSignalProcessor:
         # This should not raise an exception - benchmark utils handle errors gracefully
         processor.init_benchmarks(datetime(2024, 1, 16), datetime(2024, 1, 25))
 
-        # Benchmarks should be None due to error
-        assert processor.df_spy is None
-        assert processor.df_qqq is None
+        # Benchmarks should be empty due to error
+        assert processor.benchmark_data == {}
 
     def test_run_without_ticker_data(self, mock_bars_history: Mock, exit_strategy: Mock, sample_signal: Signal) -> None:
         """Test that run() returns None when no ticker data is available."""
         processor = SignalProcessor(
-            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
         # Mock get_ticker_history to return empty DataFrame for ticker data
@@ -157,7 +160,7 @@ class TestSignalProcessor:
     ) -> None:
         """Test successful entry data calculation."""
         processor = SignalProcessor(
-            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
         # Mock get_ticker_history to return sample data
@@ -173,7 +176,7 @@ class TestSignalProcessor:
     def test_calculate_entry_data_no_data(self, mock_bars_history: Mock, exit_strategy: Mock, sample_signal: Signal) -> None:
         """Test entry data calculation when no data available."""
         processor = SignalProcessor(
-            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
         # Mock get_ticker_history to return empty DataFrame
@@ -185,7 +188,7 @@ class TestSignalProcessor:
     def test_calculate_entry_data_invalid_price(self, mock_bars_history: Mock, exit_strategy: Mock, sample_signal: Signal) -> None:
         """Test entry data calculation with invalid opening price."""
         processor = SignalProcessor(
-            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
         # Create data with invalid opening price
@@ -215,7 +218,7 @@ class TestSignalProcessor:
     ) -> None:
         """Test successful exit data calculation."""
         processor = SignalProcessor(
-            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
         # Mock the exit strategy to return a result
@@ -241,7 +244,7 @@ class TestSignalProcessor:
     ) -> None:
         """Test exit data calculation when strategy fails."""
         processor = SignalProcessor(
-            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
         # Mock strategy to return None
@@ -257,7 +260,7 @@ class TestSignalProcessor:
     def test_calculate_return_pct(self, mock_bars_history: Mock, exit_strategy: Mock) -> None:
         """Test return percentage calculation."""
         processor = SignalProcessor(
-            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
         # Test positive return
@@ -275,7 +278,7 @@ class TestSignalProcessor:
     def test_calculate_return_pct_invalid_entry_price(self, mock_bars_history: Mock, exit_strategy: Mock) -> None:
         """Test return percentage calculation with invalid entry price."""
         processor = SignalProcessor(
-            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
         with pytest.raises(ValueError, match="Invalid entry price"):
@@ -289,29 +292,31 @@ class TestSignalProcessor:
     ) -> None:
         """Test single benchmark return calculation."""
         processor = SignalProcessor(
-            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
         entry_date = datetime(2024, 1, 16)
         exit_date = datetime(2024, 1, 20)
 
-        return_pct = processor._calculate_single_benchmark_return(sample_spy_data, "SPY", entry_date, exit_date)
+        benchmark = processor._calculate_single_benchmark_return(sample_spy_data, "SPY", entry_date, exit_date)
 
         # Entry price should be open on 2024-01-16 (index 15): 415.0
         # Exit price should be close on 2024-01-20 (index 19): 420.0
         # Return: ((420 - 415) / 415) * 100 = ~1.20%
-        assert abs(return_pct - 1.2048192771084338) < 0.01
+        assert benchmark is not None
+        assert benchmark.ticker == "SPY"
+        assert abs(benchmark.return_pct - 1.2048192771084338) < 0.01
 
     def test_calculate_single_benchmark_return_empty_data(self, mock_bars_history: Mock, exit_strategy: Mock) -> None:
         """Test benchmark return calculation with empty data."""
         processor = SignalProcessor(
-            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
         empty_df = pd.DataFrame()
-        return_pct = processor._calculate_single_benchmark_return(empty_df, "SPY", datetime(2024, 1, 16), datetime(2024, 1, 20))
+        benchmark = processor._calculate_single_benchmark_return(empty_df, "SPY", datetime(2024, 1, 16), datetime(2024, 1, 20))
 
-        assert return_pct == 0.0
+        assert benchmark is None
 
     def test_calculate_benchmark_returns(
         self,
@@ -322,21 +327,28 @@ class TestSignalProcessor:
     ) -> None:
         """Test calculation of both benchmark returns."""
         processor = SignalProcessor(
-            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
-        processor.df_spy = sample_spy_data
-        processor.df_qqq = sample_qqq_data
+        processor.benchmark_data = {"SPY": sample_spy_data, "QQQ": sample_qqq_data}
 
         entry_date = datetime(2024, 1, 16)
         exit_date = datetime(2024, 1, 20)
 
-        qqq_return, spy_return = processor._calculate_benchmark_returns(entry_date, exit_date)
+        benchmarks = processor._calculate_benchmark_returns(entry_date, exit_date)
 
-        assert isinstance(qqq_return, float)
-        assert isinstance(spy_return, float)
-        assert qqq_return > 0  # Should be positive given our sample data trend
-        assert spy_return > 0  # Should be positive given our sample data trend
+        assert isinstance(benchmarks, list)
+        assert len(benchmarks) == 2
+
+        # Check QQQ benchmark
+        qqq_benchmark = next(b for b in benchmarks if b.ticker == "QQQ")
+        assert isinstance(qqq_benchmark.return_pct, float)
+        assert qqq_benchmark.return_pct > 0  # Should be positive given our sample data trend
+
+        # Check SPY benchmark
+        spy_benchmark = next(b for b in benchmarks if b.ticker == "SPY")
+        assert isinstance(spy_benchmark.return_pct, float)
+        assert spy_benchmark.return_pct > 0  # Should be positive given our sample data trend
 
     def test_run_full_integration(
         self,
@@ -350,11 +362,13 @@ class TestSignalProcessor:
         exit_strategy = BuyAndHoldExitStrategy(mock_bars_history)
 
         processor = SignalProcessor(
-            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
         # Setup mock data
-        def mock_get_ticker_history(ticker: str, start: datetime, end: datetime, timeframe: TimeFrameUnit = None, **kwargs) -> pd.DataFrame:
+        def mock_get_ticker_history(
+            ticker: str, start: datetime, end: datetime, timeframe: TimeFrameUnit | None = None, **kwargs: Any
+        ) -> pd.DataFrame:
             if ticker == "TEST":
                 return sample_ticker_data
             elif ticker == "SPY":
@@ -374,8 +388,14 @@ class TestSignalProcessor:
         assert isinstance(result.entry, Trade)
         assert isinstance(result.exit, Trade)
         assert isinstance(result.return_pct, float)
-        assert isinstance(result.return_pct_qqq, float)
-        assert isinstance(result.return_pct_spy, float)
+        assert isinstance(result.benchmark_list, list)
+        assert len(result.benchmark_list) == 2
+
+        # Verify benchmark structure
+        tickers = {b.ticker for b in result.benchmark_list}
+        assert tickers == {"QQQ", "SPY"}
+        for benchmark in result.benchmark_list:
+            assert isinstance(benchmark.return_pct, float)
 
         # Verify some basic constraints
         assert result.entry.price > 0

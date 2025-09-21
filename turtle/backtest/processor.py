@@ -5,11 +5,11 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 from turtle.exit.atr import ATRExitStrategy
 from turtle.signal.models import Signal
-from turtle.backtest.models import ClosedTrade, Trade
+from turtle.backtest.models import Benchmark, ClosedTrade, Trade
 from turtle.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
-from .benchmark_utils import get_benchmark_data, calculate_single_benchmark_return
+from .benchmark_utils import get_benchmark_data, calculate_benchmark
 
 if TYPE_CHECKING:
     from turtle.portfolio.models import Position
@@ -34,42 +34,40 @@ class SignalProcessor:
         max_holding_period: int,
         bars_history: BarsHistoryRepo,
         exit_strategy: ExitStrategy,
+        benchmark_tickers: list[str],
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
     ):
         """
         Initialize SignalProcessor with required dependencies.
 
         Args:
-            start_date: Minimum date for historical data retrieval
-            end_date: Maximum date for historical data retrieval
+            max_holding_period: Maximum days to hold a position
             bars_history: Repository for accessing historical bar data
             exit_strategy: Strategy for determining exit conditions
+            benchmark_tickers: List of benchmark ticker symbols (e.g., ['SPY', 'QQQ'])
             time_frame_unit: Time frame for data (default: DAY)
         """
         self.max_holding_period = max_holding_period
         self.bars_history = bars_history
         self.exit_strategy = exit_strategy
+        self.benchmark_tickers = benchmark_tickers
         self.time_frame_unit = time_frame_unit
 
         # Will be populated by init_benchmarks()
-        self.df_spy: pd.DataFrame | None = None
-        self.df_qqq: pd.DataFrame | None = None
+        self.benchmark_data: dict[str, pd.DataFrame] = {}
 
     def init_benchmarks(self, start_date: datetime, end_date: datetime) -> None:
         """
-        Initialize processor by pre-loading benchmark data for SPY and QQQ.
+        Initialize processor by pre-loading benchmark data for configured tickers.
         This should be called once before processing signals to improve performance.
         """
-        benchmark_data = get_benchmark_data(
+        self.benchmark_data = get_benchmark_data(
             self.bars_history,
-            ["SPY", "QQQ"],
+            self.benchmark_tickers,
             start_date,
             end_date,
             self.time_frame_unit,
         )
-
-        self.df_spy = benchmark_data.get("SPY")
-        self.df_qqq = benchmark_data.get("QQQ")
 
     def run(self, signal: Signal) -> ClosedTrade | None:
         """
@@ -106,7 +104,7 @@ class SignalProcessor:
 
         # Step 3: Initialize benchmarks
         self.init_benchmarks(entry.date, exit.date)
-        if self.df_spy is None or self.df_qqq is None:
+        if not self.benchmark_data:
             raise RuntimeError("Benchmarks must be initialized before processing signals")
 
         # Step 4: Calculate return percentage
@@ -114,8 +112,8 @@ class SignalProcessor:
         logger.debug(f"Return calculated: {return_pct:.2f}%")
 
         # Step 4: Calculate benchmark returns
-        return_pct_qqq, return_pct_spy = self._calculate_benchmark_returns(entry.date, exit.date)
-        logger.debug(f"Benchmark returns - QQQ: {return_pct_qqq:.2f}%, SPY: {return_pct_spy:.2f}%")
+        benchmarks = self._calculate_benchmark_returns(entry.date, exit.date)
+        logger.debug(f"Benchmark returns calculated: {[(b.ticker, b.return_pct) for b in benchmarks]}")
 
         # Create and return ClosedTrade
         self.result = ClosedTrade(
@@ -123,8 +121,7 @@ class SignalProcessor:
             entry=entry,
             exit=exit,
             return_pct=return_pct,
-            return_pct_qqq=return_pct_qqq,
-            return_pct_spy=return_pct_spy,
+            benchmark_list=benchmarks,
         )
 
         logger.debug(f"Signal processing complete for {signal.ticker}")
@@ -242,7 +239,7 @@ class SignalProcessor:
 
         return ((exit_price - entry_price) / entry_price) * 100.0
 
-    def _calculate_benchmark_returns(self, entry_date: datetime, exit_date: datetime) -> tuple[float, float]:
+    def _calculate_benchmark_returns(self, entry_date: datetime, exit_date: datetime) -> list[Benchmark]:
         """
         Calculate benchmark returns for QQQ and SPY over the same period.
         Uses opening price at entry date and closing price at exit date.
@@ -252,18 +249,25 @@ class SignalProcessor:
             exit_date: Position exit date
 
         Returns:
-            Tuple of (qqq_return_pct, spy_return_pct)
+            List of Benchmark objects with returns for each benchmark
         """
-        qqq_return = 0.0 if self.df_qqq is None else self._calculate_single_benchmark_return(self.df_qqq, "QQQ", entry_date, exit_date)
-        spy_return = 0.0 if self.df_spy is None else self._calculate_single_benchmark_return(self.df_spy, "SPY", entry_date, exit_date)
+        benchmarks = []
 
-        return qqq_return, spy_return
+        for ticker, df in self.benchmark_data.items():
+            if df is not None:
+                benchmark = self._calculate_single_benchmark_return(df, ticker, entry_date, exit_date)
+                if benchmark is not None:
+                    benchmarks.append(benchmark)
 
-    def _calculate_single_benchmark_return(self, df: pd.DataFrame, symbol: str, entry_date: datetime, exit_date: datetime) -> float:
+        return benchmarks
+
+    def _calculate_single_benchmark_return(
+        self, df: pd.DataFrame, ticker: str, entry_date: datetime, exit_date: datetime
+    ) -> Benchmark | None:
         """
-        Calculate return for a single benchmark symbol.
+        Calculate benchmark for a single benchmark ticker.
         """
-        return calculate_single_benchmark_return(df, symbol, entry_date, exit_date)
+        return calculate_benchmark(df, ticker, entry_date, exit_date)
 
     def calculate_batch_entry_data(self, signals: list[Signal]) -> dict[str, Trade | None]:
         """

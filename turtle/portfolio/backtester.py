@@ -73,6 +73,7 @@ class PortfolioBacktester:
             max_holding_period=365,  # Configurable max holding period
             bars_history=bars_history,
             exit_strategy=exit_strategy,
+            benchmark_tickers=["SPY", "QQQ"],  # Standard benchmarks
             time_frame_unit=time_frame_unit,
         )
 

@@ -51,19 +51,29 @@ class BacktestService:
 
     def _print_summary(self, signal_results: list[ClosedTrade]) -> None:
         """
-        Print average(return_pct), average(return_pct_qqq), average(return_pct_spy)
+        Print average(return_pct), average benchmark returns
         Print total trades and winning trades and win rate
 
-        Print average(return_pct), average(return_pct_qqq), average(return_pct_spy)
-        for ranking 1-20, 21-40, 41-60, 61-80, 81-100
+        Print average returns by ranking buckets 1-20, 21-40, 41-60, 61-80, 81-100
         """
         if not signal_results:
             logger.warning("No signal results to summarize.")
             return
 
         avg_return_pct = sum(result.return_pct for result in signal_results) / len(signal_results)
-        avg_return_pct_qqq = sum(result.return_pct_qqq for result in signal_results) / len(signal_results)
-        avg_return_pct_spy = sum(result.return_pct_spy for result in signal_results) / len(signal_results)
+
+        # Calculate average benchmark returns
+        qqq_returns = []
+        spy_returns = []
+        for result in signal_results:
+            for benchmark in result.benchmark_list:
+                if benchmark.ticker == "QQQ":
+                    qqq_returns.append(benchmark.return_pct)
+                elif benchmark.ticker == "SPY":
+                    spy_returns.append(benchmark.return_pct)
+
+        avg_return_pct_qqq = sum(qqq_returns) / len(qqq_returns) if qqq_returns else 0.0
+        avg_return_pct_spy = sum(spy_returns) / len(spy_returns) if spy_returns else 0.0
 
         print(
             f"Backtest Summary:"
