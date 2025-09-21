@@ -9,7 +9,7 @@ from turtle.backtest.models import Benchmark, ClosedTrade, Trade
 from turtle.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
-from .benchmark_utils import get_benchmark_data, calculate_benchmark
+from .benchmark_utils import calculate_benchmark_list
 
 if TYPE_CHECKING:
     from turtle.portfolio.models import Position
@@ -53,21 +53,7 @@ class SignalProcessor:
         self.benchmark_tickers = benchmark_tickers
         self.time_frame_unit = time_frame_unit
 
-        # Will be populated by init_benchmarks()
-        self.benchmark_data: dict[str, pd.DataFrame] = {}
 
-    def init_benchmarks(self, start_date: datetime, end_date: datetime) -> None:
-        """
-        Initialize processor by pre-loading benchmark data for configured tickers.
-        This should be called once before processing signals to improve performance.
-        """
-        self.benchmark_data = get_benchmark_data(
-            self.bars_history,
-            self.benchmark_tickers,
-            start_date,
-            end_date,
-            self.time_frame_unit,
-        )
 
     def run(self, signal: Signal) -> ClosedTrade | None:
         """
@@ -102,10 +88,6 @@ class SignalProcessor:
 
         logger.debug(f"Exit calculated: {exit.date} at ${exit.price} ({exit.reason})")
 
-        # Step 3: Initialize benchmarks
-        self.init_benchmarks(entry.date, exit.date)
-        if not self.benchmark_data:
-            raise RuntimeError("Benchmarks must be initialized before processing signals")
 
         # Step 4: Calculate return percentage
         return_pct = self._calculate_return_pct(entry.price, exit.price)
@@ -241,7 +223,7 @@ class SignalProcessor:
 
     def _calculate_benchmark_returns(self, entry_date: datetime, exit_date: datetime) -> list[Benchmark]:
         """
-        Calculate benchmark returns for QQQ and SPY over the same period.
+        Calculate benchmark returns for configured tickers over the same period.
         Uses opening price at entry date and closing price at exit date.
 
         Args:
@@ -251,23 +233,14 @@ class SignalProcessor:
         Returns:
             List of Benchmark objects with returns for each benchmark
         """
-        benchmarks = []
+        return calculate_benchmark_list(
+            entry_date,
+            exit_date,
+            self.benchmark_tickers,
+            self.bars_history,
+            self.time_frame_unit,
+        )
 
-        for ticker, df in self.benchmark_data.items():
-            if df is not None:
-                benchmark = self._calculate_single_benchmark_return(df, ticker, entry_date, exit_date)
-                if benchmark is not None:
-                    benchmarks.append(benchmark)
-
-        return benchmarks
-
-    def _calculate_single_benchmark_return(
-        self, df: pd.DataFrame, ticker: str, entry_date: datetime, exit_date: datetime
-    ) -> Benchmark | None:
-        """
-        Calculate benchmark for a single benchmark ticker.
-        """
-        return calculate_benchmark(df, ticker, entry_date, exit_date)
 
     def calculate_batch_entry_data(self, signals: list[Signal]) -> dict[str, Trade | None]:
         """
