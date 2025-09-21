@@ -105,39 +105,3 @@ def calculate_benchmark(
         return None
 
 
-def get_benchmark_data(
-    bars_history: BarsHistoryRepo,
-    benchmark_tickers: list[str],
-    start_date: datetime,
-    end_date: datetime,
-    time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
-) -> dict[str, pd.DataFrame]:
-    """
-    Pre-load benchmark data for efficient calculations.
-
-    Args:
-        bars_history: Data repository
-        benchmark_tickers: List of benchmark tickers
-        start_date: Data start date
-        end_date: Data end date
-        time_frame_unit: Time frame for data
-
-    Returns:
-        Dictionary mapping ticker to DataFrame
-    """
-    benchmark_data = {}
-
-    for ticker in benchmark_tickers:
-        try:
-            df = bars_history.get_ticker_history(
-                ticker, start_date, end_date, time_frame_unit
-            )
-            if not df.empty:
-                benchmark_data[ticker] = df
-                logger.debug(f"Loaded {ticker} data: {len(df)} records")
-
-        except Exception as e:
-            logger.error(f"Error loading benchmark data for {ticker}: {e}")
-            continue
-
-    return benchmark_data
