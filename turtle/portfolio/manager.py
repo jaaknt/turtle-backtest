@@ -3,6 +3,7 @@
 import logging
 from datetime import datetime
 from turtle.signal.models import Signal
+from turtle.backtest.models import ClosedTrade
 from .models import Position, ClosedPosition, PortfolioState, DailyPortfolioSnapshot
 
 logger = logging.getLogger(__name__)
@@ -91,14 +92,16 @@ class PortfolioManager:
         signal: Signal,
         entry_date: datetime,
         entry_price: float,
+        closed_trade: ClosedTrade,
     ) -> Position | None:
         """
-        Open a new position based on trading signal.
+        Open a new position with associated ClosedTrade for pre-calculated exit data.
 
         Args:
             signal: Trading signal triggering the position
             entry_date: Date of position entry
             entry_price: Price at entry
+            closed_trade: Complete trade data including pre-calculated exit
 
         Returns:
             New Position object if successful, None if insufficient cash
@@ -116,13 +119,14 @@ class PortfolioManager:
             logger.warning(f"Invalid share count for {signal.ticker}: {shares}")
             return None
 
-        # Create new position
+        # Create new position with ClosedTrade reference
         position = Position(
             ticker=signal.ticker,
             entry_date=entry_date,
             entry_price=entry_price,
             shares=shares,
             entry_signal_ranking=signal.ranking,
+            closed_trade=closed_trade,
             current_price=entry_price,
             current_value=total_cost,
             unrealized_pnl=0.0,
@@ -135,8 +139,8 @@ class PortfolioManager:
         self.state.update_total_value()
 
         logger.info(
-            f"Opened position: {signal.ticker} x{shares} @ ${entry_price:.2f} "
-            f"(total: ${total_cost:.2f}, remaining cash: ${self.state.cash:.2f})"
+            f"Opened position with scheduled exit: {signal.ticker} x{shares} @ ${entry_price:.2f} "
+            f"(total: ${total_cost:.2f}, exit scheduled: {closed_trade.exit.date.date()}, remaining cash: ${self.state.cash:.2f})"
         )
 
         return position
@@ -197,6 +201,68 @@ class PortfolioManager:
 
         logger.info(
             f"Closed position: {ticker} x{position.shares} @ ${exit_price:.2f} "
+            f"(P&L: ${realized_pnl:.2f} / {realized_pnl_pct:.2f}%, "
+            f"held {holding_period_days} days, reason: {exit_reason})"
+        )
+
+        return closed_position
+
+    def close_position_with_trade_data(
+        self,
+        ticker: str,
+        exit_date: datetime,
+        exit_price: float,
+        exit_reason: str,
+    ) -> ClosedPosition | None:
+        """
+        Close an existing position using pre-calculated trade data (optimization path).
+
+        Args:
+            ticker: Stock ticker to close
+            exit_date: Date of position closure
+            exit_price: Price at exit
+            exit_reason: Reason for closure
+
+        Returns:
+            ClosedPosition object if successful, None if position doesn't exist
+        """
+        if ticker not in self.state.positions:
+            logger.warning(f"Cannot close position - {ticker} not found in portfolio")
+            return None
+
+        position = self.state.positions[ticker]
+        exit_value = position.shares * exit_price
+
+        # Calculate realized P&L
+        realized_pnl = exit_value - (position.shares * position.entry_price)
+        realized_pnl_pct = (realized_pnl / (position.shares * position.entry_price)) * 100.0
+
+        # Calculate holding period
+        holding_period_days = (exit_date - position.entry_date).days
+
+        # Create closed position record
+        closed_position = ClosedPosition(
+            ticker=ticker,
+            entry_date=position.entry_date,
+            exit_date=exit_date,
+            entry_price=position.entry_price,
+            exit_price=exit_price,
+            shares=position.shares,
+            entry_signal_ranking=position.entry_signal_ranking,
+            exit_reason=exit_reason,
+            realized_pnl=realized_pnl,
+            realized_pnl_pct=realized_pnl_pct,
+            holding_period_days=holding_period_days,
+        )
+
+        # Update portfolio state
+        self.state.cash += exit_value
+        del self.state.positions[ticker]
+        self.state.closed_positions.append(closed_position)
+        self.state.update_total_value()
+
+        logger.info(
+            f"Closed scheduled position: {ticker} x{position.shares} @ ${exit_price:.2f} "
             f"(P&L: ${realized_pnl:.2f} / {realized_pnl_pct:.2f}%, "
             f"held {holding_period_days} days, reason: {exit_reason})"
         )
