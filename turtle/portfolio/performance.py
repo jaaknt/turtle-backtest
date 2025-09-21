@@ -14,7 +14,7 @@ except ImportError:
     qs = None  # type: ignore[assignment]
 
 from turtle.data.bars_history import BarsHistoryRepo
-from turtle.common.enums import TimeFrameUnit
+from turtle.backtest.benchmark_utils import calculate_benchmark_returns
 from .models import PortfolioState, PortfolioResults
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ class PortfolioAnalytics:
         risk_metrics = self._calculate_risk_metrics(daily_returns, daily_values)
 
         # Calculate benchmark returns
-        benchmark_returns = self._calculate_benchmark_returns(
+        benchmark_returns = calculate_benchmark_returns(
             start_date, end_date, benchmark_tickers, bars_history
         )
 
@@ -241,44 +241,6 @@ class PortfolioAnalytics:
         # Return maximum drawdown (most negative value)
         return float(abs(drawdown.min()))
 
-    def _calculate_benchmark_returns(
-        self,
-        start_date: datetime,
-        end_date: datetime,
-        benchmark_tickers: list[str],
-        bars_history: BarsHistoryRepo,
-    ) -> dict[str, float] | None:
-        """
-        Calculate benchmark returns for comparison.
-
-        Args:
-            start_date: Start date for benchmark calculation
-            end_date: End date for benchmark calculation
-            benchmark_tickers: List of benchmark ticker symbols
-            bars_history: Data repository
-
-        Returns:
-            Dictionary mapping benchmark ticker to total return percentage
-        """
-        try:
-            benchmark_returns = {}
-
-            for ticker in benchmark_tickers:
-                df = bars_history.get_ticker_history(
-                    ticker, start_date, end_date, TimeFrameUnit.DAY
-                )
-
-                if not df.empty:
-                    start_price = float(df.iloc[0]["open"])
-                    end_price = float(df.iloc[-1]["close"])
-                    total_return = ((end_price - start_price) / start_price) * 100.0
-                    benchmark_returns[ticker] = total_return
-
-            return benchmark_returns
-
-        except Exception as e:
-            logger.error(f"Error calculating benchmark returns: {e}")
-            return None
 
     def _calculate_max_positions_held(self, portfolio_state: PortfolioState) -> int:
         """

@@ -129,9 +129,12 @@ class TestSignalProcessor:
         # Mock get_ticker_history to raise exception
         mock_bars_history.get_ticker_history.side_effect = Exception("Data fetch failed")
 
-        # This should raise an exception since benchmark loading failed
-        with pytest.raises(Exception, match="Data fetch failed"):
-            processor.init_benchmarks(datetime(2024, 1, 16), datetime(2024, 1, 25))
+        # This should not raise an exception - benchmark utils handle errors gracefully
+        processor.init_benchmarks(datetime(2024, 1, 16), datetime(2024, 1, 25))
+
+        # Benchmarks should be None due to error
+        assert processor.df_spy is None
+        assert processor.df_qqq is None
 
     def test_run_without_ticker_data(self, mock_bars_history: Mock, exit_strategy: Mock, sample_signal: Signal) -> None:
         """Test that run() returns None when no ticker data is available."""
@@ -160,7 +163,7 @@ class TestSignalProcessor:
         # Mock get_ticker_history to return sample data
         mock_bars_history.get_ticker_history.return_value = sample_ticker_data
 
-        entry = processor._calculate_entry_data(sample_signal)
+        entry = processor.calculate_entry_data(sample_signal)
 
         assert entry is not None
         assert entry.date == pd.Timestamp(datetime(2024, 1, 16))
@@ -176,7 +179,7 @@ class TestSignalProcessor:
         # Mock get_ticker_history to return empty DataFrame
         mock_bars_history.get_ticker_history.return_value = pd.DataFrame()
 
-        result = processor._calculate_entry_data(sample_signal)
+        result = processor.calculate_entry_data(sample_signal)
         assert result is None
 
     def test_calculate_entry_data_invalid_price(self, mock_bars_history: Mock, exit_strategy: Mock, sample_signal: Signal) -> None:
@@ -201,7 +204,7 @@ class TestSignalProcessor:
         mock_bars_history.get_ticker_history.return_value = invalid_data
 
         with pytest.raises(ValueError, match="Invalid entry price"):
-            processor._calculate_entry_data(sample_signal)
+            processor.calculate_entry_data(sample_signal)
 
     def test_calculate_exit_data_success(
         self,
@@ -223,7 +226,7 @@ class TestSignalProcessor:
         entry_date = datetime(2024, 1, 16)
         entry_price = 100.0
 
-        exit = processor._calculate_exit_data(sample_signal, entry_date, entry_price)
+        exit = processor.calculate_exit_data(sample_signal, entry_date, entry_price)
 
         assert exit.date == datetime(2024, 1, 20)
         assert exit.price == 105.0
@@ -249,7 +252,7 @@ class TestSignalProcessor:
         entry_price = 100.0
 
         with pytest.raises(ValueError, match="Exit strategy failed"):
-            processor._calculate_exit_data(sample_signal, entry_date, entry_price)
+            processor.calculate_exit_data(sample_signal, entry_date, entry_price)
 
     def test_calculate_return_pct(self, mock_bars_history: Mock, exit_strategy: Mock) -> None:
         """Test return percentage calculation."""

@@ -2,13 +2,13 @@
 
 import logging
 from datetime import datetime, timedelta
-import pandas as pd
 
 from turtle.signal.base import TradingStrategy
 from turtle.exit.base import ExitStrategy
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
 from turtle.signal.models import Signal
+from turtle.backtest.processor import SignalProcessor
 
 from .models import PortfolioResults
 from .manager import PortfolioManager
@@ -67,6 +67,14 @@ class PortfolioBacktester:
         )
 
         self.analytics = PortfolioAnalytics()
+
+        # Initialize signal processor for shared calculations
+        self.signal_processor = SignalProcessor(
+            max_holding_period=365,  # Configurable max holding period
+            bars_history=bars_history,
+            exit_strategy=exit_strategy,
+            time_frame_unit=time_frame_unit,
+        )
 
         # Backtest configuration
         self.max_positions = max_positions
@@ -153,50 +161,9 @@ class PortfolioBacktester:
         Returns:
             List of exit signals with ticker and reason
         """
-        exit_signals = []
-
-        for ticker, position in self.portfolio_manager.state.positions.items():
-            try:
-                # Get current price data for exit evaluation
-                search_end = current_date + timedelta(days=1)
-                df = self.bars_history.get_ticker_history(
-                    ticker, position.entry_date, search_end, self.time_frame_unit
-                )
-
-                if df.empty:
-                    logger.warning(f"No price data for exit evaluation: {ticker} on {current_date}")
-                    continue
-
-                # Initialize exit strategy for this position
-                self.exit_strategy.initialize(
-                    ticker, position.entry_date, current_date
-                )
-
-                # Calculate indicators and check exit conditions
-                df_with_indicators = self.exit_strategy.calculate_indicators()
-
-                if df_with_indicators.empty:
-                    continue
-
-                # Check if we should exit on current date
-                current_row = df_with_indicators[df_with_indicators.index == pd.Timestamp(current_date)]
-
-                if not current_row.empty:
-                    # Use exit strategy to determine if we should exit
-                    exit_trade = self.exit_strategy.calculate_exit(df_with_indicators)
-
-                    if exit_trade and exit_trade.date.date() == current_date.date():
-                        exit_signals.append({
-                            "ticker": ticker,
-                            "exit_price": float(exit_trade.price),
-                            "exit_reason": str(exit_trade.reason),
-                        })
-
-            except Exception as e:
-                logger.error(f"Error evaluating exit for {ticker}: {e}")
-                continue
-
-        return exit_signals
+        return self.signal_processor.evaluate_exit_conditions(
+            self.portfolio_manager.state.positions, current_date
+        )
 
     def _process_exits(self, exit_signals: list[dict[str, object]], current_date: datetime) -> None:
         """
@@ -273,29 +240,17 @@ class PortfolioBacktester:
             signals: Signals to process for entry
             current_date: Current date
         """
+        # Use signal processor to calculate entry data
+        entry_data = self.signal_processor.calculate_batch_entry_data(signals)
+
         for signal in signals:
-            try:
-                # Get entry price (next day open)
-                search_start = current_date + timedelta(days=1)
-                search_end = current_date + timedelta(days=7)
-
-                df = self.bars_history.get_ticker_history(
-                    signal.ticker, search_start, search_end, self.time_frame_unit
-                )
-
-                if df.empty:
-                    logger.warning(f"No price data for entry: {signal.ticker} after {current_date}")
-                    continue
-
-                entry_price = float(df.iloc[0]["open"])
-                entry_date = pd.to_datetime(df.index[0])
-
+            entry_trade = entry_data.get(signal.ticker)
+            if entry_trade is not None:
                 self.portfolio_manager.open_position(
-                    signal, entry_date, entry_price
+                    signal, entry_trade.date, entry_trade.price
                 )
-
-            except Exception as e:
-                logger.error(f"Error processing entry for {signal.ticker}: {e}")
+            else:
+                logger.warning(f"No entry data available for {signal.ticker}")
                 continue
 
     def _update_portfolio_prices(self, current_date: datetime, universe: list[str]) -> None:
