@@ -3,6 +3,7 @@
 import logging
 from datetime import datetime, timedelta
 
+from turtle.backtest.models import Trade
 from turtle.signal.base import TradingStrategy
 from turtle.exit.base import ExitStrategy
 from turtle.data.bars_history import BarsHistoryRepo
@@ -99,10 +100,7 @@ class PortfolioBacktester:
         Returns:
             PortfolioResults with complete backtest analysis
         """
-        logger.info(
-            f"Starting portfolio backtest: {start_date} to {end_date} "
-            f"({len(universe)} stocks, max {self.max_positions} positions)"
-        )
+        logger.info(f"Starting portfolio backtest: {start_date} to {end_date} ({len(universe)} stocks, max {self.max_positions} positions)")
 
         benchmark_tickers = benchmark_tickers or ["SPY", "QQQ"]
         current_date = start_date
@@ -117,9 +115,7 @@ class PortfolioBacktester:
         results = self._generate_results(start_date, end_date, benchmark_tickers)
 
         logger.info(
-            f"Backtest completed: {results.total_trades} trades, "
-            f"{results.total_return_pct:.2f}% return, "
-            f"{results.win_rate:.1f}% win rate"
+            f"Backtest completed: {results.total_trades} trades, {results.total_return_pct:.2f}% return, {results.win_rate:.1f}% win rate"
         )
 
         return results
@@ -151,7 +147,7 @@ class PortfolioBacktester:
         # Step 5: Record daily snapshot
         self.portfolio_manager.record_daily_snapshot(current_date)
 
-    def _evaluate_exit_conditions(self, current_date: datetime) -> list[dict[str, object]]:
+    def _evaluate_exit_conditions(self, current_date: datetime) -> list[dict[str, Trade]]:
         """
         Evaluate exit conditions for all current positions.
 
@@ -161,11 +157,9 @@ class PortfolioBacktester:
         Returns:
             List of exit signals with ticker and reason
         """
-        return self.signal_processor.evaluate_exit_conditions(
-            self.portfolio_manager.state.positions, current_date
-        )
+        return self.signal_processor.evaluate_exit_conditions(self.portfolio_manager.state.positions, current_date)
 
-    def _process_exits(self, exit_signals: list[dict[str, object]], current_date: datetime) -> None:
+    def _process_exits(self, exit_signals: list[dict[str, Trade]], current_date: datetime) -> None:
         """
         Process position exits.
 
@@ -197,9 +191,7 @@ class PortfolioBacktester:
         for ticker in universe:
             try:
                 # Generate signals for this ticker
-                signals = self.trading_strategy.get_signals(
-                    ticker, current_date - timedelta(days=1), current_date
-                )
+                signals = self.trading_strategy.get_signals(ticker, current_date - timedelta(days=1), current_date)
 
                 # Filter for signals on current date
                 current_signals = [s for s in signals if s.date.date() == current_date.date()]
@@ -226,9 +218,7 @@ class PortfolioBacktester:
         current_positions = set(self.portfolio_manager.state.positions.keys())
         available_slots = self.portfolio_manager.get_available_position_slots(self.max_positions)
 
-        selected_signals = self.signal_selector.select_entry_signals(
-            signals, current_positions, available_slots, current_date
-        )
+        selected_signals = self.signal_selector.select_entry_signals(signals, current_positions, available_slots, current_date)
 
         return selected_signals
 
@@ -246,9 +236,7 @@ class PortfolioBacktester:
         for signal in signals:
             entry_trade = entry_data.get(signal.ticker)
             if entry_trade is not None:
-                self.portfolio_manager.open_position(
-                    signal, entry_trade.date, entry_trade.price
-                )
+                self.portfolio_manager.open_position(signal, entry_trade.date, entry_trade.price)
             else:
                 logger.warning(f"No entry data available for {signal.ticker}")
                 continue
@@ -268,9 +256,7 @@ class PortfolioBacktester:
 
         for ticker in self.portfolio_manager.state.positions.keys():
             try:
-                df = self.bars_history.get_ticker_history(
-                    ticker, current_date, current_date + timedelta(days=1), self.time_frame_unit
-                )
+                df = self.bars_history.get_ticker_history(ticker, current_date, current_date + timedelta(days=1), self.time_frame_unit)
 
                 if not df.empty:
                     price_data[ticker] = float(df.iloc[0]["close"])
