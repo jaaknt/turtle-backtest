@@ -2,7 +2,6 @@ import logging
 import pandas as pd
 from datetime import datetime, timedelta
 
-from typing import Any
 from turtle.exit.atr import ATRExitStrategy
 from turtle.signal.models import Signal
 from turtle.backtest.models import SignalResult, Trade
@@ -285,7 +284,7 @@ class SignalProcessor:
 
         return entry_data
 
-    def evaluate_exit_conditions(self, positions: dict[str, "Position"], current_date: datetime) -> list[dict[str, Any]]:
+    def evaluate_exit_conditions(self, positions: dict[str, Position], current_date: datetime) -> list[dict[str, Trade]]:
         """
         Evaluate exit conditions for multiple positions.
 
