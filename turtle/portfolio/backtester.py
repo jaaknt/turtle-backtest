@@ -3,7 +3,6 @@
 import logging
 from datetime import datetime, timedelta
 
-from turtle.backtest.models import Trade
 from turtle.signal.base import TradingStrategy
 from turtle.exit.base import ExitStrategy
 from turtle.data.bars_history import BarsHistoryRepo
