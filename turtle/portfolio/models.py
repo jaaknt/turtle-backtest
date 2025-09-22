@@ -3,7 +3,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 import pandas as pd
-from collections import defaultdict
 
 from turtle.backtest.models import Benchmark, ClosedTrade
 
@@ -109,7 +108,7 @@ class PortfolioState:
         total_value: Total portfolio value (cash + positions)
         daily_snapshots: Historical daily snapshots
         closed_positions: List of all closed positions
-        scheduled_exits: Pre-calculated exits mapped by date
+        closed_trades: List of all closed trades
         last_update_date: Date of last portfolio update
     """
     cash: float
@@ -117,7 +116,7 @@ class PortfolioState:
     total_value: float
     daily_snapshots: list[DailyPortfolioSnapshot]
     closed_positions: list[ClosedPosition]
-    scheduled_exits: dict[datetime, list[ClosedTrade]] = field(default_factory=lambda: defaultdict(list))
+    closed_trades: list[ClosedTrade] = field(default_factory=list)
     last_update_date: datetime | None = None
 
     @property

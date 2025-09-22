@@ -160,29 +160,31 @@ class PortfolioBacktester:
         # Normalize current_date to remove time component for lookup
         lookup_date = current_date.replace(hour=0, minute=0, second=0, microsecond=0)
 
-        scheduled_trades = self.portfolio_manager.state.scheduled_exits.get(lookup_date, [])
+        # Find positions that should exit today by checking their closed_trade exit dates
+        positions_to_close = []
 
-        if not scheduled_trades:
+        for ticker, position in self.portfolio_manager.state.positions.items():
+            # Check if this position's scheduled exit date matches current date
+            position_exit_date = position.closed_trade.exit.date.replace(hour=0, minute=0, second=0, microsecond=0)
+            if position_exit_date == lookup_date:
+                positions_to_close.append((ticker, position))
+
+        if not positions_to_close:
             return
 
-        logger.debug(f"Processing {len(scheduled_trades)} scheduled exits for {current_date}")
+        logger.debug(f"Processing {len(positions_to_close)} scheduled exits for {current_date}")
 
-        for closed_trade in scheduled_trades:
-            ticker = closed_trade.signal.ticker
+        for ticker, position in positions_to_close:
+            closed_trade = position.closed_trade
 
-            # Check if position is still open
-            if ticker in self.portfolio_manager.state.positions:
-                self.portfolio_manager.close_position_with_trade_data(
-                    ticker=ticker,
-                    exit_date=closed_trade.exit.date,
-                    exit_price=closed_trade.exit.price,
-                    exit_reason=closed_trade.exit.reason
-                )
-                logger.debug(f"Closed scheduled position for {ticker} at ${closed_trade.exit.price} ({closed_trade.exit.reason})")
-
-        # Clean up processed scheduled exits
-        if lookup_date in self.portfolio_manager.state.scheduled_exits:
-            del self.portfolio_manager.state.scheduled_exits[lookup_date]
+            # Close the position using pre-calculated trade data
+            self.portfolio_manager.close_position_with_trade_data(
+                ticker=ticker,
+                exit_date=closed_trade.exit.date,
+                exit_price=closed_trade.exit.price,
+                exit_reason=closed_trade.exit.reason
+            )
+            logger.debug(f"Closed scheduled position for {ticker} at ${closed_trade.exit.price} ({closed_trade.exit.reason})")
 
     def _evaluate_exit_conditions(self, current_date: datetime) -> list[dict[str, object]]:
         """
@@ -290,11 +292,13 @@ class PortfolioBacktester:
                     closed_trade=closed_trade
                 )
 
-                # Schedule the exit for future processing
-                exit_date = closed_trade.exit.date.replace(hour=0, minute=0, second=0, microsecond=0)
-                self.portfolio_manager.state.scheduled_exits[exit_date].append(closed_trade)
+                # Add the closed trade to the portfolio state for tracking
+                self.portfolio_manager.state.closed_trades.append(closed_trade)
 
-                logger.debug(f"Opened position for {signal.ticker} on {closed_trade.entry.date}, scheduled exit on {exit_date}")
+                logger.debug(
+                    f"Opened position for {signal.ticker} on {closed_trade.entry.date}, "
+                    f"scheduled exit on {closed_trade.exit.date.date()}"
+                )
 
             except Exception as e:
                 logger.error(f"Error processing entry for {signal.ticker}: {e}")
