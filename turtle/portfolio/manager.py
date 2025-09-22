@@ -44,6 +44,7 @@ class PortfolioManager:
             total_value=initial_capital,
             daily_snapshots=[],
             closed_positions=[],
+            closed_trades=[],
         )
 
     def can_open_new_position(self, required_capital: float | None = None) -> bool:
