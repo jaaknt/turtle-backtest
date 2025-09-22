@@ -61,7 +61,7 @@ class PortfolioManager:
         available_cash = self.state.cash - self.min_cash_reserve
         return available_cash >= required
 
-    def calculate_position_size(self, signal: Signal, current_price: float) -> tuple[int, float]:
+    def calculate_position_size(self, ticker: str, current_price: float) -> int:
         """
         Calculate position size for a new entry.
 
@@ -79,72 +79,9 @@ class PortfolioManager:
             target_value = self.position_size_amount
 
         shares = int(target_value / current_price)
-        total_cost = shares * current_price
 
-        logger.debug(
-            f"Position size calculation for {signal.ticker}: "
-            f"target=${target_value}, price=${current_price}, shares={shares}, cost=${total_cost}"
-        )
-
-        return shares, total_cost
-
-    def open_position(
-        self,
-        signal: Signal,
-        entry_date: datetime,
-        entry_price: float,
-        closed_trade: ClosedTrade,
-    ) -> Position | None:
-        """
-        Open a new position with associated ClosedTrade for pre-calculated exit data.
-
-        Args:
-            signal: Trading signal triggering the position
-            entry_date: Date of position entry
-            entry_price: Price at entry
-            closed_trade: Complete trade data including pre-calculated exit
-
-        Returns:
-            New Position object if successful, None if insufficient cash
-        """
-        shares, total_cost = self.calculate_position_size(signal, entry_price)
-
-        if not self.can_open_new_position(total_cost):
-            logger.warning(
-                f"Insufficient cash to open position in {signal.ticker}: "
-                f"required=${total_cost}, available=${self.state.cash - self.min_cash_reserve}"
-            )
-            return None
-
-        if shares <= 0:
-            logger.warning(f"Invalid share count for {signal.ticker}: {shares}")
-            return None
-
-        # Create new position with ClosedTrade reference
-        position = Position(
-            ticker=signal.ticker,
-            entry_date=entry_date,
-            entry_price=entry_price,
-            shares=shares,
-            entry_signal_ranking=signal.ranking,
-            closed_trade=closed_trade,
-            current_price=entry_price,
-            current_value=total_cost,
-            unrealized_pnl=0.0,
-            unrealized_pnl_pct=0.0,
-        )
-
-        # Update portfolio state
-        self.state.positions[signal.ticker] = position
-        self.state.cash -= total_cost
-        self.state.update_total_value()
-
-        logger.info(
-            f"Opened position with scheduled exit: {signal.ticker} x{shares} @ ${entry_price:.2f} "
-            f"(total: ${total_cost:.2f}, exit scheduled: {closed_trade.exit.date.date()}, remaining cash: ${self.state.cash:.2f})"
-        )
-
-        return position
+        logger.debug(f"Position size calculation for {ticker}: target=${target_value}, price=${current_price}, shares={shares}")
+        return shares
 
     def close_position(
         self,

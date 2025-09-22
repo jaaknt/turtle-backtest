@@ -42,7 +42,7 @@ class EMAExitStrategy(ExitStrategy):
 
         if not below_ema.empty:
             # Exit on first close below EMA
-            return Trade(date=below_ema.index[0], price=below_ema.iloc[0]["close"], reason="stop_loss")
+            return Trade(ticker=self.ticker, date=below_ema.index[0], price=below_ema.iloc[0]["close"], reason="stop_loss")
         else:
             last_record = data.iloc[-1]
-            return Trade(date=data.index[-1], price=last_record["close"], reason="period_end")
+            return Trade(ticker=self.ticker, date=data.index[-1], price=last_record["close"], reason="period_end")

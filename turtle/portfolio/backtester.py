@@ -179,10 +179,7 @@ class PortfolioBacktester:
 
             # Close the position using pre-calculated trade data
             self.portfolio_manager.close_position_with_trade_data(
-                ticker=ticker,
-                exit_date=closed_trade.exit.date,
-                exit_price=closed_trade.exit.price,
-                exit_reason=closed_trade.exit.reason
+                ticker=ticker, exit_date=closed_trade.exit.date, exit_price=closed_trade.exit.price, exit_reason=closed_trade.exit.reason
             )
             logger.debug(f"Closed scheduled position for {ticker} at ${closed_trade.exit.price} ({closed_trade.exit.reason})")
 
@@ -277,32 +274,25 @@ class PortfolioBacktester:
             current_date: Current date
         """
         for signal in signals:
-            try:
-                # Use signal processor to get complete trade data including exit
-                closed_trade = self.signal_processor.run(signal)
-                if closed_trade is None:
-                    logger.warning(f"No trade data available for {signal.ticker}")
-                    continue
-
-                # Open position with entry data
-                self.portfolio_manager.open_position(
-                    signal=signal,
-                    entry_date=closed_trade.entry.date,
-                    entry_price=closed_trade.entry.price,
-                    closed_trade=closed_trade
-                )
-
-                # Add the closed trade to the portfolio state for tracking
-                self.portfolio_manager.state.closed_trades.append(closed_trade)
-
-                logger.debug(
-                    f"Opened position for {signal.ticker} on {closed_trade.entry.date}, "
-                    f"scheduled exit on {closed_trade.exit.date.date()}"
-                )
-
-            except Exception as e:
-                logger.error(f"Error processing entry for {signal.ticker}: {e}")
+            # Use signal processor to get complete trade data including exit
+            closed_trade = self.signal_processor.run(signal)
+            if closed_trade is None:
+                logger.warning(f"No trade data available for {signal.ticker}")
                 continue
+
+            # calculate position size based on entry price and position sizing strategy
+            closed_trade.position_size = self.portfolio_manager.calculate_position_size(
+                ticker=signal.ticker, current_price=closed_trade.entry.price
+            )
+            if closed_trade.position_size == 0:
+                logger.warning(f"Calculated zero shares for {signal.ticker} at price ${closed_trade.entry.price}")
+                continue
+            # Add the closed trade to the portfolio state for tracking
+            self.portfolio_manager.state.closed_trades.append(closed_trade)
+
+            logger.debug(
+                f"Opened position for {signal.ticker} on {closed_trade.entry.date}, scheduled exit on {closed_trade.exit.date.date()}"
+            )
 
     def _update_portfolio_prices(self, current_date: datetime, universe: list[str]) -> None:
         """

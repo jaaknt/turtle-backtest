@@ -106,7 +106,7 @@ class TestATRExitStrategy:
         """Test calculate_exit when ATR stop loss is hit."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = ATRExitStrategy(mock_bars_history)
-        strategy.atr_multiplier = 2.0  # Set multiplier for predictable test
+        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5), atr_period=14, atr_multiplier=2.0)
 
         # Create test data where stop loss will be hit
         dates = pd.date_range(start="2024-01-01", periods=5, freq="D")
@@ -132,7 +132,7 @@ class TestATRExitStrategy:
         """Test calculate_exit when no stop is hit."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = ATRExitStrategy(mock_bars_history)
-        strategy.atr_multiplier = 2.0
+        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5), atr_period=14, atr_multiplier=2.0)
 
         # Create test data where stop loss is never hit
         dates = pd.date_range(start="2024-01-01", periods=5, freq="D")
@@ -160,11 +160,11 @@ class TestATRExitStrategy:
 
         # Test with high multiplier (looser stop)
         strategy_loose = ATRExitStrategy(mock_bars_history)
-        strategy_loose.atr_multiplier = 3.0
+        strategy_loose.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 3), atr_period=14, atr_multiplier=3.0)
 
         # Test with low multiplier (tighter stop)
         strategy_tight = ATRExitStrategy(mock_bars_history)
-        strategy_tight.atr_multiplier = 1.0
+        strategy_tight.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 3), atr_period=14, atr_multiplier=1.0)
 
         # Create test data
         dates = pd.date_range(start="2024-01-01", periods=3, freq="D")

@@ -89,10 +89,6 @@ class SignalProcessor:
         logger.debug(f"Exit calculated: {exit.date} at ${exit.price} ({exit.reason})")
 
 
-        # Step 4: Calculate return percentage
-        return_pct = self._calculate_return_pct(entry.price, exit.price)
-        logger.debug(f"Return calculated: {return_pct:.2f}%")
-
         # Step 4: Calculate benchmark returns
         benchmarks = self._calculate_benchmark_returns(entry.date, exit.date)
         logger.debug(f"Benchmark returns calculated: {[(b.ticker, b.return_pct) for b in benchmarks]}")
@@ -102,9 +98,11 @@ class SignalProcessor:
             signal=signal,
             entry=entry,
             exit=exit,
-            return_pct=return_pct,
             benchmark_list=benchmarks,
         )
+
+        # Log return percentage using the new property
+        logger.debug(f"Return calculated: {self.result.realized_pct:.2f}%")
 
         logger.debug(f"Signal processing complete for {signal.ticker}")
         return self.result
@@ -142,7 +140,7 @@ class SignalProcessor:
         if pd.isna(entry_price) or entry_price <= 0:
             raise ValueError(f"Invalid entry price for {signal.ticker}: {entry_price}")
 
-        return Trade(date=entry_date, price=entry_price, reason="next_day_open")
+        return Trade(ticker=signal.ticker, date=entry_date, price=entry_price, reason="next_day_open")
 
     def calculate_exit_data(self, signal: Signal, entry_date: datetime, entry_price: float) -> Trade:
         """

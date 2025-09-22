@@ -38,6 +38,6 @@ class ExitStrategy(ABC):
             data: DataFrame with OHLCV data (index should be datetime)
 
         Returns:
-            Trade object representing the exit trade
+            Trade object representing the exit trade with ticker populated
         """
         pass

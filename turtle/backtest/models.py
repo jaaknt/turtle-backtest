@@ -10,13 +10,16 @@ class Trade:
     Represents a single trade.
 
     Attributes:
+        ticker: Stock symbol for the trade
         date: Trade date and time
         price: Price at which the trade was executed
+        reason: Reason for entry or exit
     """
 
+    ticker: str
     date: datetime
     price: float
-    reason: str = ""  # Default reason for entry or exit
+    reason: str
 
 
 @dataclass
@@ -27,10 +30,14 @@ class Benchmark:
     Attributes:
         ticker: Benchmark ticker symbol (e.g., 'SPY', 'QQQ')
         return_pct: Percentage return for the benchmark over the same period
+        entry_date: Date when the benchmark calculation period starts
+        exit_date: Date when the benchmark calculation period ends
     """
 
     ticker: str
     return_pct: float
+    entry_date: datetime
+    exit_date: datetime
 
 
 @dataclass
@@ -42,15 +49,15 @@ class ClosedTrade:
         signal: Signal that is input for calculation
         entry: Trade object containing entry date, price, and reason
         exit: Trade object containing exit date, price, and reason
-        return_pct: Percentage return between entry.price and exit.price
         benchmark_list: List of benchmark comparisons for the same period
+        position_size: Position size in shares or dollar amount (defaults to 1.0)
     """
 
     signal: Signal
     entry: Trade
     exit: Trade
-    return_pct: float
     benchmark_list: list[Benchmark]
+    position_size: float = 1.0
 
     @property
     def holding_days(self) -> int:
@@ -61,3 +68,25 @@ class ClosedTrade:
             Number of days between entry and exit dates
         """
         return (self.exit.date - self.entry.date).days
+
+    @property
+    def realized_pnl(self) -> float:
+        """
+        Calculate the realized profit/loss in dollars.
+
+        Returns:
+            Realized profit/loss = (exit_price - entry_price) * position_size
+        """
+        return (self.exit.price - self.entry.price) * self.position_size
+
+    @property
+    def realized_pct(self) -> float:
+        """
+        Calculate the realized percentage return.
+
+        Returns:
+            Percentage return = ((exit_price - entry_price) / entry_price) * 100
+        """
+        if self.entry.price <= 0:
+            raise ValueError(f"Invalid entry price: {self.entry.price}")
+        return ((self.exit.price - self.entry.price) / self.entry.price) * 100.0

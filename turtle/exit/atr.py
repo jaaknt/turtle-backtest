@@ -102,7 +102,7 @@ class ATRExitStrategy(ExitStrategy):
                     trade_date = date
                 else:
                     trade_date = pd.to_datetime(str(date)).to_pydatetime()
-                return Trade(date=trade_date, price=current_stop, reason="atr_trailing_stop")
+                return Trade(ticker=self.ticker, date=trade_date, price=current_stop, reason="atr_trailing_stop")
 
             logger.debug(f"Date {date}: Close {daily_close:.2f}, High {daily_high:.2f}, "
                         f"Highest {highest_price:.2f}, Current stop {current_stop:.2f}")
@@ -116,4 +116,4 @@ class ATRExitStrategy(ExitStrategy):
             trade_date = last_date
         else:
             trade_date = pd.to_datetime(str(last_date)).to_pydatetime()
-        return Trade(date=trade_date, price=last_record["close"], reason="period_end")
+        return Trade(ticker=self.ticker, date=trade_date, price=last_record["close"], reason="period_end")

@@ -48,7 +48,7 @@ class MACDExitStrategy(ExitStrategy):
 
         if not below_signal.empty:
             # Exit on first MACD below signal line
-            return Trade(date=below_signal.index[0], price=below_signal.iloc[0]["close"], reason="below_signal")
+            return Trade(ticker=self.ticker, date=below_signal.index[0], price=below_signal.iloc[0]["close"], reason="below_signal")
         else:
             last_record = data.iloc[-1]
-            return Trade(date=data.index[-1], price=last_record["close"], reason="period_end")
+            return Trade(ticker=self.ticker, date=data.index[-1], price=last_record["close"], reason="period_end")
