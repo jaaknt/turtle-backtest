@@ -98,7 +98,7 @@ def calculate_benchmark(
             return None
 
         return_pct = ((exit_price - entry_price) / entry_price) * 100.0
-        return Benchmark(ticker=ticker, return_pct=return_pct)
+        return Benchmark(ticker=ticker, return_pct=return_pct, entry_date=entry_date, exit_date=exit_date)
 
     except Exception as e:
         logger.error(f"Error calculating {ticker} benchmark return: {e}")

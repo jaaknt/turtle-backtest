@@ -48,15 +48,15 @@ class ProfitLossExitStrategy(ExitStrategy):
         if first_profit_date is not None and first_loss_date is not None:
             # Both targets hit - use whichever came first
             if first_profit_date <= first_loss_date:
-                return Trade(date=profit_hits.index[0], price=self.profit_price, reason="profit_target")
+                return Trade(ticker=self.ticker, date=profit_hits.index[0], price=self.profit_price, reason="profit_target")
             else:
-                return Trade(date=loss_hits.index[0], price=self.stop_price, reason="stop_loss")
+                return Trade(ticker=self.ticker, date=loss_hits.index[0], price=self.stop_price, reason="stop_loss")
         elif first_profit_date is not None:
             # Only profit target hit
-            return Trade(date=profit_hits.index[0], price=self.profit_price, reason="profit_target")
+            return Trade(ticker=self.ticker, date=profit_hits.index[0], price=self.profit_price, reason="profit_target")
         elif first_loss_date is not None:
             # Only stop loss hit
-            return Trade(date=loss_hits.index[0], price=self.stop_price, reason="stop_loss")
+            return Trade(ticker=self.ticker, date=loss_hits.index[0], price=self.stop_price, reason="stop_loss")
         else:
             last_record = data.iloc[-1]
-            return Trade(date=data.index[-1], price=last_record["close"], reason="period_end")
+            return Trade(ticker=self.ticker, date=data.index[-1], price=last_record["close"], reason="period_end")

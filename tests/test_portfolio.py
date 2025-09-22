@@ -13,15 +13,14 @@ from turtle.backtest.models import ClosedTrade, Trade, Benchmark
 def create_mock_closed_trade(ticker: str, entry_date: datetime, entry_price: float) -> ClosedTrade:
     """Create a mock ClosedTrade for testing purposes."""
     signal = Signal(ticker=ticker, date=entry_date, ranking=85)
-    entry = Trade(date=entry_date, price=entry_price, reason="signal")
-    exit = Trade(date=entry_date, price=entry_price * 1.1, reason="profit_target")  # 10% profit
-    benchmarks = [Benchmark(ticker="SPY", return_pct=5.0)]
+    entry = Trade(ticker=ticker, date=entry_date, price=entry_price, reason="signal")
+    exit = Trade(ticker=ticker, date=entry_date, price=entry_price * 1.1, reason="profit_target")  # 10% profit
+    benchmarks = [Benchmark(ticker="SPY", return_pct=5.0, entry_date=entry_date, exit_date=entry_date)]
 
     return ClosedTrade(
         signal=signal,
         entry=entry,
         exit=exit,
-        return_pct=10.0,
         benchmark_list=benchmarks
     )
 

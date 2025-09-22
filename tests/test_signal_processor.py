@@ -173,7 +173,7 @@ class TestSignalProcessor:
         )
 
         # Mock the exit strategy to return a result
-        mock_result = Trade(date=datetime(2024, 1, 20), price=105.0, reason="period_end")
+        mock_result = Trade(ticker="AAPL", date=datetime(2024, 1, 20), price=105.0, reason="period_end")
         exit_strategy.calculate_exit.return_value = mock_result
         mock_bars_history.get_ticker_history.return_value = sample_ticker_data
 
@@ -336,7 +336,7 @@ class TestSignalProcessor:
         assert result.signal == sample_signal
         assert isinstance(result.entry, Trade)
         assert isinstance(result.exit, Trade)
-        assert isinstance(result.return_pct, float)
+        assert isinstance(result.realized_pct, float)
         assert isinstance(result.benchmark_list, list)
         assert len(result.benchmark_list) == 2
 

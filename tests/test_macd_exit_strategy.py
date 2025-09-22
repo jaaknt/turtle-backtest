@@ -86,6 +86,7 @@ class TestMACDExitStrategy:
         """Test calculate_exit method with MACD signal data."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = MACDExitStrategy(mock_bars_history)
+        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 10))
 
         # Create test data with MACD indicators where macd_line drops below signal
         dates = pd.date_range(start="2024-01-01", periods=10, freq="D")
@@ -107,6 +108,7 @@ class TestMACDExitStrategy:
         """Test calculate_exit when no signal is triggered."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = MACDExitStrategy(mock_bars_history)
+        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5))
 
         # Create test data where macd_line stays above signal
         dates = pd.date_range(start="2024-01-01", periods=5, freq="D")
