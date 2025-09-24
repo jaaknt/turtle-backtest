@@ -55,8 +55,8 @@ class TestPortfolioModels:
         # Test price update functionality by directly updating current_price
         position.current_price = 110.0
         assert position.current_price == 110.0
-        # Now unrealized_pnl should be negative since current_price > exit.price
-        assert position.unrealized_pnl == -100.0  # (100 - 110) * 10 = -100
+        # Now unrealized_pnl should be positive since current_price > entry.price
+        assert position.unrealized_pnl == 100.0  # (110 - 100) * 10 = 100
 
         # Test current value calculation
         assert position.current_value == 1100.0  # 110.0 * 10
