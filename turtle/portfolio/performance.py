@@ -1,5 +1,7 @@
 """Portfolio performance analytics and quantstats integration."""
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime
 from typing import Any
@@ -65,7 +67,7 @@ class PortfolioAnalytics:
         daily_returns, daily_values = self._extract_daily_series(portfolio_state)
 
         # Calculate trade statistics
-        trade_stats = self._calculate_trade_statistics(portfolio_state.closed_positions)
+        trade_stats = self._calculate_trade_statistics(portfolio_state.closed_trades)
 
         # Calculate risk metrics
         risk_metrics = self._calculate_risk_metrics(daily_returns, daily_values)
@@ -86,7 +88,7 @@ class PortfolioAnalytics:
             total_return_dollars=total_return_dollars,
             daily_returns=daily_returns,
             daily_values=daily_values,
-            closed_positions=portfolio_state.closed_positions,
+            closed_positions=portfolio_state.closed_trades,
             max_positions_held=self._calculate_max_positions_held(portfolio_state),
             total_trades=int(trade_stats["total_trades"]),
             winning_trades=int(trade_stats["winning_trades"]),
@@ -162,18 +164,18 @@ class PortfolioAnalytics:
         losing_positions = [p for p in closed_positions if p.realized_pnl <= 0]
 
         avg_win_pct = (
-            sum(p.realized_pnl_pct for p in winning_positions) / len(winning_positions)
+            sum(p.realized_pct for p in winning_positions) / len(winning_positions)
             if winning_positions else 0.0
         )
 
         avg_loss_pct = (
-            sum(p.realized_pnl_pct for p in losing_positions) / len(losing_positions)
+            sum(p.realized_pct for p in losing_positions) / len(losing_positions)
             if losing_positions else 0.0
         )
 
         # Calculate average holding period
         avg_holding_period = (
-            sum(p.holding_period_days for p in closed_positions) / total_trades
+            sum(p.holding_days for p in closed_positions) / total_trades
             if total_trades > 0 else 0.0
         )
 

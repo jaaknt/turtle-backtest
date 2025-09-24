@@ -1,18 +1,18 @@
+from __future__ import annotations
+
 import logging
 import pandas as pd
 from datetime import datetime, timedelta
 
-from typing import TYPE_CHECKING
 from turtle.exit.atr import ATRExitStrategy
 from turtle.signal.models import Signal
 from turtle.backtest.models import Benchmark, ClosedTrade, Trade
+
+from turtle.portfolio.models import Position
 from turtle.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
 from .benchmark_utils import calculate_benchmark_list
-
-if TYPE_CHECKING:
-    from turtle.portfolio.models import Position
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +53,6 @@ class SignalProcessor:
         self.benchmark_tickers = benchmark_tickers
         self.time_frame_unit = time_frame_unit
 
-
-
     def run(self, signal: Signal) -> ClosedTrade | None:
         """
         Process a Signal object to create a complete ClosedTrade.
@@ -87,7 +85,6 @@ class SignalProcessor:
             return None
 
         logger.debug(f"Exit calculated: {exit.date} at ${exit.price} ({exit.reason})")
-
 
         # Step 4: Calculate benchmark returns
         benchmarks = self._calculate_benchmark_returns(entry.date, exit.date)
@@ -239,7 +236,6 @@ class SignalProcessor:
             self.time_frame_unit,
         )
 
-
     def calculate_batch_entry_data(self, signals: list[Signal]) -> dict[str, Trade | None]:
         """
         Calculate entry data for multiple signals in batch.
@@ -261,7 +257,7 @@ class SignalProcessor:
 
         return entry_data
 
-    def evaluate_exit_conditions(self, positions: dict[str, "Position"], current_date: datetime) -> list[dict[str, object]]:
+    def evaluate_exit_conditions(self, positions: dict[str, Position], current_date: datetime) -> list[dict[str, object]]:
         """
         Evaluate exit conditions for multiple positions.
 
@@ -278,14 +274,14 @@ class SignalProcessor:
             try:
                 # Get current price data for exit evaluation
                 search_end = current_date + timedelta(days=1)
-                df = self.bars_history.get_ticker_history(ticker, position.entry_date, search_end, self.time_frame_unit)
+                df = self.bars_history.get_ticker_history(ticker, position.entry.date, search_end, self.time_frame_unit)
 
                 if df.empty:
                     logger.warning(f"No price data for exit evaluation: {ticker} on {current_date}")
                     continue
 
                 # Initialize exit strategy for this position
-                self.exit_strategy.initialize(ticker, position.entry_date, current_date)
+                self.exit_strategy.initialize(ticker, position.entry.date, current_date)
 
                 # Calculate indicators and check exit conditions
                 df_with_indicators = self.exit_strategy.calculate_indicators()
