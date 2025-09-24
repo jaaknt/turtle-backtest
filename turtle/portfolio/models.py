@@ -36,7 +36,7 @@ class Position:
     @property
     def unrealized_pnl(self) -> float:
         """Get unrealized P&L"""
-        return (self.exit.price - self.current_price) * self.position_size
+        return (self.current_price - self.entry.price) * self.position_size
 
     @property
     def holding_period_days(self) -> int:
