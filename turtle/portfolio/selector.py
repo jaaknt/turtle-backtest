@@ -1,5 +1,7 @@
 """Signal selection and filtering for portfolio management."""
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime
 from turtle.signal.models import Signal

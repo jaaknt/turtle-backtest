@@ -1,5 +1,7 @@
 """Main portfolio backtesting engine."""
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime, timedelta
 
@@ -31,9 +33,11 @@ class PortfolioBacktester:
         trading_strategy: TradingStrategy,
         exit_strategy: ExitStrategy,
         bars_history: BarsHistoryRepo,
-        initial_capital: float = 10000.0,
-        max_positions: int = 10,
-        position_size: float = 1000.0,
+        start_date: datetime,
+        end_date: datetime,
+        initial_capital: float = 30000.0,
+        position_min_amount: float = 1500.0,
+        position_max_amount: float = 3000.0,
         min_signal_ranking: int = 70,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
     ):
@@ -54,15 +58,19 @@ class PortfolioBacktester:
         self.exit_strategy = exit_strategy
         self.bars_history = bars_history
         self.time_frame_unit = time_frame_unit
+        self.start_date = start_date
+        self.end_date = end_date
 
         # Initialize components
         self.portfolio_manager = PortfolioManager(
+            start_date=start_date,
+            end_date=end_date,
             initial_capital=initial_capital,
-            position_size_amount=position_size,
+            position_min_amount=position_min_amount,
+            position_max_amount=position_max_amount,
         )
 
         self.signal_selector = PortfolioSignalSelector(
-            max_positions=max_positions,
             min_ranking=min_signal_ranking,
         )
 
@@ -78,7 +86,6 @@ class PortfolioBacktester:
         )
 
         # Backtest configuration
-        self.max_positions = max_positions
         self.min_signal_ranking = min_signal_ranking
 
     def run_backtest(
@@ -100,7 +107,7 @@ class PortfolioBacktester:
         Returns:
             PortfolioResults with complete backtest analysis
         """
-        logger.info(f"Starting portfolio backtest: {start_date} to {end_date} ({len(universe)} stocks, max {self.max_positions} positions)")
+        logger.info(f"Starting portfolio backtest: {start_date} to {end_date} ({len(universe)} stocks")
 
         benchmark_tickers = benchmark_tickers or ["SPY", "QQQ"]
         current_date = start_date
@@ -130,93 +137,35 @@ class PortfolioBacktester:
         """
         logger.debug(f"Processing trading day: {current_date}")
 
-        # Step 1: Process scheduled exits first (pre-calculated trades)
-        self._process_scheduled_exits(current_date)
-
-        # Step 2: Check exit conditions for remaining positions (fallback)
-        exit_signals = self._evaluate_exit_conditions(current_date)
-        self._process_exits(exit_signals, current_date)
-
-        # Step 3: Generate new entry signals
-        entry_signals = self._generate_entry_signals(current_date, universe)
-
-        # Step 4: Select and process new entries
-        selected_signals = self._select_entry_signals(entry_signals, current_date)
-        self._process_entries(selected_signals, current_date)
-
-        # Step 5: Update portfolio with current prices
-        self._update_portfolio_prices(current_date, universe)
-
-        # Step 6: Record daily snapshot
+        # Step 1: Record daily snapshot
         self.portfolio_manager.record_daily_snapshot(current_date)
 
-    def _process_scheduled_exits(self, current_date: datetime) -> None:
+        # Step 2: Process scheduled exits
+        self._process_exits(current_date)
+
+        # Step 3: Generate new entry signals
+        if self.portfolio_manager.current_snapshot.cash >= self.portfolio_manager.position_min_amount:
+            entry_signals = self._generate_entry_signals(current_date, universe)
+
+            # Step 4: Select and process new entries
+            self._process_signals(entry_signals, current_date)
+
+        # Step 5: Update portfolio with current prices
+        self._update_portfolio_prices(current_date)
+
+    def _process_exits(self, current_date: datetime) -> None:
         """
         Process scheduled exits for current date using pre-calculated trade data.
 
         Args:
             current_date: Current trading date
         """
-        # Normalize current_date to remove time component for lookup
-        lookup_date = current_date.replace(hour=0, minute=0, second=0, microsecond=0)
 
-        # Find positions that should exit today by checking their closed_trade exit dates
-        positions_to_close = []
-
-        for ticker, position in self.portfolio_manager.state.positions.items():
+        for position in self.portfolio_manager.current_snapshot.positions:
             # Check if this position's scheduled exit date matches current date
-            position_exit_date = position.closed_trade.exit.date.replace(hour=0, minute=0, second=0, microsecond=0)
-            if position_exit_date == lookup_date:
-                positions_to_close.append((ticker, position))
-
-        if not positions_to_close:
-            return
-
-        logger.debug(f"Processing {len(positions_to_close)} scheduled exits for {current_date}")
-
-        for ticker, position in positions_to_close:
-            closed_trade = position.closed_trade
-
-            # Close the position using pre-calculated trade data
-            self.portfolio_manager.close_position_with_trade_data(
-                ticker=ticker, exit_date=closed_trade.exit.date, exit_price=closed_trade.exit.price, exit_reason=closed_trade.exit.reason
-            )
-            logger.debug(f"Closed scheduled position for {ticker} at ${closed_trade.exit.price} ({closed_trade.exit.reason})")
-
-    def _evaluate_exit_conditions(self, current_date: datetime) -> list[dict[str, object]]:
-        """
-        Evaluate exit conditions for remaining positions (fallback for edge cases).
-
-        Args:
-            current_date: Current date
-
-        Returns:
-            List of exit signals with ticker and reason
-        """
-        # Since all positions now have pre-calculated exits via closed_trade,
-        # this method serves as a fallback for edge cases where scheduled exits
-        # might not have been processed correctly.
-
-        if not self.portfolio_manager.state.positions:
-            return []
-
-        return self.signal_processor.evaluate_exit_conditions(self.portfolio_manager.state.positions, current_date)
-
-    def _process_exits(self, exit_signals: list[dict[str, object]], current_date: datetime) -> None:
-        """
-        Process position exits.
-
-        Args:
-            exit_signals: List of exit signals to process
-            current_date: Current date
-        """
-        for exit_signal in exit_signals:
-            self.portfolio_manager.close_position(
-                ticker=exit_signal["ticker"],  # type: ignore
-                exit_date=current_date,
-                exit_price=exit_signal["exit_price"],  # type: ignore
-                exit_reason=exit_signal["exit_reason"],  # type: ignore
-            )
+            if position.exit.date == current_date.date():
+                self.portfolio_manager.close_position(exit=position.exit)
+                logger.debug(f"Closed position for {position.exit.ticker} on scheduled exit date {position.exit.date.date()}")
 
     def _generate_entry_signals(self, current_date: datetime, universe: list[str]) -> list[Signal]:
         """
@@ -229,43 +178,21 @@ class PortfolioBacktester:
         Returns:
             List of generated signals
         """
-        all_signals = []
+        signals: list[Signal] = []
+        filtered_signals: list[Signal] = []
 
         for ticker in universe:
-            try:
-                # Generate signals for this ticker
-                signals = self.trading_strategy.get_signals(ticker, current_date - timedelta(days=1), current_date)
+            signals.extend(self.trading_strategy.get_signals(ticker, current_date, current_date))
 
-                # Filter for signals on current date
-                current_signals = [s for s in signals if s.date.date() == current_date.date()]
-                all_signals.extend(current_signals)
+        filtered_signals = [s for s in signals if s.ranking >= self.min_signal_ranking]
 
-            except Exception as e:
-                logger.debug(f"Error generating signals for {ticker}: {e}")
-                continue
+        # order by ranking descending
+        filtered_signals.sort(key=lambda s: s.ranking, reverse=True)
 
-        logger.debug(f"Generated {len(all_signals)} signals for {current_date}")
-        return all_signals
+        logger.debug(f"Generated {len(filtered_signals)} signals for {current_date}")
+        return filtered_signals
 
-    def _select_entry_signals(self, signals: list[Signal], current_date: datetime) -> list[Signal]:
-        """
-        Select best signals for new positions.
-
-        Args:
-            signals: Available signals
-            current_date: Current date
-
-        Returns:
-            Selected signals for entry
-        """
-        current_positions = set(self.portfolio_manager.state.positions.keys())
-        available_slots = self.portfolio_manager.get_available_position_slots(self.max_positions)
-
-        selected_signals = self.signal_selector.select_entry_signals(signals, current_positions, available_slots, current_date)
-
-        return selected_signals
-
-    def _process_entries(self, signals: list[Signal], current_date: datetime) -> None:
+    def _process_signals(self, signals: list[Signal], current_date: datetime) -> None:
         """
         Process new position entries using complete ClosedTrade calculations.
 
@@ -281,20 +208,22 @@ class PortfolioBacktester:
                 continue
 
             # calculate position size based on entry price and position sizing strategy
-            closed_trade.position_size = self.portfolio_manager.calculate_position_size(
-                ticker=signal.ticker, current_price=closed_trade.entry.price
-            )
-            if closed_trade.position_size == 0:
+            position_size = self.portfolio_manager.calculate_position_size(closed_trade.entry)
+            if position_size == 0:
                 logger.warning(f"Calculated zero shares for {signal.ticker} at price ${closed_trade.entry.price}")
                 continue
             # Add the closed trade to the portfolio state for tracking
             self.portfolio_manager.state.closed_trades.append(closed_trade)
+            # Open the position in the portfolio
+            self.portfolio_manager.open_position(closed_trade.entry, closed_trade.exit, position_size)
 
             logger.debug(
                 f"Opened position for {signal.ticker} on {closed_trade.entry.date}, scheduled exit on {closed_trade.exit.date.date()}"
             )
+            if self.portfolio_manager.current_snapshot.cash >= self.portfolio_manager.position_min_amount:
+                break
 
-    def _update_portfolio_prices(self, current_date: datetime, universe: list[str]) -> None:
+    def _update_portfolio_prices(self, current_date: datetime) -> None:
         """
         Update current prices for all portfolio positions.
 
@@ -302,23 +231,16 @@ class PortfolioBacktester:
             current_date: Current date
             universe: Stock universe
         """
-        if not self.portfolio_manager.state.positions:
-            return
-
-        price_data: dict[str, float] = {}
-
-        for ticker in self.portfolio_manager.state.positions.keys():
+        for position in self.portfolio_manager.current_snapshot.positions:
             try:
-                df = self.bars_history.get_ticker_history(ticker, current_date, current_date + timedelta(days=1), self.time_frame_unit)
+                df = self.bars_history.get_ticker_history(position.ticker, current_date, current_date, self.time_frame_unit)
 
                 if not df.empty:
-                    price_data[ticker] = float(df.iloc[0]["close"])
+                    self.portfolio_manager.current_snapshot.update_position_price(position.ticker, float(df.iloc[0]["close"]))
 
             except Exception as e:
-                logger.debug(f"Error updating price for {ticker}: {e}")
+                logger.debug(f"Error updating price for {position.ticker}, date: {current_date} : {e}")
                 continue
-
-        self.portfolio_manager.update_position_prices(price_data, current_date)
 
     def _generate_results(
         self,

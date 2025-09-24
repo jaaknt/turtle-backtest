@@ -143,7 +143,7 @@ def print_trade_analysis(results: PortfolioResults) -> None:
         winning_trades = len([p for p in positions if p.realized_pnl > 0])
         win_rate = (winning_trades / total_trades) * 100 if total_trades > 0 else 0
 
-        avg_return = sum(p.realized_pnl_pct for p in positions) / total_trades
+        avg_return = sum(p.realized_pct for p in positions) / total_trades
         total_pnl = sum(p.realized_pnl for p in positions)
 
         print(f"{ticker:<8} {total_trades:<7} {win_rate:<6.1f} {avg_return:<12.2f} ${total_pnl:<11.2f}")
@@ -159,7 +159,7 @@ def print_top_performers(results: PortfolioResults) -> None:
     print(f"{'='*60}")
 
     # Sort by realized P&L percentage
-    sorted_positions = sorted(results.closed_positions, key=lambda x: x.realized_pnl_pct, reverse=True)
+    sorted_positions = sorted(results.closed_positions, key=lambda x: x.realized_pct, reverse=True)
 
     print("\nTop 5 Winning Trades:")
     print(f"{'Ticker':<8} {'Entry':<12} {'Exit':<12} {'Return%':<10} {'P&L':<10} {'Days':<6}")
@@ -170,7 +170,7 @@ def print_top_performers(results: PortfolioResults) -> None:
             f"{position.ticker:<8} "
             f"{position.entry_date.strftime('%Y-%m-%d'):<12} "
             f"{position.exit_date.strftime('%Y-%m-%d'):<12} "
-            f"{position.realized_pnl_pct:<10.2f} "
+            f"{position.realized_pct:<10.2f} "
             f"${position.realized_pnl:<9.2f} "
             f"{position.holding_period_days:<6}"
         )
@@ -184,7 +184,7 @@ def print_top_performers(results: PortfolioResults) -> None:
             f"{position.ticker:<8} "
             f"{position.entry_date.strftime('%Y-%m-%d'):<12} "
             f"{position.exit_date.strftime('%Y-%m-%d'):<12} "
-            f"{position.realized_pnl_pct:<10.2f} "
+            f"{position.realized_pct:<10.2f} "
             f"${position.realized_pnl:<9.2f} "
             f"{position.holding_period_days:<6}"
         )

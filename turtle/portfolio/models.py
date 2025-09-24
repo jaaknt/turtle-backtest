@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 import pandas as pd
 
-from turtle.backtest.models import Benchmark, ClosedTrade
+from turtle.backtest.models import Benchmark, ClosedTrade, Trade
 
 
 @dataclass
@@ -13,65 +13,35 @@ class Position:
     Represents a single portfolio position.
 
     Attributes:
-        ticker: Stock symbol
-        entry_date: Date when position was opened
-        entry_price: Price at which position was entered
-        shares: Number of shares held
-        entry_signal_ranking: Original signal ranking when position was opened
-        closed_trade: Associated ClosedTrade with pre-calculated exit data
-        current_price: Latest known price
-        current_value: Current market value of position
-        unrealized_pnl: Unrealized profit/loss in dollars
-        unrealized_pnl_pct: Unrealized profit/loss as percentage
+        entry: Trade object representing entry trade
+        exit: Trade object representing exit trade in future
+        position_size: Number of shares held
     """
-    ticker: str
-    entry_date: datetime
-    entry_price: float
-    shares: int
-    entry_signal_ranking: int
-    closed_trade: "ClosedTrade"
-    current_price: float = 0.0
-    current_value: float = 0.0
-    unrealized_pnl: float = 0.0
-    unrealized_pnl_pct: float = 0.0
 
-    def update_current_price(self, price: float) -> None:
-        """Update position with current market price and recalculate metrics."""
-        self.current_price = price
-        self.current_value = self.shares * price
-        self.unrealized_pnl = self.current_value - (self.shares * self.entry_price)
-        self.unrealized_pnl_pct = (self.unrealized_pnl / (self.shares * self.entry_price)) * 100.0
+    entry: Trade
+    exit: Trade
+    current_price: float
+    position_size: int
 
+    @property
+    def ticker(self) -> str:
+        """Get the ticker symbol from the entry trade."""
+        return self.entry.ticker
 
-@dataclass
-class ClosedPosition:
-    """
-    Represents a closed position with realized returns.
+    @property
+    def current_value(self) -> float:
+        """Get the current market value of the position."""
+        return self.current_price * self.position_size
 
-    Attributes:
-        ticker: Stock symbol
-        entry_date: Date when position was opened
-        exit_date: Date when position was closed
-        entry_price: Price at which position was entered
-        exit_price: Price at which position was exited
-        shares: Number of shares held
-        entry_signal_ranking: Original signal ranking
-        exit_reason: Reason for position closure
-        realized_pnl: Realized profit/loss in dollars
-        realized_pnl_pct: Realized profit/loss as percentage
-        holding_period_days: Number of days position was held
-    """
-    ticker: str
-    entry_date: datetime
-    exit_date: datetime
-    entry_price: float
-    exit_price: float
-    shares: int
-    entry_signal_ranking: int
-    exit_reason: str
-    realized_pnl: float
-    realized_pnl_pct: float
-    holding_period_days: int
+    @property
+    def unrealized_pnl(self) -> float:
+        """Get unrealized P&L"""
+        return (self.exit.price - self.current_price) * self.position_size
+
+    @property
+    def holding_period_days(self) -> int:
+        """Get the holding period in days"""
+        return (self.exit.date - self.entry.date).days
 
 
 @dataclass
@@ -83,18 +53,73 @@ class DailyPortfolioSnapshot:
         date: Snapshot date
         total_value: Total portfolio value
         cash: Available cash
-        positions_value: Total value of all positions
-        positions_count: Number of open positions
+        positions: List of positions at snapshot time
         daily_return: Daily return percentage
         daily_pnl: Daily profit/loss in dollars
     """
+
     date: datetime
-    total_value: float
     cash: float
-    positions_value: float
-    positions_count: int
+    positions: list[Position]
     daily_return: float
     daily_pnl: float
+
+    @property
+    def positions_value(self) -> float:
+        """Total value of all positions at snapshot time."""
+        return sum(position.current_value for position in self.positions)
+
+    @property
+    def positions_count(self) -> int:
+        """Number of positions at snapshot time."""
+        return len(self.positions)
+
+    @property
+    def total_value(self) -> float:
+        """Total value of all positions at snapshot time."""
+        return self.cash + self.positions_value
+
+    def get_position(self, ticker: str) -> Position:
+        """Get a position by ticker symbol."""
+        for position in self.positions:
+            if position.ticker == ticker:
+                return position
+        raise ValueError(f"Position not found for ticker: {ticker}")
+
+    def add_position(self, position: Position) -> None:
+        """Add a new position."""
+        self.positions.append(position)
+        self.cash -= position.current_value
+
+    def remove_position(self, ticker: str, price: float) -> None:
+        """Remove a position by ticker symbol."""
+        position = self.get_position(ticker)
+        self.cash += position.position_size * price
+        self.positions = [p for p in self.positions if p.ticker != ticker]
+
+    def update_position_price(self, ticker: str, new_price: float) -> None:
+        """Update the price of an existing position by creating a new exit trade."""
+        position = self.get_position(ticker)
+        position.current_price = new_price
+        return None
+
+    def copy(self) -> "DailyPortfolioSnapshot":
+        """Create a deep copy of the snapshot."""
+        return DailyPortfolioSnapshot(
+            date=self.date,
+            cash=self.cash,
+            positions=[
+                Position(
+                    entry=Trade(p.entry.ticker, p.entry.date, p.entry.price, p.entry.reason),
+                    exit=Trade(p.exit.ticker, p.exit.date, p.exit.price, p.exit.reason),
+                    position_size=p.position_size,
+                    current_price=p.current_price,
+                )
+                for p in self.positions
+            ],
+            daily_return=0.0,
+            daily_pnl=0.0,
+        )
 
 
 @dataclass
@@ -103,40 +128,12 @@ class PortfolioState:
     Current state of the portfolio.
 
     Attributes:
-        cash: Available cash for new positions
-        positions: Dictionary of current open positions
-        total_value: Total portfolio value (cash + positions)
         daily_snapshots: Historical daily snapshots
-        closed_positions: List of all closed positions
         closed_trades: List of all closed trades
-        last_update_date: Date of last portfolio update
     """
-    cash: float
-    positions: dict[str, Position]
-    total_value: float
-    daily_snapshots: list[DailyPortfolioSnapshot]
-    closed_positions: list[ClosedPosition]
+
+    daily_snapshots: list[DailyPortfolioSnapshot] = field(default_factory=list)
     closed_trades: list[ClosedTrade] = field(default_factory=list)
-    last_update_date: datetime | None = None
-
-    @property
-    def positions_value(self) -> float:
-        """Total value of all open positions."""
-        return sum(position.current_value for position in self.positions.values())
-
-    @property
-    def positions_count(self) -> int:
-        """Number of open positions."""
-        return len(self.positions)
-
-    @property
-    def available_cash_for_new_position(self) -> float:
-        """Cash available for opening new positions."""
-        return self.cash
-
-    def update_total_value(self) -> None:
-        """Recalculate total portfolio value."""
-        self.total_value = self.cash + self.positions_value
 
 
 @dataclass
@@ -168,6 +165,7 @@ class PortfolioResults:
         volatility: Portfolio volatility
         benchmark_returns: List of benchmark comparison data
     """
+
     start_date: datetime
     end_date: datetime
     initial_capital: float
@@ -177,7 +175,7 @@ class PortfolioResults:
     total_return_dollars: float
     daily_returns: pd.Series
     daily_values: pd.Series
-    closed_positions: list[ClosedPosition]
+    closed_positions: list[ClosedTrade]
     max_positions_held: int
     total_trades: int
     winning_trades: int

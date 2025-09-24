@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -51,6 +53,7 @@ class ClosedTrade:
         exit: Trade object containing exit date, price, and reason
         benchmark_list: List of benchmark comparisons for the same period
         position_size: Position size in shares or dollar amount (defaults to 1.0)
+        entry_signal_ranking: Original signal ranking when position was opened (optional)
     """
 
     signal: Signal
@@ -90,3 +93,23 @@ class ClosedTrade:
         if self.entry.price <= 0:
             raise ValueError(f"Invalid entry price: {self.entry.price}")
         return ((self.exit.price - self.entry.price) / self.entry.price) * 100.0
+
+    @property
+    def exit_reason(self) -> str:
+        """
+        Get the exit reason from the exit trade.
+
+        Returns:
+            Exit reason string
+        """
+        return self.exit.reason
+
+    @property
+    def ticker(self) -> str:
+        """
+        Get the ticker symbol from the signal or entry trade.
+
+        Returns:
+            Ticker symbol string
+        """
+        return self.signal.ticker
