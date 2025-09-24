@@ -121,6 +121,10 @@ class DailyPortfolioSnapshot:
             daily_pnl=0.0,
         )
 
+    def get_tickers(self) -> list[str]:
+        """Get a list of all ticker symbols in the portfolio."""
+        return [position.ticker for position in self.positions]
+
 
 @dataclass
 class PortfolioState:

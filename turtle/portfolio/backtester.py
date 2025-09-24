@@ -60,6 +60,7 @@ class PortfolioBacktester:
         self.time_frame_unit = time_frame_unit
         self.start_date = start_date
         self.end_date = end_date
+        self.min_signal_ranking = min_signal_ranking
 
         # Initialize components
         self.portfolio_manager = PortfolioManager(
@@ -179,18 +180,23 @@ class PortfolioBacktester:
             List of generated signals
         """
         signals: list[Signal] = []
-        filtered_signals: list[Signal] = []
+        qualified_signals: list[Signal] = []
 
         for ticker in universe:
             signals.extend(self.trading_strategy.get_signals(ticker, current_date, current_date))
 
-        filtered_signals = [s for s in signals if s.ranking >= self.min_signal_ranking]
+        # Step 1: Filter by minimum ranking threshold
+        qualified_signals = [
+            signal
+            for signal in signals
+            if signal.ranking >= self.min_signal_ranking and signal.ticker not in self.portfolio_manager.current_snapshot.get_tickers()
+        ]
 
         # order by ranking descending
-        filtered_signals.sort(key=lambda s: s.ranking, reverse=True)
+        qualified_signals.sort(key=lambda s: s.ranking, reverse=True)
 
-        logger.debug(f"Generated {len(filtered_signals)} signals for {current_date}")
-        return filtered_signals
+        logger.debug(f"Generated {len(qualified_signals)} signals for {current_date}")
+        return qualified_signals
 
     def _process_signals(self, signals: list[Signal], current_date: datetime) -> None:
         """
