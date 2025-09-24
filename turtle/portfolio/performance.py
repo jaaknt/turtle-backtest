@@ -58,8 +58,9 @@ class PortfolioAnalytics:
         """
         logger.info("Generating portfolio performance results")
 
-        # Calculate basic metrics
-        final_value = portfolio_state.total_value
+        # Calculate basic metrics from final snapshot
+        final_snapshot = portfolio_state.daily_snapshots[-1] if portfolio_state.daily_snapshots else None
+        final_value = final_snapshot.total_value if final_snapshot else initial_capital
         total_return_dollars = final_value - initial_capital
         total_return_pct = (total_return_dollars / initial_capital) * 100.0
 
@@ -83,7 +84,7 @@ class PortfolioAnalytics:
             end_date=end_date,
             initial_capital=initial_capital,
             final_value=final_value,
-            final_cash=portfolio_state.cash,
+            final_cash=final_snapshot.cash if final_snapshot else 0.0,
             total_return_pct=total_return_pct,
             total_return_dollars=total_return_dollars,
             daily_returns=daily_returns,
