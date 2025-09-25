@@ -105,9 +105,9 @@ class PortfolioService:
         Returns:
             PortfolioResults with complete backtest analysis
         """
-        logger.info(f"Starting portfolio backtest: {start_date} to {end_date} ({len(universe)} stocks")
+        logger.info(f"Starting portfolio backtest: {start_date.date()} to {end_date.date()} ({len(universe)} stocks)")
 
-        benchmark_tickers = benchmark_tickers or ["SPY", "QQQ"]
+        benchmark_tickers = benchmark_tickers or []
         current_date = start_date
 
         while current_date <= end_date:
@@ -133,10 +133,13 @@ class PortfolioService:
             current_date: Current trading date
             universe: Stock universe for signal generation
         """
-        logger.debug(f"Processing trading day: {current_date}")
 
         # Step 1: Record daily snapshot
         self.portfolio_manager.record_daily_snapshot(current_date)
+
+        logger.info(
+            f"Processing trading day: {current_date.date()} Total value: ${self.portfolio_manager.current_snapshot.total_value:.2f}"
+        )
 
         # Step 2: Process scheduled exits
         self._process_exits(current_date)
@@ -161,9 +164,9 @@ class PortfolioService:
 
         for position in self.portfolio_manager.current_snapshot.positions:
             # Check if this position's scheduled exit date matches current date
-            if position.exit.date == current_date.date():
-                self.portfolio_manager.close_position(exit=position.exit)
-                logger.debug(f"Closed position for {position.exit.ticker} on scheduled exit date {position.exit.date.date()}")
+            # print(f"Position: {position}")
+            if position.exit.date.date() == current_date.date():
+                self.portfolio_manager.close_position(exit=position.exit, position_size=position.position_size)
 
     def _generate_entry_signals(self, current_date: datetime, universe: list[str]) -> list[Signal]:
         """
@@ -223,7 +226,7 @@ class PortfolioService:
             logger.debug(
                 f"Opened position for {signal.ticker} on {closed_trade.entry.date}, scheduled exit on {closed_trade.exit.date.date()}"
             )
-            if self.portfolio_manager.current_snapshot.cash >= self.portfolio_manager.position_min_amount:
+            if self.portfolio_manager.current_snapshot.cash < self.portfolio_manager.position_min_amount:
                 break
 
     def _update_portfolio_prices(self, current_date: datetime) -> None:

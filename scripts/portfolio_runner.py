@@ -368,11 +368,11 @@ def main() -> int:
     except KeyboardInterrupt:
         logger.warning("Backtest interrupted by user")
         return 1
-    except Exception as e:
-        logger.error(f"Backtest failed with error: {e}")
-        if args.verbose:
-            logger.exception("Full error details:")
-        return 1
+    # except Exception as e:
+    #    logger.error(f"Backtest failed with error: {e}")
+    #    if args.verbose:
+    #        logger.exception("Full error details:")
+    #    return 1
 
 
 if __name__ == "__main__":

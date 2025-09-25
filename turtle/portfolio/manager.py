@@ -62,7 +62,10 @@ class PortfolioManager:
         """
         target_value = min(self.position_max_amount, self.current_snapshot.cash)
         position_size = int(target_value / entry.price)
-        logger.debug(f"Position size calculation for {entry.ticker}: target=${target_value}, price=${entry.price}, shares={position_size}")
+        logger.debug(
+            f"Position size calculation for {entry.ticker}: target=${target_value}, "
+            f"price=${entry.price}, shares={position_size}, cash=${self.current_snapshot.cash}"
+        )
         return position_size
 
     def open_position(
@@ -93,13 +96,17 @@ class PortfolioManager:
 
         self.current_snapshot.add_position(position)
 
-        logger.info(f"Opened position: {entry.ticker} x{position_size} @ ${entry.price:.2f} (cost: ${cost:.2f})")
+        logger.info(
+            f"Opened position: {entry.date.date()} {entry.ticker} x{position_size} "
+            f"@ ${entry.price:.2f} cost=${cost:.2f} cash=${self.current_snapshot.cash:.2f}"
+        )
 
         return position
 
     def close_position(
         self,
         exit: Trade,
+        position_size: int,
     ) -> None:
         """
         Close an existing position.
@@ -112,11 +119,14 @@ class PortfolioManager:
         """
 
         ticker = exit.ticker
+        cost = exit.price * position_size
 
         # Update portfolio state
         self.current_snapshot.remove_position(ticker, price=exit.price)
 
-        logger.info(f"Closed position: {exit.ticker} ${exit.price:.2f} ")
+        logger.info(
+            f"Closed position: {exit.date.date()} {exit.ticker} ${exit.price:.2f} cost=${cost:.2f} cash=${self.current_snapshot.cash:.2f}"
+        )
 
         return None
 
