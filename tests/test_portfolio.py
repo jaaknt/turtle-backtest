@@ -191,7 +191,7 @@ class TestPortfolioManager:
 
         # Close position - use different exit trade
         actual_exit_trade = Trade(ticker="AAPL", date=datetime(2024, 1, 10), price=110.0, reason="profit_target")
-        manager.close_position(actual_exit_trade)
+        manager.close_position(actual_exit_trade, position_size)
 
         # Verify position was closed
         # With new Position structure, remove_position uses current_value (exit price)
