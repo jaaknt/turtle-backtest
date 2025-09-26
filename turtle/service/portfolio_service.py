@@ -9,10 +9,9 @@ from turtle.data.bars_history import BarsHistoryRepo
 from turtle.signal.models import Signal
 from turtle.common.enums import TimeFrameUnit
 from turtle.backtest.processor import SignalProcessor
-from turtle.portfolio.models import PortfolioResults
 from turtle.portfolio.manager import PortfolioManager
 from turtle.portfolio.selector import PortfolioSignalSelector
-from turtle.portfolio.performance import PortfolioAnalytics
+from turtle.portfolio.analytics import PortfolioAnalytics
 
 logger = logging.getLogger(__name__)
 
@@ -91,23 +90,19 @@ class PortfolioService:
         start_date: datetime,
         end_date: datetime,
         universe: list[str],
-        benchmark_tickers: list[str] | None = None,
-    ) -> PortfolioResults:
+        output_file: str | None = None,
+    ) -> None:
         """
-        Execute complete portfolio backtest.
+        Execute complete portfolio backtest with printed results and tearsheet.
 
         Args:
             start_date: Backtest start date
             end_date: Backtest end date
             universe: List of stock tickers to consider
-            benchmark_tickers: Optional benchmark tickers (e.g., ['SPY', 'QQQ'])
-
-        Returns:
-            PortfolioResults with complete backtest analysis
+            output_file: Optional file path for HTML tearsheet output
         """
         logger.info(f"Starting portfolio backtest: {start_date.date()} to {end_date.date()} ({len(universe)} stocks)")
 
-        benchmark_tickers = benchmark_tickers or []
         current_date = start_date
 
         while current_date <= end_date:
@@ -116,14 +111,8 @@ class PortfolioService:
 
             current_date += timedelta(days=1)
 
-        # Generate final results
-        results = self._generate_results(start_date, end_date, benchmark_tickers)
-
-        logger.info(
-            f"Backtest completed: {results.total_trades} trades, {results.total_return_pct:.2f}% return, {results.win_rate:.1f}% win rate"
-        )
-
-        return results
+        # Generate final results and display
+        self._generate_results(output_file=output_file)
 
     def _process_trading_day(self, current_date: datetime, universe: list[str]) -> None:
         """
@@ -250,26 +239,9 @@ class PortfolioService:
 
     def _generate_results(
         self,
-        start_date: datetime,
-        end_date: datetime,
-        benchmark_tickers: list[str],
-    ) -> PortfolioResults:
-        """
-        Generate comprehensive backtest results.
-
-        Args:
-            start_date: Backtest start date
-            end_date: Backtest end date
-            benchmark_tickers: Benchmark ticker symbols
-
-        Returns:
-            PortfolioResults with complete analysis
-        """
-        return self.analytics.generate_results(
+        output_file: str | None = None,
+    ) -> None:
+        self.analytics.generate_results(
             self.portfolio_manager.state,
-            start_date,
-            end_date,
-            self.portfolio_manager.initial_capital,
-            benchmark_tickers,
-            self.bars_history,
+            output_file="reports/portfolio_report.html" if output_file is None else output_file,
         )

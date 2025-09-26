@@ -24,12 +24,9 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from datetime import datetime
 import logging
 
-from turtle.service.data_update_service import DataUpdateService
-from turtle.common.enums import TimeFrameUnit
-from turtle.portfolio import PortfolioBacktester, PortfolioAnalytics, PortfolioResults
+from turtle.portfolio.models import PortfolioState
 
 # Configure logging
 logging.basicConfig(
@@ -44,28 +41,33 @@ def main() -> None:
     """Main execution function."""
     logger.info("Starting Portfolio Backtesting Example")
 
-    # Initialize data service (using existing pattern from notebook examples)
-    data_service = DataUpdateService(time_frame_unit=TimeFrameUnit.DAY)
+    # Note: This example is a template - it requires proper database setup
+    # For working examples, use the portfolio_backtesting.ipynb notebook
+    logger.warning("This is a template file. Use portfolio_backtesting.ipynb for working examples.")
+    return
+
+    # Initialize data service (requires proper pool and app_config setup)
+    # data_service = DataUpdateService(pool, app_config, time_frame_unit=TimeFrameUnit.DAY)
 
     # Define backtest parameters
-    start_date = datetime(2023, 1, 1)
-    end_date = datetime(2024, 8, 30)
-    initial_capital = 10000.0
-    max_positions = 10
-    position_size = 1000.0
-    min_signal_ranking = 70
+    # start_date = datetime(2023, 1, 1)
+    # end_date = datetime(2024, 8, 30)
+    # initial_capital = 10000.0
+    # max_positions = 10
+    # position_size = 1000.0
+    # min_signal_ranking = 70
 
     # Define stock universe - using a subset for this example
     # In practice, you might use data_service.get_symbol_group_list("NAS100") or similar
-    universe = [
-        'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'AVGO', 'NFLX', 'AMD',
-        'CRM', 'ADBE', 'PYPL', 'INTC', 'CMCSA', 'PEP', 'COST', 'TMUS', 'AMGN', 'GILD',
-        'MRNA', 'BKNG', 'ASML', 'AZN', 'TXN', 'QCOM', 'INTU', 'ISRG', 'AMAT', 'ADI'
-    ]
+    # universe = [
+    #     'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'AVGO', 'NFLX', 'AMD',
+    #     'CRM', 'ADBE', 'PYPL', 'INTC', 'CMCSA', 'PEP', 'COST', 'TMUS', 'AMGN', 'GILD',
+    #     'MRNA', 'BKNG', 'ASML', 'AZN', 'TXN', 'QCOM', 'INTU', 'ISRG', 'AMAT', 'ADI'
+    # ]
 
-    logger.info(f"Universe: {len(universe)} stocks")
-    logger.info(f"Period: {start_date.date()} to {end_date.date()}")
-    logger.info(f"Capital: ${initial_capital:,.0f}, Max Positions: {max_positions}")
+    # logger.info(f"Universe: {len(universe)} stocks")
+    # logger.info(f"Period: {start_date.date()} to {end_date.date()}")
+    # logger.info(f"Capital: ${initial_capital:,.0f}, Max Positions: {max_positions}")
 
     # Initialize exit strategy (you can experiment with different strategies)
     # Note: This is a placeholder - in practice, you'd need proper exit strategy initialization
@@ -74,52 +76,42 @@ def main() -> None:
     #     bars_history=data_service.bars_history
     # )
     # Using a simple mock for demonstration
-    exit_strategy = None
+    # exit_strategy = None
 
-    # Create portfolio backtester
-    backtester = PortfolioBacktester(
-        # trading_strategy=data_service.darvas_box_strategy,  # Or mars_strategy, momentum_strategy
-        # Note: Using None for now as a placeholder - in practice use actual strategy
-        trading_strategy=None,
-        exit_strategy=exit_strategy,
-        bars_history=data_service.bars_history,
-        initial_capital=initial_capital,
-        max_positions=max_positions,
-        position_size=position_size,
-        min_signal_ranking=min_signal_ranking,
-        time_frame_unit=TimeFrameUnit.DAY,
-    )
+    # Create portfolio service (requires proper strategy setup)
+    # portfolio_service = PortfolioService(
+    #     trading_strategy=data_service.darvas_box_strategy,
+    #     exit_strategy=exit_strategy,
+    #     bars_history=data_service.bars_history,
+    #     start_date=start_date,
+    #     end_date=end_date,
+    #     initial_capital=initial_capital,
+    #     position_min_amount=position_size,
+    #     position_max_amount=position_size * 2,
+    #     min_signal_ranking=min_signal_ranking,
+    #     time_frame_unit=TimeFrameUnit.DAY,
+    # )
 
-    try:
-        # Run the backtest
-        logger.info("Running portfolio backtest...")
-        results = backtester.run_backtest(
-            start_date=start_date,
-            end_date=end_date,
-            universe=universe,
-            benchmark_tickers=['SPY', 'QQQ']
-        )
-
-        # Display results
-        analytics = PortfolioAnalytics()
-        analytics.print_performance_summary(results)
-
-        # Print detailed trade analysis
-        print_trade_analysis(results)
-
-        # Print top performing stocks
-        print_top_performers(results)
-
-        logger.info("Portfolio backtest completed successfully")
-
-    except Exception as e:
-        logger.error(f"Backtest failed: {e}")
-        raise
+    # Note: Template code - actual implementation would be:
+    # try:
+    #     # Run the backtest
+    #     logger.info("Running portfolio backtest...")
+    #     portfolio_service.run_backtest(
+    #         start_date=start_date,
+    #         end_date=end_date,
+    #         universe=universe,
+    #     )
+    #
+    #     logger.info("Portfolio backtest completed successfully")
+    #
+    # except Exception as e:
+    #     logger.error(f"Backtest failed: {e}")
+    #     raise
 
 
-def print_trade_analysis(results: PortfolioResults) -> None:
+def print_trade_analysis(results: PortfolioState) -> None:
     """Print detailed trade analysis."""
-    if not results.closed_positions:
+    if not results.closed_trades:
         print("\nNo completed trades found.")
         return
 
@@ -129,29 +121,29 @@ def print_trade_analysis(results: PortfolioResults) -> None:
 
     # Group by ticker
     trades_by_ticker: dict[str, list] = {}
-    for position in results.closed_positions:
-        if position.ticker not in trades_by_ticker:
-            trades_by_ticker[position.ticker] = []
-        trades_by_ticker[position.ticker].append(position)
+    for closed_trade in results.closed_trades:
+        if closed_trade.ticker not in trades_by_ticker:
+            trades_by_ticker[closed_trade.ticker] = []
+        trades_by_ticker[closed_trade.ticker].append(closed_trade)
 
     # Print per-ticker summary
     print(f"{'Ticker':<8} {'Trades':<7} {'Win%':<6} {'Avg Return':<12} {'Total P&L':<12}")
     print("-" * 60)
 
-    for ticker, positions in trades_by_ticker.items():
-        total_trades = len(positions)
-        winning_trades = len([p for p in positions if p.realized_pnl > 0])
+    for ticker, trades in trades_by_ticker.items():
+        total_trades = len(trades)
+        winning_trades = len([t for t in trades if t.realized_pnl > 0])
         win_rate = (winning_trades / total_trades) * 100 if total_trades > 0 else 0
 
-        avg_return = sum(p.realized_pct for p in positions) / total_trades
-        total_pnl = sum(p.realized_pnl for p in positions)
+        avg_return = sum(t.realized_pct for t in trades) / total_trades
+        total_pnl = sum(t.realized_pnl for t in trades)
 
         print(f"{ticker:<8} {total_trades:<7} {win_rate:<6.1f} {avg_return:<12.2f} ${total_pnl:<11.2f}")
 
 
-def print_top_performers(results: PortfolioResults) -> None:
+def print_top_performers(results: PortfolioState) -> None:
     """Print top and bottom performing trades."""
-    if not results.closed_positions:
+    if not results.closed_trades:
         return
 
     print(f"\n{'='*60}")
@@ -159,34 +151,34 @@ def print_top_performers(results: PortfolioResults) -> None:
     print(f"{'='*60}")
 
     # Sort by realized P&L percentage
-    sorted_positions = sorted(results.closed_positions, key=lambda x: x.realized_pct, reverse=True)
+    sorted_trades = sorted(results.closed_trades, key=lambda x: x.realized_pct, reverse=True)
 
     print("\nTop 5 Winning Trades:")
     print(f"{'Ticker':<8} {'Entry':<12} {'Exit':<12} {'Return%':<10} {'P&L':<10} {'Days':<6}")
     print("-" * 60)
 
-    for position in sorted_positions[:5]:
+    for trade in sorted_trades[:5]:
         print(
-            f"{position.ticker:<8} "
-            f"{position.entry_date.strftime('%Y-%m-%d'):<12} "
-            f"{position.exit_date.strftime('%Y-%m-%d'):<12} "
-            f"{position.realized_pct:<10.2f} "
-            f"${position.realized_pnl:<9.2f} "
-            f"{position.holding_period_days:<6}"
+            f"{trade.ticker:<8} "
+            f"{trade.entry.date.strftime('%Y-%m-%d'):<12} "
+            f"{trade.exit.date.strftime('%Y-%m-%d'):<12} "
+            f"{trade.realized_pct:<10.2f} "
+            f"${trade.realized_pnl:<9.2f} "
+            f"{trade.holding_days:<6}"
         )
 
     print("\nBottom 5 Losing Trades:")
     print(f"{'Ticker':<8} {'Entry':<12} {'Exit':<12} {'Return%':<10} {'P&L':<10} {'Days':<6}")
     print("-" * 60)
 
-    for position in sorted_positions[-5:]:
+    for trade in sorted_trades[-5:]:
         print(
-            f"{position.ticker:<8} "
-            f"{position.entry_date.strftime('%Y-%m-%d'):<12} "
-            f"{position.exit_date.strftime('%Y-%m-%d'):<12} "
-            f"{position.realized_pct:<10.2f} "
-            f"${position.realized_pnl:<9.2f} "
-            f"{position.holding_period_days:<6}"
+            f"{trade.ticker:<8} "
+            f"{trade.entry.date.strftime('%Y-%m-%d'):<12} "
+            f"{trade.exit.date.strftime('%Y-%m-%d'):<12} "
+            f"{trade.realized_pct:<10.2f} "
+            f"${trade.realized_pnl:<9.2f} "
+            f"{trade.holding_days:<6}"
         )
 
 

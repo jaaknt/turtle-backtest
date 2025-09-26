@@ -21,7 +21,7 @@ Options:
     --max-tickers NUM                Maximum number of tickers to test (default: 10000)
     --tickers TICKER [TICKER ...]    Specific tickers to test (optional)
     --benchmark-tickers TICKER [TICKER ...] Custom benchmark tickers (default: SPY QQQ)
-    --output-file FILE               Optional CSV output file for results
+    --output-file FILE               Optional HTML tearsheet filename (saved in reports/ folder)
     --verbose                        Enable verbose logging
     --help                           Show this help message
 
@@ -34,7 +34,7 @@ Examples:
         --start-date 2024-01-01 --end-date 2024-12-31 \
         --trading-strategy mars --exit-strategy profit_loss \
         --initial-capital 50000 --min-signal-ranking 80 \
-        --output-file results.csv --verbose
+        --output-file results.html --verbose
 
     # Test specific tickers
     python scripts/portfolio_runner.py \
@@ -43,7 +43,6 @@ Examples:
 """
 
 import argparse
-import csv
 import logging
 import pathlib
 import sys
@@ -70,14 +69,15 @@ from turtle.exit.atr import ATRExitStrategy
 from turtle.ranking.base import RankingStrategy
 from turtle.ranking.momentum import MomentumRanking
 from turtle.ranking.volume_weighted_technical import VolumeWeightedTechnicalRanking
-from turtle.portfolio.models import PortfolioResults
+# PortfolioResults no longer needed - analytics prints directly
+from turtle.service.signal_service import SignalService
 
 logger = logging.getLogger(__name__)
 
 
 def _get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, bars_history: BarsHistoryRepo) -> TradingStrategy:
     """Create trading strategy instance by name."""
-    strategy_classes = {
+    strategy_classes: dict[str, type[TradingStrategy]] = {
         "darvas_box": DarvasBoxStrategy,
         "mars": MarsStrategy,
         "momentum": MomentumStrategy,
@@ -98,7 +98,7 @@ def _get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy,
 
 def _get_exit_strategy(strategy_name: str, bars_history: BarsHistoryRepo) -> ExitStrategy:
     """Create exit strategy instance by name."""
-    strategy_classes = {
+    strategy_classes: dict[str, type[ExitStrategy]] = {
         "buy_and_hold": BuyAndHoldExitStrategy,
         "profit_loss": ProfitLossExitStrategy,
         "ema": EMAExitStrategy,
@@ -116,7 +116,7 @@ def _get_exit_strategy(strategy_name: str, bars_history: BarsHistoryRepo) -> Exi
 
 def _get_ranking_strategy(strategy_name: str) -> RankingStrategy:
     """Create ranking strategy instance by name."""
-    strategy_classes = {
+    strategy_classes: dict[str, type[RankingStrategy]] = {
         "momentum": MomentumRanking,
         "volume_weighted_technical": VolumeWeightedTechnicalRanking,
     }
@@ -239,7 +239,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output-file",
         type=str,
-        help="Optional CSV output file for results",
+        help="Optional HTML tearsheet filename (saved in reports/ folder)",
     )
 
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
@@ -247,46 +247,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def export_results_to_csv(results: PortfolioResults, filename: str) -> None:
-    """Export portfolio results to CSV file."""
-    try:
-        with open(filename, "w", newline="") as csvfile:
-            writer = csv.writer(csvfile)
-
-            # Write header
-            writer.writerow(["Metric", "Value"])
-
-            # Write key metrics
-            writer.writerow(["Total Trades", results.total_trades])
-            writer.writerow(["Total Return %", f"{results.total_return_pct:.2f}"])
-            writer.writerow(["Win Rate %", f"{results.win_rate:.1f}"])
-            writer.writerow(["Average Win %", f"{results.avg_win_pct:.2f}"])
-            writer.writerow(["Average Loss %", f"{results.avg_loss_pct:.2f}"])
-            writer.writerow(["Max Drawdown %", f"{results.max_drawdown_pct:.2f}"])
-            writer.writerow(["Sharpe Ratio", f"{results.sharpe_ratio:.2f}"])
-            writer.writerow(["Total Return $", f"{results.total_return_dollars:.2f}"])
-
-        logger.info(f"Results exported to {filename}")
-
-    except Exception as e:
-        logger.error(f"Failed to export results to CSV: {e}")
-
-
-def display_results(results: PortfolioResults) -> None:
-    """Display portfolio backtest results in a formatted way."""
-    print("\n" + "=" * 60)
-    print("PORTFOLIO BACKTEST RESULTS")
-    print("=" * 60)
-
-    print(f"📊 Total Trades: {results.total_trades}")
-    print(f"💰 Total Return: {results.total_return_pct:.2f}% (${results.total_return_dollars:,.2f})")
-    print(f"🎯 Win Rate: {results.win_rate:.1f}%")
-    print(f"📈 Average Win: {results.avg_win_pct:.2f}%")
-    print(f"📉 Average Loss: {results.avg_loss_pct:.2f}%")
-    print(f"⬇️  Max Drawdown: {results.max_drawdown_pct:.2f}%")
-    print(f"📏 Sharpe Ratio: {results.sharpe_ratio:.2f}")
-
-    print("=" * 60)
+# Note: Results display and export now handled by PortfolioAnalytics.generate_results()
+# which prints performance summary and generates HTML tearsheet reports
 
 
 def main() -> int:
@@ -335,8 +297,6 @@ def main() -> int:
             universe = args.tickers
             logger.info(f"Using specific tickers: {', '.join(universe)}")
         else:
-            from turtle.service.signal_service import SignalService
-
             signal_service = SignalService(
                 pool=settings.pool,
                 app_config=settings.app,
@@ -346,21 +306,14 @@ def main() -> int:
             universe = signal_service.get_symbol_list(max_symbols=args.max_tickers)
             logger.info(f"Using {len(universe)} tickers from symbol database")
 
-        # Run the backtest
+        # Run the backtest (now prints results and generates tearsheet automatically)
         logger.info(f"Running portfolio backtest from {args.start_date.date()} to {args.end_date.date()}")
-        results = portfolio_service.run_backtest(
+        portfolio_service.run_backtest(
             start_date=args.start_date,
             end_date=args.end_date,
             universe=universe,
-            benchmark_tickers=args.benchmark_tickers,
+            output_file=args.output_file,  # HTML tearsheet output file
         )
-
-        # Display results
-        display_results(results)
-
-        # Export to CSV if requested
-        if args.output_file:
-            export_results_to_csv(results, args.output_file)
 
         logger.info("Portfolio backtest completed successfully")
         return 0

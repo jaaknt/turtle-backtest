@@ -50,3 +50,6 @@ MANIFEST
 
 # Ruff cache
 .ruff_cache/
+
+# Reports
+reports/
