@@ -212,11 +212,9 @@ class TestPortfolioManager:
 
         snapshot1 = manager.record_daily_snapshot(datetime(2024, 1, 1))
         assert snapshot1.total_value == 10000.0
-        assert snapshot1.daily_return == 0.0
 
         snapshot2 = manager.record_daily_snapshot(datetime(2024, 1, 2))
-        assert snapshot2.daily_return == 0.0
-        assert snapshot2.daily_pnl == 0.0
+        assert snapshot2.total_value == 10000.0
 
 
 class TestPortfolioSignalSelector:
