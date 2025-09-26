@@ -146,8 +146,6 @@ class PortfolioManager:
                 date=self.start_date,
                 cash=self.initial_capital,
                 positions=[],
-                daily_return=0.0,
-                daily_pnl=0.0,
             )
         else:
             snapshot = self.current_snapshot.copy()
