@@ -47,7 +47,7 @@ def create_test_data(length: int = 100) -> pd.DataFrame:
     })
 
 
-def test_ranking_initialization():
+def test_ranking_initialization() -> None:
     """Test VolumeWeightedTechnicalRanking initialization."""
     ranking = VolumeWeightedTechnicalRanking()
     assert ranking.market_benchmark == "SPY"
@@ -56,7 +56,7 @@ def test_ranking_initialization():
     assert ranking_custom.market_benchmark == "QQQ"
 
 
-def test_ranking_with_insufficient_data():
+def test_ranking_with_insufficient_data() -> None:
     """Test ranking behavior with insufficient data."""
     ranking = VolumeWeightedTechnicalRanking()
 
@@ -68,7 +68,7 @@ def test_ranking_with_insufficient_data():
     assert score <= 10  # Should return low score for insufficient data
 
 
-def test_ranking_with_valid_data():
+def test_ranking_with_valid_data() -> None:
     """Test ranking with sufficient data."""
     ranking = VolumeWeightedTechnicalRanking()
 
@@ -80,7 +80,7 @@ def test_ranking_with_valid_data():
     assert 0 <= score <= 100  # Score should be in valid range
 
 
-def test_volume_weighted_momentum_component():
+def test_volume_weighted_momentum_component() -> None:
     """Test volume-weighted momentum calculation."""
     ranking = VolumeWeightedTechnicalRanking()
 
@@ -112,7 +112,7 @@ def test_volume_weighted_momentum_component():
     assert momentum_score <= 25  # Max score is 25
 
 
-def test_volatility_adjusted_strength_component():
+def test_volatility_adjusted_strength_component() -> None:
     """Test volatility-adjusted strength calculation."""
     ranking = VolumeWeightedTechnicalRanking()
 
@@ -140,7 +140,7 @@ def test_volatility_adjusted_strength_component():
     assert strength_score <= 25  # Max score is 25
 
 
-def test_liquidity_quality_component():
+def test_liquidity_quality_component() -> None:
     """Test liquidity quality calculation."""
     ranking = VolumeWeightedTechnicalRanking()
 
@@ -168,7 +168,7 @@ def test_liquidity_quality_component():
     assert liquidity_score <= 25  # Max score is 25
 
 
-def test_technical_confluence_component():
+def test_technical_confluence_component() -> None:
     """Test technical confluence calculation."""
     ranking = VolumeWeightedTechnicalRanking()
 
@@ -196,7 +196,7 @@ def test_technical_confluence_component():
     assert confluence_score <= 25  # Max score is 25
 
 
-def test_rsi_calculation():
+def test_rsi_calculation() -> None:
     """Test RSI calculation component."""
     ranking = VolumeWeightedTechnicalRanking()
 
@@ -221,7 +221,7 @@ def test_rsi_calculation():
     assert 0 <= rsi_score <= 100  # RSI score should be in valid range
 
 
-def test_moving_average_calculation():
+def test_moving_average_calculation() -> None:
     """Test moving average relationship scoring."""
     ranking = VolumeWeightedTechnicalRanking()
 
@@ -245,7 +245,7 @@ def test_moving_average_calculation():
     assert ma_score > 50  # Should be positive for uptrending data
 
 
-def test_momentum_calculation():
+def test_momentum_calculation() -> None:
     """Test short-term momentum scoring."""
     ranking = VolumeWeightedTechnicalRanking()
 
@@ -273,7 +273,7 @@ def test_momentum_calculation():
     assert momentum_score <= 100  # Should be within valid range
 
 
-def test_ranking_score_bounds():
+def test_ranking_score_bounds() -> None:
     """Test that ranking scores are always within bounds."""
     ranking = VolumeWeightedTechnicalRanking()
 
@@ -286,7 +286,7 @@ def test_ranking_score_bounds():
         assert 0 <= score <= 100, f"Score {score} is out of bounds"
 
 
-def test_ranking_with_missing_data():
+def test_ranking_with_missing_data() -> None:
     """Test ranking behavior with missing/invalid data."""
     ranking = VolumeWeightedTechnicalRanking()
 
@@ -302,7 +302,7 @@ def test_ranking_with_missing_data():
     assert 0 <= score <= 100  # Should still return valid score
 
 
-def test_ranking_deterministic():
+def test_ranking_deterministic() -> None:
     """Test that ranking is deterministic for same input."""
     ranking1 = VolumeWeightedTechnicalRanking()
     ranking2 = VolumeWeightedTechnicalRanking()
