@@ -3,7 +3,7 @@ import numpy as np
 import warnings
 from datetime import datetime
 
-from turtle.ranking.volume_weighted_technical import VolumeWeightedTechnicalRanking
+from turtle.ranking.volume_weighted_technical import VolumeMomentumRanking
 
 with warnings.catch_warnings():
     warnings.filterwarnings(
@@ -48,17 +48,17 @@ def create_test_data(length: int = 100) -> pd.DataFrame:
 
 
 def test_ranking_initialization() -> None:
-    """Test VolumeWeightedTechnicalRanking initialization."""
-    ranking = VolumeWeightedTechnicalRanking()
+    """Test VolumeMomentumRanking initialization."""
+    ranking = VolumeMomentumRanking()
     assert ranking.market_benchmark == "SPY"
 
-    ranking_custom = VolumeWeightedTechnicalRanking(market_benchmark="QQQ")
+    ranking_custom = VolumeMomentumRanking(market_benchmark="QQQ")
     assert ranking_custom.market_benchmark == "QQQ"
 
 
 def test_ranking_with_insufficient_data() -> None:
     """Test ranking behavior with insufficient data."""
-    ranking = VolumeWeightedTechnicalRanking()
+    ranking = VolumeMomentumRanking()
 
     # Test with very limited data (less than 130 required)
     short_data = create_test_data(50)
@@ -70,7 +70,7 @@ def test_ranking_with_insufficient_data() -> None:
 
 def test_ranking_with_valid_data() -> None:
     """Test ranking with sufficient data."""
-    ranking = VolumeWeightedTechnicalRanking()
+    ranking = VolumeMomentumRanking()
 
     # Create data with sufficient history
     data = create_test_data(150)
@@ -82,7 +82,7 @@ def test_ranking_with_valid_data() -> None:
 
 def test_volume_weighted_momentum_component() -> None:
     """Test volume-weighted momentum calculation."""
-    ranking = VolumeWeightedTechnicalRanking()
+    ranking = VolumeMomentumRanking()
 
     # Create trending data with volume confirmation
     dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
@@ -114,7 +114,7 @@ def test_volume_weighted_momentum_component() -> None:
 
 def test_volatility_adjusted_strength_component() -> None:
     """Test volatility-adjusted strength calculation."""
-    ranking = VolumeWeightedTechnicalRanking()
+    ranking = VolumeMomentumRanking()
 
     # Create stable uptrending data (good risk-adjusted return)
     dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
@@ -142,7 +142,7 @@ def test_volatility_adjusted_strength_component() -> None:
 
 def test_liquidity_quality_component() -> None:
     """Test liquidity quality calculation."""
-    ranking = VolumeWeightedTechnicalRanking()
+    ranking = VolumeMomentumRanking()
 
     # Create data with good liquidity
     dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
@@ -170,7 +170,7 @@ def test_liquidity_quality_component() -> None:
 
 def test_technical_confluence_component() -> None:
     """Test technical confluence calculation."""
-    ranking = VolumeWeightedTechnicalRanking()
+    ranking = VolumeMomentumRanking()
 
     # Create data suitable for technical analysis
     dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
@@ -198,7 +198,7 @@ def test_technical_confluence_component() -> None:
 
 def test_rsi_calculation() -> None:
     """Test RSI calculation component."""
-    ranking = VolumeWeightedTechnicalRanking()
+    ranking = VolumeMomentumRanking()
 
     # Create oscillating data for RSI test
     dates = pd.date_range(start='2024-01-01', periods=50, freq='D')
@@ -223,7 +223,7 @@ def test_rsi_calculation() -> None:
 
 def test_moving_average_calculation() -> None:
     """Test moving average relationship scoring."""
-    ranking = VolumeWeightedTechnicalRanking()
+    ranking = VolumeMomentumRanking()
 
     # Create uptrending data for positive MA signals
     dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
@@ -247,7 +247,7 @@ def test_moving_average_calculation() -> None:
 
 def test_momentum_calculation() -> None:
     """Test short-term momentum scoring."""
-    ranking = VolumeWeightedTechnicalRanking()
+    ranking = VolumeMomentumRanking()
 
     # Create recent uptrend for positive momentum
     dates = pd.date_range(start='2024-01-01', periods=30, freq='D')
@@ -275,7 +275,7 @@ def test_momentum_calculation() -> None:
 
 def test_ranking_score_bounds() -> None:
     """Test that ranking scores are always within bounds."""
-    ranking = VolumeWeightedTechnicalRanking()
+    ranking = VolumeMomentumRanking()
 
     # Test with various data scenarios
     for _ in range(10):
@@ -288,7 +288,7 @@ def test_ranking_score_bounds() -> None:
 
 def test_ranking_with_missing_data() -> None:
     """Test ranking behavior with missing/invalid data."""
-    ranking = VolumeWeightedTechnicalRanking()
+    ranking = VolumeMomentumRanking()
 
     # Create data with some NaN values
     data = create_test_data(100)
@@ -304,8 +304,8 @@ def test_ranking_with_missing_data() -> None:
 
 def test_ranking_deterministic() -> None:
     """Test that ranking is deterministic for same input."""
-    ranking1 = VolumeWeightedTechnicalRanking()
-    ranking2 = VolumeWeightedTechnicalRanking()
+    ranking1 = VolumeMomentumRanking()
+    ranking2 = VolumeMomentumRanking()
 
     data = create_test_data(100)
     target_date = datetime(2024, 3, 1)

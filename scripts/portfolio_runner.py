@@ -68,7 +68,8 @@ from turtle.exit.macd import MACDExitStrategy
 from turtle.exit.atr import ATRExitStrategy
 from turtle.ranking.base import RankingStrategy
 from turtle.ranking.momentum import MomentumRanking
-from turtle.ranking.volume_weighted_technical import VolumeWeightedTechnicalRanking
+from turtle.ranking.volume_weighted_technical import VolumeMomentumRanking
+
 # PortfolioResults no longer needed - analytics prints directly
 from turtle.service.signal_service import SignalService
 
@@ -92,7 +93,7 @@ def _get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy,
         bars_history=bars_history,
         ranking_strategy=ranking_strategy,
         time_frame_unit=TimeFrameUnit.DAY,
-        warmup_period=730,
+        warmup_period=365,  # 1 year warmup for indicators
     )
 
 
@@ -118,7 +119,7 @@ def _get_ranking_strategy(strategy_name: str) -> RankingStrategy:
     """Create ranking strategy instance by name."""
     strategy_classes: dict[str, type[RankingStrategy]] = {
         "momentum": MomentumRanking,
-        "volume_weighted_technical": VolumeWeightedTechnicalRanking,
+        "volume_momentum": VolumeMomentumRanking,
     }
 
     strategy_class = strategy_classes.get(strategy_name.lower())
@@ -181,7 +182,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--ranking-strategy",
         type=str,
         default="momentum",
-        choices=["momentum", "volume_weighted_technical"],
+        choices=["momentum", "volume_momentum"],
         help="Ranking strategy to use (default: momentum)",
     )
 
