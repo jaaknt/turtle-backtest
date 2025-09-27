@@ -7,6 +7,6 @@ based on various technical and fundamental criteria.
 
 from .base import RankingStrategy
 from .momentum import MomentumRanking
-from .volume_weighted_technical import VolumeWeightedTechnicalRanking
+from .volume_weighted_technical import VolumeMomentumRanking
 
-__all__ = ["RankingStrategy", "MomentumRanking", "VolumeWeightedTechnicalRanking"]
+__all__ = ["RankingStrategy", "MomentumRanking", "VolumeMomentumRanking"]

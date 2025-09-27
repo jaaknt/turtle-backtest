@@ -68,7 +68,7 @@ def get_trading_strategy_instance(strategy_name: str, pool: ConnectionPool, app:
 
     # Create strategy instance with common parameters
     return strategy_class(
-        bars_history=bars_history, ranking_strategy=MomentumRanking(), time_frame_unit=TimeFrameUnit.DAY, warmup_period=730
+        bars_history=bars_history, ranking_strategy=MomentumRanking(), time_frame_unit=TimeFrameUnit.DAY, warmup_period=365
     )
 
 

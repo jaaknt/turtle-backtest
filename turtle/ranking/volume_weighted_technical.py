@@ -7,9 +7,9 @@ from turtle.ranking.base import RankingStrategy
 logger = logging.getLogger(__name__)
 
 
-class VolumeWeightedTechnicalRanking(RankingStrategy):
+class VolumeMomentumRanking(RankingStrategy):
     """
-    Volume-weighted technical ranking strategy that evaluates stocks based on volume and volatility.
+    Volume momentum ranking strategy that evaluates stocks based on volume-confirmed momentum.
 
     This implementation calculates ranking scores considering:
     - Volume-confirmed momentum (higher volume on moves = higher scores)
@@ -20,7 +20,7 @@ class VolumeWeightedTechnicalRanking(RankingStrategy):
 
     def __init__(self, market_benchmark: str = "SPY") -> None:
         """
-        Initialize VolumeWeightedTechnicalRanking strategy.
+        Initialize VolumeMomentumRanking strategy.
 
         Args:
             market_benchmark: Symbol to use for relative strength comparison
