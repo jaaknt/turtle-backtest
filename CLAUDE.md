@@ -32,6 +32,12 @@ uv run python scripts/daily_eod_update.py --start-date 2025-06-28
 uv run python scripts/daily_eod_update.py --start-date 2025-06-28 --dry-run --verbose
 uv run python scripts/daily_eod_update.py --start-date 2025-06-25 --end-date 2025-06-28
 
+# Download symbol list from EODHD
+uv run python scripts/daily_eod_update.py --mode symbols
+
+# Download company data from Yahoo Finance
+uv run python scripts/daily_eod_update.py --mode companies
+
 # Run Streamlit web interface
 uv run streamlit run app.py
 
@@ -122,25 +128,32 @@ Configurable via `TimeFrameUnit` enum: `DAY`, `WEEK`, `MONTH`
 ## Data Management
 
 ### Daily Data Updates
-For daily operations, use the dedicated daily update script:
+For daily operations, use the dedicated daily update script with multiple modes:
 ```bash
-# Update specific single date (start-date is required)
+# Update OHLCV data for specific date (default bars mode)
 uv run python scripts/daily_eod_update.py --start-date 2024-06-28
+
+# Update OHLCV data for date range
+uv run python scripts/daily_eod_update.py --start-date 2024-06-25 --end-date 2024-06-28
+
+# Download symbol list from EODHD
+uv run python scripts/daily_eod_update.py --mode symbols
+
+# Download company data from Yahoo Finance
+uv run python scripts/daily_eod_update.py --mode companies
 
 # Dry run to see what would be updated
 uv run python scripts/daily_eod_update.py --start-date 2024-06-28 --dry-run --verbose
-
-# Update date range
-uv run python scripts/daily_eod_update.py --start-date 2024-06-25 --end-date 2024-06-28
 ```
 
-The daily update script:
-- Requires `--start-date` parameter to specify the target date
-- Updates OHLCV data for all symbols for a single date or date range
+The daily update script supports multiple modes:
+- **bars mode** (default): Requires `--start-date` parameter, updates OHLCV data for all symbols
+- **symbols mode**: Downloads USA stocks symbol list from EODHD (no dates required)
+- **companies mode**: Downloads company data from Yahoo Finance (no dates required)
 - Includes validation to ensure data was successfully retrieved
 - Provides detailed logging and error handling
 - Supports dry-run mode for testing
-- Flexible date parameters: `--start-date` (required) and optional `--end-date`
+- Flexible date parameters: `--start-date` (required for bars mode) and optional `--end-date`
 
 ### Bulk Data Updates
 The `DataUpdateService` service handles bulk data operations:
