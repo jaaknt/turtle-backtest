@@ -1,6 +1,6 @@
-# Document services in service.md file
+# Document services in docs/service.md file
 The goal is to document existing services
-- create new file in root directory service.md in separate paragraphs
+- create new file in docs directory service.md in separate paragraphs
 - document these services in this file
   - @service/data_update_service.py
   - @service/strategy_runner_service.py
@@ -18,6 +18,6 @@ Based on analysis of the service files, the three services provide:
 
 ## Todo List
 - [x] Analyze service files to understand functionality  
-- [ ] Create service.md file documenting all three services
-- [ ] Add reference to service.md file in README.md
+- [x] Create docs/service.md file documenting all three services
+- [x] Add reference to docs/service.md file in README.md
 - [ ] Run linting on all changes and fix any errors
