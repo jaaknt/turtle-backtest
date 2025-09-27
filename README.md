@@ -22,7 +22,23 @@ There are special requirements for TA-lib installation - so look for [instructio
 
 ### Method 1: Using the Daily EOD Update Script (Recommended)
 
-Use the `scripts/daily_eod_update.py` script for convenient command-line data downloads. See [scripts.md](scripts.md#daily_eod_updatepy) for complete documentation and usage examples.
+Use the `scripts/daily_eod_update.py` script for convenient command-line data downloads with multiple update modes:
+
+```bash
+# Download symbol list from EODHD
+uv run python scripts/daily_eod_update.py --mode symbols
+
+# Download company data from Yahoo Finance
+uv run python scripts/daily_eod_update.py --mode companies
+
+# Download OHLCV data for specific date (default mode)
+uv run python scripts/daily_eod_update.py --start-date 2024-12-01
+
+# Download OHLCV data for date range
+uv run python scripts/daily_eod_update.py --start-date 2024-12-01 --end-date 2024-12-07
+```
+
+See [scripts.md](scripts.md#daily_eod_updatepy) for complete documentation and usage examples.
 
 ### Method 2: Programmatic API
 
