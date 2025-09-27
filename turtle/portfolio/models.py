@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from turtle.backtest.models import ClosedTrade, Trade
+from turtle.backtest.models import FutureTrade, Trade
 
 
 @dataclass
@@ -126,8 +126,8 @@ class PortfolioState:
 
     Attributes:
         daily_snapshots: Historical daily snapshots
-        closed_trades: List of all closed trades
+        closed_trades: List of all future trades
     """
 
     daily_snapshots: list[DailyPortfolioSnapshot] = field(default_factory=list)
-    closed_trades: list[ClosedTrade] = field(default_factory=list)
+    closed_trades: list[FutureTrade] = field(default_factory=list)

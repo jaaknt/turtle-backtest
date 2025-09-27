@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from turtle.exit.atr import ATRExitStrategy
 from turtle.signal.models import Signal
-from turtle.backtest.models import Benchmark, ClosedTrade, Trade
+from turtle.backtest.models import Benchmark, FutureTrade, Trade
 
 from turtle.portfolio.models import Position
 from turtle.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class SignalProcessor:
     """
-    Processes Signal objects to create complete ClosedTrade objects with entry/exit data,
+    Processes Signal objects to create complete FutureTrade objects with entry/exit data,
     returns, and benchmark comparisons.
 
     The SignalProcessor is responsible for:
@@ -53,15 +53,17 @@ class SignalProcessor:
         self.benchmark_tickers = benchmark_tickers
         self.time_frame_unit = time_frame_unit
 
-    def run(self, signal: Signal) -> ClosedTrade | None:
+    def run(self, signal: Signal, end_date: datetime | None = None) -> FutureTrade | None:
         """
         Process a Signal object to create a complete ClosedTrade.
 
         Args:
             signal: Signal object containing ticker, date, and ranking
+            end_date: Optional maximum date for exit calculation. If provided, used as upper limit
+                     combined with max_holding_period constraint.
 
         Returns:
-            ClosedTrade with all calculated fields
+            FutureTrade with all calculated fields
 
         Raises:
             ValueError: If entry data cannot be calculated or required data is missing
@@ -79,7 +81,7 @@ class SignalProcessor:
         logger.debug(f"Entry calculated: {entry.date} at ${entry.price}")
 
         # Step 2: Calculate exit data using strategy
-        exit: Trade | None = self.calculate_exit_data(signal, entry.date, entry.price)
+        exit: Trade | None = self.calculate_exit_data(signal, entry.date, entry.price, end_date)
         if exit is None:  # No trading data available for exit
             logger.warning(f"Skipping signal for {signal.ticker} on {signal.date}: No exit data")
             return None
@@ -90,8 +92,8 @@ class SignalProcessor:
         benchmarks = self._calculate_benchmark_returns(entry.date, exit.date)
         logger.debug(f"Benchmark returns calculated: {[(b.ticker, b.return_pct) for b in benchmarks]}")
 
-        # Create and return ClosedTrade
-        self.result = ClosedTrade(
+        # Create and return FutureTrade
+        self.result = FutureTrade(
             signal=signal,
             entry=entry,
             exit=exit,
@@ -139,7 +141,7 @@ class SignalProcessor:
 
         return Trade(ticker=signal.ticker, date=entry_date, price=entry_price, reason="next_day_open")
 
-    def calculate_exit_data(self, signal: Signal, entry_date: datetime, entry_price: float) -> Trade:
+    def calculate_exit_data(self, signal: Signal, entry_date: datetime, entry_price: float, end_date: datetime | None = None) -> Trade:
         """
         Calculate exit date, price, and reason using the configured exit strategy.
 
@@ -147,6 +149,8 @@ class SignalProcessor:
             signal: Original signal object
             entry_date: Date when position was entered
             entry_price: Price at entry
+            end_date: Optional maximum date for exit calculation. If provided, used as upper limit
+                     combined with max_holding_period constraint.
 
         Returns:
             Tuple of (exit_date, exit_price, exit_reason)
@@ -155,11 +159,15 @@ class SignalProcessor:
             ValueError: If exit calculation fails
         """
 
+        # Calculate effective end date considering both end_date parameter and max_holding_period
+        max_holding_end_date = entry_date + timedelta(days=self.max_holding_period)
+        effective_end_date = min(end_date, max_holding_end_date) if end_date is not None else max_holding_end_date
+
         # Get historical data for the ticker from entry date onwards
         df = self.bars_history.get_ticker_history(
             signal.ticker,
             entry_date,
-            entry_date + timedelta(days=self.max_holding_period),  # Limit to max_holding_period days max for exit search
+            effective_end_date,  # Use calculated effective end date
             self.time_frame_unit,
         )
 
@@ -168,26 +176,22 @@ class SignalProcessor:
 
         # Use exit strategy to calculate return
         if isinstance(self.exit_strategy, ProfitLossExitStrategy):
-            self.exit_strategy.initialize(
-                signal.ticker, entry_date, entry_date + timedelta(days=self.max_holding_period), profit_target=10.0, stop_loss=5.0
-            )
+            self.exit_strategy.initialize(signal.ticker, entry_date, effective_end_date, profit_target=10.0, stop_loss=5.0)
         elif isinstance(self.exit_strategy, EMAExitStrategy):
-            self.exit_strategy.initialize(signal.ticker, entry_date, entry_date + timedelta(days=self.max_holding_period), ema_period=20)
+            self.exit_strategy.initialize(signal.ticker, entry_date, effective_end_date, ema_period=20)
         elif isinstance(self.exit_strategy, ATRExitStrategy):
-            self.exit_strategy.initialize(
-                signal.ticker, entry_date, entry_date + timedelta(days=self.max_holding_period), atr_period=14, atr_multiplier=2.5
-            )
+            self.exit_strategy.initialize(signal.ticker, entry_date, effective_end_date, atr_period=14, atr_multiplier=2.0)
         elif isinstance(self.exit_strategy, MACDExitStrategy):
             self.exit_strategy.initialize(
                 signal.ticker,
                 entry_date,
-                entry_date + timedelta(days=self.max_holding_period),
+                effective_end_date,
                 fastperiod=12,
                 slowperiod=26,
                 signalperiod=9,
             )
         else:
-            self.exit_strategy.initialize(signal.ticker, entry_date, entry_date + timedelta(days=self.max_holding_period))
+            self.exit_strategy.initialize(signal.ticker, entry_date, effective_end_date)
 
         df = self.exit_strategy.calculate_indicators()
         trade: Trade = self.exit_strategy.calculate_exit(data=df)

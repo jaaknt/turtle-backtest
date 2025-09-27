@@ -43,7 +43,7 @@ class Benchmark:
 
 
 @dataclass
-class ClosedTrade:
+class FutureTrade:
     """
     Represents a completed trading signal and its outcomes.
 
