@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class BarsHistoryRepo:
     def __init__(
         self,
-        pool: ConnectionPool,  # [Connection[TupleRow]],
+        pool: ConnectionPool,
         alpaca_api_key: str,
         alpaca_api_secret: str,
     ):

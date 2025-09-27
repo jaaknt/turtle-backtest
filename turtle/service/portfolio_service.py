@@ -243,5 +243,8 @@ class PortfolioService:
     ) -> None:
         self.analytics.generate_results(
             self.portfolio_manager.state,
-            output_file="reports/portfolio_report.html" if output_file is None else output_file,
+            self.start_date,
+            self.end_date,
+            self.bars_history,
+            output_file=output_file,
         )
