@@ -3,9 +3,12 @@
 import logging
 import pandas as pd
 import numpy as np
+from datetime import datetime
 
 import quantstats as qs  # type: ignore[import-untyped]
 from .models import PortfolioState
+from turtle.data.bars_history import BarsHistoryRepo
+from turtle.common.enums import TimeFrameUnit
 
 # Configure matplotlib to use available fonts instead of Arial
 # import matplotlib.pyplot as plt
@@ -23,6 +26,9 @@ class PortfolioAnalytics:
     def generate_results(
         self,
         portfolio_state: PortfolioState,
+        start_date: datetime,
+        end_date: datetime,
+        bars_history: BarsHistoryRepo,
         output_file: str | None = None,
     ) -> None:
         """Generate portfolio analysis with printed metrics and tearsheet report."""
@@ -32,11 +38,16 @@ class PortfolioAnalytics:
             logger.warning("No portfolio data available")
             return
 
+        # Generate unique filename if output_file is None
+        if output_file is None:
+            timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+            output_file = f"reports/portfolio_report_{timestamp}.html"
+
         daily_returns = self._extract_daily_series(portfolio_state)
         portfolio_returns = self._prepare_returns_for_quantstats(daily_returns)
 
-        print(daily_returns)
-        print(portfolio_returns)
+        # Calculate QQQ benchmark returns
+        benchmark_returns = self._calculate_benchmark_returns(start_date, end_date, bars_history)
 
         # Generate tearsheet report if we have returns data
         if not portfolio_returns.empty:
@@ -50,7 +61,12 @@ class PortfolioAnalytics:
                     warnings.filterwarnings("ignore", message=".*Mean of empty slice.*")
                     warnings.filterwarnings("ignore", message=".*Dataset has 0 variance.*")
 
-                    qs.reports.html(portfolio_returns, output=output_file, title="Portfolio Performance Report")
+                    qs.reports.html(
+                        portfolio_returns,
+                        benchmark=benchmark_returns if not benchmark_returns.empty else None,
+                        output=output_file,
+                        title="Portfolio Performance Report"
+                    )
                     logger.info(f"Tearsheet report saved to {output_file}")
             except Exception as e:
                 logger.error(f"Failed to generate tearsheet report: {e}")
@@ -101,3 +117,28 @@ class PortfolioAnalytics:
             returns = returns + np.random.normal(0, 1e-8, len(returns))
 
         return returns
+
+    def _calculate_benchmark_returns(self, start_date: datetime, end_date: datetime, bars_history: BarsHistoryRepo) -> pd.Series:
+        """Calculate QQQ benchmark returns for comparison."""
+        try:
+            # Fetch QQQ historical data
+            qqq_df = bars_history.get_ticker_history("QQQ", start_date, end_date, TimeFrameUnit.DAY)
+
+            if qqq_df.empty or len(qqq_df) < 2:
+                logger.warning("Insufficient QQQ data for benchmark calculation")
+                return pd.Series(dtype=float)
+
+            # Calculate daily returns (index is already datetime from hdate)
+            qqq_df = qqq_df.sort_index()  # Sort by date index
+            qqq_returns = qqq_df['close'].pct_change().dropna()
+            qqq_returns.name = "QQQ_returns"
+
+            # Clean and validate returns data
+            qqq_returns = qqq_returns.replace([np.inf, -np.inf], 0).dropna()
+
+            logger.info(f"Calculated QQQ benchmark returns for {len(qqq_returns)} trading days")
+            return qqq_returns
+
+        except Exception as e:
+            logger.warning(f"Failed to calculate QQQ benchmark returns: {e}")
+            return pd.Series(dtype=float)
