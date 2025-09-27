@@ -51,5 +51,8 @@ MANIFEST
 # Ruff cache
 .ruff_cache/
 
-# Reports
+# Backtest reports
 reports/
+
+# Secret files
+.secrets/

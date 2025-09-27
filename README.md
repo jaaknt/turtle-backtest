@@ -38,7 +38,7 @@ uv run python scripts/daily_eod_update.py --start-date 2024-12-01
 uv run python scripts/daily_eod_update.py --start-date 2024-12-01 --end-date 2024-12-07
 ```
 
-See [scripts.md](scripts.md#daily_eod_updatepy) for complete documentation and usage examples.
+See [docs/scripts.md](docs/scripts.md#daily_eod_updatepy) for complete documentation and usage examples.
 
 ### Method 2: Programmatic API
 
@@ -76,8 +76,8 @@ For comprehensive strategy analysis and performance testing, use the command-lin
 - **`scripts/backtest.py`** - Complete signal-to-exit backtesting with configurable strategies
 - **`scripts/strategy_performance.py`** - Performance backtesting with metrics and benchmarks
 
-See [scripts.md](scripts.md) for complete documentation, usage examples, and all available options.
+See [docs/scripts.md](docs/scripts.md) for complete documentation, usage examples, and all available options.
 
 ## Services
 
-For detailed information about the core service classes that provide the business logic layer, see [service.md](service.md).
+For detailed information about the core service classes that provide the business logic layer, see [docs/service.md](docs/service.md).
