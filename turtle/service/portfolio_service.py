@@ -75,7 +75,7 @@ class PortfolioService:
 
         # Initialize signal processor for shared calculations
         self.signal_processor = SignalProcessor(
-            max_holding_period=30,  # Configurable max holding period in days
+            max_holding_period=365,  # Configurable max holding period in days
             bars_history=bars_history,
             exit_strategy=exit_strategy,
             benchmark_tickers=[],  # Standard benchmarks, ignored in portfolio calculations
