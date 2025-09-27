@@ -113,6 +113,9 @@ class PortfolioService:
 
         # Generate final results and display
         self._generate_results(output_file=output_file)
+        print(self.portfolio_manager.state.closed_trades)
+        total_value = sum(trade.exit.price * trade.position_size for trade in self.portfolio_manager.state.closed_trades)
+        print(f"Total portfolio value: ${total_value:.2f} cash: ${self.portfolio_manager.current_snapshot.cash:.2f}")
 
     def _process_trading_day(self, current_date: datetime, universe: list[str]) -> None:
         """
@@ -184,7 +187,7 @@ class PortfolioService:
         # order by ranking descending
         qualified_signals.sort(key=lambda s: s.ranking, reverse=True)
 
-        logger.debug(f"Generated {len(qualified_signals)} signals for {current_date}")
+        logger.info(f"Generated {len(qualified_signals)} signals for {current_date}")
         return qualified_signals
 
     def _process_signals(self, signals: list[Signal], current_date: datetime) -> None:
@@ -204,6 +207,7 @@ class PortfolioService:
 
             # calculate position size based on entry price and position sizing strategy
             position_size = self.portfolio_manager.calculate_position_size(closed_trade.entry)
+            closed_trade.position_size = position_size
             if position_size == 0:
                 logger.warning(f"Calculated zero shares for {signal.ticker} at price ${closed_trade.entry.price}")
                 continue
@@ -212,7 +216,7 @@ class PortfolioService:
             # Open the position in the portfolio
             self.portfolio_manager.open_position(closed_trade.entry, closed_trade.exit, position_size)
 
-            logger.debug(
+            logger.info(
                 f"Opened position for {signal.ticker} on {closed_trade.entry.date}, scheduled exit on {closed_trade.exit.date.date()}"
             )
             if self.portfolio_manager.current_snapshot.cash < self.portfolio_manager.position_min_amount:
