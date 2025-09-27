@@ -111,7 +111,7 @@ def main() -> None:
 
 def print_trade_analysis(results: PortfolioState) -> None:
     """Print detailed trade analysis."""
-    if not results.closed_trades:
+    if not results.future_trades:
         print("\nNo completed trades found.")
         return
 
@@ -121,7 +121,7 @@ def print_trade_analysis(results: PortfolioState) -> None:
 
     # Group by ticker
     trades_by_ticker: dict[str, list] = {}
-    for future_trade in results.closed_trades:
+    for future_trade in results.future_trades:
         if future_trade.ticker not in trades_by_ticker:
             trades_by_ticker[future_trade.ticker] = []
         trades_by_ticker[future_trade.ticker].append(future_trade)
@@ -143,7 +143,7 @@ def print_trade_analysis(results: PortfolioState) -> None:
 
 def print_top_performers(results: PortfolioState) -> None:
     """Print top and bottom performing trades."""
-    if not results.closed_trades:
+    if not results.future_trades:
         return
 
     print(f"\n{'='*60}")
@@ -151,7 +151,7 @@ def print_top_performers(results: PortfolioState) -> None:
     print(f"{'='*60}")
 
     # Sort by realized P&L percentage
-    sorted_trades = sorted(results.closed_trades, key=lambda x: x.realized_pct, reverse=True)
+    sorted_trades = sorted(results.future_trades, key=lambda x: x.realized_pct, reverse=True)
 
     print("\nTop 5 Winning Trades:")
     print(f"{'Ticker':<8} {'Entry':<12} {'Exit':<12} {'Return%':<10} {'P&L':<10} {'Days':<6}")

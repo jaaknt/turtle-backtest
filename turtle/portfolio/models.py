@@ -126,8 +126,8 @@ class PortfolioState:
 
     Attributes:
         daily_snapshots: Historical daily snapshots
-        closed_trades: List of all future trades
+        future_trades: List of all future trades
     """
 
     daily_snapshots: list[DailyPortfolioSnapshot] = field(default_factory=list)
-    closed_trades: list[FutureTrade] = field(default_factory=list)
+    future_trades: list[FutureTrade] = field(default_factory=list)

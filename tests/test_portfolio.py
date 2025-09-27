@@ -72,11 +72,11 @@ class TestPortfolioModels:
 
         state = PortfolioState(
             daily_snapshots=[],
-            closed_trades=[future_trade1, future_trade2],
+            future_trades=[future_trade1, future_trade2],
         )
 
         # Test basic properties
-        assert len(state.closed_trades) == 2
+        assert len(state.future_trades) == 2
         assert len(state.daily_snapshots) == 0
 
 
@@ -101,7 +101,7 @@ class TestPortfolioManager:
         assert manager.start_date == start_date
         assert manager.end_date == end_date
         assert len(manager.state.daily_snapshots) == 0
-        assert len(manager.state.closed_trades) == 0
+        assert len(manager.state.future_trades) == 0
 
     def test_can_open_new_position(self) -> None:
         """Test position opening validation."""
