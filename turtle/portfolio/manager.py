@@ -41,7 +41,7 @@ class PortfolioManager:
         # Initialize portfolio state
         self.state = PortfolioState(
             daily_snapshots=[],
-            closed_trades=[],
+            future_trades=[],
         )
 
     @property

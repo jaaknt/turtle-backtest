@@ -113,8 +113,8 @@ class PortfolioService:
 
         # Generate final results and display
         self._generate_results(output_file=output_file)
-        print(self.portfolio_manager.state.closed_trades)
-        total_value = sum(trade.exit.price * trade.position_size for trade in self.portfolio_manager.state.closed_trades)
+        print(self.portfolio_manager.state.future_trades)
+        total_value = sum(trade.exit.price * trade.position_size for trade in self.portfolio_manager.state.future_trades)
         print(f"Total portfolio value: ${total_value:.2f} cash: ${self.portfolio_manager.current_snapshot.cash:.2f}")
 
     def _process_trading_day(self, current_date: datetime, universe: list[str]) -> None:
@@ -157,7 +157,7 @@ class PortfolioService:
         for position in self.portfolio_manager.current_snapshot.positions:
             # Check if this position's scheduled exit date matches current date
             # print(f"Position: {position}")
-            if position.exit.date.date() == current_date.date():
+            if position.exit.date.date() <= current_date.date():
                 self.portfolio_manager.close_position(exit=position.exit, position_size=position.position_size)
 
     def _generate_entry_signals(self, current_date: datetime, universe: list[str]) -> list[Signal]:
@@ -212,7 +212,7 @@ class PortfolioService:
                 logger.warning(f"Calculated zero shares for {signal.ticker} at price ${future_trade.entry.price}")
                 continue
             # Add the closed trade to the portfolio state for tracking
-            self.portfolio_manager.state.closed_trades.append(future_trade)
+            self.portfolio_manager.state.future_trades.append(future_trade)
             # Open the position in the portfolio
             self.portfolio_manager.open_position(future_trade.entry, future_trade.exit, position_size)
 
