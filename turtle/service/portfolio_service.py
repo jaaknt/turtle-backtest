@@ -75,7 +75,7 @@ class PortfolioService:
 
         # Initialize signal processor for shared calculations
         self.signal_processor = SignalProcessor(
-            max_holding_period=45,  # Configurable max holding period in days
+            max_holding_period=30,  # Configurable max holding period in days
             bars_history=bars_history,
             exit_strategy=exit_strategy,
             benchmark_tickers=[],  # Standard benchmarks, ignored in portfolio calculations
@@ -200,24 +200,25 @@ class PortfolioService:
         """
         for signal in signals:
             # Use signal processor to get complete trade data including exit
-            closed_trade = self.signal_processor.run(signal)
-            if closed_trade is None:
+            future_trade = self.signal_processor.run(signal)
+            if future_trade is None:
                 logger.warning(f"No trade data available for {signal.ticker}")
                 continue
 
             # calculate position size based on entry price and position sizing strategy
-            position_size = self.portfolio_manager.calculate_position_size(closed_trade.entry)
-            closed_trade.position_size = position_size
+            position_size = self.portfolio_manager.calculate_position_size(future_trade.entry)
+            future_trade.position_size = position_size
             if position_size == 0:
-                logger.warning(f"Calculated zero shares for {signal.ticker} at price ${closed_trade.entry.price}")
+                logger.warning(f"Calculated zero shares for {signal.ticker} at price ${future_trade.entry.price}")
                 continue
             # Add the closed trade to the portfolio state for tracking
-            self.portfolio_manager.state.closed_trades.append(closed_trade)
+            self.portfolio_manager.state.closed_trades.append(future_trade)
             # Open the position in the portfolio
-            self.portfolio_manager.open_position(closed_trade.entry, closed_trade.exit, position_size)
+            self.portfolio_manager.open_position(future_trade.entry, future_trade.exit, position_size)
 
             logger.info(
-                f"Opened position for {signal.ticker} on {closed_trade.entry.date}, scheduled exit on {closed_trade.exit.date.date()}"
+                f"Opened position for {signal.ticker} on {future_trade.entry.date.date()}, "
+                f"scheduled exit on {future_trade.exit.date.date()}"
             )
             if self.portfolio_manager.current_snapshot.cash < self.portfolio_manager.position_min_amount:
                 break

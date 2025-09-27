@@ -121,10 +121,10 @@ def print_trade_analysis(results: PortfolioState) -> None:
 
     # Group by ticker
     trades_by_ticker: dict[str, list] = {}
-    for closed_trade in results.closed_trades:
-        if closed_trade.ticker not in trades_by_ticker:
-            trades_by_ticker[closed_trade.ticker] = []
-        trades_by_ticker[closed_trade.ticker].append(closed_trade)
+    for future_trade in results.closed_trades:
+        if future_trade.ticker not in trades_by_ticker:
+            trades_by_ticker[future_trade.ticker] = []
+        trades_by_ticker[future_trade.ticker].append(future_trade)
 
     # Print per-ticker summary
     print(f"{'Ticker':<8} {'Trades':<7} {'Win%':<6} {'Avg Return':<12} {'Total P&L':<12}")

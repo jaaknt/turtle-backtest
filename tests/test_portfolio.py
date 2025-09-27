@@ -7,17 +7,17 @@ from turtle.portfolio.models import Position, PortfolioState
 from turtle.portfolio.manager import PortfolioManager
 from turtle.portfolio.selector import PortfolioSignalSelector
 from turtle.signal.models import Signal
-from turtle.backtest.models import ClosedTrade, Trade, Benchmark
+from turtle.backtest.models import FutureTrade, Trade, Benchmark
 
 
-def create_mock_closed_trade(ticker: str, entry_date: datetime, entry_price: float) -> ClosedTrade:
-    """Create a mock ClosedTrade for testing purposes."""
+def create_mock_future_trade(ticker: str, entry_date: datetime, entry_price: float) -> FutureTrade:
+    """Create a mock FutureTrade for testing purposes."""
     signal = Signal(ticker=ticker, date=entry_date, ranking=85)
     entry = Trade(ticker=ticker, date=entry_date, price=entry_price, reason="signal")
     exit = Trade(ticker=ticker, date=entry_date, price=entry_price * 1.1, reason="profit_target")  # 10% profit
     benchmarks = [Benchmark(ticker="SPY", return_pct=5.0, entry_date=entry_date, exit_date=entry_date)]
 
-    return ClosedTrade(
+    return FutureTrade(
         signal=signal,
         entry=entry,
         exit=exit,
@@ -67,12 +67,12 @@ class TestPortfolioModels:
     def test_portfolio_state_properties(self) -> None:
         """Test portfolio state calculated properties."""
         entry_date = datetime(2024, 1, 1)
-        closed_trade1 = create_mock_closed_trade("AAPL", entry_date, 100.0)
-        closed_trade2 = create_mock_closed_trade("GOOGL", entry_date, 200.0)
+        future_trade1 = create_mock_future_trade("AAPL", entry_date, 100.0)
+        future_trade2 = create_mock_future_trade("GOOGL", entry_date, 200.0)
 
         state = PortfolioState(
             daily_snapshots=[],
-            closed_trades=[closed_trade1, closed_trade2],
+            closed_trades=[future_trade1, future_trade2],
         )
 
         # Test basic properties
