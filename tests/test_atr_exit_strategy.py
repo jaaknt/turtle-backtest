@@ -24,7 +24,7 @@ class TestATRExitStrategy:
         strategy = ATRExitStrategy(mock_bars_history)
 
         # Test that it has the required attributes from parent
-        assert hasattr(strategy, 'bars_history')
+        assert hasattr(strategy, "bars_history")
         assert strategy.bars_history == mock_bars_history
 
     def test_empty_data(self) -> None:
@@ -65,13 +65,16 @@ class TestATRExitStrategy:
 
         # Set up mock data
         dates = pd.date_range(start="2024-01-01", periods=60, freq="D")
-        mock_data = pd.DataFrame({
-            "close": [100.0 + i * 0.5 for i in range(60)],
-            "high": [102.0 + i * 0.5 for i in range(60)],
-            "low": [98.0 + i * 0.5 for i in range(60)],
-            "open": [100.0 + i * 0.5 for i in range(60)],
-            "volume": [1000000] * 60
-        }, index=dates)
+        mock_data = pd.DataFrame(
+            {
+                "close": [100.0 + i * 0.5 for i in range(60)],
+                "high": [102.0 + i * 0.5 for i in range(60)],
+                "low": [98.0 + i * 0.5 for i in range(60)],
+                "open": [100.0 + i * 0.5 for i in range(60)],
+                "volume": [1000000] * 60,
+            },
+            index=dates,
+        )
 
         mock_bars_history.get_ticker_history.return_value = mock_data
 
@@ -92,12 +95,15 @@ class TestATRExitStrategy:
 
         # Create data without ATR column
         dates = pd.date_range(start="2024-01-01", periods=5, freq="D")
-        data = pd.DataFrame({
-            "close": [100.0, 101.0, 102.0, 103.0, 104.0],
-            "high": [102.0, 103.0, 104.0, 105.0, 106.0],
-            "low": [98.0, 99.0, 100.0, 101.0, 102.0],
-            "open": [100.0, 101.0, 102.0, 103.0, 104.0],
-        }, index=dates)
+        data = pd.DataFrame(
+            {
+                "close": [100.0, 101.0, 102.0, 103.0, 104.0],
+                "high": [102.0, 103.0, 104.0, 105.0, 106.0],
+                "low": [98.0, 99.0, 100.0, 101.0, 102.0],
+                "open": [100.0, 101.0, 102.0, 103.0, 104.0],
+            },
+            index=dates,
+        )
 
         with pytest.raises(ValueError, match="ATR column not found"):
             strategy.calculate_exit(data)
@@ -110,13 +116,16 @@ class TestATRExitStrategy:
 
         # Create test data where stop loss will be hit
         dates = pd.date_range(start="2024-01-01", periods=5, freq="D")
-        data = pd.DataFrame({
-            "open": [100.0, 99.0, 98.0, 97.0, 96.0],  # Entry at 100
-            "close": [99.0, 98.0, 97.0, 96.0, 95.0],
-            "high": [101.0, 100.0, 99.0, 98.0, 97.0],
-            "low": [98.0, 96.0, 94.0, 92.0, 90.0],   # Low drops significantly
-            "atr": [1.0, 1.0, 1.0, 1.0, 1.0],       # Constant ATR of 1.0
-        }, index=dates)
+        data = pd.DataFrame(
+            {
+                "open": [100.0, 99.0, 98.0, 97.0, 96.0],  # Entry at 100
+                "close": [99.0, 98.0, 97.0, 96.0, 95.0],
+                "high": [101.0, 100.0, 99.0, 98.0, 97.0],
+                "low": [98.0, 96.0, 94.0, 92.0, 90.0],  # Low drops significantly
+                "atr": [1.0, 1.0, 1.0, 1.0, 1.0],  # Constant ATR of 1.0
+            },
+            index=dates,
+        )
 
         # With entry=100, ATR=1.0, multiplier=2.0: stop = 100 - (2.0 * 1.0) = 98.0
         # Close on day 2 (97.0) is first to be < stop (98.0), so should exit on day 2
@@ -136,13 +145,16 @@ class TestATRExitStrategy:
 
         # Create test data where stop loss is never hit
         dates = pd.date_range(start="2024-01-01", periods=5, freq="D")
-        data = pd.DataFrame({
-            "open": [100.0, 101.0, 102.0, 103.0, 104.0],  # Entry at 100
-            "close": [101.0, 102.0, 103.0, 104.0, 105.0],
-            "high": [102.0, 103.0, 104.0, 105.0, 106.0],
-            "low": [99.0, 100.0, 101.0, 102.0, 103.0],    # Never drops below stop
-            "atr": [1.0, 1.0, 1.0, 1.0, 1.0],            # ATR = 1.0
-        }, index=dates)
+        data = pd.DataFrame(
+            {
+                "open": [100.0, 101.0, 102.0, 103.0, 104.0],  # Entry at 100
+                "close": [101.0, 102.0, 103.0, 104.0, 105.0],
+                "high": [102.0, 103.0, 104.0, 105.0, 106.0],
+                "low": [99.0, 100.0, 101.0, 102.0, 103.0],  # Never drops below stop
+                "atr": [1.0, 1.0, 1.0, 1.0, 1.0],  # ATR = 1.0
+            },
+            index=dates,
+        )
 
         # With entry=100, ATR=1.0, multiplier=2.0: stop = 98.0
         # Lowest low is 99.0, which is above stop, so should hold to end
@@ -168,13 +180,16 @@ class TestATRExitStrategy:
 
         # Create test data
         dates = pd.date_range(start="2024-01-01", periods=3, freq="D")
-        data = pd.DataFrame({
-            "open": [100.0, 99.0, 98.0],
-            "close": [99.0, 98.0, 97.0],
-            "high": [101.0, 100.0, 99.0],
-            "low": [98.0, 96.0, 95.0],  # Low of 96.0 on day 1
-            "atr": [2.0, 2.0, 2.0],    # ATR = 2.0
-        }, index=dates)
+        data = pd.DataFrame(
+            {
+                "open": [100.0, 99.0, 98.0],
+                "close": [99.0, 98.0, 97.0],
+                "high": [101.0, 100.0, 99.0],
+                "low": [98.0, 96.0, 95.0],  # Low of 96.0 on day 1
+                "atr": [2.0, 2.0, 2.0],  # ATR = 2.0
+            },
+            index=dates,
+        )
 
         # Loose stop: 100 - (3.0 * 2.0) = 94.0 (not hit, low=96.0)
         result_loose = strategy_loose.calculate_exit(data)
