@@ -10,9 +10,14 @@ from .models import PortfolioState
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
 
+import warnings
+import matplotlib
+
+# Suppress font warnings
+warnings.filterwarnings("ignore", message=".*findfont.*")
+warnings.filterwarnings("ignore", message=".*Font family.*not found.*")
 # Configure matplotlib to use available fonts instead of Arial
-# import matplotlib.pyplot as plt
-# plt.rcParams["font.family"] = ["DejaVu Sans", "Liberation Sans", "Arial", "sans-serif"]
+matplotlib.rcParams["font.family"] = ["DejaVu Sans", "Liberation Sans", "sans-serif"]
 
 
 logger = logging.getLogger(__name__)
@@ -65,7 +70,7 @@ class PortfolioAnalytics:
                         portfolio_returns,
                         benchmark=benchmark_returns if not benchmark_returns.empty else None,
                         output=output_file,
-                        title="Portfolio Performance Report"
+                        title="Portfolio Performance Report",
                     )
                     logger.info(f"Tearsheet report saved to {output_file}")
             except Exception as e:
@@ -130,7 +135,7 @@ class PortfolioAnalytics:
 
             # Calculate daily returns (index is already datetime from hdate)
             qqq_df = qqq_df.sort_index()  # Sort by date index
-            qqq_returns = qqq_df['close'].pct_change().dropna()
+            qqq_returns = qqq_df["close"].pct_change().dropna()
             qqq_returns.name = "QQQ_returns"
 
             # Clean and validate returns data

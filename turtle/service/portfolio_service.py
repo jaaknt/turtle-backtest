@@ -107,19 +107,24 @@ class PortfolioService:
 
         while current_date <= end_date:
             if current_date.weekday() < 5:  # Monday=0, Friday=4 (trading days only)
-                self._process_trading_day(current_date, universe)
+                self._process_trading_day(current_date, end_date, universe)
 
             current_date += timedelta(days=1)
 
         # Generate final results and display
         self._generate_results(output_file=output_file)
-        print(self.portfolio_manager.state.future_trades)
+        for trade in self.portfolio_manager.state.future_trades:
+            print(
+                f"Entry: {trade.entry.date.date()} @ ${trade.entry.price} Exit: {trade.exit.date.date()} "
+                f"@ ${trade.exit.price} Size: {trade.position_size} result: ${(trade.exit.price - trade.entry.price) * trade.position_size}"
+            )
+
         total_value = sum(
             (trade.exit.price - trade.entry.price) * trade.position_size for trade in self.portfolio_manager.state.future_trades
         )
         print(f"Total portfolio value: ${total_value:.2f} cash: ${self.portfolio_manager.current_snapshot.cash:.2f}")
 
-    def _process_trading_day(self, current_date: datetime, universe: list[str]) -> None:
+    def _process_trading_day(self, current_date: datetime, end_date: datetime, universe: list[str]) -> None:
         """
         Process a single trading day: generate signals, manage positions, update portfolio.
 
@@ -139,11 +144,11 @@ class PortfolioService:
         self._process_exits(current_date)
 
         # Step 3: Generate new entry signals
-        if self.portfolio_manager.current_snapshot.cash >= self.portfolio_manager.position_min_amount:
+        if self.portfolio_manager.current_snapshot.cash >= self.portfolio_manager.position_min_amount and current_date < end_date:
             entry_signals = self._generate_entry_signals(current_date, universe)
 
             # Step 4: Select and process new entries
-            self._process_signals(entry_signals, current_date)
+            self._process_signals(entry_signals, current_date, end_date)
 
         # Step 5: Update portfolio with current prices
         self._update_portfolio_prices(current_date)
@@ -192,7 +197,7 @@ class PortfolioService:
         logger.info(f"Generated {len(qualified_signals)} signals for {current_date}")
         return qualified_signals
 
-    def _process_signals(self, signals: list[Signal], current_date: datetime) -> None:
+    def _process_signals(self, signals: list[Signal], current_date: datetime, end_date: datetime) -> None:
         """
         Process new position entries using complete ClosedTrade calculations.
 
@@ -202,7 +207,7 @@ class PortfolioService:
         """
         for signal in signals:
             # Use signal processor to get complete trade data including exit
-            future_trade = self.signal_processor.run(signal)
+            future_trade = self.signal_processor.run(signal, end_date)
             if future_trade is None:
                 logger.warning(f"No trade data available for {signal.ticker}")
                 continue
