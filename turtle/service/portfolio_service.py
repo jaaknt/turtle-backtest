@@ -124,19 +124,20 @@ class PortfolioService:
 
         # Generate final results and display
         self._generate_results(output_file=output_file)
-        for trade in self.portfolio_manager.state.future_trades:
+        for trade in sorted(self.portfolio_manager.state.future_trades, key=lambda trade: trade.exit.date, reverse=True):
             print(
-                f"Entry: {trade.entry.date.date()} @ ${trade.entry.price:<.2f} Exit: {trade.exit.date.date()} "
-                f"@ ${trade.exit.price} Size: {trade.position_size} "
-                f"result: ${(trade.exit.price - trade.entry.price) * trade.position_size:<.2f}"
+                f"Entry: {trade.entry.date.date()} @ ${trade.entry.price:.2f} Exit: {trade.exit.date.date()} "
+                f"@ ${trade.exit.price:.2f} Size: {trade.position_size} "
+                f"result: ${(trade.exit.price - trade.entry.price) * trade.position_size:.2f}"
             )
-            # save all future trades to CSV in reports folder
-            self._save_trade_to_csv(trade)
+
+        # Save all trades to CSV in reports folder (sorted by exit date)
+        self._save_trade_to_csv(self.portfolio_manager.state.future_trades)
 
         total_value = sum(
             (trade.exit.price - trade.entry.price) * trade.position_size for trade in self.portfolio_manager.state.future_trades
         )
-        print(f"Total portfolio value: ${total_value:.2f} cash: ${self.portfolio_manager.current_snapshot.cash:.2f}")
+        print(f"Total portfolio value: ${total_value:.2f} last snapshot: ${self.portfolio_manager.current_snapshot.total_value:.2f}")
 
     def _process_trading_day(self, current_date: datetime, end_date: datetime, universe: list[str]) -> None:
         """
@@ -288,16 +289,20 @@ class PortfolioService:
             output_file=output_file,
         )
 
-    def _save_trade_to_csv(self, trade: FutureTrade) -> None:
+    def _save_trade_to_csv(self, trades: list[FutureTrade]) -> None:
         """
-        Save individual trade to CSV file in reports folder.
+        Save all trades to CSV file in reports folder, sorted by exit date.
 
         Args:
-            trade: FutureTrade object containing trade details
+            trades: List of FutureTrade objects containing trade details
         """
         try:
+            if not trades:
+                return
+
             # Create reports directory if it doesn't exist
             reports_dir = Path("reports")
+            reports_dir.mkdir(exist_ok=True)
 
             # Generate filename based on strategy and date range
             strategy_name = self.trading_strategy.__class__.__name__
@@ -306,40 +311,43 @@ class PortfolioService:
             filename = f"{strategy_name}_trades_{start_str}_{end_str}.csv"
             filepath = reports_dir / filename
 
-            # Check if file exists to determine if we need headers
-            file_exists = filepath.exists()
+            # Sort trades by exit date
+            sorted_trades = sorted(trades, key=lambda trade: trade.exit.date)
 
-            # Prepare trade data
-            trade_data = {
-                "ticker": trade.ticker,
-                "entry_date": trade.entry.date.strftime("%Y-%m-%d %H:%M:%S"),
-                "entry_price": f"{trade.entry.price:.4f}",
-                "entry_reason": trade.entry.reason,
-                "exit_date": trade.exit.date.strftime("%Y-%m-%d %H:%M:%S"),
-                "exit_price": f"{trade.exit.price:.4f}",
-                "exit_reason": trade.exit.reason,
-                "position_size": f"{trade.position_size:.0f}",
-                "holding_days": trade.holding_days,
-                "realized_pnl": f"{trade.realized_pnl:.2f}",
-                "realized_pct": f"{trade.realized_pct:.2f}",
-                "signal_ranking": getattr(trade.signal, "ranking", "N/A"),
-                "signal_date": trade.signal.date.strftime("%Y-%m-%d %H:%M:%S") if hasattr(trade.signal, "date") else "N/A",
-            }
+            # Prepare all trade data
+            all_trade_data = []
+            for trade in sorted_trades:
+                trade_data = {
+                    "ticker": trade.ticker,
+                    "entry_date": trade.entry.date.strftime("%Y-%m-%d %H:%M:%S"),
+                    "entry_price": f"{trade.entry.price:.4f}",
+                    "entry_reason": trade.entry.reason,
+                    "exit_date": trade.exit.date.strftime("%Y-%m-%d %H:%M:%S"),
+                    "exit_price": f"{trade.exit.price:.4f}",
+                    "exit_reason": trade.exit.reason,
+                    "position_size": f"{trade.position_size:.0f}",
+                    "holding_days": trade.holding_days,
+                    "realized_pnl": f"{trade.realized_pnl:.2f}",
+                    "realized_pct": f"{trade.realized_pct:.2f}",
+                    "signal_ranking": getattr(trade.signal, "ranking", "N/A"),
+                    "signal_date": trade.signal.date.strftime("%Y-%m-%d %H:%M:%S") if hasattr(trade.signal, "date") else "N/A",
+                }
+                all_trade_data.append(trade_data)
 
+            # Write all trades to CSV (replace file)
+            with open(filepath, "w", newline="", encoding="utf-8") as csvfile:
+                if all_trade_data:
+                    fieldnames = list(all_trade_data[0].keys())
+                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
-            # Write to CSV
-            with open(filepath, "a", newline="", encoding="utf-8") as csvfile:
-                fieldnames = list(trade_data.keys())
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
-                # Write header if this is a new file
-                if not file_exists:
+                    # Write header
                     writer.writeheader()
-                    logger.info(f"Created new trade CSV file: {filepath}")
 
-                # Write trade data
-                writer.writerow(trade_data)
+                    # Write all trade data
+                    writer.writerows(all_trade_data)
+
+                    logger.info(f"Saved {len(all_trade_data)} trades to CSV file: {filepath}")
 
         except Exception as e:
-            logger.error(f"Error saving trade to CSV: {e}")
+            logger.error(f"Error saving trades to CSV: {e}")
             # Don't raise the exception to avoid disrupting the main backtest process
