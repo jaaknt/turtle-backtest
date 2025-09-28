@@ -30,11 +30,11 @@ def safe_float_conversion(value: Any) -> float:
         ValueError: If value cannot be converted to float
     """
     # Check for pandas Series (has iloc attribute)
-    if hasattr(value, 'iloc') and hasattr(value, 'dtype'):
+    if hasattr(value, "iloc") and hasattr(value, "dtype"):
         # Handle pandas Series case - get first element
         return float(value.iloc[0])
     # Check for pandas scalar (has item attribute but not iloc)
-    elif hasattr(value, 'item') and not isinstance(value, int | float):
+    elif hasattr(value, "item") and not isinstance(value, int | float):
         # Handle pandas scalar case
         return float(value.item())
     else:
@@ -105,20 +105,21 @@ class ATRExitStrategy(ExitStrategy):
 
         # Vectorized calculations for trailing stop
         # Step 1: Calculate cumulative maximum high (running highest price)
-        df['cummax_high'] = df['high'].cummax()
+        df["cummax_high"] = df["high"].cummax()
 
         # Step 2: Calculate potential trailing stops based on running max and current ATR
-        df['potential_stop'] = df['cummax_high'] - (self.atr_multiplier * df['atr'])
+        df["potential_stop"] = df["cummax_high"] - (self.atr_multiplier * df["atr"])
 
         # Step 3: Ensure stops can only move up (trailing), never down
         # Use cummax to ensure stop levels only increase, and clip to initial stop minimum
-        df['trailing_stop'] = df['potential_stop'].cummax().clip(lower=initial_stop)
+        df["trailing_stop"] = df["potential_stop"].cummax().clip(lower=initial_stop)
 
         # Step 4: Handle NaN ATR values by forward-filling the last valid stop
-        df['trailing_stop'] = df['trailing_stop'].ffill()
+        df["trailing_stop"] = df["trailing_stop"].ffill()
 
         # Step 5: Find first exit condition (close < trailing_stop)
-        exit_mask: pd.Series[bool] = df['close'] < df['trailing_stop']
+        exit_mask: pd.Series[bool] = df["close"] < df["trailing_stop"]
+        # exit_mask: pd.Series[bool] = df['low'] < df['trailing_stop']
 
         if exit_mask.any():
             # Get first exit index
@@ -128,36 +129,26 @@ class ATRExitStrategy(ExitStrategy):
             exit_position = df.index.get_loc(exit_idx)
 
             # Extract scalar values using safe conversion to handle type ambiguity
-            exit_price = safe_float_conversion(df.iloc[exit_position]['trailing_stop'])
-            close_price = safe_float_conversion(df.iloc[exit_position]['close'])
+            exit_price = safe_float_conversion(df.iloc[exit_position]["trailing_stop"])
+            close_price = safe_float_conversion(df.iloc[exit_position]["close"])
 
             logger.debug(f"Stop loss triggered on {exit_idx}: Close {close_price:.2f} < Stop {exit_price:.2f}")
 
             # Convert index to datetime
             trade_date = pd.to_datetime(exit_idx).to_pydatetime() if not isinstance(exit_idx, datetime) else exit_idx
 
-            return Trade(
-                ticker=self.ticker,
-                date=trade_date,
-                price=exit_price,
-                reason="atr_trailing_stop"
-            )
+            return Trade(ticker=self.ticker, date=trade_date, price=close_price, reason="atr_trailing_stop")
 
         # No exit condition met - hold until period end
         last_date = df.index[-1]
 
         # Extract scalar values using safe conversion to handle type ambiguity
-        final_close = safe_float_conversion(df.iloc[-1]['close'])
-        final_stop = safe_float_conversion(df.iloc[-1]['trailing_stop'])
+        final_close = safe_float_conversion(df.iloc[-1]["close"])
+        final_stop = safe_float_conversion(df.iloc[-1]["trailing_stop"])
 
         logger.debug(f"Period end: Final close {final_close:.2f}, Final stop {final_stop:.2f}")
 
         # Convert date to datetime
         trade_date = pd.to_datetime(last_date).to_pydatetime() if not isinstance(last_date, datetime) else last_date
 
-        return Trade(
-            ticker=self.ticker,
-            date=trade_date,
-            price=final_close,
-            reason="period_end"
-        )
+        return Trade(ticker=self.ticker, date=trade_date, price=final_close, reason="period_end")
