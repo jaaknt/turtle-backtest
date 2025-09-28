@@ -17,7 +17,9 @@ import matplotlib
 warnings.filterwarnings("ignore", message=".*findfont.*")
 warnings.filterwarnings("ignore", message=".*Font family.*not found.*")
 # Configure matplotlib to use available fonts instead of Arial
-matplotlib.rcParams["font.family"] = ["DejaVu Sans", "Liberation Sans", "sans-serif"]
+matplotlib.rcParams["font.family"] = ["DejaVu Sans", "Ubuntu", "sans-serif"]
+# Remove Arial from sans-serif font list to prevent warnings
+matplotlib.rcParams["font.sans-serif"] = ["DejaVu Sans", "Ubuntu", "Bitstream Vera Sans", "Computer Modern Sans Serif", "sans-serif"]
 
 
 logger = logging.getLogger(__name__)

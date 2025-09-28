@@ -175,12 +175,15 @@ class PortfolioService:
         Args:
             current_date: Current trading date
         """
-
+        logger.info(f"positions before exits: {len(self.portfolio_manager.current_snapshot.positions)}")
         for position in self.portfolio_manager.current_snapshot.positions:
             # Check if this position's scheduled exit date matches current date
             # print(f"Position: {position}")
             if position.exit.date.date() <= current_date.date():
+                logger.info(f"Exiting position for {position.ticker} on {position.exit.date.date()}")
                 self.portfolio_manager.close_position(exit=position.exit, position_size=position.position_size)
+            else:
+                logger.info(f"Holding position for {position.ticker}, scheduled exit on {position.exit.date.date()}")
 
     def _generate_entry_signals(self, current_date: datetime, universe: list[str]) -> list[Signal]:
         """
