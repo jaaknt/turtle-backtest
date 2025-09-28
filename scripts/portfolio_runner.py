@@ -13,7 +13,7 @@ Options:
     --end-date YYYY-MM-DD            End date for backtest (required)
     --trading-strategy STRATEGY      Trading strategy: darvas_box, mars, momentum (default: darvas_box)
     --exit-strategy STRATEGY         Exit strategy: buy_and_hold, profit_loss, ema, macd, atr (default: buy_and_hold)
-    --ranking-strategy STRATEGY      Ranking strategy: momentum, volume_weighted_technical (default: momentum)
+    --ranking-strategy STRATEGY      Ranking strategy: momentum, volume_momentum (default: momentum)
     --initial-capital NUM            Starting capital amount (default: 30000.0)
     --position-min-amount NUM        Minimum position size (default: 1500.0)
     --position-max-amount NUM        Maximum position size (default: 3000.0)
@@ -68,7 +68,7 @@ from turtle.exit.macd import MACDExitStrategy
 from turtle.exit.atr import ATRExitStrategy
 from turtle.ranking.base import RankingStrategy
 from turtle.ranking.momentum import MomentumRanking
-from turtle.ranking.volume_weighted_technical import VolumeMomentumRanking
+from turtle.ranking.volume_momentum import VolumeMomentumRanking
 
 # PortfolioResults no longer needed - analytics prints directly
 from turtle.service.signal_service import SignalService

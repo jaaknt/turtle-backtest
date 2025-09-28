@@ -3,7 +3,7 @@ import numpy as np
 import warnings
 from datetime import datetime
 
-from turtle.ranking.volume_weighted_technical import VolumeMomentumRanking
+from turtle.ranking.volume_momentum import VolumeMomentumRanking
 
 with warnings.catch_warnings():
     warnings.filterwarnings(
