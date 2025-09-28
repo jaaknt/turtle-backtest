@@ -314,7 +314,12 @@ class PortfolioService:
             strategy_name = self.trading_strategy.__class__.__name__
             start_str = self.start_date.strftime("%Y%m%d")
             end_str = self.end_date.strftime("%Y%m%d")
-            filename = f"{strategy_name}_trades_{start_str}_{end_str}.csv"
+
+            now = datetime.now()
+            # Format: YYYY-MM-DD_HH-MM-SS
+            timestamp = now.strftime("%Y-%m-%d-%H%M%S")
+
+            filename = f"{strategy_name}_{timestamp}_{start_str}_{end_str}.csv"
             filepath = reports_dir / filename
 
             # Sort trades by exit date
