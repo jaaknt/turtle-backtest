@@ -236,7 +236,14 @@ class TestRiskManager:
         return session
 
     @pytest.fixture
-    def risk_manager(self, risk_parameters: Any, mock_position_tracker: Any, mock_order_executor: Any, mock_trade_logger: Any, mock_session: Any) -> RiskManager:
+    def risk_manager(
+        self,
+        risk_parameters: Any,
+        mock_position_tracker: Any,
+        mock_order_executor: Any,
+        mock_trade_logger: Any,
+        mock_session: Any,
+    ) -> RiskManager:
         """Create RiskManager instance."""
         return RiskManager(
             risk_parameters,
