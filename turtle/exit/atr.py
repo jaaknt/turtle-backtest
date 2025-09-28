@@ -119,7 +119,7 @@ class ATRExitStrategy(ExitStrategy):
 
         # Step 5: Find first exit condition (close < trailing_stop)
         # exit_mask: pd.Series[bool] = df["close"] < df["trailing_stop"]
-        exit_mask: pd.Series[bool] = df["low"] < df["trailing_stop"]
+        exit_mask: pd.Series[bool] = df["close"] < df["trailing_stop"]
 
         if exit_mask.any():
             # Get first exit index
@@ -137,7 +137,7 @@ class ATRExitStrategy(ExitStrategy):
             # Convert index to datetime
             trade_date = pd.to_datetime(exit_idx).to_pydatetime() if not isinstance(exit_idx, datetime) else exit_idx
 
-            return Trade(ticker=self.ticker, date=trade_date, price=exit_price, reason="atr_trailing_stop")
+            return Trade(ticker=self.ticker, date=trade_date, price=close_price, reason="atr_trailing_stop")
 
         # No exit condition met - hold until period end
         last_date = df.index[-1]
@@ -151,4 +151,4 @@ class ATRExitStrategy(ExitStrategy):
         # Convert date to datetime
         trade_date = pd.to_datetime(last_date).to_pydatetime() if not isinstance(last_date, datetime) else last_date
 
-        return Trade(ticker=self.ticker, date=trade_date, price=final_stop, reason="period_end")
+        return Trade(ticker=self.ticker, date=trade_date, price=final_close, reason="period_end")

@@ -180,7 +180,7 @@ class SignalProcessor:
         elif isinstance(self.exit_strategy, EMAExitStrategy):
             self.exit_strategy.initialize(signal.ticker, entry_date, effective_end_date, ema_period=20)
         elif isinstance(self.exit_strategy, ATRExitStrategy):
-            self.exit_strategy.initialize(signal.ticker, entry_date, effective_end_date, atr_period=14, atr_multiplier=2.0)
+            self.exit_strategy.initialize(signal.ticker, entry_date, effective_end_date, atr_period=14, atr_multiplier=1.8)
         elif isinstance(self.exit_strategy, MACDExitStrategy):
             self.exit_strategy.initialize(
                 signal.ticker,
