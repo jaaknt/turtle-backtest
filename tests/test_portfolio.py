@@ -195,7 +195,8 @@ class TestPortfolioManager:
 
         # Verify position was closed
         # With new Position structure, remove_position uses current_value (exit price)
-        assert manager.current_snapshot.cash == 10100.0  # Initial 10000 - 1000 + 1100 = 10100
+        # Calculation: Initial 10000 - 1000 (cost) + 1100 (proceeds) - 5.25 (slippage) = 10094.75
+        assert manager.current_snapshot.cash == 10094.75  # Includes slippage deduction
         # Check position is not in current snapshot
         positions = manager.current_snapshot.positions
         assert not any(p.ticker == "AAPL" for p in positions)

@@ -42,6 +42,17 @@ class Position:
         """Get the holding period in days"""
         return (self.exit.date - self.entry.date).days
 
+    @property
+    def slippage(self) -> float:
+        """
+        Calculate the slippage in dollars.
+        Returns:
+            slippage = (entry_price + exit_price) / 2 * 0.005 * position_size
+        """
+        entry_price = self.entry.price
+        exit_price = self.exit.price
+        return (entry_price + exit_price) / 2 * 0.005 * self.position_size
+
 
 @dataclass
 class DailyPortfolioSnapshot:
@@ -89,7 +100,7 @@ class DailyPortfolioSnapshot:
     def remove_position(self, ticker: str, price: float) -> None:
         """Remove a position by ticker symbol."""
         position = self.get_position(ticker)
-        self.cash += position.position_size * price
+        self.cash += position.position_size * price - position.slippage
         self.positions.remove(position)
 
     def update_position_price(self, ticker: str, new_price: float) -> None:
