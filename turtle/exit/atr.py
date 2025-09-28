@@ -137,7 +137,7 @@ class ATRExitStrategy(ExitStrategy):
             # Convert index to datetime
             trade_date = pd.to_datetime(exit_idx).to_pydatetime() if not isinstance(exit_idx, datetime) else exit_idx
 
-            return Trade(ticker=self.ticker, date=trade_date, price=close_price, reason="atr_trailing_stop")
+            return Trade(ticker=self.ticker, date=trade_date, price=exit_price, reason="atr_trailing_stop")
 
         # No exit condition met - hold until period end
         last_date = df.index[-1]
