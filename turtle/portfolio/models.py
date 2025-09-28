@@ -90,7 +90,7 @@ class DailyPortfolioSnapshot:
         """Remove a position by ticker symbol."""
         position = self.get_position(ticker)
         self.cash += position.position_size * price
-        self.positions = [p for p in self.positions if p.ticker != ticker]
+        self.positions.remove(position)
 
     def update_position_price(self, ticker: str, new_price: float) -> None:
         """Update the price of an existing position by creating a new exit trade."""
