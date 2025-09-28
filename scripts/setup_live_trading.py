@@ -130,7 +130,7 @@ def validate_database_setup(db_dsn: str) -> bool:
         return False
 
 
-def check_environment_variables():
+def check_environment_variables() -> bool:
     """Check if required environment variables are set."""
     logger.info("Checking environment variables...")
 
@@ -168,7 +168,7 @@ def check_environment_variables():
     return True
 
 
-def test_alpaca_connection():
+def test_alpaca_connection() -> bool:
     """Test connection to Alpaca API."""
     try:
         from turtle.trade.client import AlpacaTradingClient
@@ -185,7 +185,7 @@ def test_alpaca_connection():
 
         # Test getting account info
         account = client.get_account()
-        logger.info(f"Alpaca connection successful!")
+        logger.info("Alpaca connection successful!")
         logger.info(f"Account ID: {account.account_id}")
         logger.info(f"Equity: ${account.equity}")
         logger.info(f"Cash: ${account.cash}")
@@ -201,7 +201,7 @@ def test_alpaca_connection():
         return False
 
 
-def create_example_env_file():
+def create_example_env_file() -> None:
     """Create example .env file."""
     env_file = project_root / ".env.example"
 
@@ -227,7 +227,7 @@ MAX_DAILY_LOSS=500.0
         logger.error(f"Error creating example .env file: {e}")
 
 
-def main():
+def main() -> bool:
     """Main setup function."""
     logging.basicConfig(
         level=logging.INFO,

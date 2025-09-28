@@ -207,7 +207,7 @@ class PositionTracker:
                     new_cost_basis = execution.execution_value
                 else:
                     # Still short, reduce size
-                    new_cost_basis = position.cost_basis * (new_quantity / position.quantity)
+                    new_cost_basis = position.cost_basis * Decimal(str(new_quantity / position.quantity))
 
         else:  # SELL
             if position.quantity > 0:
@@ -223,7 +223,7 @@ class PositionTracker:
                     new_cost_basis = -execution.execution_value
                 else:
                     # Still long, reduce size
-                    new_cost_basis = position.cost_basis * (new_quantity / position.quantity)
+                    new_cost_basis = position.cost_basis * Decimal(str(new_quantity / position.quantity))
 
             else:
                 # Adding to short position
