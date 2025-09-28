@@ -92,11 +92,11 @@ class ATRExitStrategy(ExitStrategy):
         df = data.copy()
 
         # Entry price and ATR validation
-        entry_price = df.iloc[0]["open"]
-        entry_atr = df.iloc[0]["atr"]
+        entry_price = safe_float_conversion(df.iloc[0]["open"])
+        entry_atr = safe_float_conversion(df.iloc[0]["atr"])
 
-        if pd.isna(entry_atr):
-            raise ValueError("ATR value is NaN for entry date. Cannot calculate stop loss.")
+        if pd.isna(entry_atr) or entry_atr == 0:
+            raise ValueError("ATR value is NaN or zero for entry date. Cannot calculate stop loss.")
 
         # Calculate initial stop loss
         initial_stop = entry_price - (self.atr_multiplier * entry_atr)
@@ -118,8 +118,8 @@ class ATRExitStrategy(ExitStrategy):
         df["trailing_stop"] = df["trailing_stop"].ffill()
 
         # Step 5: Find first exit condition (close < trailing_stop)
-        exit_mask: pd.Series[bool] = df["close"] < df["trailing_stop"]
-        # exit_mask: pd.Series[bool] = df['low'] < df['trailing_stop']
+        # exit_mask: pd.Series[bool] = df["close"] < df["trailing_stop"]
+        exit_mask: pd.Series[bool] = df["low"] < df["trailing_stop"]
 
         if exit_mask.any():
             # Get first exit index
@@ -151,4 +151,4 @@ class ATRExitStrategy(ExitStrategy):
         # Convert date to datetime
         trade_date = pd.to_datetime(last_date).to_pydatetime() if not isinstance(last_date, datetime) else last_date
 
-        return Trade(ticker=self.ticker, date=trade_date, price=final_close, reason="period_end")
+        return Trade(ticker=self.ticker, date=trade_date, price=final_stop, reason="period_end")

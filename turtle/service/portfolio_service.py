@@ -17,6 +17,7 @@ from turtle.portfolio.selector import PortfolioSignalSelector
 from turtle.portfolio.analytics import PortfolioAnalytics
 from turtle.google.models import GoogleSheetsConfig
 from turtle.google.signal_exporter import SignalExporter
+from turtle.exit.atr import safe_float_conversion
 
 logger = logging.getLogger(__name__)
 
@@ -277,7 +278,8 @@ class PortfolioService:
                 df = self.bars_history.get_ticker_history(position.ticker, current_date, current_date, self.time_frame_unit)
 
                 if not df.empty:
-                    self.portfolio_manager.current_snapshot.update_position_price(position.ticker, float(df.iloc[0]["close"]))
+                    close_price = safe_float_conversion(df.iloc[0]["close"])
+                    self.portfolio_manager.current_snapshot.update_position_price(position.ticker, close_price)
 
             except Exception as e:
                 logger.debug(f"Error updating price for {position.ticker}, date: {current_date} : {e}")
