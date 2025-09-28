@@ -124,12 +124,12 @@ class PortfolioService:
 
         # Generate final results and display
         self._generate_results(output_file=output_file)
-        for trade in sorted(self.portfolio_manager.state.future_trades, key=lambda trade: trade.exit.date, reverse=True):
-            print(
-                f"Entry: {trade.entry.date.date()} @ ${trade.entry.price:.2f} Exit: {trade.exit.date.date()} "
-                f"@ ${trade.exit.price:.2f} Size: {trade.position_size} "
-                f"result: ${(trade.exit.price - trade.entry.price) * trade.position_size:.2f}"
-            )
+        # for trade in sorted(self.portfolio_manager.state.future_trades, key=lambda trade: trade.exit.date, reverse=True):
+        #     print(
+        #       f"Entry: {trade.entry.date.date()} @ ${trade.entry.price:.2f} Exit: {trade.exit.date.date()} "
+        #       f"@ ${trade.exit.price:.2f} Size: {trade.position_size} "
+        #       f"result: ${(trade.exit.price - trade.entry.price) * trade.position_size:.2f}"
+        #     )
 
         # Save all trades to CSV in reports folder (sorted by exit date)
         self._save_trade_to_csv(self.portfolio_manager.state.future_trades)
@@ -137,7 +137,7 @@ class PortfolioService:
         total_value = sum(
             (trade.exit.price - trade.entry.price) * trade.position_size for trade in self.portfolio_manager.state.future_trades
         )
-        print(f"Total portfolio value: ${total_value:.2f} last snapshot: ${self.portfolio_manager.current_snapshot.total_value:.2f}")
+        print(f"Trades PL: ${total_value:.2f} current snapshot total value: ${self.portfolio_manager.current_snapshot.total_value:.2f}")
 
     def _process_trading_day(self, current_date: datetime, end_date: datetime, universe: list[str]) -> None:
         """
@@ -175,15 +175,18 @@ class PortfolioService:
         Args:
             current_date: Current trading date
         """
-        logger.info(f"positions before exits: {len(self.portfolio_manager.current_snapshot.positions)}")
-        for position in self.portfolio_manager.current_snapshot.positions:
+        positions_to_process = list(self.portfolio_manager.current_snapshot.positions)
+        logger.debug(f"processing {len(positions_to_process)} positions")
+
+        for position in positions_to_process:
             # Check if this position's scheduled exit date matches current date
-            # print(f"Position: {position}")
             if position.exit.date.date() <= current_date.date():
                 logger.info(f"Exiting position for {position.ticker} on {position.exit.date.date()}")
                 self.portfolio_manager.close_position(exit=position.exit, position_size=position.position_size)
             else:
-                logger.info(f"Holding position for {position.ticker}, scheduled exit on {position.exit.date.date()}")
+                logger.debug(f"Holding position for {position.ticker}, scheduled exit on {position.exit.date.date()}")
+
+        logger.info(f"positions after exits: {len(self.portfolio_manager.current_snapshot.positions)}")
 
     def _generate_entry_signals(self, current_date: datetime, universe: list[str]) -> list[Signal]:
         """
