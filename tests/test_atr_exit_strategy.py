@@ -134,7 +134,7 @@ class TestATRExitStrategy:
 
         assert isinstance(result, Trade)
         assert result.reason == "atr_trailing_stop"
-        assert result.date == dates[1]  # Day when close < trailing stop
+        assert result.date == dates[0]  # Day when low < trailing stop
         assert result.price < 100.0  # Should be trailing stop price
 
     def test_calculate_exit_period_end(self) -> None:
@@ -150,21 +150,21 @@ class TestATRExitStrategy:
                 "open": [100.0, 101.0, 102.0, 103.0, 104.0],  # Entry at 100
                 "close": [101.0, 102.0, 103.0, 104.0, 105.0],
                 "high": [102.0, 103.0, 104.0, 105.0, 106.0],
-                "low": [99.0, 100.0, 101.0, 102.0, 103.0],  # Never drops below stop
+                "low": [100.5, 101.5, 102.5, 103.5, 104.5],  # Higher lows, never drops below trailing stop
                 "atr": [1.0, 1.0, 1.0, 1.0, 1.0],  # ATR = 1.0
             },
             index=dates,
         )
 
-        # With entry=100, ATR=1.0, multiplier=2.0: stop = 98.0
-        # Lowest low is 99.0, which is above stop, so should hold to end
+        # With entry=100, ATR=1.0, multiplier=2.0: initial stop = 98.0
+        # Lowest low is 100.5, which is above all trailing stops, so should hold to end
 
         result = strategy.calculate_exit(data)
 
         assert isinstance(result, Trade)
         assert result.reason == "period_end"
         assert result.date == dates[-1]
-        assert result.price == 105.0  # Close price of last day
+        assert result.price == 104.0  # Final trailing stop price
 
     def test_different_atr_multipliers(self) -> None:
         """Test strategy with different ATR multipliers."""
