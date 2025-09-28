@@ -46,7 +46,7 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.signal.base import TradingStrategy
 from turtle.ranking.momentum import MomentumRanking
-from turtle.ranking.volume_weighted_technical import VolumeMomentumRanking
+from turtle.ranking.volume_momentum import VolumeMomentumRanking
 from turtle.exit import (
     ExitStrategy,
     BuyAndHoldExitStrategy,

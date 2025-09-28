@@ -14,6 +14,7 @@ Options:
     --end-date YYYY-MM-DD        End date for analysis (required for count mode)
     --tickers TICKER             Space separated list of specific tickers to test
     --trading-strategy STRATEGY  Trading strategy: darvas_box, mars, momentum (default: darvas_box)
+    --ranking-strategy STRATEGY  Ranking strategy: momentum, volume_momentum (default: momentum)
     --max-tickers NUM            Maximum number of tickers to test (default: 10000)
     --mode MODE                  Analysis mode: signal, list, top (default: signal)
     --verbose                    Enable verbose logging
@@ -36,13 +37,30 @@ from turtle.config.settings import Settings
 from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.ranking.momentum import MomentumRanking
+from turtle.ranking.volume_momentum import VolumeMomentumRanking
+from turtle.ranking.base import RankingStrategy
 from turtle.service.signal_service import SignalService
 from turtle.signal.base import TradingStrategy
 
 logger = logging.getLogger(__name__)
 
 
-def get_trading_strategy_instance(strategy_name: str, pool: ConnectionPool, app: AppConfig) -> TradingStrategy:
+def get_ranking_strategy_instance(ranking_name: str) -> RankingStrategy:
+    """Create and return a ranking strategy instance by name."""
+    ranking_classes: dict[str, type[RankingStrategy]] = {
+        "momentum": MomentumRanking,
+        "volume_momentum": VolumeMomentumRanking,
+    }
+
+    ranking_class = ranking_classes.get(ranking_name.lower())
+    if ranking_class is None:
+        available_rankings = ", ".join(ranking_classes.keys())
+        raise ValueError(f"Unknown ranking strategy '{ranking_name}'. Available strategies: {available_rankings}")
+
+    return ranking_class()
+
+
+def get_trading_strategy_instance(strategy_name: str, ranking_strategy: RankingStrategy, pool: ConnectionPool, app: AppConfig) -> TradingStrategy:
     """Create and return a trading strategy instance by name."""
     from turtle.signal.darvas_box import DarvasBoxStrategy
     from turtle.signal.mars import MarsStrategy
@@ -68,7 +86,7 @@ def get_trading_strategy_instance(strategy_name: str, pool: ConnectionPool, app:
 
     # Create strategy instance with common parameters
     return strategy_class(
-        bars_history=bars_history, ranking_strategy=MomentumRanking(), time_frame_unit=TimeFrameUnit.DAY, warmup_period=365
+        bars_history=bars_history, ranking_strategy=ranking_strategy, time_frame_unit=TimeFrameUnit.DAY, warmup_period=365
     )
 
 
@@ -116,6 +134,14 @@ def create_argument_parser() -> argparse.ArgumentParser:
         help="Trading strategy to use (default: darvas_box)",
     )
 
+    parser.add_argument(
+        "--ranking-strategy",
+        type=str,
+        default="momentum",
+        choices=["momentum", "volume_momentum"],
+        help="Ranking strategy to use (default: momentum)",
+    )
+
     parser.add_argument("--max-tickers", type=int, default=10000, help="Maximum number of tickers to test")
 
     parser.add_argument(
@@ -141,15 +167,22 @@ def main() -> int:
     # Setup logging
     LogConfig.setup(args.verbose)
 
-    logger.info(f"Starting strategy analysis with {args.trading_strategy} strategy")
+    logger.info(f"Starting strategy analysis with {args.trading_strategy} strategy and {args.ranking_strategy} ranking")
 
     try:
         # Parse and validate dates
         start_date, end_date = (args.start_date, args.end_date)
 
-        # Get the trading strategy first (we need it for service initialization)
+        # Get the ranking strategy first
         try:
-            trading_strategy = get_trading_strategy_instance(args.trading_strategy, pool=settings.pool, app=settings.app)
+            ranking_strategy = get_ranking_strategy_instance(args.ranking_strategy)
+        except ValueError as e:
+            logger.error(str(e))
+            return 1
+
+        # Get the trading strategy (we need it for service initialization)
+        try:
+            trading_strategy = get_trading_strategy_instance(args.trading_strategy, ranking_strategy, pool=settings.pool, app=settings.app)
         except ValueError as e:
             logger.error(str(e))
             return 1

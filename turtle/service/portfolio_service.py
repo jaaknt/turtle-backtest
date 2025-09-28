@@ -331,17 +331,16 @@ class PortfolioService:
                 trade_data = {
                     "ticker": trade.ticker,
                     "entry_date": trade.entry.date.strftime("%Y-%m-%d %H:%M:%S"),
-                    "entry_price": f"{trade.entry.price:.4f}",
                     "entry_reason": trade.entry.reason,
                     "exit_date": trade.exit.date.strftime("%Y-%m-%d %H:%M:%S"),
-                    "exit_price": f"{trade.exit.price:.4f}",
                     "exit_reason": trade.exit.reason,
+                    "entry_price": f"{trade.entry.price:.2f}",
+                    "exit_price": f"{trade.exit.price:.2f}",
                     "position_size": f"{trade.position_size:.0f}",
-                    "holding_days": trade.holding_days,
                     "realized_pnl": f"{trade.realized_pnl:.2f}",
                     "realized_pct": f"{trade.realized_pct:.2f}",
+                    "holding_days": trade.holding_days,
                     "signal_ranking": getattr(trade.signal, "ranking", "N/A"),
-                    "signal_date": trade.signal.date.strftime("%Y-%m-%d %H:%M:%S") if hasattr(trade.signal, "date") else "N/A",
                 }
                 all_trade_data.append(trade_data)
 
