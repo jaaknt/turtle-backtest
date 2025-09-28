@@ -2,6 +2,8 @@
 
 from datetime import datetime, timedelta
 import logging
+import csv
+from pathlib import Path
 
 from turtle.signal.base import TradingStrategy
 from turtle.exit.base import ExitStrategy
@@ -9,6 +11,7 @@ from turtle.data.bars_history import BarsHistoryRepo
 from turtle.signal.models import Signal
 from turtle.common.enums import TimeFrameUnit
 from turtle.backtest.processor import SignalProcessor
+from turtle.backtest.models import FutureTrade
 from turtle.portfolio.manager import PortfolioManager
 from turtle.portfolio.selector import PortfolioSignalSelector
 from turtle.portfolio.analytics import PortfolioAnalytics
@@ -123,9 +126,12 @@ class PortfolioService:
         self._generate_results(output_file=output_file)
         for trade in self.portfolio_manager.state.future_trades:
             print(
-                f"Entry: {trade.entry.date.date()} @ ${trade.entry.price} Exit: {trade.exit.date.date()} "
-                f"@ ${trade.exit.price} Size: {trade.position_size} result: ${(trade.exit.price - trade.entry.price) * trade.position_size}"
+                f"Entry: {trade.entry.date.date()} @ ${trade.entry.price:<.2f} Exit: {trade.exit.date.date()} "
+                f"@ ${trade.exit.price} Size: {trade.position_size} "
+                f"result: ${(trade.exit.price - trade.entry.price) * trade.position_size:<.2f}"
             )
+            # save all future trades to CSV in reports folder
+            self._save_trade_to_csv(trade)
 
         total_value = sum(
             (trade.exit.price - trade.entry.price) * trade.position_size for trade in self.portfolio_manager.state.future_trades
@@ -208,9 +214,7 @@ class PortfolioService:
         if self.signal_exporter and qualified_signals:
             try:
                 strategy_name = self.trading_strategy.__class__.__name__
-                success = self.signal_exporter.export_daily_signals(
-                    qualified_signals, strategy_name, include_price_data=True
-                )
+                success = self.signal_exporter.export_daily_signals(qualified_signals, strategy_name, include_price_data=True)
                 if success:
                     logger.info(f"Successfully exported {len(qualified_signals)} signals to Google Sheets")
                 else:
@@ -283,3 +287,59 @@ class PortfolioService:
             self.bars_history,
             output_file=output_file,
         )
+
+    def _save_trade_to_csv(self, trade: FutureTrade) -> None:
+        """
+        Save individual trade to CSV file in reports folder.
+
+        Args:
+            trade: FutureTrade object containing trade details
+        """
+        try:
+            # Create reports directory if it doesn't exist
+            reports_dir = Path("reports")
+
+            # Generate filename based on strategy and date range
+            strategy_name = self.trading_strategy.__class__.__name__
+            start_str = self.start_date.strftime("%Y%m%d")
+            end_str = self.end_date.strftime("%Y%m%d")
+            filename = f"{strategy_name}_trades_{start_str}_{end_str}.csv"
+            filepath = reports_dir / filename
+
+            # Check if file exists to determine if we need headers
+            file_exists = filepath.exists()
+
+            # Prepare trade data
+            trade_data = {
+                "ticker": trade.ticker,
+                "entry_date": trade.entry.date.strftime("%Y-%m-%d %H:%M:%S"),
+                "entry_price": f"{trade.entry.price:.4f}",
+                "entry_reason": trade.entry.reason,
+                "exit_date": trade.exit.date.strftime("%Y-%m-%d %H:%M:%S"),
+                "exit_price": f"{trade.exit.price:.4f}",
+                "exit_reason": trade.exit.reason,
+                "position_size": f"{trade.position_size:.0f}",
+                "holding_days": trade.holding_days,
+                "realized_pnl": f"{trade.realized_pnl:.2f}",
+                "realized_pct": f"{trade.realized_pct:.2f}",
+                "signal_ranking": getattr(trade.signal, "ranking", "N/A"),
+                "signal_date": trade.signal.date.strftime("%Y-%m-%d %H:%M:%S") if hasattr(trade.signal, "date") else "N/A",
+            }
+
+
+            # Write to CSV
+            with open(filepath, "a", newline="", encoding="utf-8") as csvfile:
+                fieldnames = list(trade_data.keys())
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+                # Write header if this is a new file
+                if not file_exists:
+                    writer.writeheader()
+                    logger.info(f"Created new trade CSV file: {filepath}")
+
+                # Write trade data
+                writer.writerow(trade_data)
+
+        except Exception as e:
+            logger.error(f"Error saving trade to CSV: {e}")
+            # Don't raise the exception to avoid disrupting the main backtest process

@@ -2,6 +2,7 @@
 
 import logging
 from datetime import datetime, timedelta
+from typing import Any
 
 from turtle.signal.base import TradingStrategy
 from turtle.exit.base import ExitStrategy
@@ -343,9 +344,9 @@ class LiveTradingService:
                 "signals": [
                     {
                         "ticker": signal.ticker,
-                        "signal_type": signal.signal_type,
+                        "signal_type": getattr(signal, "signal_type", "unknown"),
                         "ranking": signal.ranking,
-                        "price": float(signal.price) if signal.price else None,
+                        "price": getattr(signal, "price", None),
                         "date": signal.date,
                         "is_new": signal.ticker not in existing_tickers
                     }
@@ -365,7 +366,7 @@ class LiveTradingService:
             Dictionary with validation results
         """
         try:
-            validation_results = {
+            validation_results: dict[str, Any] = {
                 "timestamp": datetime.now(),
                 "overall_status": "valid",
                 "checks": {}

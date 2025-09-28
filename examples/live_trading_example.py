@@ -22,7 +22,6 @@ from turtle.exit.profit_loss import ProfitLossExitStrategy
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.trade.models import RiskParameters
 from turtle.service.live_trading_service import LiveTradingService
-from turtle.common.enums import TimeFrameUnit
 
 # Configure logging
 logging.basicConfig(
@@ -149,7 +148,7 @@ def main():
         logger.info("Running daily signal scan...")
         scan_results = live_service.run_daily_signal_scan()
 
-        logger.info(f"Signal scan results:")
+        logger.info("Signal scan results:")
         logger.info(f"  Total signals: {scan_results.get('total_signals', 0)}")
         logger.info(f"  New signals: {scan_results.get('new_signals', 0)}")
         logger.info(f"  Existing positions: {scan_results.get('existing_positions', 0)}")
@@ -278,7 +277,7 @@ def display_portfolio_status(live_service: LiveTradingService):
 
     # Performance
     performance = status.get('live_summary', {}).get('performance', {})
-    print(f"\nPerformance:")
+    print("\nPerformance:")
     print(f"  Total Trades: {performance.get('total_trades', 0)}")
     print(f"  Win Rate: {performance.get('win_rate', 0):.1f}%")
     print(f"  Total P&L: ${performance.get('total_pnl', 0):.2f}")

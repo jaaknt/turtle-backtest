@@ -1,8 +1,9 @@
 """Tests for live trading functionality."""
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
+from typing import Any
 from unittest.mock import Mock, patch
 
 from turtle.trade.models import (
@@ -15,13 +16,12 @@ from turtle.trade.position_tracker import PositionTracker
 from turtle.trade.risk_manager import RiskManager
 from turtle.trade.trade_logger import TradeLogger
 from turtle.trade.manager import LiveTradingManager
-from turtle.signal.models import Signal
 
 
 class TestLiveOrder:
     """Test LiveOrder model."""
 
-    def test_live_order_creation(self):
+    def test_live_order_creation(self) -> None:
         """Test creating a live order."""
         order = LiveOrder(
             ticker="AAPL",
@@ -38,7 +38,7 @@ class TestLiveOrder:
         assert not order.is_complete
         assert not order.is_filled
 
-    def test_order_completion_status(self):
+    def test_order_completion_status(self) -> None:
         """Test order completion status."""
         order = LiveOrder(
             ticker="AAPL",
@@ -51,7 +51,7 @@ class TestLiveOrder:
         assert order.is_complete
         assert order.is_filled
 
-    def test_fill_value_calculation(self):
+    def test_fill_value_calculation(self) -> None:
         """Test fill value calculation."""
         order = LiveOrder(
             ticker="AAPL",
@@ -68,7 +68,7 @@ class TestLiveOrder:
 class TestLivePosition:
     """Test LivePosition model."""
 
-    def test_live_position_creation(self):
+    def test_live_position_creation(self) -> None:
         """Test creating a live position."""
         position = LivePosition(
             ticker="AAPL",
@@ -85,7 +85,7 @@ class TestLivePosition:
         assert not position.is_short
         assert position.market_value == Decimal("15500.00")
 
-    def test_short_position(self):
+    def test_short_position(self) -> None:
         """Test short position."""
         position = LivePosition(
             ticker="AAPL",
@@ -100,7 +100,7 @@ class TestLivePosition:
         assert position.is_short
         assert position.market_value == Decimal("14500.00")
 
-    def test_pnl_percentage(self):
+    def test_pnl_percentage(self) -> None:
         """Test P&L percentage calculation."""
         position = LivePosition(
             ticker="AAPL",
@@ -118,7 +118,7 @@ class TestLivePosition:
 class TestRiskParameters:
     """Test RiskParameters model."""
 
-    def test_risk_parameters_validation(self):
+    def test_risk_parameters_validation(self) -> None:
         """Test risk parameters validation."""
         # Valid parameters
         params = RiskParameters(
@@ -142,23 +142,23 @@ class TestOrderExecutor:
     """Test OrderExecutor functionality."""
 
     @pytest.fixture
-    def mock_trading_client(self):
+    def mock_trading_client(self) -> Mock:
         """Mock trading client."""
         client = Mock(spec=AlpacaTradingClient)
         return client
 
     @pytest.fixture
-    def mock_trade_logger(self):
+    def mock_trade_logger(self) -> Mock:
         """Mock trade logger."""
         logger = Mock(spec=TradeLogger)
         return logger
 
     @pytest.fixture
-    def order_executor(self, mock_trading_client, mock_trade_logger):
+    def order_executor(self, mock_trading_client: Any, mock_trade_logger: Any) -> OrderExecutor:
         """Create OrderExecutor instance."""
         return OrderExecutor(mock_trading_client, mock_trade_logger)
 
-    def test_submit_market_order(self, order_executor, mock_trading_client):
+    def test_submit_market_order(self, order_executor: Any, mock_trading_client: Any) -> None:
         """Test submitting market order."""
         # Mock successful order submission
         mock_order = LiveOrder(
@@ -179,7 +179,7 @@ class TestOrderExecutor:
         assert result.ticker == "AAPL"
         mock_trading_client.submit_order.assert_called_once()
 
-    def test_cancel_order(self, order_executor, mock_trading_client):
+    def test_cancel_order(self, order_executor: Any, mock_trading_client: Any) -> None:
         """Test cancelling order."""
         mock_trading_client.cancel_order.return_value = True
 
@@ -204,7 +204,7 @@ class TestRiskManager:
     """Test RiskManager functionality."""
 
     @pytest.fixture
-    def risk_parameters(self):
+    def risk_parameters(self) -> RiskParameters:
         """Create risk parameters."""
         return RiskParameters(
             max_position_size=Decimal("10000"),
@@ -214,29 +214,29 @@ class TestRiskManager:
         )
 
     @pytest.fixture
-    def mock_position_tracker(self):
+    def mock_position_tracker(self) -> Mock:
         """Mock position tracker."""
         return Mock(spec=PositionTracker)
 
     @pytest.fixture
-    def mock_order_executor(self):
+    def mock_order_executor(self) -> Mock:
         """Mock order executor."""
         return Mock(spec=OrderExecutor)
 
     @pytest.fixture
-    def mock_trade_logger(self):
+    def mock_trade_logger(self) -> Mock:
         """Mock trade logger."""
         return Mock(spec=TradeLogger)
 
     @pytest.fixture
-    def mock_session(self):
+    def mock_session(self) -> Mock:
         """Mock trading session."""
         session = Mock(spec=TradingSession)
         session.id = "test_session_id"
         return session
 
     @pytest.fixture
-    def risk_manager(self, risk_parameters, mock_position_tracker, mock_order_executor, mock_trade_logger, mock_session):
+    def risk_manager(self, risk_parameters: Any, mock_position_tracker: Any, mock_order_executor: Any, mock_trade_logger: Any, mock_session: Any) -> RiskManager:
         """Create RiskManager instance."""
         return RiskManager(
             risk_parameters,
@@ -246,7 +246,7 @@ class TestRiskManager:
             mock_session
         )
 
-    def test_order_risk_check_passes(self, risk_manager):
+    def test_order_risk_check_passes(self, risk_manager: Any) -> None:
         """Test order risk check passes."""
         order = LiveOrder(
             ticker="AAPL",
@@ -273,7 +273,7 @@ class TestRiskManager:
         assert approved is True
         assert reason == "Risk check passed"
 
-    def test_order_risk_check_insufficient_balance(self, risk_manager):
+    def test_order_risk_check_insufficient_balance(self, risk_manager: Any) -> None:
         """Test order rejection due to insufficient balance."""
         order = LiveOrder(
             ticker="AAPL",
@@ -301,28 +301,28 @@ class TestPositionTracker:
     """Test PositionTracker functionality."""
 
     @pytest.fixture
-    def mock_trading_client(self):
+    def mock_trading_client(self) -> Mock:
         """Mock trading client."""
         return Mock(spec=AlpacaTradingClient)
 
     @pytest.fixture
-    def mock_trade_logger(self):
+    def mock_trade_logger(self) -> Mock:
         """Mock trade logger."""
         return Mock(spec=TradeLogger)
 
     @pytest.fixture
-    def mock_session(self):
+    def mock_session(self) -> Mock:
         """Mock trading session."""
         session = Mock(spec=TradingSession)
         session.id = "test_session_id"
         return session
 
     @pytest.fixture
-    def position_tracker(self, mock_trading_client, mock_trade_logger, mock_session):
+    def position_tracker(self, mock_trading_client: Any, mock_trade_logger: Any, mock_session: Any) -> PositionTracker:
         """Create PositionTracker instance."""
         return PositionTracker(mock_trading_client, mock_trade_logger, mock_session)
 
-    def test_process_execution_new_position(self, position_tracker):
+    def test_process_execution_new_position(self, position_tracker: Any) -> None:
         """Test processing execution for new position."""
         execution = ExecutionReport(
             order_id="order_123",
@@ -341,7 +341,7 @@ class TestPositionTracker:
         assert position.quantity == 100
         assert position.avg_price == Decimal("150.00")
 
-    def test_calculate_total_pnl(self, position_tracker):
+    def test_calculate_total_pnl(self, position_tracker: Any) -> None:
         """Test calculating total P&L."""
         # Add test positions
         position1 = LivePosition(
@@ -375,13 +375,13 @@ class TestLiveTradingManager:
     """Test LiveTradingManager functionality."""
 
     @pytest.fixture
-    def risk_parameters(self):
+    def risk_parameters(self) -> RiskParameters:
         """Create risk parameters."""
         return RiskParameters()
 
     @patch('turtle.trade.manager.AlpacaTradingClient')
     @patch('turtle.trade.manager.TradeLogger')
-    def test_manager_initialization(self, mock_logger_class, mock_client_class, risk_parameters):
+    def test_manager_initialization(self, mock_logger_class: Any, mock_client_class: Any, risk_parameters: Any) -> None:
         """Test LiveTradingManager initialization."""
         manager = LiveTradingManager(
             api_key="test_key",
@@ -396,7 +396,7 @@ class TestLiveTradingManager:
         assert manager.paper_trading is True
         assert manager.is_running is False
 
-    def test_signal_processing(self):
+    def test_signal_processing(self) -> None:
         """Test processing trading signals."""
         # This would require more extensive mocking
         # and is better suited for integration tests
@@ -406,14 +406,14 @@ class TestLiveTradingManager:
 class TestIntegration:
     """Integration tests for live trading system."""
 
-    def test_end_to_end_signal_flow(self):
+    def test_end_to_end_signal_flow(self) -> None:
         """Test complete signal-to-execution flow."""
         # This would test the complete flow:
         # Signal generation → Risk check → Order submission → Position tracking
         # Requires database and API mocking
         pass
 
-    def test_emergency_stop_functionality(self):
+    def test_emergency_stop_functionality(self) -> None:
         """Test emergency stop across all components."""
         # Test that emergency stop properly:
         # - Cancels all orders

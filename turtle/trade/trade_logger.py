@@ -354,7 +354,7 @@ class TradeLogger:
 
                     if ticker:
                         query += " AND ticker = %s"
-                        params.append(ticker)
+                        params.append(ticker)  # type: ignore[arg-type]
 
                     query += " ORDER BY created_at DESC"
 
@@ -388,7 +388,7 @@ class TradeLogger:
 
                     if ticker:
                         query += " AND ticker = %s"
-                        params.append(ticker)
+                        params.append(ticker)  # type: ignore[arg-type]
 
                     query += " ORDER BY timestamp DESC"
 

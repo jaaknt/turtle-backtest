@@ -199,7 +199,7 @@ class LiveTradingManager:
             account = self.trading_client.get_account()
 
             # Determine order parameters from signal
-            order_side = OrderSide.BUY if signal.signal_type == "BUY" else OrderSide.SELL
+            order_side = OrderSide.BUY if getattr(signal, "signal_type", "BUY") == "BUY" else OrderSide.SELL
 
             # Calculate position size
             position_size = self._calculate_position_size(signal, account)
@@ -214,7 +214,7 @@ class LiveTradingManager:
                 side=order_side,
                 order_type=OrderType.MARKET,  # Default to market orders
                 quantity=position_size,
-                signal_id=signal.id
+                signal_id=getattr(signal, 'id', f'{signal.ticker}_{signal.date}')
             )
 
             # Risk check
@@ -229,11 +229,11 @@ class LiveTradingManager:
                 ticker=signal.ticker,
                 side=order_side,
                 quantity=position_size,
-                signal_id=signal.id
+                signal_id=getattr(signal, 'id', f'{signal.ticker}_{signal.date}')
             )
 
             if submitted_order:
-                logger.info(f"Signal processed: {signal.ticker} {signal.signal_type} → order {submitted_order.id}")
+                logger.info(f"Signal processed: {signal.ticker} {getattr(signal, 'signal_type', 'BUY')} → order {submitted_order.id}")
                 return submitted_order
             else:
                 logger.error(f"Failed to submit order for signal: {signal.ticker}")
@@ -450,7 +450,7 @@ class LiveTradingManager:
         """
         try:
             # Get signal price (use current market price if not available)
-            signal_price = signal.price or Decimal(100)  # Default estimate
+            signal_price = getattr(signal, 'price', Decimal(100))  # Default estimate
 
             # Calculate position value based on risk parameters
             risk_per_trade = self.risk_manager.risk_parameters.risk_per_trade
