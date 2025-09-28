@@ -113,3 +113,14 @@ class FutureTrade:
             Ticker symbol string
         """
         return self.signal.ticker
+
+    @property
+    def slippage(self) -> float:
+        """
+        Calculate the slippage in dollars.
+        Returns:
+            slippage = (entry_price + exit_price) / 2 * 0.005 * position_size
+        """
+        entry_price = self.entry.price
+        exit_price = self.exit.price
+        return (entry_price + exit_price) / 2 * 0.005 * self.position_size

@@ -60,7 +60,9 @@ def get_ranking_strategy_instance(ranking_name: str) -> RankingStrategy:
     return ranking_class()
 
 
-def get_trading_strategy_instance(strategy_name: str, ranking_strategy: RankingStrategy, pool: ConnectionPool, app: AppConfig) -> TradingStrategy:
+def get_trading_strategy_instance(
+    strategy_name: str, ranking_strategy: RankingStrategy, pool: ConnectionPool, app: AppConfig
+) -> TradingStrategy:
     """Create and return a trading strategy instance by name."""
     from turtle.signal.darvas_box import DarvasBoxStrategy
     from turtle.signal.mars import MarsStrategy

@@ -20,6 +20,7 @@ from decimal import Decimal
 from turtle.signal.darvas_box import DarvasBoxStrategy
 from turtle.exit.profit_loss import ProfitLossExitStrategy
 from turtle.data.bars_history import BarsHistoryRepo
+from psycopg_pool import ConnectionPool
 from turtle.trade.models import RiskParameters
 from turtle.service.live_trading_service import LiveTradingService
 
@@ -31,7 +32,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def setup_environment():
+def setup_environment() -> tuple[str, str, str]:
     """Set up environment variables and configuration."""
     # These should be set in your environment or .env file
     api_key = os.getenv("ALPACA_API_KEY")
@@ -44,34 +45,33 @@ def setup_environment():
     return api_key, secret_key, db_dsn
 
 
-def create_trading_strategy():
+def create_trading_strategy(api_key: str, secret_key: str, db_dsn: str, pool: ConnectionPool) -> DarvasBoxStrategy:
     """Create and configure trading strategy."""
+    # Import ranking strategy
+    from turtle.ranking.volume_momentum import VolumeMomentumRanking
+
     # Use Darvas Box strategy for this example
+    bars_history = BarsHistoryRepo(pool, api_key, secret_key)
+    ranking_strategy = VolumeMomentumRanking()
+
     strategy = DarvasBoxStrategy(
-        bars_history=BarsHistoryRepo(),
-        # Darvas Box specific parameters
-        min_volume=100000,  # Minimum volume requirement
-        min_price=10.0,     # Minimum price requirement
-        lookback_periods=20, # Number of periods for box formation
-        breakout_threshold=0.02  # 2% breakout threshold
+        bars_history=bars_history,
+        ranking_strategy=ranking_strategy
     )
 
     return strategy
 
 
-def create_exit_strategy():
+def create_exit_strategy(bars_history: BarsHistoryRepo) -> ProfitLossExitStrategy:
     """Create and configure exit strategy."""
     # Use profit/loss exit strategy with stop loss and take profit
-    exit_strategy = ProfitLossExitStrategy(
-        stop_loss_pct=0.08,    # 8% stop loss
-        take_profit_pct=0.20,  # 20% take profit
-        trailing_stop_pct=0.05 # 5% trailing stop
-    )
+    # Note: ProfitLossExitStrategy parameters are set during initialize() call
+    exit_strategy = ProfitLossExitStrategy(bars_history)
 
     return exit_strategy
 
 
-def create_risk_parameters():
+def create_risk_parameters() -> RiskParameters:
     """Create and configure risk management parameters."""
     risk_params = RiskParameters(
         max_position_size=Decimal("5000"),      # Max $5,000 per position
@@ -87,7 +87,7 @@ def create_risk_parameters():
     return risk_params
 
 
-def create_trading_universe():
+def create_trading_universe() -> list[str]:
     """Create universe of stocks to trade."""
     # Example universe - adjust based on your strategy
     universe = [
@@ -100,23 +100,27 @@ def create_trading_universe():
     return universe
 
 
-def main():
+def main() -> None:
     """Main live trading example."""
     try:
         # Step 1: Set up environment
         logger.info("Setting up live trading environment...")
         api_key, secret_key, db_dsn = setup_environment()
 
-        # Step 2: Create trading components
-        strategy = create_trading_strategy()
-        exit_strategy = create_exit_strategy()
+        # Step 2: Create database connection pool
+        from psycopg_pool import ConnectionPool
+        pool = ConnectionPool(db_dsn)
+
+        # Step 3: Initialize data repository
+        bars_history = BarsHistoryRepo(pool, api_key, secret_key)
+
+        # Step 4: Create trading components
+        strategy = create_trading_strategy(api_key, secret_key, db_dsn, pool)
+        exit_strategy = create_exit_strategy(bars_history)
         risk_params = create_risk_parameters()
         universe = create_trading_universe()
 
-        # Step 3: Initialize data repository
-        bars_history = BarsHistoryRepo()
-
-        # Step 4: Create live trading service
+        # Step 5: Create live trading service
         logger.info("Initializing live trading service...")
         live_service = LiveTradingService(
             trading_strategy=strategy,
@@ -134,7 +138,7 @@ def main():
             universe=universe
         )
 
-        # Step 5: Validate setup
+        # Step 6: Validate setup
         logger.info("Validating trading setup...")
         validation = live_service.validate_trading_setup()
 
@@ -188,7 +192,7 @@ def main():
         raise
 
 
-def monitor_trading_session(live_service: LiveTradingService):
+def monitor_trading_session(live_service: LiveTradingService) -> None:
     """Monitor live trading session with periodic updates."""
     import time
 
@@ -234,7 +238,7 @@ def monitor_trading_session(live_service: LiveTradingService):
                 monitoring = False
 
 
-def display_portfolio_status(live_service: LiveTradingService):
+def display_portfolio_status(live_service: LiveTradingService) -> None:
     """Display detailed portfolio status."""
     status = live_service.get_portfolio_status()
 
@@ -285,7 +289,7 @@ def display_portfolio_status(live_service: LiveTradingService):
     print("="*60 + "\n")
 
 
-def emergency_stop_example(live_service: LiveTradingService):
+def emergency_stop_example(live_service: LiveTradingService) -> None:
     """Example of emergency stop functionality."""
     logger.warning("EMERGENCY STOP EXAMPLE")
 
