@@ -338,6 +338,7 @@ class PortfolioService:
                     "exit_reason": trade.exit.reason,
                     "entry_price": f"{trade.entry.price:.2f}",
                     "exit_price": f"{trade.exit.price:.2f}",
+                    "slippage": f"{trade.slippage:.2f}",
                     "position_size": f"{trade.position_size:.0f}",
                     "realized_pnl": f"{trade.realized_pnl:.2f}",
                     "realized_pct": f"{trade.realized_pct:.2f}",
