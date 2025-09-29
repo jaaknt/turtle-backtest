@@ -53,6 +53,7 @@ class FutureTrade:
         exit: Trade object containing exit date, price, and reason
         benchmark_list: List of benchmark comparisons for the same period
         position_size: Position size in shares or dollar amount (defaults to 1.0)
+        slippage_pct: Slippage percentage (defaults to 0.3%)
         entry_signal_ranking: Original signal ranking when position was opened (optional)
     """
 
@@ -61,6 +62,7 @@ class FutureTrade:
     exit: Trade
     benchmark_list: list[Benchmark]
     position_size: float = 1.0
+    slippage_pct: float = 0.3
 
     @property
     def holding_days(self) -> int:
@@ -119,8 +121,8 @@ class FutureTrade:
         """
         Calculate the slippage in dollars.
         Returns:
-            slippage = (entry_price + exit_price) / 2 * 0.005 * position_size
+            slippage = (entry_price + exit_price) / 2 * (slippage_pct / 100) * position_size
         """
         entry_price = self.entry.price
         exit_price = self.exit.price
-        return (entry_price + exit_price) / 2 * 0.005 * self.position_size
+        return (entry_price + exit_price) / 2 * (self.slippage_pct / 100.0) * self.position_size

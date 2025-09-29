@@ -15,12 +15,14 @@ class Position:
         entry: Trade object representing entry trade
         exit: Trade object representing exit trade in future
         position_size: Number of shares held
+        slippage_pct: Slippage percentage (defaults to 0.3%)
     """
 
     entry: Trade
     exit: Trade
     current_price: float
     position_size: int
+    slippage_pct: float = 0.3
 
     @property
     def ticker(self) -> str:
@@ -47,11 +49,11 @@ class Position:
         """
         Calculate the slippage in dollars.
         Returns:
-            slippage = (entry_price + exit_price) / 2 * 0.005 * position_size
+            slippage = (entry_price + exit_price) / 2 * (slippage_pct / 100) * position_size
         """
         entry_price = self.entry.price
         exit_price = self.exit.price
-        return (entry_price + exit_price) / 2 * 0.005 * self.position_size
+        return (entry_price + exit_price) / 2 * (self.slippage_pct / 100.0) * self.position_size
 
 
 @dataclass
@@ -120,6 +122,7 @@ class DailyPortfolioSnapshot:
                     exit=Trade(p.exit.ticker, p.exit.date, p.exit.price, p.exit.reason),
                     position_size=p.position_size,
                     current_price=p.current_price,
+                    slippage_pct=p.slippage_pct,
                 )
                 for p in self.positions
             ],

@@ -21,7 +21,8 @@ def create_mock_future_trade(ticker: str, entry_date: datetime, entry_price: flo
         signal=signal,
         entry=entry,
         exit=exit,
-        benchmark_list=benchmarks
+        benchmark_list=benchmarks,
+        slippage_pct=0.3
     )
 
 
@@ -41,6 +42,7 @@ class TestPortfolioModels:
             exit=open_exit_trade,
             current_price=100.0,
             position_size=10,
+            slippage_pct=0.3,
         )
 
         # Test initial values
@@ -195,8 +197,8 @@ class TestPortfolioManager:
 
         # Verify position was closed
         # With new Position structure, remove_position uses current_value (exit price)
-        # Calculation: Initial 10000 - 1000 (cost) + 1100 (proceeds) - 5.25 (slippage) = 10094.75
-        assert manager.current_snapshot.cash == 10094.75  # Includes slippage deduction
+        # Calculation: Initial 10000 - 1000 (cost) + 1100 (proceeds) - 3.15 (slippage with 0.3%) = 10096.85
+        assert manager.current_snapshot.cash == 10096.85  # Includes slippage deduction
         # Check position is not in current snapshot
         positions = manager.current_snapshot.positions
         assert not any(p.ticker == "AAPL" for p in positions)
