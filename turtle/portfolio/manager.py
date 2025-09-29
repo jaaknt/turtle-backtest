@@ -92,6 +92,7 @@ class PortfolioManager:
             exit=exit,
             position_size=position_size,
             current_price=entry.price,
+            slippage_pct=0.3,
         )
 
         self.current_snapshot.add_position(position)
