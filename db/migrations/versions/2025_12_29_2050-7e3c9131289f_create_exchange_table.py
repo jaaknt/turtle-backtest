@@ -1,18 +1,19 @@
-"""create_eodhd_exchange_table
+"""create_exchange_table
 
 Revision ID: 7e3c9131289f
 Revises: 9f929020ed09
 Create Date: 2025-12-29 20:50:35.218148+00:00
 
 """
+
 from collections.abc import Sequence
 
 from alembic import op
 
 
 # revision identifiers, used by Alembic.
-revision: str = '7e3c9131289f'
-down_revision: str | Sequence[str] | None = '9f929020ed09'
+revision: str = "7e3c9131289f"
+down_revision: str | Sequence[str] | None = "9f929020ed09"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

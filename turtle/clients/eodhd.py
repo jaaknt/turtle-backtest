@@ -13,7 +13,7 @@ from tenacity import (
 )
 
 from turtle.config.model import AppConfig
-from turtle.data.models import Exchange
+from turtle.data.models import Exchange, Ticker
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,15 @@ class EodhdApiClient:
         if isinstance(response_data, list):
             return [Exchange(**data) for data in response_data]
         raise TypeError("Unexpected response format from EODHD API for exchanges")
+
+    async def get_tickers_for_exchange(self, exchange_code: str) -> list[Ticker]:
+        """
+        Fetches the list of all available tickers for a given exchange.
+        """
+        response_data = await self._get(f"exchange-symbol-list/{exchange_code}")
+        if isinstance(response_data, list):
+            return [Ticker(**data) for data in response_data]
+        raise TypeError("Unexpected response format from EODHD API for tickers")
 
 
     async def close(self) -> None:

@@ -20,6 +20,7 @@ async def main():
     eodhd_service = EodhdService(settings)
     try:
         await eodhd_service.download_exchanges()
+        await eodhd_service.download_us_tickers()
         logger.info("EODHD exchange data download completed successfully.")
     except Exception as e:
         logger.error(f"EODHD data download script failed: {e}", exc_info=True)

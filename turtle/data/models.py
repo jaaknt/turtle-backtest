@@ -96,3 +96,15 @@ class Exchange(BaseModel):
     country: str = Field(..., alias='Country')
     currency: str = Field(..., alias='Currency')
     country_iso3: str | None = Field(default=None, alias='CountryISO3')
+
+
+class Ticker(BaseModel):
+    """Represents a stock ticker from EODHD."""
+
+    code: str = Field(..., alias='Code')
+    name: str = Field(..., alias='Name')
+    country: str = Field(..., alias='Country')
+    exchange: str = Field(..., alias='Exchange')
+    currency: str = Field(..., alias='Currency')
+    type: str = Field(..., alias='Type')
+    isin: str | None = Field(default=None, alias='Isin')

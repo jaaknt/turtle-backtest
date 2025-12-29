@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 
 from turtle.clients.eodhd import EodhdApiClient
 from turtle.config.settings import Settings
-from turtle.data.models import Exchange
-from turtle.data.tables import exchange_table
+from turtle.data.models import Exchange, Ticker
+from turtle.data.tables import exchange_table, ticker_table
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,6 @@ class EodhdService:
                         "country": stmt.excluded.country,
                         "currency": stmt.excluded.currency,
                         "country_iso3": stmt.excluded.country_iso3,
-                        # updated_at is handled by the trigger in the DB, no need to set here
                     },
                 )
                 await session.execute(on_conflict_stmt)
@@ -70,6 +69,58 @@ class EodhdService:
                 logger.info(f"Successfully stored/updated {len(exchanges)} exchanges in the database.")
         except Exception as e:
             logger.error(f"Error downloading or storing exchanges: {e}", exc_info=True)
+            raise
+
+    async def download_us_tickers(self, batch_size: int = 1000) -> None:
+        """
+        Downloads ticker data for the 'US' exchange from EODHD and stores it in the database.
+
+        Args:
+            batch_size: Number of rows to insert per batch (default: 1000)
+        """
+        logger.info("Starting EODHD US ticker data download...")
+        try:
+            tickers: list[Ticker] = await self.api_client.get_tickers_for_exchange("US")
+            logger.info(f"Fetched {len(tickers)} tickers from EODHD for US exchange.")
+
+            async with self.AsyncSessionLocal() as session:
+                total_processed = 0
+
+                # Process tickers in batches
+                for i in range(0, len(tickers), batch_size):
+                    batch = tickers[i:i + batch_size]
+                    values = [
+                        {
+                            "code": t.code,
+                            "name": t.name,
+                            "country": t.country,
+                            "exchange": t.exchange,
+                            "currency": t.currency,
+                            "type": t.type,
+                            "isin": t.isin,
+                        }
+                        for t in batch
+                    ]
+
+                    stmt = pg_insert(ticker_table).values(values)
+                    on_conflict_stmt = stmt.on_conflict_do_update(
+                        index_elements=[ticker_table.c.code, ticker_table.c.exchange],
+                        set_={
+                            "name": stmt.excluded.name,
+                            "country": stmt.excluded.country,
+                            "currency": stmt.excluded.currency,
+                            "type": stmt.excluded.type,
+                            "isin": stmt.excluded.isin,
+                        },
+                    )
+                    await session.execute(on_conflict_stmt)
+                    total_processed += len(batch)
+                    logger.info(f"Processed batch {i // batch_size + 1}: {total_processed}/{len(tickers)} tickers")
+
+                await session.commit()
+                logger.info(f"Successfully stored/updated {total_processed} US tickers in the database.")
+        except Exception as e:
+            logger.error(f"Error downloading or storing US tickers: {e}", exc_info=True)
             raise
         finally:
             await self.api_client.close()
