@@ -22,3 +22,17 @@ exchange_table = Table(
     Column("country_iso3", Text, nullable=True),
     schema="turtle",
 )
+
+# Ticker table definition
+ticker_table = Table(
+    "ticker",
+    metadata,
+    Column("code", Text, primary_key=True),
+    Column("exchange", Text, primary_key=True),
+    Column("name", Text, nullable=False),
+    Column("country", Text),
+    Column("currency", Text),
+    Column("type", Text),
+    Column("isin", Text),
+    schema="turtle",
+)
