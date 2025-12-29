@@ -25,19 +25,19 @@ def upgrade() -> None:
     # Create table (EXACT copy from Liquibase)
     op.execute("""
         CREATE TABLE turtle.price_history (
-            symbol        TEXT                    NOT NULL,
-            time          TIMESTAMPTZ             NOT NULL,
-            open          NUMERIC(10, 2)          NOT NULL,
-            high          NUMERIC(10, 2)          NOT NULL,
-            low           NUMERIC(10, 2)          NOT NULL,
-            close         NUMERIC(10, 2)          NOT NULL,
-            adj_close     NUMERIC(10, 2)          NOT NULL,
-            volume        BIGINT                  NOT NULL,
-            source        turtle.data_source_type NOT NULL,
-            created_at    TIMESTAMPTZ             NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at    TIMESTAMPTZ             NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            symbol         TEXT                    NOT NULL,
+            time           TIMESTAMPTZ             NOT NULL,
+            open           NUMERIC(10, 2)          NOT NULL,
+            high           NUMERIC(10, 2)          NOT NULL,
+            low            NUMERIC(10, 2)          NOT NULL,
+            close          NUMERIC(10, 2)          NOT NULL,
+            adjusted_close NUMERIC(10, 2)          NOT NULL,
+            volume         BIGINT                  NOT NULL,
+            source         turtle.data_source_type NOT NULL,
+            created_at     TIMESTAMPTZ             NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at     TIMESTAMPTZ             NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-            CONSTRAINT price_history_pkey PRIMARY KEY (symbol, time),
+            CONSTRAINT pk_price_history PRIMARY KEY (symbol, time),
             CONSTRAINT price_history_symbol_check CHECK (length(symbol) > 0)
         )
     """)
@@ -51,7 +51,7 @@ def upgrade() -> None:
     op.execute("COMMENT ON COLUMN turtle.price_history.low IS 'Lowest price during the time period'")
     op.execute("COMMENT ON COLUMN turtle.price_history.close IS 'Closing price for the time period'")
     op.execute(
-        "COMMENT ON COLUMN turtle.price_history.adj_close IS 'Adjusted closing price for the time period (splits/dividends adjusted )'"
+        "COMMENT ON COLUMN turtle.price_history.adjusted_close IS 'Adjusted closing price for the time period (splits/dividends adjusted)'"
     )
     op.execute("COMMENT ON COLUMN turtle.price_history.volume IS 'Trading volume (number of shares traded)'")
     op.execute("COMMENT ON COLUMN turtle.price_history.source IS 'Data source (e.g., alpaca, yahoo, eodhd)'")

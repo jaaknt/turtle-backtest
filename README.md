@@ -20,6 +20,28 @@ There are special requirements for TA-lib installation - so look for [instructio
 
 ## Download Data
 
+### EODHD Exchange Data
+
+To download exchange data from EODHD, you first need to configure your EODHD API key.
+
+1.  **Configure EODHD API Key:**
+    Open `config/settings.toml` and replace `"YOUR_EODHD_API_KEY"` with your actual EODHD API key:
+
+    ```toml
+    [app]
+    # ...
+    eodhd.api_key = "YOUR_EODHD_API_KEY"
+    # ...
+    ```
+
+2.  **Run the Download Script:**
+    Execute the `scripts/download_eodhd_data.py` script to fetch and store exchange data in your local PostgreSQL database:
+
+    ```bash
+    uv run python scripts/download_eodhd_data.py
+    ```
+    This script will fetch the latest list of exchanges and upsert them into the `turtle.exchange` table.
+
 ### Method 1: Using the Daily EOD Update Script (Recommended)
 
 Use the `scripts/daily_eod_update.py` script for convenient command-line data downloads with multiple update modes:

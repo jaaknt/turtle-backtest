@@ -1,0 +1,94 @@
+import logging
+from collections.abc import AsyncGenerator
+
+from sqlalchemy import Table, Column, Text, MetaData
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+
+from turtle.clients.eodhd import EodhdApiClient
+from turtle.config.settings import Settings
+from turtle.data.models import Exchange
+
+logger = logging.getLogger(__name__)
+
+# Define the MetaData and Table object for exchanges
+# This is required for pg_insert.on_conflict_do_update to work with column names
+metadata = MetaData()
+exchange_table = Table(
+    "exchange",
+    metadata,
+    Column("code", Text, primary_key=True),
+    Column("name", Text, nullable=False),
+    Column("country", Text, nullable=False),
+    Column("currency", Text, nullable=False),
+    Column("country_iso3", Text, nullable=True),
+    schema="turtle"
+)
+
+
+class EodhdService:
+    """
+    Service for downloading and storing EODHD data into the PostgreSQL database.
+    """
+
+    def __init__(self, config: Settings):
+        self.config = config
+        self.api_client = EodhdApiClient(config.app)
+        self.engine = create_async_engine(config.database.sqlalchemy_url)
+        self.AsyncSessionLocal = async_sessionmaker(
+            bind=self.engine,
+            autoflush=False,
+            expire_on_commit=False,
+        )
+
+    async def _get_db_session(self) -> AsyncGenerator[AsyncSession, None]:  # ruff: noqa: UP043
+        """Helper to get an async database session."""
+        async with self.AsyncSessionLocal() as session:
+            yield session
+
+    async def download_exchanges(self) -> None:
+        """
+        Downloads exchange data from EODHD and stores it in the database.
+        """
+        logger.info("Starting EODHD exchange data download...")
+        try:
+            exchanges: list[Exchange] = await self.api_client.get_exchanges()
+            logger.info(f"Fetched {len(exchanges)} exchanges from EODHD.")
+
+            async with self.AsyncSessionLocal() as session:
+                values = [
+                    {
+                        "code": ex.code,
+                        "name": ex.name,
+                        "country": ex.country,
+                        "currency": ex.currency,
+                        "country_iso3": ex.country_iso3,
+                    }
+                    for ex in exchanges
+                ]
+
+                stmt = pg_insert(exchange_table).values(values)
+
+                on_conflict_stmt = stmt.on_conflict_do_update(
+                    index_elements=[exchange_table.c.code],
+                    set_={
+                        "name": stmt.excluded.name,
+                        "country": stmt.excluded.country,
+                        "currency": stmt.excluded.currency,
+                        "country_iso3": stmt.excluded.country_iso3,
+                        # updated_at is handled by the trigger in the DB, no need to set here
+                    },
+                )
+                await session.execute(on_conflict_stmt)
+                await session.commit()
+                logger.info(f"Successfully stored/updated {len(exchanges)} exchanges in the database.")
+        except Exception as e:
+            logger.error(f"Error downloading or storing exchanges: {e}", exc_info=True)
+            raise
+        finally:
+            await self.api_client.close()
+
+    async def close(self) -> None:
+        """Close the underlying resources."""
+        await self.engine.dispose()
+        await self.api_client.close()
