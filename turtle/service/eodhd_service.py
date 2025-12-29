@@ -1,29 +1,15 @@
 import logging
 from collections.abc import AsyncGenerator
 
-from sqlalchemy import Table, Column, Text, MetaData
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 from turtle.clients.eodhd import EodhdApiClient
 from turtle.config.settings import Settings
 from turtle.data.models import Exchange
+from turtle.data.tables import exchange_table
 
 logger = logging.getLogger(__name__)
-
-# Define the MetaData and Table object for exchanges
-# This is required for pg_insert.on_conflict_do_update to work with column names
-metadata = MetaData()
-exchange_table = Table(
-    "exchange",
-    metadata,
-    Column("code", Text, primary_key=True),
-    Column("name", Text, nullable=False),
-    Column("country", Text, nullable=False),
-    Column("currency", Text, nullable=False),
-    Column("country_iso3", Text, nullable=True),
-    schema="turtle"
-)
 
 
 class EodhdService:
@@ -41,7 +27,7 @@ class EodhdService:
             expire_on_commit=False,
         )
 
-    async def _get_db_session(self) -> AsyncGenerator[AsyncSession, None]:  # ruff: noqa: UP043
+    async def _get_db_session(self) -> AsyncGenerator[AsyncSession]:
         """Helper to get an async database session."""
         async with self.AsyncSessionLocal() as session:
             yield session
