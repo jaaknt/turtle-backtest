@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-# from typing import Optional
+
+from pydantic import BaseModel
 
 
 @dataclass
@@ -83,3 +84,13 @@ class SymbolGroup:
     symbol_group: str
     symbol: str
     rate: float
+
+
+class Exchange(BaseModel):
+    """Represents a stock exchange from EODHD."""
+
+    name: str
+    code: str
+    country: str
+    currency: str
+    country_iso3: str | None = None
