@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 @dataclass
@@ -39,6 +39,8 @@ class Company:
     short_ratio: (float):
     recommodation_mean (float):
     """
+
+
 
     symbol: str
     short_name: str
@@ -89,8 +91,8 @@ class SymbolGroup:
 class Exchange(BaseModel):
     """Represents a stock exchange from EODHD."""
 
-    name: str
-    code: str
-    country: str
-    currency: str
-    country_iso3: str | None = None
+    name: str = Field(..., alias='Name')
+    code: str = Field(..., alias='Code')
+    country: str = Field(..., alias='Country')
+    currency: str = Field(..., alias='Currency')
+    country_iso3: str | None = Field(default=None, alias='CountryISO3')

@@ -1,10 +1,17 @@
 import asyncio
 import logging
+import pathlib
+import sys
+from pathlib import Path
+
+# Add project root to path to import turtle modules
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
 from turtle.config.settings import Settings
 from turtle.service.eodhd_service import EodhdService
 
 logger = logging.getLogger(__name__)
+
 
 async def main():
     logger.info("Starting EODHD data download script.")
@@ -20,6 +27,7 @@ async def main():
     finally:
         await eodhd_service.close()
         logger.info("EODHD data download script finished.")
+
 
 if __name__ == "__main__":
     try:
