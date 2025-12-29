@@ -8,9 +8,9 @@ alpaca.secret_key = "YOUR_ALPACA_SECRET_KEY"
 [database]
 host = "localhost"
 port = 5432
-dbname = "postgres"
+dbname = "trading"
 user = "postgres"
-password = "***"    # Use environment variable or secret management in production
+password = "postgres361"    # Use environment variable or secret management in production
 
 [database.pool]
 min_size = 10

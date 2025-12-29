@@ -106,7 +106,7 @@ Required API keys and database connection strings should be stored in `.env` fil
 - Database connection parameters
 
 ### Database Connection
-Default DSN: `"host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"`
+Default DSN: `"host=localhost port=5432 dbname=trading user=postgres password=postgres361"`
 
 ### Time Frames
 Configurable via `TimeFrameUnit` enum: `DAY`, `WEEK`, `MONTH`
@@ -166,6 +166,62 @@ data_updater.update_bars_history(start_date, end_date)  # Download OHLCV data
 
 ### Symbol Groups
 Custom stock groupings (e.g., NASDAQ-100) can be created and managed via the `symbol_group` repository for targeted backtesting.
+
+## Database Migrations
+
+The project uses Alembic for database schema migrations. All migrations are located in `db/migrations/versions/` and are managed through the `scripts/db_migrate.py` management script.
+
+### Migration Commands
+```bash
+# Check current migration status
+uv run alembic current
+
+# Show migration history
+uv run alembic history
+
+# Apply all pending migrations
+uv run alembic upgrade head
+
+# Apply migrations up to specific revision
+uv run alembic upgrade <revision>
+
+# Rollback one migration
+uv run alembic downgrade -1
+
+# Rollback to specific revision
+uv run alembic downgrade <revision>
+
+# Create new migration
+uv run alembic revision -m "description"
+
+# Or use management script wrapper
+python scripts/db_migrate.py upgrade
+python scripts/db_migrate.py downgrade -1
+python scripts/db_migrate.py current
+python scripts/db_migrate.py history
+python scripts/db_migrate.py create "add_new_column"
+```
+
+### Migration Architecture
+- **Configuration**: `alembic.ini` (timezone=UTC, file naming templates)
+- **Environment**: `db/migrations/env.py` (loads settings from config/settings.toml)
+- **Version Table**: Stored in `turtle.alembic_version` schema
+- **Migration Mode**: Standalone (no SQLAlchemy ORM models, raw SQL only)
+- **Database Features**: Supports TimescaleDB hypertables, compression policies, triggers
+
+### Creating New Migrations
+1. Create migration file: `uv run alembic revision -m "description"`
+2. Implement `upgrade()` and `downgrade()` functions with raw SQL
+3. Set search path: `op.execute("SET search_path TO turtle, public")`
+4. Test migration: `uv run alembic upgrade head`
+5. Verify rollback: `uv run alembic downgrade -1`
+
+### Migration Best Practices
+- Use `IF EXISTS` and `IF NOT EXISTS` for idempotent operations
+- Include descriptive comments on tables and columns
+- Test both upgrade and downgrade paths
+- Use proper TimescaleDB functions (create_hypertable, add_compression_policy)
+- Maintain migration dependency chain through revision IDs
 
 ## Dependencies
 

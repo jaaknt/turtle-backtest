@@ -210,7 +210,7 @@ ALPACA_API_KEY=your_alpaca_api_key_here
 ALPACA_SECRET_KEY=your_alpaca_secret_key_here
 
 # Database Configuration (optional, will use default if not set)
-DATABASE_DSN=host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres
+DATABASE_DSN=host=localhost port=5432 dbname=trading user=postgres password=postgres361
 
 # Live Trading Settings
 PAPER_TRADING=true
@@ -246,7 +246,7 @@ def main() -> bool:
 
     # Step 2: Set up database
     db_dsn = os.getenv("DATABASE_DSN",
-                      "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres")
+                      "host=localhost port=5432 dbname=trading user=postgres password=postgres361")
 
     logger.info(f"\nUsing database: {db_dsn}")
 

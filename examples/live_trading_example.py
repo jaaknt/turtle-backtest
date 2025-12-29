@@ -37,7 +37,7 @@ def setup_environment() -> tuple[str, str, str]:
     # These should be set in your environment or .env file
     api_key = os.getenv("ALPACA_API_KEY")
     secret_key = os.getenv("ALPACA_SECRET_KEY")
-    db_dsn = os.getenv("DATABASE_DSN", "host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres")
+    db_dsn = os.getenv("DATABASE_DSN", "host=localhost port=5432 dbname=trading user=postgres password=postgres361")
 
     if not api_key or not secret_key:
         raise ValueError("ALPACA_API_KEY and ALPACA_SECRET_KEY must be set in environment")

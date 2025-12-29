@@ -46,6 +46,11 @@ class DatabaseConfig:
             f"application_name={self.application_name}"
         )
 
+    @property
+    def sqlalchemy_url(self) -> str:
+        """Generate SQLAlchemy-compatible database URL for psycopg (version 3)"""
+        return f"postgresql+psycopg://{self.user}:{self.password}@{self.host}:{self.port}/{self.dbname}"
+
 
 @dataclass
 class AppConfig:
