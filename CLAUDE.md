@@ -38,14 +38,17 @@ uv run python scripts/daily_eod_update.py --mode symbols
 # Download company data from Yahoo Finance
 uv run python scripts/daily_eod_update.py --mode companies
 
-# Download historical data from EODHD (all US stocks)
+# Download historical data from EODHD (all US stocks, default date range: 2000-01-01 to 2025-12-30)
 uv run python scripts/download_eodhd_data.py
 
-# Download historical data - test with 10 stocks
-uv run python scripts/download_eodhd_data.py --stocks-limit 10
+# Download historical data - test with 10 tickers
+uv run python scripts/download_eodhd_data.py --ticker-limit 10
 
-# Download historical data - test with 50 stocks
-uv run python scripts/download_eodhd_data.py --stocks-limit 50
+# Download historical data - custom date range
+uv run python scripts/download_eodhd_data.py --start-date 2024-01-01 --end-date 2024-12-31
+
+# Download historical data - test with limited tickers and custom date range
+uv run python scripts/download_eodhd_data.py --ticker-limit 10 --start-date 2024-06-01 --end-date 2024-06-30
 
 # Run Streamlit web interface
 uv run streamlit run app.py

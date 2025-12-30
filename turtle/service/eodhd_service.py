@@ -3,7 +3,7 @@ import logging
 from collections.abc import AsyncGenerator
 from datetime import datetime
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -100,7 +100,7 @@ class EodhdService:
 
                 # Process tickers in batches
                 for i in range(0, len(tickers), batch_size):
-                    batch = tickers[i:i + batch_size]
+                    batch = tickers[i : i + batch_size]
                     values = [
                         {
                             "code": t.code,
@@ -134,12 +134,8 @@ class EodhdService:
         except Exception as e:
             logger.error(f"Error downloading or storing US tickers: {e}", exc_info=True)
             raise
-        finally:
-            await self.api_client.close()
 
-    async def _insert_price_history_batch(
-        self, session: AsyncSession, price_records: list[PriceHistory]
-    ) -> int:
+    async def _insert_price_history_batch(self, session: AsyncSession, price_records: list[PriceHistory]) -> int:
         """
         Helper method to insert a batch of price history records into the database.
 
@@ -162,17 +158,19 @@ class EodhdService:
                 logger.warning(f"Invalid date format for {record.ticker}: {record.date}, skipping. Error: {e}")
                 continue
 
-            values_to_insert.append({
-                "symbol": record.ticker,
-                "time": record_date,
-                "open": record.open,
-                "high": record.high,
-                "low": record.low,
-                "close": record.close,
-                "adjusted_close": record.adjusted_close,
-                "volume": record.volume,
-                "source": "eodhd",
-            })
+            values_to_insert.append(
+                {
+                    "symbol": record.ticker,
+                    "time": record_date,
+                    "open": record.open,
+                    "high": record.high,
+                    "low": record.low,
+                    "close": record.close,
+                    "adjusted_close": record.adjusted_close,
+                    "volume": record.volume,
+                    "source": text("'eodhd'::turtle.data_source_type"),  # Cast to enum type
+                }
+            )
 
         if not values_to_insert:
             return 0
@@ -188,7 +186,7 @@ class EodhdService:
                 "close": stmt.excluded.close,
                 "adjusted_close": stmt.excluded.adjusted_close,
                 "volume": stmt.excluded.volume,
-                "source": stmt.excluded.source,
+                "source": text("'eodhd'::turtle.data_source_type"),  # Cast to enum type
             },
         )
         await session.execute(on_conflict_stmt)
@@ -196,37 +194,46 @@ class EodhdService:
 
         return len(values_to_insert)
 
-    async def download_historical_data(self, stocks_limit: int | None = None) -> None:
+    async def download_historical_data(
+        self, ticker_limit: int | None = None, start_date: str | None = None, end_date: str | None = None
+    ) -> None:
         """
         Downloads historical EOD data for filtered US stocks and stores it in the database.
         Uses batch processing for both API calls and database inserts to manage memory efficiently.
 
         Args:
-            stocks_limit: Optional limit on number of stocks to process. Useful for testing.
-                         If None, processes all stocks. Default: None.
+            ticker_limit: Optional limit on number of tickers to process. Useful for testing.
+                         If None, processes all tickers. Default: None.
+            start_date: Optional start date for historical data (format: YYYY-MM-DD).
+                       If None, uses DATE_FROM constant. Default: None.
+            end_date: Optional end date for historical data (format: YYYY-MM-DD).
+                     If None, uses DATE_TO constant. Default: None.
         """
+        # Use provided dates or fall back to defaults
+        from_date = start_date or DATE_FROM
+        to_date = end_date or DATE_TO
+
         logger.info("Starting EODHD historical data download for US stocks...")
+        logger.info(f"Date range: {from_date} to {to_date}")
         total_records_inserted = 0
         total_stocks_processed = 0
         total_stocks_failed = 0
 
         try:
             async with self.AsyncSessionLocal() as session:
-                # Fetch tickers to process - Filter: US, specific exchanges, Common Stock type
+                # Fetch tickers to process - Filter: USA, specific exchanges, Common Stock type
                 stmt = select(ticker_table.c.code, ticker_table.c.exchange).where(
                     and_(
-                        ticker_table.c.country == 'US',
-                        ticker_table.c.exchange.in_(US_EXCHANGES),
-                        ticker_table.c.type == COMMON_STOCK_TYPE
+                        ticker_table.c.country == "USA", ticker_table.c.exchange.in_(US_EXCHANGES), ticker_table.c.type == COMMON_STOCK_TYPE
                     )
                 )
                 result = await session.execute(stmt)
                 us_stocks = result.fetchall()  # List of (code, exchange) tuples
 
                 # Apply limit if specified (for testing)
-                if stocks_limit is not None:
-                    us_stocks = us_stocks[:stocks_limit]
-                    logger.info(f"Limiting to first {stocks_limit} stocks for testing.")
+                if ticker_limit is not None:
+                    us_stocks = us_stocks[:ticker_limit]
+                    logger.info(f"Limiting to first {ticker_limit} tickers for testing.")
 
                 logger.info(f"Found {len(us_stocks)} US stocks matching criteria for historical data download.")
 
@@ -234,18 +241,19 @@ class EodhdService:
                 num_batches = (len(us_stocks) + API_BATCH_SIZE - 1) // API_BATCH_SIZE
 
                 for i in range(0, len(us_stocks), API_BATCH_SIZE):
-                    batch = us_stocks[i:i + API_BATCH_SIZE]
+                    batch = us_stocks[i : i + API_BATCH_SIZE]
                     batch_num = i // API_BATCH_SIZE + 1
 
                     # Create concurrent API requests for this batch
+                    # Note: EODHD API always uses "US" exchange code for all US stocks
                     tasks = []
-                    for stock_code, stock_exchange in batch:
+                    for stock_code, _stock_exchange in batch:
                         tasks.append(
                             self.api_client.get_eod_historical_data(
                                 ticker=stock_code,
-                                exchange=stock_exchange,
-                                from_date=DATE_FROM,
-                                to_date=DATE_TO,
+                                exchange="US",  # EODHD API uses "US" for all US exchanges
+                                from_date=from_date,
+                                to_date=to_date,
                             )
                         )
 
@@ -259,7 +267,7 @@ class EodhdService:
                         stock_code, stock_exchange = batch[idx]
                         if isinstance(result, Exception):
                             logger.error(
-                                f"Error fetching historical data for {stock_code}.{stock_exchange}: "
+                                f"Error fetching historical data for {stock_code}.US (exchange: {stock_exchange}): "
                                 f"{type(result).__name__}: {result}"
                             )
                             total_stocks_failed += 1
@@ -270,7 +278,7 @@ class EodhdService:
                     # Insert collected records into database in smaller batches
                     if batch_price_records:
                         for j in range(0, len(batch_price_records), DB_BATCH_SIZE):
-                            db_batch = batch_price_records[j:j + DB_BATCH_SIZE]
+                            db_batch = batch_price_records[j : j + DB_BATCH_SIZE]
                             records_inserted = await self._insert_price_history_batch(session, db_batch)
                             total_records_inserted += records_inserted
 
