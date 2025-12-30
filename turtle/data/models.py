@@ -108,3 +108,16 @@ class Ticker(BaseModel):
     currency: str = Field(..., alias='Currency')
     type: str = Field(..., alias='Type')
     isin: str | None = Field(default=None, alias='Isin')
+
+
+class PriceHistory(BaseModel):
+    """Represents one historical price data point (EOD) from EODHD."""
+
+    ticker: str
+    date: str
+    open: float
+    high: float
+    low: float
+    close: float
+    adjusted_close: float
+    volume: int
