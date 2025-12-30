@@ -5,7 +5,7 @@ This module contains Table objects used for efficient bulk insert/upsert operati
 that require explicit column access (e.g., PostgreSQL INSERT ON CONFLICT).
 """
 
-from sqlalchemy import Column, MetaData, Table, Text
+from sqlalchemy import BigInteger, Column, DateTime, MetaData, Numeric, Table, Text
 
 # Shared metadata instance for all table definitions
 metadata = MetaData()
@@ -34,5 +34,21 @@ ticker_table = Table(
     Column("currency", Text),
     Column("type", Text),
     Column("isin", Text),
+    schema="turtle",
+)
+
+# Price History table definition
+price_history_table = Table(
+    "price_history",
+    metadata,
+    Column("symbol", Text, primary_key=True),
+    Column("time", DateTime(timezone=True), primary_key=True),
+    Column("open", Numeric(10, 2), nullable=False),
+    Column("high", Numeric(10, 2), nullable=False),
+    Column("low", Numeric(10, 2), nullable=False),
+    Column("close", Numeric(10, 2), nullable=False),
+    Column("adjusted_close", Numeric(10, 2), nullable=False),
+    Column("volume", BigInteger, nullable=False),
+    Column("source", Text, nullable=False), # Using Text for ENUM type
     schema="turtle",
 )
