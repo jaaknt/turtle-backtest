@@ -27,10 +27,11 @@ exchange_table = Table(
 ticker_table = Table(
     "ticker",
     metadata,
-    Column("code", Text, primary_key=True),
-    Column("exchange", Text, primary_key=True),
+    Column("unique_name", Text, primary_key=True),
+    Column("code", Text, nullable=False),
     Column("name", Text, nullable=False),
     Column("country", Text),
+    Column("exchange", Text, nullable=False),
     Column("currency", Text),
     Column("type", Text),
     Column("isin", Text),

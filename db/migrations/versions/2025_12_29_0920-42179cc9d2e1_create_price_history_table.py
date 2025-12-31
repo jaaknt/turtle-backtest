@@ -44,7 +44,7 @@ def upgrade() -> None:
 
     # Add all column comments
     op.execute("COMMENT ON TABLE turtle.price_history IS 'Historical stock price data (OHLCV format) indexed by symbol and time'")
-    op.execute("COMMENT ON COLUMN turtle.price_history.symbol IS 'Stock ticker symbol (e.g., AAPL, GOOGL)'")
+    op.execute("COMMENT ON COLUMN turtle.price_history.symbol IS 'Unique ticker identifier with exchange suffix (e.g., AAPL.US, GOOGL.US)'")
     op.execute("COMMENT ON COLUMN turtle.price_history.time IS 'Timestamp of the price data point'")
     op.execute("COMMENT ON COLUMN turtle.price_history.open IS 'Opening price for the time period'")
     op.execute("COMMENT ON COLUMN turtle.price_history.high IS 'Highest price during the time period'")
