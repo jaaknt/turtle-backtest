@@ -38,6 +38,24 @@ ticker_table = Table(
     schema="turtle",
 )
 
+# Ticker Extended table definition
+ticker_extended_table = Table(
+    "ticker_extended",
+    metadata,
+    Column("symbol", Text, primary_key=True),
+    Column("type", Text),
+    Column("name", Text),
+    Column("sector", Text),
+    Column("industry", Text),
+    Column("average_volume", BigInteger),
+    Column("average_price", Numeric(20, 10)),
+    Column("dividend_yield", Numeric(12, 6)),
+    Column("market_cap", BigInteger),
+    Column("pe", Numeric(12, 6)),
+    Column("forward_pe", Numeric(12, 6)),
+    schema="turtle",
+)
+
 # Price History table definition
 price_history_table = Table(
     "price_history",

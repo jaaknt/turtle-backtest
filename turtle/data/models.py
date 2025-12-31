@@ -121,3 +121,19 @@ class PriceHistory(BaseModel):
     close: float
     adjusted_close: float
     volume: int
+
+
+class TickerExtended(BaseModel):
+    """Represents extended ticker information from EODHD US quote delayed API."""
+
+    symbol: str
+    type: str | None = Field(default=None, alias='Type')
+    name: str | None = Field(default=None, alias='Name')
+    sector: str | None = Field(default=None, alias='Sector')
+    industry: str | None = Field(default=None, alias='Industry')
+    average_volume: int | None = Field(default=None, alias='AverageVolume')
+    fifty_day_average_price: float | None = Field(default=None, alias='FiftyDayAveragePrice')
+    dividend_yield: float | None = Field(default=None, alias='DividendYield')
+    market_cap: int | None = Field(default=None, alias='MarketCapitalization')
+    pe: float | None = Field(default=None, alias='PERatio')
+    forward_pe: float | None = Field(default=None, alias='ForwardPE')

@@ -18,12 +18,13 @@ async def main(ticker_limit: int | None = None, start_date: str | None = None, e
     Main function to download EODHD data.
 
     Args:
-        ticker_limit: Optional limit on number of tickers to download historical data for.
+        ticker_limit: Optional limit on number of tickers to download data for.
                      If None, downloads all tickers. Useful for testing.
         start_date: Optional start date for historical data (format: YYYY-MM-DD).
                    If None, uses default from service configuration.
         end_date: Optional end date for historical data (format: YYYY-MM-DD).
                  If None, uses default from service configuration.
+        download_extended: If True, downloads extended ticker data. Default: False.
     """
     # Force logging to stdout for this script
     logging.basicConfig(level=logging.INFO, stream=sys.stdout, format="[%(levelname)s|%(module)s|%(funcName)s] %(message)s")
@@ -38,6 +39,7 @@ async def main(ticker_limit: int | None = None, start_date: str | None = None, e
     try:
         await eodhd_service.download_exchanges()
         await eodhd_service.download_us_tickers()
+        await eodhd_service.download_ticker_extended_data(ticker_limit=ticker_limit)
         await eodhd_service.download_historical_data(ticker_limit=ticker_limit, start_date=start_date, end_date=end_date)
         logger.info("EODHD data download completed successfully.")
     except Exception as e:
@@ -51,7 +53,7 @@ async def main(ticker_limit: int | None = None, start_date: str | None = None, e
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Download historical data from EODHD for US stocks",
+        description="Download data from EODHD for US stocks",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -61,6 +63,12 @@ Examples:
   # Test with 10 tickers
   python scripts/download_eodhd_data.py --ticker-limit 10
 
+  # Download extended ticker data
+  python scripts/download_eodhd_data.py --extended
+
+  # Test extended data with 10 tickers
+  python scripts/download_eodhd_data.py --extended --ticker-limit 10
+
   # Download with custom date range
   python scripts/download_eodhd_data.py --start-date 2024-01-01 --end-date 2024-12-31
 
@@ -68,7 +76,7 @@ Examples:
   python scripts/download_eodhd_data.py --ticker-limit 10 --start-date 2024-06-01 --end-date 2024-06-30
         """,
     )
-    parser.add_argument("--ticker-limit", type=int, metavar="N", help="Limit historical data download to first N tickers (for testing)")
+    parser.add_argument("--ticker-limit", type=int, metavar="N", help="Limit data download to first N tickers (for testing)")
     parser.add_argument(
         "--start-date",
         type=str,
@@ -85,7 +93,13 @@ Examples:
     args = parser.parse_args()
 
     try:
-        asyncio.run(main(ticker_limit=args.ticker_limit, start_date=args.start_date, end_date=args.end_date))
+        asyncio.run(
+            main(
+                ticker_limit=args.ticker_limit,
+                start_date=args.start_date,
+                end_date=args.end_date,
+            )
+        )
     except Exception:
         # The logger already captured the exception, just exit with error code
         sys.exit(1)

@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from turtle.clients.eodhd import EodhdApiClient
 from turtle.config.settings import Settings
-from turtle.data.models import Exchange, PriceHistory, Ticker
-from turtle.data.tables import exchange_table, price_history_table, ticker_table
+from turtle.data.models import Exchange, PriceHistory, Ticker, TickerExtended
+from turtle.data.tables import exchange_table, price_history_table, ticker_extended_table, ticker_table
 
 logger = logging.getLogger(__name__)
 
@@ -303,6 +303,126 @@ class EodhdService:
 
         except Exception as e:
             logger.error(f"Error downloading or storing historical data: {e}", exc_info=True)
+            raise
+
+    async def download_ticker_extended_data(self, ticker_limit: int | None = None) -> None:
+        """
+        Downloads extended ticker data for US stocks and stores it in the database.
+        Uses batch processing for both API calls and database inserts to manage rate limits efficiently.
+
+        Args:
+            ticker_limit: Optional limit on number of tickers to process. Useful for testing.
+                         If None, processes all tickers. Default: None.
+        """
+        logger.info("Starting EODHD extended ticker data download for US stocks...")
+        total_records_inserted = 0
+        total_tickers_processed = 0
+        total_tickers_failed = 0
+
+        try:
+            async with self.AsyncSessionLocal() as session:
+                # Fetch tickers to process - Filter: USA, specific exchanges, Common Stock type
+                stmt = select(ticker_table.c.unique_name).where(
+                    and_(
+                        ticker_table.c.country == "USA", ticker_table.c.exchange.in_(US_EXCHANGES), ticker_table.c.type == COMMON_STOCK_TYPE
+                    )
+                )
+                result = await session.execute(stmt)
+                us_stocks = result.fetchall()  # List of (unique_name,) tuples
+
+                # Apply limit if specified (for testing)
+                if ticker_limit is not None:
+                    us_stocks = us_stocks[:ticker_limit]
+                    logger.info(f"Limiting to first {ticker_limit} tickers for testing.")
+
+                logger.info(f"Found {len(us_stocks)} US stocks matching criteria for extended data download.")
+
+                # Process in batches to manage API rate limits
+                num_batches = (len(us_stocks) + API_BATCH_SIZE - 1) // API_BATCH_SIZE
+
+                for i in range(0, len(us_stocks), API_BATCH_SIZE):
+                    batch = us_stocks[i : i + API_BATCH_SIZE]
+                    batch_num = i // API_BATCH_SIZE + 1
+
+                    # Create concurrent API requests for this batch
+                    tasks = []
+                    for row in batch:
+                        unique_name = row.unique_name
+                        tasks.append(self.api_client.get_us_quote_delayed(ticker=unique_name))
+
+                    # Execute API calls concurrently
+                    batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+                    # Process results and collect extended data records
+                    values_to_insert = []
+                    for idx in range(len(batch_results)):
+                        result = batch_results[idx]  # type: ignore[assignment]
+                        unique_name = batch[idx].unique_name
+                        if isinstance(result, Exception):
+                            logger.error(
+                                f"Error fetching extended data for {unique_name}: "
+                                f"{type(result).__name__}: {result}"
+                            )
+                            total_tickers_failed += 1
+                        elif isinstance(result, TickerExtended):
+                            values_to_insert.append(
+                                {
+                                    "symbol": result.symbol,
+                                    "type": result.type,
+                                    "name": result.name,
+                                    "sector": result.sector,
+                                    "industry": result.industry,
+                                    "average_volume": result.average_volume,
+                                    "average_price": result.fifty_day_average_price,
+                                    "dividend_yield": result.dividend_yield,
+                                    "market_cap": result.market_cap,
+                                    "pe": result.pe,
+                                    "forward_pe": result.forward_pe,
+                                }
+                            )
+                            total_tickers_processed += 1
+
+                    # Insert collected records into database
+                    if values_to_insert:
+                        stmt = pg_insert(ticker_extended_table).values(values_to_insert)
+                        on_conflict_stmt = stmt.on_conflict_do_update(
+                            index_elements=[ticker_extended_table.c.symbol],
+                            set_={
+                                "type": stmt.excluded.type,
+                                "name": stmt.excluded.name,
+                                "sector": stmt.excluded.sector,
+                                "industry": stmt.excluded.industry,
+                                "average_volume": stmt.excluded.average_volume,
+                                "average_price": stmt.excluded.average_price,
+                                "dividend_yield": stmt.excluded.dividend_yield,
+                                "market_cap": stmt.excluded.market_cap,
+                                "pe": stmt.excluded.pe,
+                                "forward_pe": stmt.excluded.forward_pe,
+                            },
+                        )
+                        await session.execute(on_conflict_stmt)
+                        await session.commit()
+                        total_records_inserted += len(values_to_insert)
+
+                    logger.info(
+                        f"Batch {batch_num}/{num_batches}: Processed {len(batch)} tickers, "
+                        f"inserted {len(values_to_insert)} records. "
+                        f"Total: {total_tickers_processed} tickers, {total_records_inserted} records inserted."
+                    )
+
+                    # Rate limiting: Add delay between API batches (except for the last batch)
+                    if i + API_BATCH_SIZE < len(us_stocks):
+                        await asyncio.sleep(BATCH_DELAY_SECONDS)
+
+                logger.info(
+                    f"Extended ticker data download completed. "
+                    f"Successfully processed: {total_tickers_processed} tickers, "
+                    f"Failed: {total_tickers_failed} tickers, "
+                    f"Total records inserted/updated: {total_records_inserted}"
+                )
+
+        except Exception as e:
+            logger.error(f"Error downloading or storing extended ticker data: {e}", exc_info=True)
             raise
 
     async def close(self) -> None:
