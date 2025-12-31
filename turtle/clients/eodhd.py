@@ -13,7 +13,7 @@ from tenacity import (
 )
 
 from turtle.config.model import AppConfig
-from turtle.data.models import Exchange, PriceHistory, Ticker
+from turtle.data.models import Exchange, PriceHistory, Ticker, TickerExtended
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +91,24 @@ class EodhdApiClient:
             return [PriceHistory(ticker=ticker, **data) for data in response_data]
         raise TypeError("Unexpected response format from EODHD API for historical data")
 
+
+    async def get_us_quote_delayed(self, ticker: str) -> TickerExtended:
+        """
+        Fetches extended quote data for a US ticker from the delayed quotes API.
+
+        Args:
+            ticker: Ticker symbol with exchange suffix (e.g., "AAPL.US")
+
+        Returns:
+            TickerExtended object with extended ticker information
+        """
+        params = {"s": ticker}
+        response_data = await self._get("us-quote-delayed", params=params)
+        if isinstance(response_data, dict):
+            # Add symbol to response data since API doesn't return it
+            response_data["symbol"] = ticker
+            return TickerExtended(**response_data)
+        raise TypeError("Unexpected response format from EODHD API for US quote delayed")
 
     async def close(self) -> None:
         """Close the underlying HTTP client session."""
