@@ -103,6 +103,7 @@ class EodhdService:
                     batch = tickers[i : i + batch_size]
                     values = [
                         {
+                            "unique_name": f"{t.code}.US",
                             "code": t.code,
                             "name": t.name,
                             "country": t.country,
@@ -116,10 +117,12 @@ class EodhdService:
 
                     stmt = pg_insert(ticker_table).values(values)
                     on_conflict_stmt = stmt.on_conflict_do_update(
-                        index_elements=[ticker_table.c.code, ticker_table.c.exchange],
+                        index_elements=[ticker_table.c.unique_name],
                         set_={
+                            "code": stmt.excluded.code,
                             "name": stmt.excluded.name,
                             "country": stmt.excluded.country,
+                            "exchange": stmt.excluded.exchange,
                             "currency": stmt.excluded.currency,
                             "type": stmt.excluded.type,
                             "isin": stmt.excluded.isin,
@@ -160,7 +163,7 @@ class EodhdService:
 
             values_to_insert.append(
                 {
-                    "symbol": record.ticker,
+                    "symbol": record.ticker,  # record.ticker now contains unique_name (e.g., "AAPL.US")
                     "time": record_date,
                     "open": record.open,
                     "high": record.high,
@@ -222,13 +225,13 @@ class EodhdService:
         try:
             async with self.AsyncSessionLocal() as session:
                 # Fetch tickers to process - Filter: USA, specific exchanges, Common Stock type
-                stmt = select(ticker_table.c.code, ticker_table.c.exchange).where(
+                stmt = select(ticker_table.c.unique_name).where(
                     and_(
                         ticker_table.c.country == "USA", ticker_table.c.exchange.in_(US_EXCHANGES), ticker_table.c.type == COMMON_STOCK_TYPE
                     )
                 )
                 result = await session.execute(stmt)
-                us_stocks = result.fetchall()  # List of (code, exchange) tuples
+                us_stocks = result.fetchall()  # List of (unique_name,) tuples
 
                 # Apply limit if specified (for testing)
                 if ticker_limit is not None:
@@ -245,13 +248,12 @@ class EodhdService:
                     batch_num = i // API_BATCH_SIZE + 1
 
                     # Create concurrent API requests for this batch
-                    # Note: EODHD API always uses "US" exchange code for all US stocks
                     tasks = []
-                    for stock_code, _stock_exchange in batch:
+                    for row in batch:
+                        unique_name = row.unique_name
                         tasks.append(
                             self.api_client.get_eod_historical_data(
-                                ticker=stock_code,
-                                exchange="US",  # EODHD API uses "US" for all US exchanges
+                                ticker=unique_name,  # Pass full unique_name (e.g., "AAPL.US")
                                 from_date=from_date,
                                 to_date=to_date,
                             )
@@ -264,10 +266,10 @@ class EodhdService:
                     batch_price_records: list[PriceHistory] = []
                     for idx in range(len(batch_results)):
                         result = batch_results[idx]  # type: ignore[assignment]
-                        stock_code, stock_exchange = batch[idx]
+                        unique_name = batch[idx].unique_name
                         if isinstance(result, Exception):
                             logger.error(
-                                f"Error fetching historical data for {stock_code}.US (exchange: {stock_exchange}): "
+                                f"Error fetching historical data for {unique_name}: "
                                 f"{type(result).__name__}: {result}"
                             )
                             total_stocks_failed += 1

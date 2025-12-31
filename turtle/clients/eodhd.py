@@ -72,12 +72,17 @@ class EodhdApiClient:
         raise TypeError("Unexpected response format from EODHD API for tickers")
 
     async def get_eod_historical_data(
-        self, ticker: str, exchange: str, from_date: str, to_date: str
+        self, ticker: str, from_date: str, to_date: str
     ) -> list[PriceHistory]:
         """
-        Fetches End-of-Day historical price data for a given ticker and exchange.
+        Fetches End-of-Day historical price data for a given ticker with exchange suffix (e.g., "AAPL.US").
+
+        Args:
+            ticker: Ticker symbol with exchange suffix (e.g., "AAPL.US")
+            from_date: Start date for historical data
+            to_date: End date for historical data
         """
-        path = f"eod/{ticker}.{exchange}"
+        path = f"eod/{ticker}"
         params = {"from": from_date, "to": to_date, "period": "d", "order": "a"}
         response_data = await self._get(path, params=params)
         if isinstance(response_data, list):
