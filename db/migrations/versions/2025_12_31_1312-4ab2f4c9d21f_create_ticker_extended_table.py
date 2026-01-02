@@ -29,15 +29,15 @@ def upgrade() -> None:
             sector TEXT,
             industry TEXT,
             average_volume BIGINT,
-            average_price NUMERIC(20, 10),
-            dividend_yield NUMERIC(12, 6),
+            average_price NUMERIC(20, 2),
+            dividend_yield NUMERIC(12, 2),
             market_cap BIGINT,
-            pe NUMERIC(12, 6),
-            forward_pe NUMERIC(12, 6),
+            pe NUMERIC(12, 2),
+            forward_pe NUMERIC(12, 2),
             created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT pk_ticker_extended PRIMARY KEY (symbol),
-            CONSTRAINT fk_ticker_extended_symbol FOREIGN KEY (symbol) REFERENCES turtle.ticker(unique_name) ON DELETE CASCADE
+            -- CONSTRAINT fk_ticker_extended_symbol FOREIGN KEY (symbol) REFERENCES turtle.ticker(unique_name),
+            CONSTRAINT pk_ticker_extended PRIMARY KEY (symbol)
         )
     """)
 

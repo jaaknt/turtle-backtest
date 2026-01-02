@@ -105,9 +105,45 @@ class EodhdApiClient:
         params = {"s": ticker}
         response_data = await self._get("us-quote-delayed", params=params)
         if isinstance(response_data, dict):
-            # Add symbol to response data since API doesn't return it
-            response_data["symbol"] = ticker
-            return TickerExtended(**response_data)
+            # Debug: Log full API response to understand format
+            logger.debug(f"=== EODHD API Response for {ticker} ===")
+            logger.debug(f"Response keys: {list(response_data.keys())}")
+            logger.debug(f"Full response data: {response_data}")
+
+            # Extract nested data - the actual ticker data is inside data[ticker]
+            if 'data' not in response_data:
+                raise TypeError(f"Expected 'data' key in API response, got: {response_data.keys()}")
+
+            # Check if data is empty or ticker is not in data
+            if not response_data['data'] or ticker not in response_data['data']:
+                logger.warning(f"No data available for {ticker} in API response")
+                raise TypeError(f"No data found for {ticker} in API response")
+
+            ticker_data = response_data['data'][ticker]
+            logger.debug(f"Extracted ticker data keys: {list(ticker_data.keys())}")
+
+            # Add symbol to ticker data (redundant but ensures consistency)
+            ticker_data["symbol"] = ticker
+
+            # Create TickerExtended object
+            ticker_extended = TickerExtended(**ticker_data)
+
+            # Debug: Log the parsed object to see what values were extracted
+            logger.debug(f"Parsed TickerExtended object:")
+            logger.debug(f"  symbol: {ticker_extended.symbol}")
+            logger.debug(f"  type: {ticker_extended.type}")
+            logger.debug(f"  name: {ticker_extended.name}")
+            logger.debug(f"  sector: {ticker_extended.sector}")
+            logger.debug(f"  industry: {ticker_extended.industry}")
+            logger.debug(f"  average_volume: {ticker_extended.average_volume}")
+            logger.debug(f"  fifty_day_average_price: {ticker_extended.fifty_day_average_price}")
+            logger.debug(f"  dividend_yield: {ticker_extended.dividend_yield}")
+            logger.debug(f"  market_cap: {ticker_extended.market_cap}")
+            logger.debug(f"  pe: {ticker_extended.pe}")
+            logger.debug(f"  forward_pe: {ticker_extended.forward_pe}")
+            logger.debug("=" * 50)
+
+            return ticker_extended
         raise TypeError("Unexpected response format from EODHD API for US quote delayed")
 
     async def close(self) -> None:
