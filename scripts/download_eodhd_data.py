@@ -13,22 +13,28 @@ from turtle.service.eodhd_service import EodhdService
 logger = logging.getLogger(__name__)
 
 
-async def main(ticker_limit: int | None = None, start_date: str | None = None, end_date: str | None = None) -> None:
+async def main(
+    data: str = "all",
+    ticker_limit: int | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> None:
     """
     Main function to download EODHD data.
 
     Args:
+        data: Which datasets to download - exchange, us_ticker, extended, history, or all.
         ticker_limit: Optional limit on number of tickers to download data for.
                      If None, downloads all tickers. Useful for testing.
         start_date: Optional start date for historical data (format: YYYY-MM-DD).
                    If None, uses default from service configuration.
         end_date: Optional end date for historical data (format: YYYY-MM-DD).
                  If None, uses default from service configuration.
-        download_extended: If True, downloads extended ticker data. Default: False.
     """
     # Force logging to stdout for this script
     logging.basicConfig(level=logging.INFO, stream=sys.stdout, format="[%(levelname)s|%(module)s|%(funcName)s] %(message)s")
     logger.info("Starting EODHD data download script.")
+    logger.info(f"Dataset(s) to download: {data}")
     if ticker_limit is not None:
         logger.info(f"Running in TEST MODE - limiting to {ticker_limit} tickers")
     if start_date or end_date:
@@ -37,10 +43,25 @@ async def main(ticker_limit: int | None = None, start_date: str | None = None, e
     settings = Settings.from_toml()
     eodhd_service = EodhdService(settings)
     try:
-        # await eodhd_service.download_exchanges()
-        # await eodhd_service.download_us_tickers()
-        await eodhd_service.download_ticker_extended_data(ticker_limit=ticker_limit)
-        # await eodhd_service.download_historical_data(ticker_limit=ticker_limit, start_date=start_date, end_date=end_date)
+        # Download based on data parameter
+        if data in ("exchange", "all"):
+            logger.info("Downloading exchange data...")
+            await eodhd_service.download_exchanges()
+
+        if data in ("us_ticker", "all"):
+            logger.info("Downloading US ticker data...")
+            await eodhd_service.download_us_tickers()
+
+        if data in ("extended", "all"):
+            logger.info("Downloading extended ticker data...")
+            await eodhd_service.download_ticker_extended_data(ticker_limit=ticker_limit)
+
+        if data in ("history", "all"):
+            logger.info("Downloading historical price data...")
+            await eodhd_service.download_historical_data(
+                ticker_limit=ticker_limit, start_date=start_date, end_date=end_date
+            )
+
         logger.info("EODHD data download completed successfully.")
     except Exception as e:
         logger.error(f"EODHD data download script failed: {e}", exc_info=True)
@@ -57,24 +78,37 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Download all tickers with default date range (2000-01-01 to 2025-12-30)
+  # Download all datasets (default)
   python scripts/download_eodhd_data.py
 
-  # Test with 10 tickers
-  python scripts/download_eodhd_data.py --ticker-limit 10
+  # Download only exchange data
+  python scripts/download_eodhd_data.py --data exchange
 
-  # Download extended ticker data
-  python scripts/download_eodhd_data.py --extended
+  # Download only US ticker list
+  python scripts/download_eodhd_data.py --data us_ticker
 
-  # Test extended data with 10 tickers
-  python scripts/download_eodhd_data.py --extended --ticker-limit 10
+  # Download only extended ticker data
+  python scripts/download_eodhd_data.py --data extended --ticker-limit 10
 
-  # Download with custom date range
+  # Download only historical price data
+  python scripts/download_eodhd_data.py --data history --start-date 2024-01-01 --end-date 2024-12-31
+
+  # Test historical data with 10 tickers
+  python scripts/download_eodhd_data.py --data history --ticker-limit 10
+
+  # Download with custom date range for all datasets
   python scripts/download_eodhd_data.py --start-date 2024-01-01 --end-date 2024-12-31
 
   # Test with limited tickers and custom date range
   python scripts/download_eodhd_data.py --ticker-limit 10 --start-date 2024-06-01 --end-date 2024-06-30
         """,
+    )
+    parser.add_argument(
+        "--data",
+        type=str,
+        choices=["exchange", "us_ticker", "extended", "history", "all"],
+        default="all",
+        help="Which datasets to download: exchange (exchange list), us_ticker (US ticker list), extended (extended ticker data), history (historical price data), all (everything). Default: all",
     )
     parser.add_argument("--ticker-limit", type=int, metavar="N", help="Limit data download to first N tickers (for testing)")
     parser.add_argument(
@@ -95,6 +129,7 @@ Examples:
     try:
         asyncio.run(
             main(
+                data=args.data,
                 ticker_limit=args.ticker_limit,
                 start_date=args.start_date,
                 end_date=args.end_date,
