@@ -37,10 +37,10 @@ async def main(ticker_limit: int | None = None, start_date: str | None = None, e
     settings = Settings.from_toml()
     eodhd_service = EodhdService(settings)
     try:
-        await eodhd_service.download_exchanges()
-        await eodhd_service.download_us_tickers()
+        # await eodhd_service.download_exchanges()
+        # await eodhd_service.download_us_tickers()
         await eodhd_service.download_ticker_extended_data(ticker_limit=ticker_limit)
-        await eodhd_service.download_historical_data(ticker_limit=ticker_limit, start_date=start_date, end_date=end_date)
+        # await eodhd_service.download_historical_data(ticker_limit=ticker_limit, start_date=start_date, end_date=end_date)
         logger.info("EODHD data download completed successfully.")
     except Exception as e:
         logger.error(f"EODHD data download script failed: {e}", exc_info=True)

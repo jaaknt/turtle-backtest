@@ -365,6 +365,25 @@ class EodhdService:
                             )
                             total_tickers_failed += 1
                         elif isinstance(result, TickerExtended):
+                            # Validate that we have meaningful data (not all fields are None)
+                            # Check if at least one of the critical fields has data
+                            has_data = any([
+                                result.type,
+                                result.name,
+                                result.sector,
+                                result.industry,
+                                result.average_volume,
+                                result.fifty_day_average_price,
+                                result.market_cap,
+                            ])
+
+                            if not has_data:
+                                logger.warning(
+                                    f"Skipping {unique_name} - API returned empty data (all fields are None)"
+                                )
+                                total_tickers_failed += 1
+                                continue
+
                             values_to_insert.append(
                                 {
                                     "symbol": result.symbol,
