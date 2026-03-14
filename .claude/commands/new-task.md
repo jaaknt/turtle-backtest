@@ -1,6 +1,6 @@
 ---
 description: Load and execute a task file from the /tasks folder. Use when given a task file name or issue number to work on.
-argument-hint: "<issue-number or filename>"
+argument-hint: "<issue-number>"
 ---
 
 # New Task
@@ -9,7 +9,7 @@ Load and execute the task described in the file specified by `$ARGUMENTS`.
 
 ## Steps
 
-1. **Load task file** — read `/tasks/issue-$ARGUMENTS.md` (or `/tasks/$ARGUMENTS.md` if the full filename is provided). If the file does not exist, stop and report.
+1. **Load task file** — read `/tasks/issue-$ARGUMENTS.md`. If the file does not exist, stop and report.
 
 2. **Understand the task** — read the task description carefully. Identify the goal, acceptance criteria, and any constraints.
 
