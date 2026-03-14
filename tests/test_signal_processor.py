@@ -1,15 +1,15 @@
-import pytest
-import pandas as pd
 from datetime import datetime
+from turtle.backtest.benchmark_utils import calculate_benchmark
+from turtle.backtest.models import FutureTrade, Trade
+from turtle.backtest.processor import SignalProcessor
+from turtle.common.enums import TimeFrameUnit
+from turtle.exit import BuyAndHoldExitStrategy
+from turtle.signal.models import Signal
 from typing import Any
 from unittest.mock import Mock
 
-from turtle.backtest.processor import SignalProcessor
-from turtle.signal.models import Signal
-from turtle.backtest.models import FutureTrade, Trade
-from turtle.backtest.benchmark_utils import calculate_benchmark
-from turtle.exit import BuyAndHoldExitStrategy
-from turtle.common.enums import TimeFrameUnit
+import pandas as pd
+import pytest
 
 
 class TestSignalProcessor:

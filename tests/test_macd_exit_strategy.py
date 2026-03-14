@@ -1,13 +1,13 @@
 """Tests for MACDExitStrategy."""
 
-import pandas as pd
-import pytest
 from datetime import datetime
-from unittest.mock import Mock
-
-from turtle.exit import MACDExitStrategy
 from turtle.backtest.models import Trade
 from turtle.data.bars_history import BarsHistoryRepo
+from turtle.exit import MACDExitStrategy
+from unittest.mock import Mock
+
+import pandas as pd
+import pytest
 
 
 class TestMACDExitStrategy:

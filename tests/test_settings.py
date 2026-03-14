@@ -1,8 +1,8 @@
-import pytest
-from pytest_mock import MockerFixture
-
 from turtle.config.model import AppConfig, DatabaseConfig, DatabasePoolConfig
 from turtle.config.settings import Settings
+
+import pytest
+from pytest_mock import MockerFixture
 
 
 class TestDatabasePoolConfig:

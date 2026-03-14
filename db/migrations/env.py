@@ -1,13 +1,11 @@
 import sys
 from logging.config import fileConfig
 from pathlib import Path
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from turtle.config.settings import Settings
 
 from alembic import context
 from dotenv import load_dotenv
-from turtle.config.settings import Settings
+from sqlalchemy import engine_from_config, pool
 
 # Add project root to path for imports
 project_root = Path(__file__).resolve().parents[2]

@@ -15,7 +15,7 @@ Commit all pending changes and push to `main`. Stop and report if any step fails
 
 2. **Run tests** — `uv run pytest`. If any tests fail, stop and report which tests failed. Do not proceed.
 
-3. **Run lint** — `uv run ruff check .`. If errors are found, attempt to fix them with `uv run ruff check --fix .`, then re-run to confirm clean. If unfixable errors remain, stop and report.
+3. **Run lint** — `uv run --extra lint ruff check .`. If errors are found, attempt to fix them with `uv run --extra lint ruff check --fix .`, then re-run to confirm clean. If unfixable errors remain, stop and report.
 
 4. **Run type checks** — `uv run pyright` (if configured). Report but do not block on type errors unless `$ARGUMENTS` includes `--strict`.
 

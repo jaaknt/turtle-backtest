@@ -1,11 +1,11 @@
-import pandas as pd
 import warnings
-from unittest.mock import MagicMock
 from datetime import datetime
-
-from turtle.signal.darvas_box import DarvasBoxStrategy
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.ranking.momentum import MomentumRanking
+from turtle.signal.darvas_box import DarvasBoxStrategy
+from unittest.mock import MagicMock
+
+import pandas as pd
 
 with warnings.catch_warnings():
     warnings.filterwarnings(

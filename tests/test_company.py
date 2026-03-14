@@ -1,7 +1,7 @@
-from pytest_mock import MockerFixture
-
 from turtle.data.company import CompanyRepo
 from turtle.data.models import Company
+
+from pytest_mock import MockerFixture
 
 
 def test_get_company_list(mocker: MockerFixture) -> None:

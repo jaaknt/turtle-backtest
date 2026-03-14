@@ -78,7 +78,8 @@ class SymbolRepo:
         params = {"api_token": self.api_key, "fmt": "json", "type": "stock"}
         url = URL(f"https://eodhd.com/api/exchange-symbol-list/{exchange_code}", params=params)
         safe_params = {k: ("***" if k == "api_token" else v) for k, v in params.items()}
-        logger.debug(f"Fetching symbol list from EODHD: {URL(f'https://eodhd.com/api/exchange-symbol-list/{exchange_code}', params=safe_params)}")
+        base = f"https://eodhd.com/api/exchange-symbol-list/{exchange_code}"
+        logger.debug(f"Fetching symbol list from EODHD: {URL(base, params=safe_params)}")
         response = httpx.get(url)
         response.raise_for_status()
         data: list[dict[str, Any]] = response.json()
