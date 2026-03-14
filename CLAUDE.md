@@ -214,7 +214,7 @@ All dependencies are passed explicitly through constructors — no globals, no s
 `Settings.from_toml()` is the single entry point for all config. It loads TOML, validates required env vars (raises `ValueError` if missing — never falls back to TOML values for secrets), builds nested config objects, and creates the connection pool. See `turtle/config/settings.py`.
 
 ### Async Boundary
-External API clients (`turtle/clients/eodhd.py`) are `async`/`await` using `httpx.AsyncClient`. Everything else — services, repos, backtesting — is synchronous. The async-to-sync boundary lives at the script entry point (`asyncio.run()`). Do not make service or repo methods async.
+External API clients (`turtle/clients/eodhd.py`) are `async`/`await` using `httpx.AsyncClient`. Services that orchestrate bulk API downloads (e.g. `turtle/service/eodhd_service.py`) may also be async when they need concurrent requests via `asyncio.gather`. Repos and backtesting logic must remain synchronous. Scripts may use `asyncio.run()` as the async entry point. Do not make repo methods async.
 
 ### Naming Conventions
 | Construct | Convention | Example |
