@@ -108,7 +108,10 @@ Examples:
         type=str,
         choices=["exchange", "us_ticker", "extended", "history", "all"],
         default="all",
-        help="Which datasets to download: exchange (exchange list), us_ticker (US ticker list), extended (extended ticker data), history (historical price data), all (everything). Default: all",
+        help=(
+            "Which datasets to download: exchange (exchange list), us_ticker (US ticker list), "
+            "extended (extended ticker data), history (historical price data), all (everything). Default: all"
+        ),
     )
     parser.add_argument("--ticker-limit", type=int, metavar="N", help="Limit data download to first N tickers (for testing)")
     parser.add_argument(

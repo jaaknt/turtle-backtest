@@ -1,85 +1,78 @@
 import httpx
 import logging
 from typing import Any
-from psycopg_pool import ConnectionPool
-from psycopg.rows import TupleRow
+from sqlalchemy import Engine, select, func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from turtle.data.models import Symbol
+from turtle.data.tables import ticker_table
 
 logger = logging.getLogger(__name__)
 
 
 class SymbolRepo:
-    def __init__(self, pool: ConnectionPool, api_key: str):
-        self.pool = pool
+    def __init__(self, engine: Engine, api_key: str):
+        self.engine = engine
         self.api_key = api_key
 
     def map_eodhd_symbol_list(self, ticker: dict[str, Any]) -> dict[str, Any]:
-        place_holders = {}
-        place_holders["symbol"] = ticker["Code"]
-        place_holders["name"] = ticker["Name"]
-        place_holders["exchange"] = ticker["Exchange"]
-        place_holders["country"] = ticker["Country"]
-        place_holders["currency"] = ticker["Currency"]
-        place_holders["isin"] = ticker["Isin"]
-        place_holders["symbol_type"] = "stock"
-        place_holders["source"] = "eodhd"
-        place_holders["status"] = "ACTIVE"
+        return {
+            "symbol": ticker["Code"],
+            "name": ticker["Name"],
+            "exchange": ticker["Exchange"],
+            "country": ticker["Country"],
+            "currency": ticker["Currency"],
+            "isin": ticker["Isin"],
+            "symbol_type": "stock",
+            "source": "eodhd",
+            "status": "ACTIVE",
+        }
 
-        return place_holders
-
-    def _get_symbol_list_db(self, country: str) -> list[TupleRow]:
-        with self.pool.connection() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    SELECT symbol, name, exchange, country
-                        FROM turtle.ticker
-                        WHERE country = %s
-                          AND status = 'ACTIVE'
-                        ORDER BY symbol
-                    """,
-                    (country,),
-                )
-                result = cursor.fetchall()
-        return result
+    def _get_symbol_list_db(self, country: str) -> list[Any]:
+        table = ticker_table
+        stmt = (
+            select(table.c.symbol, table.c.name, table.c.exchange, table.c.country)
+            .where(table.c.country == country)
+            .where(table.c.status == "ACTIVE")
+            .order_by(table.c.symbol)
+        )
+        with self.engine.connect() as conn:
+            result = conn.execute(stmt)
+            return result.fetchall()
 
     def get_symbol_list(self, country: str, symbol: str = "") -> list[Symbol]:
         result = self._get_symbol_list_db(country)
-        symbol_list = [Symbol(*symbol) for symbol in result]
-        # filter symbols based on symbol parameter
+        symbol_list = [Symbol(*row) for row in result]
         if symbol:
             symbol_list = [s for s in symbol_list if s.symbol >= symbol]
         logger.debug(f"{len(symbol_list)} symbols returned from database")
-
         return symbol_list
 
-    def save_symbol_list(self, place_holders: dict[str, Any]) -> None:
-        with self.pool.connection() as connection:
-            with connection.cursor() as cursor:
-                logger.debug(f"Inserting symbol {place_holders['symbol']} into database")
-                cursor.execute(
-                    """
-                    INSERT INTO turtle.ticker
-                    (symbol, "name", exchange, country, currency, isin, symbol_type, source, status)
-                    VALUES(%(symbol)s, %(name)s, %(exchange)s, %(country)s, %(currency)s, %(isin)s, %(symbol_type)s, %(source)s, %(status)s)
-                        ON CONFLICT (symbol) DO UPDATE SET
-                    ("name", exchange, country, currency, isin, symbol_type, source, modified_at) =
-                    (EXCLUDED."name", EXCLUDED.exchange, EXCLUDED.country, EXCLUDED.currency, EXCLUDED.isin,
-                    EXCLUDED.symbol_type, EXCLUDED."source", CURRENT_TIMESTAMP)
-                    """,
-                    place_holders,
-                )
-                connection.commit()
+    def save_symbol_list(self, values: dict[str, Any]) -> None:
+        table = ticker_table
+        stmt = pg_insert(table).values(**values)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["symbol"],
+            set_={
+                "name": stmt.excluded.name,
+                "exchange": stmt.excluded.exchange,
+                "country": stmt.excluded.country,
+                "currency": stmt.excluded.currency,
+                "isin": stmt.excluded.isin,
+                "symbol_type": stmt.excluded.symbol_type,
+                "source": stmt.excluded.source,
+                "modified_at": func.current_timestamp(),
+            },
+        )
+        with self.engine.begin() as conn:
+            logger.debug(f"Inserting symbol {values['symbol']} into database")
+            conn.execute(stmt)
 
     def get_eodhd_exchange_symbol_list(self, exchange_code: str) -> list[dict[str, Any]]:
         url = f"https://eodhd.com/api/exchange-symbol-list/{exchange_code}?api_token={self.api_key}&fmt=json&type=stock"
         response = httpx.get(url)
         response.raise_for_status()
         data: list[dict[str, Any]] = response.json()
-        # print(data)
-        # print(type(data))
-        # print(type(data[0]))
         return data
 
     def update_symbol_list(self) -> None:
@@ -87,5 +80,5 @@ class SymbolRepo:
             data = self.get_eodhd_exchange_symbol_list(exchange)
             for ticker in data:
                 if "-" not in ticker["Code"]:
-                    place_holders = self.map_eodhd_symbol_list(ticker)
-                    self.save_symbol_list(place_holders)
+                    values = self.map_eodhd_symbol_list(ticker)
+                    self.save_symbol_list(values)

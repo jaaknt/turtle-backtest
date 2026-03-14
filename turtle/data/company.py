@@ -4,99 +4,99 @@ import logging
 import pandas as pd
 from typing import Any
 from dataclasses import asdict
-from psycopg_pool import ConnectionPool
-from psycopg.rows import TupleRow
+from sqlalchemy import Engine, select, func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from turtle.data.models import Company
+from turtle.data.tables import company_table
 
 logger = logging.getLogger(__name__)
 
 
 class CompanyRepo:
-    def __init__(self, pool: ConnectionPool):
-        self.pool = pool
+    def __init__(self, engine: Engine):
+        self.engine = engine
         self.company_list: list[Company] = []
 
     def map_yahoo_company_data(self, symbol: str, data: dict[str, Any]) -> dict[str, Any]:
-        place_holders: dict[str, str | int | float | None] = {}
-        place_holders["symbol"] = symbol
-        place_holders["short_name"] = data.get("shortName")
-        place_holders["country"] = data.get("country")
-        place_holders["industry_code"] = data.get("industry")
-        place_holders["sector_code"] = data.get("sector")
-        place_holders["employees_count"] = data.get("fullTimeEmployees")
-        place_holders["dividend_rate"] = data.get("dividendRate")
-        place_holders["trailing_pe_ratio"] = None if data.get("trailingPE") == "Infinity" else data.get("trailingPE")
-        place_holders["forward_pe_ratio"] = None if data.get("forwardPE") == "Infinity" else data.get("forwardPE")
-        place_holders["avg_volume"] = data.get("averageDailyVolume10Day")
-        place_holders["avg_price"] = data.get("fiftyDayAverage")
-        place_holders["market_cap"] = data.get("marketCap")
-        place_holders["enterprice_value"] = data.get("enterpriseValue")
-        place_holders["beta"] = data.get("beta")
-        place_holders["shares_float"] = data.get("floatShares")
-        place_holders["short_ratio"] = data.get("shortRatio")
-        place_holders["peg_ratio"] = data.get("pegRatio")
-        place_holders["recommodation_mean"] = data.get("recommendationMean")
-        place_holders["number_of_analysyst"] = data.get("numberOfAnalystOpinions")
-        place_holders["roa_value"] = data.get("returnOnAssets")
-        place_holders["roe_value"] = data.get("returnOnEquity")
-        place_holders["source"] = "yahoo"
+        return {
+            "symbol": symbol,
+            "short_name": data.get("shortName"),
+            "country": data.get("country"),
+            "industry_code": data.get("industry"),
+            "sector_code": data.get("sector"),
+            "employees_count": data.get("fullTimeEmployees"),
+            "dividend_rate": data.get("dividendRate"),
+            "trailing_pe_ratio": None if data.get("trailingPE") == "Infinity" else data.get("trailingPE"),
+            "forward_pe_ratio": None if data.get("forwardPE") == "Infinity" else data.get("forwardPE"),
+            "avg_volume": data.get("averageDailyVolume10Day"),
+            "avg_price": data.get("fiftyDayAverage"),
+            "market_cap": data.get("marketCap"),
+            "enterprice_value": data.get("enterpriseValue"),
+            "beta": data.get("beta"),
+            "shares_float": data.get("floatShares"),
+            "short_ratio": data.get("shortRatio"),
+            "peg_ratio": data.get("pegRatio"),
+            "recommodation_mean": data.get("recommendationMean"),
+            "number_of_analysyst": data.get("numberOfAnalystOpinions"),
+            "roa_value": data.get("returnOnAssets"),
+            "roe_value": data.get("returnOnEquity"),
+            "source": "yahoo",
+        }
 
-        return place_holders
-
-    def save_company_list(self, place_holders: dict[str, str | int | float | None]) -> None:
-        with self.pool.connection() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    INSERT INTO turtle.company
-                    (symbol, short_name, country, industry_code, sector_code, employees_count, dividend_rate, trailing_pe_ratio,
-                        forward_pe_ratio, avg_volume, avg_price, market_cap, enterprice_value, beta, shares_float, short_ratio,
-                        peg_ratio, recommodation_mean, number_of_analysyst, roa_value, roe_value, "source")
-                    VALUES(%(symbol)s, %(short_name)s, %(country)s, %(industry_code)s, %(sector_code)s, %(employees_count)s,
-                           %(dividend_rate)s, %(trailing_pe_ratio)s,
-                           %(forward_pe_ratio)s, %(avg_volume)s, %(avg_price)s, %(market_cap)s, %(enterprice_value)s,
-                           %(beta)s, %(shares_float)s, %(short_ratio)s,
-                           %(peg_ratio)s, %(recommodation_mean)s, %(number_of_analysyst)s, %(roa_value)s, %(roa_value)s, 'yahoo')
-                    ON CONFLICT (symbol) DO UPDATE SET
-                    (short_name, country, industry_code, sector_code, employees_count, dividend_rate, trailing_pe_ratio,
-                        forward_pe_ratio, avg_volume, avg_price, market_cap, enterprice_value, beta, shares_float, short_ratio,
-                        peg_ratio, recommodation_mean, number_of_analysyst, roa_value, roe_value, "source", modified_at) =
-                    (EXCLUDED.short_name, EXCLUDED.country, EXCLUDED.industry_code, EXCLUDED.sector_code,
-                     EXCLUDED.employees_count, EXCLUDED.dividend_rate, EXCLUDED.trailing_pe_ratio,
-                     EXCLUDED.forward_pe_ratio, EXCLUDED.avg_volume, EXCLUDED.avg_price, EXCLUDED.market_cap,
-                     EXCLUDED.enterprice_value, EXCLUDED.beta, EXCLUDED.shares_float, EXCLUDED.short_ratio,
-                     EXCLUDED.peg_ratio, EXCLUDED.recommodation_mean, EXCLUDED.number_of_analysyst, EXCLUDED.roa_value,
-                     EXCLUDED.roe_value, EXCLUDED."source", CURRENT_TIMESTAMP)
-                            """,
-                    place_holders,
-                )
-                connection.commit()
+    def save_company_list(self, values: dict[str, Any]) -> None:
+        table = company_table
+        stmt = pg_insert(table).values(**values)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["symbol"],
+            set_={
+                "short_name": stmt.excluded.short_name,
+                "country": stmt.excluded.country,
+                "industry_code": stmt.excluded.industry_code,
+                "sector_code": stmt.excluded.sector_code,
+                "employees_count": stmt.excluded.employees_count,
+                "dividend_rate": stmt.excluded.dividend_rate,
+                "trailing_pe_ratio": stmt.excluded.trailing_pe_ratio,
+                "forward_pe_ratio": stmt.excluded.forward_pe_ratio,
+                "avg_volume": stmt.excluded.avg_volume,
+                "avg_price": stmt.excluded.avg_price,
+                "market_cap": stmt.excluded.market_cap,
+                "enterprice_value": stmt.excluded.enterprice_value,
+                "beta": stmt.excluded.beta,
+                "shares_float": stmt.excluded.shares_float,
+                "short_ratio": stmt.excluded.short_ratio,
+                "peg_ratio": stmt.excluded.peg_ratio,
+                "recommodation_mean": stmt.excluded.recommodation_mean,
+                "number_of_analysyst": stmt.excluded.number_of_analysyst,
+                "roa_value": stmt.excluded.roa_value,
+                "roe_value": stmt.excluded.roe_value,
+                "source": stmt.excluded.source,
+                "modified_at": func.current_timestamp(),
+            },
+        )
+        with self.engine.begin() as conn:
+            conn.execute(stmt)
 
     def update_company_info(self, symbol: str) -> None:
-        # logger.info(f"Calling: {symbol}")
         try:
             ticker = yf.Ticker(symbol)
             data = ticker.info
 
-            # Validate that we received valid data
             if not data or not isinstance(data, dict):
                 logger.warning(f"No valid data received for symbol: {symbol}")
                 return
 
-            # Check if symbol exists (Yahoo returns empty dict for invalid symbols)
             if "symbol" not in data and "shortName" not in data:
                 logger.warning(f"Symbol {symbol} not found in Yahoo Finance")
                 return
 
             logger.info(f"Saving: {symbol}")
-            place_holders = self.map_yahoo_company_data(symbol, data)
-            self.save_company_list(place_holders)
-            time.sleep(1)  # Sleep to avoid hitting API rate limits
+            values = self.map_yahoo_company_data(symbol, data)
+            self.save_company_list(values)
+            time.sleep(1)
 
         except Exception as e:
             logger.error(f"Error fetching data for symbol {symbol}: {str(e)}")
-            # Don't re-raise - continue with other symbols
 
     def convert_df(self) -> pd.DataFrame:
         dtypes = {
@@ -117,29 +117,36 @@ class CompanyRepo:
         company_dicts = [asdict(company) for company in self.company_list]
         df = pd.DataFrame(company_dicts).astype(dtypes)
         df = df.set_index(["symbol"])
-        # logger.info(df.info())
         return df
 
-    def _get_company_list_db(self, symbol_list: list[str]) -> list[TupleRow]:
-        with self.pool.connection() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    SELECT symbol, short_name, country, industry_code, sector_code, employees_count, dividend_rate,
-                        market_cap, enterprice_value, beta, shares_float, short_ratio, recommodation_mean
-                        FROM turtle.company
-                        WHERE symbol = ANY(%s)
-                        ORDER BY symbol
-                    """,
-                    [symbol_list],
-                )
-                result = cursor.fetchall()
-        return result
+    def _get_company_list_db(self, symbol_list: list[str]) -> list[Any]:
+        table = company_table
+        stmt = (
+            select(
+                table.c.symbol,
+                table.c.short_name,
+                table.c.country,
+                table.c.industry_code,
+                table.c.sector_code,
+                table.c.employees_count,
+                table.c.dividend_rate,
+                table.c.market_cap,
+                table.c.enterprice_value,
+                table.c.beta,
+                table.c.shares_float,
+                table.c.short_ratio,
+                table.c.recommodation_mean,
+            )
+            .where(table.c.symbol.in_(symbol_list))
+            .order_by(table.c.symbol)
+        )
+        with self.engine.connect() as conn:
+            result = conn.execute(stmt)
+            return result.fetchall()
 
     def get_company_list(self, symbol_list: list[str]) -> list[Company]:
-        # logger.debug(f"{tuple(symbol_list)} symbols passed to company table")
         result = self._get_company_list_db(symbol_list)
-        self.company_list = [Company(*company) for company in result]
+        self.company_list = [Company(*row) for row in result]
         logger.debug(f"{len(result)} symbols returned from company table")
         logger.info(f"{__name__} is logger name")
         return self.company_list

@@ -1,5 +1,5 @@
 import pandas as pd
-from psycopg_pool import ConnectionPool
+from sqlalchemy import Engine
 from datetime import datetime
 # from typing import List, Tuple
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class SignalService:
     def __init__(
         self,
-        pool: ConnectionPool,
+        engine: Engine,
         app_config: AppConfig,
         trading_strategy: TradingStrategy,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
@@ -34,11 +34,11 @@ class SignalService:
         self.time_frame_unit = time_frame_unit
         self.warmup_period = warmup_period
 
-        self.pool = pool
-        self.symbol_repo = SymbolRepo(self.pool, app_config.eodhd["api_key"])
-        self.company_repo = CompanyRepo(self.pool)
+        self.engine = engine
+        self.symbol_repo = SymbolRepo(self.engine, app_config.eodhd["api_key"])
+        self.company_repo = CompanyRepo(self.engine)
         self.bars_history = BarsHistoryRepo(
-            self.pool,
+            self.engine,
             app_config.alpaca["api_key"],
             app_config.alpaca["secret_key"],
         )

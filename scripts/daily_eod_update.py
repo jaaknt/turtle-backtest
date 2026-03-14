@@ -382,7 +382,7 @@ def main() -> int:
 
         # Initialize data updater
         logger.info("Initializing data updater...")
-        data_updater = DataUpdateService(pool=settings.pool, app_config=settings.app)
+        data_updater = DataUpdateService(engine=settings.engine, app_config=settings.app)
 
         # Execute based on mode
         success = True

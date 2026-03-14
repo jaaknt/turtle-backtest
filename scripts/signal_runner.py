@@ -26,7 +26,7 @@ import pathlib
 import sys
 import logging
 from datetime import datetime
-from psycopg_pool import ConnectionPool
+from sqlalchemy import Engine
 
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
@@ -61,7 +61,7 @@ def get_ranking_strategy_instance(ranking_name: str) -> RankingStrategy:
 
 
 def get_trading_strategy_instance(
-    strategy_name: str, ranking_strategy: RankingStrategy, pool: ConnectionPool, app: AppConfig
+    strategy_name: str, ranking_strategy: RankingStrategy, engine: Engine, app: AppConfig
 ) -> TradingStrategy:
     """Create and return a trading strategy instance by name."""
     from turtle.signal.darvas_box import DarvasBoxStrategy
@@ -81,7 +81,7 @@ def get_trading_strategy_instance(
 
     # Create BarsHistoryRepo instance for strategy
     bars_history = BarsHistoryRepo(
-        pool,
+        engine,
         alpaca_api_key=app.alpaca["api_key"],
         alpaca_api_secret=app.alpaca["secret_key"],
     )
@@ -184,7 +184,9 @@ def main() -> int:
 
         # Get the trading strategy (we need it for service initialization)
         try:
-            trading_strategy = get_trading_strategy_instance(args.trading_strategy, ranking_strategy, pool=settings.pool, app=settings.app)
+            trading_strategy = get_trading_strategy_instance(
+                args.trading_strategy, ranking_strategy, engine=settings.engine, app=settings.app
+            )
         except ValueError as e:
             logger.error(str(e))
             return 1
@@ -192,7 +194,7 @@ def main() -> int:
         # Initialize strategy runner with the trading strategy
         logger.info("Initializing strategy runner...")
         strategy_runner = SignalService(
-            pool=settings.pool, app_config=settings.app, trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY
+            engine=settings.engine, app_config=settings.app, trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY
         )
 
         # Run analysis based on mode

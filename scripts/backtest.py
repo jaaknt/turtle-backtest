@@ -209,7 +209,7 @@ def main() -> int:
             # Create database connection and bars_history for strategy
 
             bars_history = BarsHistoryRepo(
-                pool=settings.pool,
+                engine=settings.engine,
                 alpaca_api_key=settings.app.alpaca["api_key"],
                 alpaca_api_secret=settings.app.alpaca["secret_key"],
             )
@@ -224,7 +224,7 @@ def main() -> int:
         # Initialize strategy runner with the trading strategy
         logger.info("Initializing strategy runner...")
         signal_service = SignalService(
-            pool=settings.pool, app_config=settings.app, trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY
+            engine=settings.engine, app_config=settings.app, trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY
         )
         signal_processor = SignalProcessor(
             max_holding_period=60, bars_history=signal_service.bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]

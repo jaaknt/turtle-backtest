@@ -268,7 +268,7 @@ def main() -> int:
 
         # Create bars history repository
         bars_history = BarsHistoryRepo(
-            pool=settings.pool,
+            engine=settings.engine,
             alpaca_api_key=settings.app.alpaca["api_key"],
             alpaca_api_secret=settings.app.alpaca["secret_key"],
         )
@@ -299,7 +299,7 @@ def main() -> int:
             logger.info(f"Using specific tickers: {', '.join(universe)}")
         else:
             signal_service = SignalService(
-                pool=settings.pool,
+                engine=settings.engine,
                 app_config=settings.app,
                 trading_strategy=trading_strategy,
                 time_frame_unit=TimeFrameUnit.DAY,
