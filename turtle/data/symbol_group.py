@@ -27,7 +27,7 @@ class SymbolGroupRepo:
         )
         with self.engine.connect() as conn:
             result = conn.execute(stmt)
-            return result.fetchall()
+            return list(result.fetchall())
 
     def get_symbol_group_list(self, symbol_group: str) -> list[SymbolGroup]:
         result = self._get_symbol_group_list_db(symbol_group)

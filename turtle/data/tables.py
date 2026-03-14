@@ -84,3 +84,52 @@ symbol_group_table = Table(
     Column("modified_at", DateTime, server_default=func.now()),
     schema="turtle",
 )
+
+# exchange table definition (EODHD)
+exchange_table = Table(
+    "exchange",
+    metadata,
+    Column("code", Text, primary_key=True),
+    Column("name", Text),
+    Column("country", Text),
+    Column("currency", Text),
+    Column("country_iso3", Text),
+    Column("modified_at", DateTime, server_default=func.now()),
+    schema="turtle",
+)
+
+# price_history table definition (EODHD)
+price_history_table = Table(
+    "price_history",
+    metadata,
+    Column("symbol", Text, primary_key=True),
+    Column("time", DateTime(timezone=True), primary_key=True),
+    Column("open", Numeric(10, 4)),
+    Column("high", Numeric(10, 4)),
+    Column("low", Numeric(10, 4)),
+    Column("close", Numeric(10, 4)),
+    Column("adjusted_close", Numeric(10, 4)),
+    Column("volume", BigInteger),
+    Column("source", Text),
+    Column("modified_at", DateTime, server_default=func.now()),
+    schema="turtle",
+)
+
+# ticker_extended table definition (EODHD extended quote data)
+ticker_extended_table = Table(
+    "ticker_extended",
+    metadata,
+    Column("symbol", Text, primary_key=True),
+    Column("type", Text),
+    Column("name", Text),
+    Column("sector", Text),
+    Column("industry", Text),
+    Column("average_volume", BigInteger),
+    Column("average_price", Numeric),
+    Column("dividend_yield", Numeric),
+    Column("market_cap", BigInteger),
+    Column("pe", Numeric),
+    Column("forward_pe", Numeric),
+    Column("modified_at", DateTime, server_default=func.now()),
+    schema="turtle",
+)

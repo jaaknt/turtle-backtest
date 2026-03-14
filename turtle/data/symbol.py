@@ -38,7 +38,7 @@ class SymbolRepo:
         )
         with self.engine.connect() as conn:
             result = conn.execute(stmt)
-            return result.fetchall()
+            return list(result.fetchall())
 
     def get_symbol_list(self, country: str, symbol: str = "") -> list[Symbol]:
         result = self._get_symbol_list_db(country)
