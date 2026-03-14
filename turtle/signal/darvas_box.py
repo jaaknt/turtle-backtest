@@ -257,7 +257,6 @@ class DarvasBoxStrategy(TradingStrategy):
 
         return True
 
-
     def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
         """
         Get trading signals for a ticker within a date range.

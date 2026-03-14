@@ -57,25 +57,16 @@ class PortfolioSignalSelector:
         Returns:
             List of selected signals for entry, limited by available_positions
         """
-        logger.debug(
-            f"Selecting entry signals for {current_date}: "
-            f"{len(available_signals)} signals, {available_positions} slots available"
-        )
+        logger.debug(f"Selecting entry signals for {current_date}: {len(available_signals)} signals, {available_positions} slots available")
 
         # Step 1: Filter by minimum ranking threshold
-        qualified_signals = [
-            signal for signal in available_signals
-            if signal.ranking >= self.min_ranking
-        ]
+        qualified_signals = [signal for signal in available_signals if signal.ranking >= self.min_ranking]
 
         logger.debug(f"After ranking filter (>={self.min_ranking}): {len(qualified_signals)} signals")
 
         # Step 2: Exclude existing positions if configured
         if self.exclude_existing_positions:
-            qualified_signals = [
-                signal for signal in qualified_signals
-                if signal.ticker not in current_positions
-            ]
+            qualified_signals = [signal for signal in qualified_signals if signal.ticker not in current_positions]
             logger.debug(f"After position exclusion: {len(qualified_signals)} signals")
 
         # Step 3: Sort by ranking (highest first)
@@ -84,10 +75,7 @@ class PortfolioSignalSelector:
         # Step 4: Select top signals up to available positions
         selected_signals = qualified_signals[:available_positions]
 
-        logger.debug(
-            f"Selected {len(selected_signals)} signals for entry: "
-            f"{[f'{s.ticker}({s.ranking})' for s in selected_signals]}"
-        )
+        logger.debug(f"Selected {len(selected_signals)} signals for entry: {[f'{s.ticker}({s.ranking})' for s in selected_signals]}")
 
         return selected_signals
 
@@ -108,10 +96,7 @@ class PortfolioSignalSelector:
         """
         threshold = min_ranking_threshold or self.min_ranking
 
-        filtered_signals = [
-            signal for signal in signals
-            if signal.ranking >= threshold
-        ]
+        filtered_signals = [signal for signal in signals if signal.ranking >= threshold]
 
         logger.debug(f"Quality filter: {len(signals)} -> {len(filtered_signals)} signals")
         return filtered_signals

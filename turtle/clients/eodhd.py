@@ -72,9 +72,7 @@ class EodhdApiClient:
             return [Ticker(**data) for data in response_data]
         raise TypeError("Unexpected response format from EODHD API for tickers")
 
-    async def get_eod_historical_data(
-        self, ticker: str, from_date: str, to_date: str
-    ) -> list[PriceHistory]:
+    async def get_eod_historical_data(self, ticker: str, from_date: str, to_date: str) -> list[PriceHistory]:
         """
         Fetches End-of-Day historical price data for a given ticker with exchange suffix (e.g., "AAPL.US").
 
@@ -91,7 +89,6 @@ class EodhdApiClient:
             # We explicitly pass ticker here to the PriceHistory model.
             return [PriceHistory(ticker=ticker, **data) for data in response_data]
         raise TypeError("Unexpected response format from EODHD API for historical data")
-
 
     async def get_us_quote_delayed(self, ticker: str) -> TickerExtended:
         """
@@ -112,15 +109,15 @@ class EodhdApiClient:
             logger.debug(f"Full response data: {response_data}")
 
             # Extract nested data - the actual ticker data is inside data[ticker]
-            if 'data' not in response_data:
+            if "data" not in response_data:
                 raise TypeError(f"Expected 'data' key in API response, got: {response_data.keys()}")
 
             # Check if data is empty or ticker is not in data
-            if not response_data['data'] or ticker not in response_data['data']:
+            if not response_data["data"] or ticker not in response_data["data"]:
                 logger.warning(f"No data available for {ticker} in API response")
                 raise TypeError(f"No data found for {ticker} in API response")
 
-            ticker_data = response_data['data'][ticker]
+            ticker_data = response_data["data"][ticker]
             logger.debug(f"Extracted ticker data keys: {list(ticker_data.keys())}")
 
             # Add symbol to ticker data (redundant but ensures consistency)
