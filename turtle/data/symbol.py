@@ -4,6 +4,7 @@ from turtle.data.tables import ticker_table
 from typing import Any
 
 import httpx
+from httpx import URL
 from sqlalchemy import Engine, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -74,7 +75,10 @@ class SymbolRepo:
             conn.execute(stmt)
 
     def get_eodhd_exchange_symbol_list(self, exchange_code: str) -> list[dict[str, Any]]:
-        url = f"https://eodhd.com/api/exchange-symbol-list/{exchange_code}?api_token={self.api_key}&fmt=json&type=stock"
+        params = {"api_token": self.api_key, "fmt": "json", "type": "stock"}
+        url = URL(f"https://eodhd.com/api/exchange-symbol-list/{exchange_code}", params=params)
+        safe_params = {k: ("***" if k == "api_token" else v) for k, v in params.items()}
+        logger.debug(f"Fetching symbol list from EODHD: {URL(f'https://eodhd.com/api/exchange-symbol-list/{exchange_code}', params=safe_params)}")
         response = httpx.get(url)
         response.raise_for_status()
         data: list[dict[str, Any]] = response.json()

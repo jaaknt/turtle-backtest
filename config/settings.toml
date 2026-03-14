@@ -1,3 +1,4 @@
+# Use environment variable or .env file to store sensitive information
 [app]
 name = "turtle-backtest"
 debug = true
@@ -10,7 +11,7 @@ host = "localhost"
 port = 5432
 dbname = "trading"
 user = "postgres"
-password = "postgres361"    # Use environment variable or secret management in production
+password = "YOUR_POSTGRES_PASSWORD"    
 
 [database.pool]
 min_size = 10
