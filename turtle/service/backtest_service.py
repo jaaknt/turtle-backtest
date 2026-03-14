@@ -109,7 +109,9 @@ class BacktestService:
 
         for i, result in enumerate(top_signals, 1):
             days_held = (result.exit.date - result.entry.date).days
-            print(f"{i:<4} {result.signal.ticker:<8} {result.realized_pct:>7.2f}% "
-                  f"{result.signal.ranking:<8} {result.entry.date.strftime('%Y-%m-%d'):<12} "
-                  f"{result.exit.date.strftime('%Y-%m-%d'):<12} {days_held:<5}")
+            print(
+                f"{i:<4} {result.signal.ticker:<8} {result.realized_pct:>7.2f}% "
+                f"{result.signal.ranking:<8} {result.entry.date.strftime('%Y-%m-%d'):<12} "
+                f"{result.exit.date.strftime('%Y-%m-%d'):<12} {days_held:<5}"
+            )
         print("-" * 80)

@@ -23,9 +23,7 @@ class SymbolGroupRepo:
     def _get_symbol_group_list_db(self, symbol_group: str) -> list[Any]:
         table = symbol_group_table
         stmt = (
-            select(table.c.symbol_group, table.c.symbol, table.c.rate)
-            .where(table.c.symbol_group == symbol_group)
-            .order_by(table.c.symbol)
+            select(table.c.symbol_group, table.c.symbol, table.c.rate).where(table.c.symbol_group == symbol_group).order_by(table.c.symbol)
         )
         with self.engine.connect() as conn:
             result = conn.execute(stmt)

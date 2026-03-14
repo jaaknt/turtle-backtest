@@ -41,8 +41,6 @@ class TradingStrategy(ABC):
         self.min_bars = min_bars
         self.df = pd.DataFrame()
 
-
-
     @abstractmethod
     def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
         """

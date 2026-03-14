@@ -58,9 +58,7 @@ async def main(
 
         if data in ("history", "all"):
             logger.info("Downloading historical price data...")
-            await eodhd_service.download_historical_data(
-                ticker_limit=ticker_limit, start_date=start_date, end_date=end_date
-            )
+            await eodhd_service.download_historical_data(ticker_limit=ticker_limit, start_date=start_date, end_date=end_date)
 
         logger.info("EODHD data download completed successfully.")
     except Exception as e:

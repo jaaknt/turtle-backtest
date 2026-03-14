@@ -25,15 +25,9 @@ class MarketData:
             TimeFrameUnit.WEEK,
         )
 
-        self.df["ema_20"] = talib.EMA(
-            self.df["close"].values.astype("float64"), timeperiod=20
-        )
-        self.df["ema_10"] = talib.EMA(
-            self.df["close"].values.astype("float64"), timeperiod=10
-        )
+        self.df["ema_20"] = talib.EMA(self.df["close"].values.astype("float64"), timeperiod=20)
+        self.df["ema_10"] = talib.EMA(self.df["close"].values.astype("float64"), timeperiod=10)
         last_record = self.df.iloc[-1]
 
-        logger.info(
-            f"SPY EMA10 - {last_record['ema_10']} EMA20: {last_record['ema_20']}"
-        )
+        logger.info(f"SPY EMA10 - {last_record['ema_10']} EMA20: {last_record['ema_20']}")
         return bool(last_record["ema_10"] > last_record["ema_20"])

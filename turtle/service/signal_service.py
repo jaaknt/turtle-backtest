@@ -44,8 +44,6 @@ class SignalService:
         )
         self.market_data = MarketData(self.bars_history)
 
-
-
     def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
         """Wrapper function for TradingStrategy.get_signals."""
         return self.trading_strategy.get_signals(ticker, start_date, end_date)

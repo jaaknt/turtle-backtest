@@ -35,9 +35,7 @@ def calculate_benchmark_list(
 
     for ticker in benchmark_tickers:
         try:
-            df = bars_history.get_ticker_history(
-                ticker, start_date, end_date, time_frame_unit
-            )
+            df = bars_history.get_ticker_history(ticker, start_date, end_date, time_frame_unit)
 
             if not df.empty:
                 benchmark = calculate_benchmark(df, ticker, start_date, end_date)
@@ -103,5 +101,3 @@ def calculate_benchmark(
     except Exception as e:
         logger.error(f"Error calculating {ticker} benchmark return: {e}")
         return None
-
-

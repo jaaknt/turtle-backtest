@@ -69,7 +69,7 @@ class PortfolioSignalProcessor:
 
         # Process universe in batches for efficiency
         for i in range(0, len(eligible_universe), self.batch_size):
-            batch = eligible_universe[i:i + self.batch_size]
+            batch = eligible_universe[i : i + self.batch_size]
             batch_signals = self._process_ticker_batch(date, batch)
             all_signals.extend(batch_signals)
 
@@ -79,10 +79,7 @@ class PortfolioSignalProcessor:
         # Sort by ranking (highest first)
         qualified_signals.sort(key=lambda x: x.ranking, reverse=True)
 
-        logger.debug(
-            f"Generated {len(all_signals)} total signals, "
-            f"{len(qualified_signals)} above ranking {min_ranking}"
-        )
+        logger.debug(f"Generated {len(all_signals)} total signals, {len(qualified_signals)} above ranking {min_ranking}")
 
         return qualified_signals
 
@@ -127,7 +124,7 @@ class PortfolioSignalProcessor:
             signals = self.trading_strategy.get_signals(
                 ticker,
                 date - timedelta(days=1),  # Look back one day for signal generation
-                date
+                date,
             )
 
             # Filter for signals on target date
@@ -199,9 +196,7 @@ class PortfolioSignalProcessor:
                 end_date = signal.date + timedelta(days=1)
                 start_date = signal.date - timedelta(days=5)
 
-                df = self.bars_history.get_ticker_history(
-                    signal.ticker, start_date, end_date, self.time_frame_unit
-                )
+                df = self.bars_history.get_ticker_history(signal.ticker, start_date, end_date, self.time_frame_unit)
 
                 if df.empty:
                     continue
@@ -218,8 +213,7 @@ class PortfolioSignalProcessor:
                 continue
 
         logger.debug(
-            f"Data quality filter: {len(signals)} -> {len(filtered_signals)} signals "
-            f"(min_volume: {min_volume}, min_price: ${min_price})"
+            f"Data quality filter: {len(signals)} -> {len(filtered_signals)} signals (min_volume: {min_volume}, min_price: ${min_price})"
         )
 
         return filtered_signals
@@ -297,9 +291,7 @@ class PortfolioSignalProcessor:
             try:
                 end_date = signal.date + timedelta(days=required_days_ahead)
 
-                df = self.bars_history.get_ticker_history(
-                    signal.ticker, signal.date, end_date, self.time_frame_unit
-                )
+                df = self.bars_history.get_ticker_history(signal.ticker, signal.date, end_date, self.time_frame_unit)
 
                 # Check if we have sufficient future data
                 if not df.empty and len(df) >= required_days_ahead:
@@ -309,9 +301,6 @@ class PortfolioSignalProcessor:
                 logger.debug(f"Data validation failed for {signal.ticker}: {e}")
                 continue
 
-        logger.debug(
-            f"Data validation: {len(signals)} -> {len(validated_signals)} signals "
-            f"with {required_days_ahead} days of future data"
-        )
+        logger.debug(f"Data validation: {len(signals)} -> {len(validated_signals)} signals with {required_days_ahead} days of future data")
 
         return validated_signals

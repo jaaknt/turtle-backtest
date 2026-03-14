@@ -268,10 +268,7 @@ class EodhdService:
                         result = batch_results[idx]  # type: ignore[assignment]
                         unique_name = batch[idx].unique_name
                         if isinstance(result, Exception):
-                            logger.error(
-                                f"Error fetching historical data for {unique_name}: "
-                                f"{type(result).__name__}: {result}"
-                            )
+                            logger.error(f"Error fetching historical data for {unique_name}: {type(result).__name__}: {result}")
                             total_stocks_failed += 1
                         elif isinstance(result, list):
                             batch_price_records.extend(result)
@@ -359,28 +356,25 @@ class EodhdService:
                         result = batch_results[idx]  # type: ignore[assignment]
                         unique_name = batch[idx].unique_name
                         if isinstance(result, Exception):
-                            logger.error(
-                                f"Error fetching extended data for {unique_name}: "
-                                f"{type(result).__name__}: {result}"
-                            )
+                            logger.error(f"Error fetching extended data for {unique_name}: {type(result).__name__}: {result}")
                             total_tickers_failed += 1
                         elif isinstance(result, TickerExtended):
                             # Validate that we have meaningful data (not all fields are None)
                             # Check if at least one of the critical fields has data
-                            has_data = any([
-                                result.type,
-                                result.name,
-                                result.sector,
-                                result.industry,
-                                result.average_volume,
-                                result.fifty_day_average_price,
-                                result.market_cap,
-                            ])
+                            has_data = any(
+                                [
+                                    result.type,
+                                    result.name,
+                                    result.sector,
+                                    result.industry,
+                                    result.average_volume,
+                                    result.fifty_day_average_price,
+                                    result.market_cap,
+                                ]
+                            )
 
                             if not has_data:
-                                logger.warning(
-                                    f"Skipping {unique_name} - API returned empty data (all fields are None)"
-                                )
+                                logger.warning(f"Skipping {unique_name} - API returned empty data (all fields are None)")
                                 total_tickers_failed += 1
                                 continue
 
