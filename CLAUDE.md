@@ -250,7 +250,7 @@ Tests organised by component in `tests/`:
 - `test_macd_exit_strategy.py`: MACD exit strategy logic
 - `test_atr_exit_strategy.py`: ATR exit strategy logic
 - `test_volume_momentum_ranking.py`: Volume momentum ranking strategy
-- `test_talib_ema.py`: TA-Lib EMA indicator
+- `test_pandas_ta_ema.py`: pandas-ta EMA indicator
 
 Shared fixtures live in `tests/conftest.py`. File-specific fixtures stay in the individual test file.
 
@@ -258,9 +258,9 @@ Run with `uv run pytest` or `uv run pytest tests/test_specific.py`.
 
 ## Dependencies & Resources
 
-**Core Libraries**: pandas/numpy (data), pandas-ta/ta-lib (technical analysis), alpaca-py (market data API), yfinance (Yahoo Finance), psycopg (PostgreSQL), backtesting (backtest framework), streamlit (web UI), plotly (visualization)
+**Core Libraries**: pandas/numpy (data), pandas-ta (technical analysis), alpaca-py (market data API), yfinance (Yahoo Finance), psycopg (PostgreSQL), backtesting (backtest framework), streamlit (web UI), plotly (visualization)
 
-**Special Requirements**: Python 3.13+, TA-lib requires special installation (see `.github/workflows/build.yml`)
+**Special Requirements**: Python 3.13+
 
 **Configuration**: Environment setup via `.env` file, TOML-based settings in `config/settings.toml`
 

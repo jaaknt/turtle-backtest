@@ -4,7 +4,7 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
 
 import pandas as pd
-import talib
+import pandas_ta
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +24,8 @@ class MarketData:
             TimeFrameUnit.WEEK,
         )
 
-        self.df["ema_20"] = talib.EMA(self.df["close"].values.astype("float64"), timeperiod=20)
-        self.df["ema_10"] = talib.EMA(self.df["close"].values.astype("float64"), timeperiod=10)
+        self.df["ema_20"] = pandas_ta.ema(self.df["close"], length=20)
+        self.df["ema_10"] = pandas_ta.ema(self.df["close"], length=10)
         last_record = self.df.iloc[-1]
 
         logger.info(f"SPY EMA10 - {last_record['ema_10']} EMA20: {last_record['ema_20']}")

@@ -7,7 +7,7 @@ from turtle.common.enums import TimeFrameUnit
 from typing import Any
 
 import pandas as pd
-import talib
+import pandas_ta
 
 from .base import ExitStrategy
 
@@ -69,12 +69,7 @@ class ATRExitStrategy(ExitStrategy):
             self.ticker, self.start_date - timedelta(days=60), self.end_date, time_frame_unit=TimeFrameUnit.DAY
         )
 
-        # Calculate ATR using TA-Lib
-        high_values = df["high"].values.astype(float)
-        low_values = df["low"].values.astype(float)
-        close_values = df["close"].values.astype(float)
-
-        df["atr"] = talib.ATR(high_values, low_values, close_values, timeperiod=self.atr_period)
+        df["atr"] = pandas_ta.atr(df["high"], df["low"], df["close"], length=self.atr_period)
 
         # Filter to requested date range
         self.df = df[df.index >= self.start_date].copy()

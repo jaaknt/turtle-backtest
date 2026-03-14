@@ -6,7 +6,7 @@ from turtle.ranking.base import RankingStrategy
 
 import numpy as np
 import pandas as pd
-import talib
+import pandas_ta
 
 from .base import TradingStrategy
 from .models import Signal
@@ -105,25 +105,23 @@ class DarvasBoxStrategy(TradingStrategy):
         - ema_volume_10: 10-period EMA of volume
         - buy_signal: Boolean column initialized to False
         """
-        # Pre-convert arrays once for performance optimization
-        close_values = self.df["close"].values.astype(float)
-        volume_values = self.df["volume"].values.astype(float)
-
         # Rolling window indicators
         self.df["max_close_20"] = self.df["close"].rolling(window=20).max()
         self.df["max_high_20"] = self.df["high"].rolling(window=20).max()
 
         # MACD indicator
-        self.df["macd"], self.df["macd_signal"], _ = talib.MACD(close_values, fastperiod=12, slowperiod=26, signalperiod=9)
+        macd_df = pandas_ta.macd(self.df["close"], fast=12, slow=26, signal=9)
+        self.df["macd"] = macd_df["MACD_12_26_9"]
+        self.df["macd_signal"] = macd_df["MACDs_12_26_9"]
 
         # Exponential Moving Averages for close prices
-        self.df["ema_10"] = talib.EMA(close_values, timeperiod=10)
-        self.df["ema_20"] = talib.EMA(close_values, timeperiod=20)
-        self.df["ema_50"] = talib.EMA(close_values, timeperiod=50)
-        self.df["ema_200"] = talib.EMA(close_values, timeperiod=200)
+        self.df["ema_10"] = pandas_ta.ema(self.df["close"], length=10)
+        self.df["ema_20"] = pandas_ta.ema(self.df["close"], length=20)
+        self.df["ema_50"] = pandas_ta.ema(self.df["close"], length=50)
+        self.df["ema_200"] = pandas_ta.ema(self.df["close"], length=200)
 
         # Volume indicators
-        self.df["ema_volume_10"] = talib.EMA(volume_values, timeperiod=10)
+        self.df["ema_volume_10"] = pandas_ta.ema(self.df["volume"], length=10)
 
         # Initialize buy signal column
         self.df["buy_signal"] = False
