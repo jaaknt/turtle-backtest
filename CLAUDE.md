@@ -47,7 +47,7 @@ Python-based financial trading strategy backtesting library for US stocks. Suppo
 |--------|---------|----------------|---------|
 | **daily_eod_update.py** | Daily data updates | `--start-date`, `--mode` (bars/symbols/companies) | `uv run python scripts/daily_eod_update.py --start-date 2024-06-28` |
 | **download_eodhd_data.py** | Bulk historical download | `--ticker-limit`, `--start-date`, `--end-date` | `uv run python scripts/download_eodhd_data.py --ticker-limit 10` |
-| **signal_runner.py** | Generate/analyze signals | `--strategy`, `--mode` (analyze/csv/sheets/db) | `uv run python scripts/signal_runner.py --start-date 2024-06-01 --end-date 2024-06-01 --strategy darvas_box --mode analyze` |
+| **signal_runner.py** | Generate/analyze signals | `--strategy`, `--mode` (analyze/csv/db) | `uv run python scripts/signal_runner.py --start-date 2024-06-01 --end-date 2024-06-01 --strategy darvas_box --mode analyze` |
 | **backtest.py** | Single ticker backtest | `--ticker`, `--signal-strategy`, `--exit-strategy` | `uv run python scripts/backtest.py --ticker AAPL --start-date 2024-01-01 --end-date 2024-12-31 --signal-strategy darvas_box --exit-strategy profit_loss` |
 | **portfolio_runner.py** | Portfolio backtest | `--trading-strategy`, `--ranking-strategy`, `--initial-capital`, `--output-file` | `uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31 --output-file results.html` |
 
@@ -70,8 +70,6 @@ Python-based financial trading strategy backtesting library for US stocks. Suppo
   - `manager.py`, `selector.py`, `analytics.py`
 - **turtle/ranking/**: Signal ranking strategies
   - `momentum.py`, `volume_momentum.py`
-- **turtle/google/**: Google Sheets integration
-  - `signal_exporter.py`, `client.py`, `auth.py`
 - **turtle/clients/**: External API clients
   - `eodhd.py`: EODHD API wrapper
 - **turtle/config/**: Configuration management
@@ -105,7 +103,7 @@ Python-based financial trading strategy backtesting library for US stocks. Suppo
 | Service | Purpose | Key Methods | Used By |
 |---------|---------|-------------|---------|
 | **DataUpdateService** | Data ingestion from EODHD/Alpaca/Yahoo | `update_symbol_list()`, `update_bars_history()`, `update_company_list()` | `daily_eod_update.py`, `download_eodhd_data.py` |
-| **SignalService** | Signal generation and export | `generate_signals()`, `filter_by_ranking()`, `export_to_sheets()` | `signal_runner.py` |
+| **SignalService** | Signal generation and export | `generate_signals()`, `filter_by_ranking()` | `signal_runner.py` |
 | **BacktestService** | Single-ticker backtesting | `run_backtest()`, `calculate_metrics()` | `backtest.py` |
 | **PortfolioService** | Multi-position portfolio backtest | `run_portfolio_backtest()`, `generate_tearsheet()`, `calculate_benchmark_comparison()` | `portfolio_runner.py` |
 | **EODHDService** | EODHD API operations | `fetch_eod_data()`, `fetch_ticker_list()`, `validate_response()` | `DataUpdateService` |
@@ -118,12 +116,6 @@ Filters and prioritizes signals for portfolio selection. Returns scores 0-100 (h
 - **VolumeMomentumRanking**: Combined price + volume momentum (weights: 0.7 price, 0.3 volume)
 
 **Usage in portfolio backtesting:** Applied by `PortfolioSignalSelector` with configurable `min_ranking` threshold.
-
-### Google Sheets Integration
-- **Authentication**: OAuth2 (user credentials) or Service Account (automated)
-- **SignalExporter**: Export signals to Google Sheets with formatting
-- **Setup**: Enable Google Sheets API → Create credentials → Set `GOOGLE_APPLICATION_CREDENTIALS` env var
-- **Usage**: `scripts/signal_runner.py --mode sheets --sheet-name "June Signals"`
 
 ## Database Migrations
 
@@ -185,7 +177,6 @@ open reports/results.html
 | **pandas.ipynb** | Data analysis and exploration | `uv run jupyter notebook examples/pandas.ipynb` |
 | **portfolio_backtest_example.py** | Programmatic portfolio backtesting template | `uv run python examples/portfolio_backtest_example.py` |
 | **portfolio_backtest_api_demo.py** | API-style portfolio backtesting demo | `uv run python examples/portfolio_backtest_api_demo.py` |
-| **google_sheets_test.py** | Google Sheets integration test | `uv run python examples/google_sheets_test.py` |
 
 ## Troubleshooting Quick Reference
 
@@ -195,7 +186,6 @@ open reports/results.html
 | **API rate limiting** | Use `--ticker-limit 10` for testing, verify API keys in `.env` | Check EODHD_API_KEY active, typical limit 20 req/sec |
 | **No signals generated** | Verify data exists: `SELECT COUNT(*) FROM turtle.bars_history WHERE ticker='AAPL'`, enable `--verbose` | Check ticker has sufficient history, validate strategy parameters |
 | **Portfolio backtest errors** | Lower `--min-signal-ranking`, verify `initial_capital >= position_max_amount * max_positions` | Ensure signals exist for date range, validate benchmark data (SPY/QQQ) |
-| **Google Sheets authentication failed** | Delete `token.json` (OAuth2) or verify `GOOGLE_APPLICATION_CREDENTIALS` path (Service Account) | Enable Google Sheets API in Cloud Console, share spreadsheet with service account |
 | **Slow queries/high memory** | Add indexes: `CREATE INDEX idx_bars_ticker_date ON turtle.bars_history(ticker, date)`, use `--ticker-limit` | Increase `pool_size` in settings.toml, process data in batches |
 | **Migration failures** | `uv run alembic current` to check version, `uv run alembic downgrade -1` to rollback | Review `turtle.alembic_version` table, test upgrade/downgrade paths |
 

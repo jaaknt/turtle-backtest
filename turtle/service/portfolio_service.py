@@ -15,8 +15,6 @@ from turtle.backtest.models import FutureTrade
 from turtle.portfolio.manager import PortfolioManager
 from turtle.portfolio.selector import PortfolioSignalSelector
 from turtle.portfolio.analytics import PortfolioAnalytics
-from turtle.google.models import GoogleSheetsConfig
-from turtle.google.signal_exporter import SignalExporter
 from turtle.exit.atr import safe_float_conversion
 
 logger = logging.getLogger(__name__)
@@ -42,7 +40,6 @@ class PortfolioService:
         position_max_amount: float = 3000.0,
         min_signal_ranking: int = 70,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
-        google_sheets_config: GoogleSheetsConfig | None = None,
     ):
         """
         Initialize portfolio service.
@@ -56,7 +53,6 @@ class PortfolioService:
             position_max_amount: Maximum dollar amount per position
             min_signal_ranking: Minimum signal ranking to consider
             time_frame_unit: Time frame for analysis (DAY, WEEK, etc.)
-            google_sheets_config: Optional Google Sheets configuration for signal export
         """
         self.trading_strategy = trading_strategy
         self.exit_strategy = exit_strategy
@@ -92,10 +88,6 @@ class PortfolioService:
 
         # Backtest configuration
         self.min_signal_ranking = min_signal_ranking
-
-        # Google Sheets export configuration
-        self.google_sheets_config = google_sheets_config
-        self.signal_exporter = SignalExporter(google_sheets_config, bars_history) if google_sheets_config else None
 
     def run_backtest(
         self,
@@ -217,18 +209,6 @@ class PortfolioService:
         qualified_signals.sort(key=lambda s: s.ranking, reverse=True)
 
         logger.info(f"Generated {len(qualified_signals)} signals for {current_date}")
-
-        # Export signals to Google Sheets if configured
-        if self.signal_exporter and qualified_signals:
-            try:
-                strategy_name = self.trading_strategy.__class__.__name__
-                success = self.signal_exporter.export_daily_signals(qualified_signals, strategy_name, include_price_data=True)
-                if success:
-                    logger.info(f"Successfully exported {len(qualified_signals)} signals to Google Sheets")
-                else:
-                    logger.warning("Failed to export signals to Google Sheets")
-            except Exception as e:
-                logger.error(f"Error exporting signals to Google Sheets: {e}")
 
         return qualified_signals
 
