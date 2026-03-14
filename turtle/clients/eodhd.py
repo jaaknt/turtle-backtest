@@ -47,7 +47,8 @@ class EodhdApiClient:
         params["fmt"] = "json"
 
         url = URL(path, params=params)
-        logger.debug(f"Fetching data from EODHD: {url}")
+        safe_params = {k: ("***" if k == "api_token" else v) for k, v in params.items()}
+        logger.debug(f"Fetching data from EODHD: {URL(path, params=safe_params)}")
 
         response = await self._client.get(url)
         response.raise_for_status()  # Raise an exception for 4xx/5xx responses
