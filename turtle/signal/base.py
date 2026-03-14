@@ -2,10 +2,11 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
-from .models import Signal
 from turtle.ranking.base import RankingStrategy
 
 import pandas as pd
+
+from .models import Signal
 
 
 class TradingStrategy(ABC):

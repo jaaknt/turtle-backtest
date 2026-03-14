@@ -2,15 +2,14 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from datetime import datetime
-
-from sqlalchemy import and_, select, text
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from turtle.clients.eodhd import EodhdApiClient
 from turtle.config.settings import Settings
 from turtle.data.models import Exchange, PriceHistory, Ticker, TickerExtended
 from turtle.data.tables import exchange_table, price_history_table, ticker_extended_table, ticker_table
+
+from sqlalchemy import and_, select, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 logger = logging.getLogger(__name__)
 

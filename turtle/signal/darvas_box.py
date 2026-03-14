@@ -1,15 +1,15 @@
 import logging
 from datetime import datetime, timedelta
+from turtle.common.enums import TimeFrameUnit
+from turtle.data.bars_history import BarsHistoryRepo
+from turtle.ranking.base import RankingStrategy
 
 import numpy as np
 import pandas as pd
 import talib
 
-from turtle.common.enums import TimeFrameUnit
-from turtle.data.bars_history import BarsHistoryRepo
-from .models import Signal
 from .base import TradingStrategy
-from turtle.ranking.base import RankingStrategy
+from .models import Signal
 
 logger = logging.getLogger(__name__)
 

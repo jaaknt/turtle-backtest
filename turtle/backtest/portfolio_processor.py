@@ -2,11 +2,10 @@
 
 import logging
 from datetime import datetime, timedelta
-
+from turtle.common.enums import TimeFrameUnit
+from turtle.data.bars_history import BarsHistoryRepo
 from turtle.signal.base import TradingStrategy
 from turtle.signal.models import Signal
-from turtle.data.bars_history import BarsHistoryRepo
-from turtle.common.enums import TimeFrameUnit
 
 logger = logging.getLogger(__name__)
 

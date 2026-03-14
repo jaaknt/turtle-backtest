@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
-
 from turtle.backtest.models import FutureTrade, Trade
 
 

@@ -2,11 +2,11 @@
 
 import logging
 from datetime import datetime
-import pandas as pd
-
-from turtle.data.bars_history import BarsHistoryRepo
-from turtle.common.enums import TimeFrameUnit
 from turtle.backtest.models import Benchmark
+from turtle.common.enums import TimeFrameUnit
+from turtle.data.bars_history import BarsHistoryRepo
+
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 

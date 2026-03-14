@@ -31,30 +31,28 @@ from datetime import datetime
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
+from turtle.backtest.processor import SignalProcessor
+from turtle.common.enums import TimeFrameUnit
 from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
-
-from turtle.backtest.processor import SignalProcessor
-from turtle.ranking.base import RankingStrategy
-from turtle.service.backtest_service import BacktestService
-from turtle.signal.darvas_box import DarvasBoxStrategy
-from turtle.signal.momentum import MomentumStrategy
-from turtle.signal.mars import MarsStrategy
-
-from turtle.service.signal_service import SignalService
-from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
-from turtle.signal.base import TradingStrategy
-from turtle.ranking.momentum import MomentumRanking
-from turtle.ranking.volume_momentum import VolumeMomentumRanking
 from turtle.exit import (
-    ExitStrategy,
+    ATRExitStrategy,
     BuyAndHoldExitStrategy,
     EMAExitStrategy,
-    ProfitLossExitStrategy,
+    ExitStrategy,
     MACDExitStrategy,
-    ATRExitStrategy,
+    ProfitLossExitStrategy,
 )
+from turtle.ranking.base import RankingStrategy
+from turtle.ranking.momentum import MomentumRanking
+from turtle.ranking.volume_momentum import VolumeMomentumRanking
+from turtle.service.backtest_service import BacktestService
+from turtle.service.signal_service import SignalService
+from turtle.signal.base import TradingStrategy
+from turtle.signal.darvas_box import DarvasBoxStrategy
+from turtle.signal.mars import MarsStrategy
+from turtle.signal.momentum import MomentumStrategy
 
 logger = logging.getLogger(__name__)
 

@@ -1,13 +1,14 @@
 """ATR-based exit strategy."""
 
-from datetime import datetime, timedelta
 import logging
-import pandas as pd
-import talib
-from typing import Any
-
+from datetime import datetime, timedelta
 from turtle.backtest.models import Trade
 from turtle.common.enums import TimeFrameUnit
+from typing import Any
+
+import pandas as pd
+import talib
+
 from .base import ExitStrategy
 
 logger = logging.getLogger(__name__)

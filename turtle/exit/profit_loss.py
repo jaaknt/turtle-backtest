@@ -1,10 +1,11 @@
 """Profit/Loss target exit strategy."""
 
 from datetime import datetime
-import pandas as pd
-
 from turtle.backtest.models import Trade
 from turtle.common.enums import TimeFrameUnit
+
+import pandas as pd
+
 from .base import ExitStrategy
 
 

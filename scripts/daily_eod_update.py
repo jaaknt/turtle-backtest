@@ -37,16 +37,14 @@ import pathlib
 import sys
 from datetime import datetime, timedelta
 
-
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
+# from turtle.common.enums import TimeFrameUnit
+import logging
 from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
 from turtle.service.data_update_service import DataUpdateService
-
-# from turtle.common.enums import TimeFrameUnit
-import logging
 
 logger = logging.getLogger(__name__)
 

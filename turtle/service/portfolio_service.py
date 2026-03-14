@@ -1,21 +1,20 @@
 """Portfolio backtesting service for executing and analyzing trading strategies."""
 
-from datetime import datetime, timedelta
-import logging
 import csv
+import logging
+from datetime import datetime, timedelta
 from pathlib import Path
-
-from turtle.signal.base import TradingStrategy
-from turtle.exit.base import ExitStrategy
-from turtle.data.bars_history import BarsHistoryRepo
-from turtle.signal.models import Signal
-from turtle.common.enums import TimeFrameUnit
-from turtle.backtest.processor import SignalProcessor
 from turtle.backtest.models import FutureTrade
+from turtle.backtest.processor import SignalProcessor
+from turtle.common.enums import TimeFrameUnit
+from turtle.data.bars_history import BarsHistoryRepo
+from turtle.exit.atr import safe_float_conversion
+from turtle.exit.base import ExitStrategy
+from turtle.portfolio.analytics import PortfolioAnalytics
 from turtle.portfolio.manager import PortfolioManager
 from turtle.portfolio.selector import PortfolioSignalSelector
-from turtle.portfolio.analytics import PortfolioAnalytics
-from turtle.exit.atr import safe_float_conversion
+from turtle.signal.base import TradingStrategy
+from turtle.signal.models import Signal
 
 logger = logging.getLogger(__name__)
 

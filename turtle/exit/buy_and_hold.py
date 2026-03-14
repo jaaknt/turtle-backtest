@@ -1,9 +1,10 @@
 """Buy and hold exit strategy."""
 
-import pandas as pd
-
 from turtle.backtest.models import Trade
 from turtle.common.enums import TimeFrameUnit
+
+import pandas as pd
+
 from .base import ExitStrategy
 
 

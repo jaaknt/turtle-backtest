@@ -11,8 +11,8 @@ Usage:
     python scripts/db_migrate.py create "description"  # Create new migration
 """
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 # Project root directory

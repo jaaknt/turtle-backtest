@@ -1,10 +1,10 @@
 import logging
-from typing import Any
-from sqlalchemy import Engine, select, func
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-
 from turtle.data.models import SymbolGroup
 from turtle.data.tables import symbol_group_table
+from typing import Any
+
+from sqlalchemy import Engine, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 logger = logging.getLogger(__name__)
 

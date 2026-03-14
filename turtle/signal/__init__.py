@@ -1,8 +1,8 @@
 from .base import TradingStrategy
 from .darvas_box import DarvasBoxStrategy
+from .market import MarketData
 from .mars import MarsStrategy
 from .momentum import MomentumStrategy
-from .market import MarketData
 
 __all__ = [
     "TradingStrategy",
