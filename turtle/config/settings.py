@@ -18,10 +18,9 @@ class Settings:
 
     @classmethod
     def from_toml(cls, file_path: str = "./config/settings.toml") -> "Settings":
-        # Load environment variables from .env file
+        """Load settings from TOML file"""
         load_dotenv()
 
-        """Load settings from TOML file"""
         file_path_obj = Path(file_path)
 
         if not file_path_obj.exists():
@@ -30,16 +29,23 @@ class Settings:
         with open(file_path_obj, "rb") as f:
             data = tomllib.load(f)
 
-        # replace sensitive information with environment variables
-        data["database"]["password"] = os.getenv("DB_PASSWORD", data["database"]["password"])
+        # Require secrets from environment variables — never fall back to TOML values
+        required_env_vars = {
+            "DB_PASSWORD": ("database", "password"),
+            "EODHD_API_KEY": ("app", "eodhd", "api_key"),
+            "ALPACA_API_KEY": ("app", "alpaca", "api_key"),
+            "ALPACA_SECRET_KEY": ("app", "alpaca", "secret_key"),
+        }
+        missing = [var for var in required_env_vars if not os.getenv(var)]
+        if missing:
+            raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
 
-        # Create database config
+        data["database"]["password"] = os.environ["DB_PASSWORD"]
         db_config = DatabaseConfig(**data.get("database", {}))
 
-        # replace sensitive information with environment variables
-        data["app"]["eodhd"]["api_key"] = os.getenv("EODHD_API_KEY", "**REPLACE_ME**")
-        data["app"]["alpaca"]["api_key"] = os.getenv("ALPACA_API_KEY", "**REPLACE_ME**")
-        data["app"]["alpaca"]["secret_key"] = os.getenv("ALPACA_SECRET_KEY", "**REPLACE_ME**")
+        data["app"]["eodhd"]["api_key"] = os.environ["EODHD_API_KEY"]
+        data["app"]["alpaca"]["api_key"] = os.environ["ALPACA_API_KEY"]
+        data["app"]["alpaca"]["secret_key"] = os.environ["ALPACA_SECRET_KEY"]
 
         # Create app config
         app_config = AppConfig(**data.get("app", {}))
