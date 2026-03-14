@@ -62,8 +62,13 @@ class BarsHistoryRepo:
         return [Bar(*row) for row in result]
 
     def save_bars_history(self, values: dict[str, Any]) -> None:
+        self.save_bars_history_bulk([values])
+
+    def save_bars_history_bulk(self, values_list: list[dict[str, Any]]) -> None:
+        if not values_list:
+            return
         table = bars_history_table
-        stmt = pg_insert(table).values(**values)
+        stmt = pg_insert(table).values(values_list)
         stmt = stmt.on_conflict_do_update(
             index_elements=["symbol", "hdate"],
             set_={
@@ -111,10 +116,9 @@ class BarsHistoryRepo:
         except KeyError:
             logger.warning(f"No data found for symbol: {symbol}")
             return
-        logger.debug(f"Saving: {symbol}")
-        for bar in bars:
-            values = self.map_alpaca_bars_history(symbol, bar)
-            self.save_bars_history(values)
+        logger.debug(f"Saving: {symbol} ({len(bars)} bars)")
+        values_list = [self.map_alpaca_bars_history(symbol, bar) for bar in bars]
+        self.save_bars_history_bulk(values_list)
 
     def convert_df(self, bar_list: list[Bar], time_frame_unit: TimeFrameUnit) -> pd.DataFrame:
         dtypes = {
