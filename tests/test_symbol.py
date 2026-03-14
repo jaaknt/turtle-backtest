@@ -17,7 +17,7 @@ def test_get_symbol_list(mocker: MockerFixture) -> None:
         SymbolRepo, "_get_symbol_list_db", return_value=mocked_data
     )
 
-    repo = SymbolRepo(pool=mocker.Mock(), api_key="dummy_key")
+    repo = SymbolRepo(engine=mocker.Mock(), api_key="dummy_key")
 
     # Call the method you want to test
     symbols = repo.get_symbol_list(country="USA")
@@ -40,7 +40,7 @@ def test_get_symbol_list_empty(mocker: MockerFixture) -> None:
     )
 
     # Instantiate SymbolRepo with the mock connection
-    repo = SymbolRepo(pool=mocker.Mock(), api_key="dummy_key")
+    repo = SymbolRepo(engine=mocker.Mock(), api_key="dummy_key")
 
     # Call the method you want to test
     symbols = repo.get_symbol_list(country="USA")
@@ -65,7 +65,7 @@ def test_get_symbol_list_with_symbol_filter(mocker: MockerFixture) -> None:
         SymbolRepo, "_get_symbol_list_db", return_value=extended_mocked_data
     )
 
-    repo = SymbolRepo(pool=mocker.Mock(), api_key="dummy_key")
+    repo = SymbolRepo(engine=mocker.Mock(), api_key="dummy_key")
 
     # Test 1: Filter symbols starting with "M" or later alphabetically
     symbols = repo.get_symbol_list(country="USA", symbol="M")

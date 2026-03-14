@@ -1,73 +1,86 @@
 """
-SQLAlchemy Core table definitions for bulk database operations.
+SQLAlchemy Core table definitions for database operations.
 
-This module contains Table objects used for efficient bulk insert/upsert operations
-that require explicit column access (e.g., PostgreSQL INSERT ON CONFLICT).
+This module contains Table objects used for all database operations
+in the repository layer.
 """
 
-from sqlalchemy import BigInteger, Column, DateTime, MetaData, Numeric, Table, Text
+from sqlalchemy import BigInteger, Column, DateTime, MetaData, Numeric, Table, Text, func
 
 # Shared metadata instance for all table definitions
 metadata = MetaData()
 
-# Exchange table definition
-# Used for bulk upsert operations with pg_insert.on_conflict_do_update
-exchange_table = Table(
-    "exchange",
+# bars_history table definition
+bars_history_table = Table(
+    "bars_history",
     metadata,
-    Column("code", Text, primary_key=True),
-    Column("name", Text, nullable=False),
-    Column("country", Text, nullable=False),
-    Column("currency", Text, nullable=False),
-    Column("country_iso3", Text, nullable=True),
+    Column("symbol", Text, primary_key=True),
+    Column("hdate", DateTime(timezone=True), primary_key=True),
+    Column("open", Numeric(10, 4)),
+    Column("high", Numeric(10, 4)),
+    Column("low", Numeric(10, 4)),
+    Column("close", Numeric(10, 4)),
+    Column("volume", BigInteger),
+    Column("trade_count", BigInteger),
+    Column("source", Text),
+    Column("modified_at", DateTime, server_default=func.now()),
     schema="turtle",
 )
 
-# Ticker table definition
+# ticker table definition
 ticker_table = Table(
     "ticker",
     metadata,
-    Column("unique_name", Text, primary_key=True),
-    Column("code", Text, nullable=False),
-    Column("name", Text, nullable=False),
-    Column("country", Text),
-    Column("exchange", Text, nullable=False),
-    Column("currency", Text),
-    Column("type", Text),
-    Column("isin", Text),
-    schema="turtle",
-)
-
-# Ticker Extended table definition
-ticker_extended_table = Table(
-    "ticker_extended",
-    metadata,
     Column("symbol", Text, primary_key=True),
-    Column("type", Text),
     Column("name", Text),
-    Column("sector", Text),
-    Column("industry", Text),
-    Column("average_volume", BigInteger),
-    Column("average_price", Numeric(20, 10)),
-    Column("dividend_yield", Numeric(12, 6)),
-    Column("market_cap", BigInteger),
-    Column("pe", Numeric(12, 6)),
-    Column("forward_pe", Numeric(12, 6)),
+    Column("exchange", Text),
+    Column("country", Text),
+    Column("currency", Text),
+    Column("isin", Text),
+    Column("symbol_type", Text),
+    Column("source", Text),
+    Column("status", Text),
+    Column("modified_at", DateTime, server_default=func.now()),
     schema="turtle",
 )
 
-# Price History table definition
-price_history_table = Table(
-    "price_history",
+# company table definition
+company_table = Table(
+    "company",
     metadata,
     Column("symbol", Text, primary_key=True),
-    Column("time", DateTime(timezone=True), primary_key=True),
-    Column("open", Numeric(10, 2), nullable=False),
-    Column("high", Numeric(10, 2), nullable=False),
-    Column("low", Numeric(10, 2), nullable=False),
-    Column("close", Numeric(10, 2), nullable=False),
-    Column("adjusted_close", Numeric(10, 2), nullable=False),
-    Column("volume", BigInteger, nullable=False),
-    Column("source", Text, nullable=False), # Using Text for ENUM type
+    Column("short_name", Text),
+    Column("country", Text),
+    Column("industry_code", Text),
+    Column("sector_code", Text),
+    Column("employees_count", BigInteger),
+    Column("dividend_rate", Numeric),
+    Column("trailing_pe_ratio", Numeric),
+    Column("forward_pe_ratio", Numeric),
+    Column("avg_volume", BigInteger),
+    Column("avg_price", Numeric),
+    Column("market_cap", Numeric),
+    Column("enterprice_value", Numeric),
+    Column("beta", Numeric),
+    Column("shares_float", Numeric),
+    Column("short_ratio", Numeric),
+    Column("peg_ratio", Numeric),
+    Column("recommodation_mean", Numeric),
+    Column("number_of_analysyst", BigInteger),
+    Column("roa_value", Numeric),
+    Column("roe_value", Numeric),
+    Column("source", Text),
+    Column("modified_at", DateTime, server_default=func.now()),
+    schema="turtle",
+)
+
+# symbol_group table definition
+symbol_group_table = Table(
+    "symbol_group",
+    metadata,
+    Column("symbol_group", Text, primary_key=True),
+    Column("symbol", Text, primary_key=True),
+    Column("rate", Numeric),
+    Column("modified_at", DateTime, server_default=func.now()),
     schema="turtle",
 )

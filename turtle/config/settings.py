@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import tomllib
 from dotenv import load_dotenv
-from psycopg_pool import ConnectionPool
+from sqlalchemy import Engine, create_engine
 
 from turtle.config.model import DatabaseConfig, AppConfig
 
@@ -14,7 +14,7 @@ class Settings:
 
     app: AppConfig
     database: DatabaseConfig
-    pool: ConnectionPool
+    engine: Engine
 
     @classmethod
     def from_toml(cls, file_path: str = "./config/settings.toml") -> "Settings":
@@ -47,18 +47,20 @@ class Settings:
         data["app"]["alpaca"]["api_key"] = os.environ["ALPACA_API_KEY"]
         data["app"]["alpaca"]["secret_key"] = os.environ["ALPACA_SECRET_KEY"]
 
-        # Create app config
         app_config = AppConfig(**data.get("app", {}))
+        pool_config = db_config.pool
+
+        engine = create_engine(
+            db_config.sqlalchemy_url,
+            pool_size=pool_config.min_size,
+            max_overflow=pool_config.max_size - pool_config.min_size,
+            pool_recycle=pool_config.max_lifetime,
+            pool_timeout=pool_config.timeout,
+            pool_pre_ping=True,
+        )
 
         return cls(
             app=app_config,
             database=db_config,
-            pool=ConnectionPool(
-                conninfo=db_config.connection_string,
-                min_size=db_config.pool.min_size,
-                max_size=db_config.pool.max_size,
-                max_idle=db_config.pool.max_idle,
-                max_lifetime=db_config.pool.max_lifetime,
-                timeout=db_config.pool.timeout,
-            ),
+            engine=engine,
         )

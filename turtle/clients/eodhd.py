@@ -130,7 +130,7 @@ class EodhdApiClient:
             ticker_extended = TickerExtended(**ticker_data)
 
             # Debug: Log the parsed object to see what values were extracted
-            logger.debug(f"Parsed TickerExtended object:")
+            logger.debug("Parsed TickerExtended object:")
             logger.debug(f"  symbol: {ticker_extended.symbol}")
             logger.debug(f"  type: {ticker_extended.type}")
             logger.debug(f"  name: {ticker_extended.name}")

@@ -12,6 +12,7 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "yfinance>=1.2.0",
     "psycopg[binary,pool]>=3.3.3",
+    "sqlalchemy>=2.0",
     "alembic>=1.18.4",
     "pandas>=2.3.3,<3",              # streamlit 1.55.0 requires pandas<3
     "ta-lib>=0.6.8",               # Requires system library: https://github.com/TA-Lib/ta-lib-python#troubleshooting

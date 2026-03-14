@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import logging
 """
 Portfolio Backtesting Example - TEMPLATE
 
@@ -18,15 +17,16 @@ REQUIREMENTS:
 - Trading strategy configuration
 """
 
-import sys
-from pathlib import Path
+import logging
+import sys  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 
-from turtle.portfolio.models import PortfolioState # noqa: E402
+from turtle.portfolio.models import PortfolioState  # noqa: E402
 
 # Configure logging
 logging.basicConfig(

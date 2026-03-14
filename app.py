@@ -10,12 +10,6 @@ from turtle.signal.darvas_box import DarvasBoxStrategy
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.settings import Settings
-from psycopg_pool import ConnectionPool
-from psycopg import Connection
-from psycopg.rows import TupleRow
-
-# Type alias for better clarity
-DatabasePool = ConnectionPool[Connection[TupleRow]]
 
 # Load environment variables
 load_dotenv()
@@ -24,9 +18,9 @@ end_date = datetime(year=2025, month=8, day=12)
 
 # Create settings and database connection
 settings = Settings.from_toml()
-pool = settings.pool
+engine = settings.engine
 bars_history = BarsHistoryRepo(
-    pool,
+    engine,
     settings.app.alpaca["api_key"],
     settings.app.alpaca["secret_key"],
 )
@@ -41,7 +35,7 @@ darvas_strategy = DarvasBoxStrategy(
 
 # Create strategy runner with the trading strategy
 strategy_runner = SignalService(
-    pool=pool,
+    engine=engine,
     app_config=settings.app,
     trading_strategy=darvas_strategy
 )

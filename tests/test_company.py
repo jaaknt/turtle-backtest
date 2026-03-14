@@ -45,7 +45,7 @@ def test_get_company_list(mocker: MockerFixture) -> None:
     )
 
     # Instantiate CompanyRepo with the mock connection
-    repo = CompanyRepo(pool=mocker.Mock())
+    repo = CompanyRepo(engine=mocker.Mock())
 
     # Call the method you want to test
     symbols = ["MSFT", "GOOG"]

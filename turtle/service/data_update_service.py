@@ -1,5 +1,5 @@
 import pandas as pd
-from psycopg_pool import ConnectionPool
+from sqlalchemy import Engine
 from datetime import datetime
 
 import logging.config
@@ -20,23 +20,20 @@ logger = logging.getLogger(__name__)
 class DataUpdateService:
     def __init__(
         self,
-        pool: ConnectionPool,
+        engine: Engine,
         app_config: AppConfig,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         warmup_period: int = 300,
     ) -> None:
-        self.pool = pool
+        self.engine = engine
         self.time_frame_unit = time_frame_unit
         self.warmup_period = warmup_period
 
-        # self.pool: ConnectionPool = ConnectionPool(
-        #    conninfo=DSN, min_size=5, max_size=10, max_idle=600
-        # )
-        self.symbol_repo = SymbolRepo(self.pool, app_config.eodhd["api_key"])
-        self.symbol_group_repo = SymbolGroupRepo(self.pool)
-        self.company_repo = CompanyRepo(self.pool)
+        self.symbol_repo = SymbolRepo(self.engine, app_config.eodhd["api_key"])
+        self.symbol_group_repo = SymbolGroupRepo(self.engine)
+        self.company_repo = CompanyRepo(self.engine)
         self.bars_history = BarsHistoryRepo(
-            self.pool,
+            self.engine,
             app_config.alpaca["api_key"],
             app_config.alpaca["secret_key"],
         )
