@@ -5,7 +5,7 @@ from turtle.backtest.models import Trade
 from turtle.common.enums import TimeFrameUnit
 
 import pandas as pd
-import talib
+import pandas_ta
 
 from .base import ExitStrategy
 
@@ -26,8 +26,7 @@ class EMAExitStrategy(ExitStrategy):
         df = self.bars_history.get_ticker_history(
             self.ticker, self.start_date - timedelta(days=40), self.end_date, time_frame_unit=TimeFrameUnit.DAY
         )
-        close_values = df["close"].values.astype(float)
-        df["ema"] = talib.EMA(close_values, timeperiod=self.ema_period)
+        df["ema"] = pandas_ta.ema(df["close"], length=self.ema_period)
 
         self.df = df[df.index >= self.start_date].copy()
         return self.df

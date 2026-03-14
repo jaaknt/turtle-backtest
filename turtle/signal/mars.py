@@ -5,7 +5,7 @@ from turtle.data.bars_history import BarsHistoryRepo
 from turtle.ranking.base import RankingStrategy
 
 import pandas as pd
-import talib
+import pandas_ta
 
 from .base import TradingStrategy
 from .models import Signal
@@ -46,23 +46,18 @@ class MarsStrategy(TradingStrategy):
         self.df["consolidation_change"] = (self.df["max_box_4"] - self.df["min_box_4"]) / self.df["close"]
         self.df["hard_stoploss"] = (self.df["max_box_4"] + self.df["min_box_4"]) / 2 - 0.02
 
-        self.df["ema_10"] = talib.EMA(self.df["close"].values.astype(float), timeperiod=10)
-        self.df["ema_20"] = talib.EMA(self.df["close"].values.astype(float), timeperiod=20)
+        self.df["ema_10"] = pandas_ta.ema(self.df["close"], length=10)
+        self.df["ema_20"] = pandas_ta.ema(self.df["close"], length=20)
 
-        macd_line, macd_signal, macd_histogram = talib.MACD(
-            self.df["close"].values.astype(float),
-            fastperiod=12,
-            slowperiod=26,
-            signalperiod=9,
-        )
-        self.df["macd"] = macd_line
-        self.df["macd_histogram"] = macd_histogram
-        self.df["macd_signal"] = macd_signal
+        macd_df = pandas_ta.macd(self.df["close"], fast=12, slow=26, signal=9)
+        self.df["macd"] = macd_df["MACD_12_26_9"]
+        self.df["macd_histogram"] = macd_df["MACDh_12_26_9"]
+        self.df["macd_signal"] = macd_df["MACDs_12_26_9"]
 
         self.df["max_close_10"] = self.df["close"].rolling(window=10).max()
 
         # volume indicators
-        self.df["ema_volume_4"] = talib.SMA(self.df["volume"].shift(1).values.astype(float), timeperiod=4)
+        self.df["ema_volume_4"] = pandas_ta.sma(self.df["volume"].shift(1), length=4)
         self.df["volume_change"] = self.df["volume"] / self.df["ema_volume_4"]
 
         self.df["buy_signal"] = False

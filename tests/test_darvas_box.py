@@ -71,13 +71,14 @@ def test_calculate_indicators() -> None:
     ranking_strategy_mock = MagicMock(spec=MomentumRanking)
     strategy = DarvasBoxStrategy(bars_history_mock, ranking_strategy_mock, warmup_period=3, min_bars=3)
 
+    n = 35  # MACD(12,26,9) needs at least slow+signal-1=34 rows
     strategy.df = pd.DataFrame(
         {
-            "close": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-            "open": [0, 0, 1, 2, 3, 4, 5, 6, 7, 8],
-            "high": [2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-            "low": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-            "volume": [0, 0, 1, 2, 3, 4, 5, 6, 7, 15],
+            "close": list(range(1, n + 1)),
+            "open": [0] + list(range(1, n)),
+            "high": list(range(2, n + 2)),
+            "low": [0] + list(range(1, n)),
+            "volume": [1] * (n - 1) + [15],
         }
     )
     strategy.calculate_indicators()
