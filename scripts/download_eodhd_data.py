@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import logging
+import re
 import sys
 from pathlib import Path
 
@@ -11,6 +12,16 @@ from turtle.config.settings import Settings
 from turtle.service.eodhd_service import EodhdService
 
 logger = logging.getLogger(__name__)
+
+
+class _ApiTokenFilter(logging.Filter):
+    """Redact api_token query parameter from httpx request log messages."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = str(record.msg)
+        if "api_token=" in record.msg:
+            record.msg = re.sub(r"api_token=[^&\s\"]+", "api_token=***", record.msg)
+        return True
 
 
 async def main(
@@ -33,6 +44,8 @@ async def main(
     """
     # Force logging to stdout for this script
     logging.basicConfig(level=logging.INFO, stream=sys.stdout, format="[%(levelname)s|%(module)s|%(funcName)s] %(message)s")
+    # Obfuscate api_token in httpx request logs
+    logging.getLogger("httpx").addFilter(_ApiTokenFilter())
     logger.info("Starting EODHD data download script.")
     logger.info(f"Dataset(s) to download: {data}")
     if ticker_limit is not None:
