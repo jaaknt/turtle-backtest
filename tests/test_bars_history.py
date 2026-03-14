@@ -1,8 +1,8 @@
 from datetime import datetime
-from pytest_mock import MockerFixture
-
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.data.models import Bar
+
+from pytest_mock import MockerFixture
 
 
 def test_get_bars_history(mocker: MockerFixture) -> None:

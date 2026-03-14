@@ -1,5 +1,4 @@
-from turtle.data.models import Symbol
-from turtle.data.models import Company
+from turtle.data.models import Company, Symbol
 
 
 def test_symbol_instantiation() -> None:

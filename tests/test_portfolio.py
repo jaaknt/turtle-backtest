@@ -1,13 +1,13 @@
 """Tests for portfolio backtesting functionality."""
 
-import pytest
 from datetime import datetime
-
-from turtle.portfolio.models import Position, PortfolioState
+from turtle.backtest.models import Benchmark, FutureTrade, Trade
 from turtle.portfolio.manager import PortfolioManager
+from turtle.portfolio.models import PortfolioState, Position
 from turtle.portfolio.selector import PortfolioSignalSelector
 from turtle.signal.models import Signal
-from turtle.backtest.models import FutureTrade, Trade, Benchmark
+
+import pytest
 
 
 def create_mock_future_trade(ticker: str, entry_date: datetime, entry_price: float) -> FutureTrade:

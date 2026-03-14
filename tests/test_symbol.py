@@ -1,10 +1,9 @@
+from turtle.data.models import Symbol
+from turtle.data.symbol import SymbolRepo
+
 import httpx
 import pytest
 from pytest_mock import MockerFixture
-
-from turtle.data.symbol import SymbolRepo
-from turtle.data.models import Symbol
-
 
 # Example data returned by the mocked _get_symbol_list_db method
 mocked_data = [
@@ -118,7 +117,7 @@ eodhd_response = [
 def test_get_eodhd_exchange_symbol_list_returns_data(mocker: MockerFixture) -> None:
     mock_response = mocker.Mock(spec=httpx.Response)
     mock_response.json.return_value = eodhd_response
-    mock_get = mocker.patch("turtle.data.symbol.httpx.get", return_value=mock_response)
+    mocker.patch("turtle.data.symbol.httpx.get", return_value=mock_response)
 
     repo = SymbolRepo(engine=mocker.Mock(), api_key="test_key")
     result = repo.get_eodhd_exchange_symbol_list("NASDAQ")
