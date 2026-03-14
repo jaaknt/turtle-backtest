@@ -2,6 +2,71 @@
 
 This document describes the command-line scripts that provide convenient interfaces for common operations using the turtle backtest services.
 
+## download_eodhd_data.py
+
+The `download_eodhd_data.py` script downloads bulk data from the EODHD API and stores it in the database. It covers four datasets: exchanges, US ticker lists, extended ticker fundamentals, and full historical price data. Use this for initial database population or large historical backfills.
+
+**Key Features:**
+- Selective dataset download via `--data` flag
+- Concurrent API requests with configurable batch sizes and rate-limit delays
+- Upsert semantics — safe to re-run without duplicating data
+- `--ticker-limit` flag for testing with a small subset
+- Custom date range support for historical price downloads
+
+**Datasets:**
+- `exchange` — Exchange reference data (name, country, currency)
+- `us_ticker` — Full US ticker list for NYSE and NASDAQ (stored in `turtle.ticker`)
+- `extended` — Extended fundamentals per ticker: sector, industry, market cap, P/E, volume (stored in `turtle.ticker_extended`)
+- `history` — Full OHLCV price history per ticker (stored in `turtle.price_history`)
+- `all` — All four datasets in sequence (default)
+
+**Usage:**
+```bash
+# Download all datasets (default)
+uv run python scripts/download_eodhd_data.py
+
+# Download only exchange reference data
+uv run python scripts/download_eodhd_data.py --data exchange
+
+# Download only US ticker list
+uv run python scripts/download_eodhd_data.py --data us_ticker
+
+# Download extended fundamentals, limited to 10 tickers (for testing)
+uv run python scripts/download_eodhd_data.py --data extended --ticker-limit 10
+
+# Download historical price data for a specific date range
+uv run python scripts/download_eodhd_data.py --data history --start-date 2024-01-01 --end-date 2024-12-31
+
+# Test historical download with 10 tickers
+uv run python scripts/download_eodhd_data.py --data history --ticker-limit 10 --start-date 2024-06-01 --end-date 2024-06-30
+```
+
+**Options:**
+- `--data` — Dataset to download: `exchange`, `us_ticker`, `extended`, `history`, `all` (default: `all`)
+- `--ticker-limit` — Limit processing to first N tickers (useful for testing)
+- `--start-date` — Start date for historical data in `YYYY-MM-DD` format (default: `2000-01-01`)
+- `--end-date` — End date for historical data in `YYYY-MM-DD` format (default: `2025-12-30`)
+
+**Recommended first-run order:**
+```bash
+# 1. Populate exchange reference data
+uv run python scripts/download_eodhd_data.py --data exchange
+
+# 2. Download US ticker list
+uv run python scripts/download_eodhd_data.py --data us_ticker
+
+# 3. Download extended fundamentals
+uv run python scripts/download_eodhd_data.py --data extended
+
+# 4. Download full price history (long-running — thousands of tickers)
+uv run python scripts/download_eodhd_data.py --data history --start-date 2020-01-01 --end-date 2024-12-31
+```
+
+**Notes:**
+- Requires `EODHD_API_KEY` environment variable
+- Historical download is rate-limited (1 second delay between batches of 50 concurrent requests)
+- For daily incremental updates use `daily_eod_update.py` instead
+
 ## daily_eod_update.py
 
 The `daily_eod_update.py` script provides a command-line interface for updating the database with stock market data. It supports multiple update modes for different types of data operations.
