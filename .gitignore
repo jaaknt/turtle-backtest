@@ -56,3 +56,6 @@ reports/
 
 # Secret files
 .secrets/
+
+# Claude Code local settings (personal, not shared)
+.claude/settings.local.json
