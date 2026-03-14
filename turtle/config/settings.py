@@ -1,11 +1,11 @@
 import os
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-import tomllib
+from turtle.config.model import AppConfig, DatabaseConfig
+
 from dotenv import load_dotenv
 from sqlalchemy import Engine, create_engine
-
-from turtle.config.model import DatabaseConfig, AppConfig
 
 
 @dataclass

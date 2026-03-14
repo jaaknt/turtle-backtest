@@ -1,22 +1,21 @@
-import pandas as pd
-from sqlalchemy import Engine
-from datetime import datetime
 # from typing import List, Tuple
-
 import logging
-
+from datetime import datetime
+from turtle.common.enums import TimeFrameUnit
 from turtle.config.model import AppConfig
-from turtle.data.symbol import SymbolRepo
-from turtle.data.company import CompanyRepo
 from turtle.data.bars_history import BarsHistoryRepo
-from turtle.signal.market import MarketData
+from turtle.data.company import CompanyRepo
+from turtle.data.symbol import SymbolRepo
 
 # from turtle.signal.momentum import MomentumStrategy
 # from turtle.signal.darvas_box import DarvasBoxStrategy
 # from turtle.signal.mars import MarsStrategy
 from turtle.signal.base import TradingStrategy
+from turtle.signal.market import MarketData
 from turtle.signal.models import Signal
-from turtle.common.enums import TimeFrameUnit
+
+import pandas as pd
+from sqlalchemy import Engine
 
 logger = logging.getLogger(__name__)
 

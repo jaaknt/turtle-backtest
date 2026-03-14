@@ -1,11 +1,11 @@
-import httpx
 import logging
-from typing import Any
-from sqlalchemy import Engine, select, func
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-
 from turtle.data.models import Symbol
 from turtle.data.tables import ticker_table
+from typing import Any
+
+import httpx
+from sqlalchemy import Engine, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 logger = logging.getLogger(__name__)
 

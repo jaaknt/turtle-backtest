@@ -2,10 +2,10 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-import pandas as pd
-
 from turtle.backtest.models import Trade
 from turtle.data.bars_history import BarsHistoryRepo
+
+import pandas as pd
 
 
 class ExitStrategy(ABC):

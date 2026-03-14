@@ -3,7 +3,8 @@
 import logging
 from datetime import datetime
 from turtle.backtest.models import Trade
-from .models import PortfolioState, DailyPortfolioSnapshot, Position
+
+from .models import DailyPortfolioSnapshot, PortfolioState, Position
 
 logger = logging.getLogger(__name__)
 

@@ -51,27 +51,27 @@ from datetime import datetime
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
+from turtle.common.enums import TimeFrameUnit
 from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
-from turtle.common.enums import TimeFrameUnit
 from turtle.data.bars_history import BarsHistoryRepo
+from turtle.exit.atr import ATRExitStrategy
+from turtle.exit.base import ExitStrategy
+from turtle.exit.buy_and_hold import BuyAndHoldExitStrategy
+from turtle.exit.ema import EMAExitStrategy
+from turtle.exit.macd import MACDExitStrategy
+from turtle.exit.profit_loss import ProfitLossExitStrategy
+from turtle.ranking.base import RankingStrategy
+from turtle.ranking.momentum import MomentumRanking
+from turtle.ranking.volume_momentum import VolumeMomentumRanking
 from turtle.service.portfolio_service import PortfolioService
+
+# PortfolioResults no longer needed - analytics prints directly
+from turtle.service.signal_service import SignalService
 from turtle.signal.base import TradingStrategy
 from turtle.signal.darvas_box import DarvasBoxStrategy
 from turtle.signal.mars import MarsStrategy
 from turtle.signal.momentum import MomentumStrategy
-from turtle.exit.base import ExitStrategy
-from turtle.exit.buy_and_hold import BuyAndHoldExitStrategy
-from turtle.exit.profit_loss import ProfitLossExitStrategy
-from turtle.exit.ema import EMAExitStrategy
-from turtle.exit.macd import MACDExitStrategy
-from turtle.exit.atr import ATRExitStrategy
-from turtle.ranking.base import RankingStrategy
-from turtle.ranking.momentum import MomentumRanking
-from turtle.ranking.volume_momentum import VolumeMomentumRanking
-
-# PortfolioResults no longer needed - analytics prints directly
-from turtle.service.signal_service import SignalService
 
 logger = logging.getLogger(__name__)
 

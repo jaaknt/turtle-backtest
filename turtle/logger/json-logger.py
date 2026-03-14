@@ -4,7 +4,7 @@
 import datetime as dt
 import json
 import logging
-from typing import override, Any
+from typing import Any, override
 
 LOG_RECORD_BUILTIN_ATTRS = {
     "args",

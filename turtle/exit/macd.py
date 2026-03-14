@@ -1,11 +1,12 @@
 """MACD-based exit strategy."""
 
 from datetime import datetime, timedelta
+from turtle.backtest.models import Trade
+from turtle.common.enums import TimeFrameUnit
+
 import pandas as pd
 import talib
 
-from turtle.backtest.models import Trade
-from turtle.common.enums import TimeFrameUnit
 from .base import ExitStrategy
 
 

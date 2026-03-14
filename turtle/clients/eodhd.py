@@ -1,9 +1,10 @@
 import logging
+from turtle.config.model import AppConfig
+from turtle.data.models import Exchange, PriceHistory, Ticker, TickerExtended
 from typing import Any
 
-
 import httpx
-from httpx import AsyncClient, URL
+from httpx import URL, AsyncClient
 from tenacity import (
     before_sleep_log,
     retry,
@@ -11,9 +12,6 @@ from tenacity import (
     stop_after_attempt,
     wait_fixed,
 )
-
-from turtle.config.model import AppConfig
-from turtle.data.models import Exchange, PriceHistory, Ticker, TickerExtended
 
 logger = logging.getLogger(__name__)
 

@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import logging
-import pandas as pd
 from datetime import datetime, timedelta
-
-from turtle.exit.atr import ATRExitStrategy
-from turtle.signal.models import Signal
 from turtle.backtest.models import Benchmark, FutureTrade, Trade
-
-from turtle.portfolio.models import Position
-from turtle.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
-from turtle.data.bars_history import BarsHistoryRepo
 from turtle.common.enums import TimeFrameUnit
+from turtle.data.bars_history import BarsHistoryRepo
+from turtle.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
+from turtle.exit.atr import ATRExitStrategy
+from turtle.portfolio.models import Position
+from turtle.signal.models import Signal
+
+import pandas as pd
+
 from .benchmark_utils import calculate_benchmark_list
 
 logger = logging.getLogger(__name__)

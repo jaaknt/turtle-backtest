@@ -1,15 +1,14 @@
-import streamlit as st
-import pandas as pd
-from dotenv import load_dotenv
-
 from datetime import datetime
-
+from turtle.common.enums import TimeFrameUnit
+from turtle.config.settings import Settings
+from turtle.data.bars_history import BarsHistoryRepo
 from turtle.ranking.momentum import MomentumRanking
 from turtle.service.signal_service import SignalService
 from turtle.signal.darvas_box import DarvasBoxStrategy
-from turtle.data.bars_history import BarsHistoryRepo
-from turtle.common.enums import TimeFrameUnit
-from turtle.config.settings import Settings
+
+import pandas as pd
+import streamlit as st
+from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()

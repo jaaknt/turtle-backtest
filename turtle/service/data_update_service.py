@@ -1,18 +1,16 @@
-import pandas as pd
-from sqlalchemy import Engine
-from datetime import datetime
-
 import logging.config
 import logging.handlers
-
-from turtle.data.symbol import SymbolRepo
-from turtle.data.symbol_group import SymbolGroupRepo
-from turtle.data.company import CompanyRepo
-from turtle.data.bars_history import BarsHistoryRepo
-
-from turtle.data.models import Symbol, SymbolGroup
+from datetime import datetime
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.model import AppConfig
+from turtle.data.bars_history import BarsHistoryRepo
+from turtle.data.company import CompanyRepo
+from turtle.data.models import Symbol, SymbolGroup
+from turtle.data.symbol import SymbolRepo
+from turtle.data.symbol_group import SymbolGroupRepo
+
+import pandas as pd
+from sqlalchemy import Engine
 
 logger = logging.getLogger(__name__)
 

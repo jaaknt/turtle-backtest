@@ -1,14 +1,14 @@
-import time
-import yfinance as yf  # type: ignore[import-untyped]
 import logging
-import pandas as pd
-from typing import Any
+import time
 from dataclasses import asdict
-from sqlalchemy import Engine, select, func
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-
 from turtle.data.models import Company
 from turtle.data.tables import company_table
+from typing import Any
+
+import pandas as pd
+import yfinance as yf  # type: ignore[import-untyped]
+from sqlalchemy import Engine, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 logger = logging.getLogger(__name__)
 

@@ -1,22 +1,20 @@
 import logging
-import pandas as pd
-from datetime import datetime
-from typing import Any
 from dataclasses import asdict
-from sqlalchemy import Engine, select, func
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-
-from alpaca.data.enums import DataFeed
-from alpaca.data.models.bars import Bar as AlpacaBar
-from alpaca.data.timeframe import TimeFrame as AlpacaTimeFrame
-from alpaca.data.timeframe import TimeFrameUnit as AlpacaTimeFrameUnit
-from alpaca.data.requests import StockBarsRequest
-from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.enums import Adjustment
-
+from datetime import datetime
+from turtle.common.enums import TimeFrameUnit
 from turtle.data.models import Bar
 from turtle.data.tables import bars_history_table
-from turtle.common.enums import TimeFrameUnit
+from typing import Any
+
+import pandas as pd
+from alpaca.data.enums import Adjustment, DataFeed
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.models.bars import Bar as AlpacaBar
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame as AlpacaTimeFrame
+from alpaca.data.timeframe import TimeFrameUnit as AlpacaTimeFrameUnit
+from sqlalchemy import Engine, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 logger = logging.getLogger(__name__)
 

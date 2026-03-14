@@ -22,23 +22,24 @@ Options:
 """
 
 import argparse
+import logging
 import pathlib
 import sys
-import logging
 from datetime import datetime
+
 from sqlalchemy import Engine
 
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
-from turtle.config.model import AppConfig
-from turtle.config.logging import LogConfig
-from turtle.config.settings import Settings
 from turtle.common.enums import TimeFrameUnit
+from turtle.config.logging import LogConfig
+from turtle.config.model import AppConfig
+from turtle.config.settings import Settings
 from turtle.data.bars_history import BarsHistoryRepo
+from turtle.ranking.base import RankingStrategy
 from turtle.ranking.momentum import MomentumRanking
 from turtle.ranking.volume_momentum import VolumeMomentumRanking
-from turtle.ranking.base import RankingStrategy
 from turtle.service.signal_service import SignalService
 from turtle.signal.base import TradingStrategy
 
