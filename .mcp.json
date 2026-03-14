@@ -7,7 +7,10 @@
         "-y",
         "@modelcontextprotocol/server-postgres",
         "postgresql://postgres:${DB_PASSWORD}@localhost:5432/trading"
-      ]
+      ],
+      "env": {
+        "DB_PASSWORD": "${DB_PASSWORD}"
+      }
     },
     "context7": {
       "command": "npx",
