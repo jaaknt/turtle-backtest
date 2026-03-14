@@ -45,8 +45,13 @@ class CompanyRepo:
         }
 
     def save_company_list(self, values: dict[str, Any]) -> None:
+        self.save_company_list_bulk([values])
+
+    def save_company_list_bulk(self, values_list: list[dict[str, Any]]) -> None:
+        if not values_list:
+            return
         table = company_table
-        stmt = pg_insert(table).values(**values)
+        stmt = pg_insert(table).values(values_list)
         stmt = stmt.on_conflict_do_update(
             index_elements=["symbol"],
             set_={
@@ -77,26 +82,32 @@ class CompanyRepo:
         with self.engine.begin() as conn:
             conn.execute(stmt)
 
-    def update_company_info(self, symbol: str) -> None:
+    def fetch_company_data(self, symbol: str) -> dict[str, Any] | None:
+        """Fetch company data from Yahoo Finance without saving. Returns mapped dict or None."""
         try:
             ticker = yf.Ticker(symbol)
             data = ticker.info
 
             if not data or not isinstance(data, dict):
                 logger.warning(f"No valid data received for symbol: {symbol}")
-                return
+                return None
 
             if "symbol" not in data and "shortName" not in data:
                 logger.warning(f"Symbol {symbol} not found in Yahoo Finance")
-                return
+                return None
 
-            logger.info(f"Saving: {symbol}")
-            values = self.map_yahoo_company_data(symbol, data)
-            self.save_company_list(values)
             time.sleep(1)
+            return self.map_yahoo_company_data(symbol, data)
 
         except Exception as e:
             logger.error(f"Error fetching data for symbol {symbol}: {str(e)}")
+            return None
+
+    def update_company_info(self, symbol: str) -> None:
+        values = self.fetch_company_data(symbol)
+        if values:
+            logger.info(f"Saving: {symbol}")
+            self.save_company_list(values)
 
     def convert_df(self) -> pd.DataFrame:
         dtypes = {

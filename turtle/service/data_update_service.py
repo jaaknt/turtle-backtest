@@ -41,10 +41,21 @@ class DataUpdateService:
     def update_symbol_list(self) -> None:
         self.symbol_repo.update_symbol_list()
 
-    def update_company_list(self) -> None:
+    def update_company_list(self, batch_size: int = 100) -> None:
         symbol_list: list[Symbol] = self.symbol_repo.get_symbol_list("USA")
+        batch: list[dict] = []
         for symbol_rec in symbol_list:
-            self.company_repo.update_company_info(symbol_rec.symbol)
+            values = self.company_repo.fetch_company_data(symbol_rec.symbol)
+            if values:
+                logger.info(f"Fetched: {symbol_rec.symbol}")
+                batch.append(values)
+            if len(batch) >= batch_size:
+                self.company_repo.save_company_list_bulk(batch)
+                logger.info(f"Saved batch of {len(batch)} companies")
+                batch.clear()
+        if batch:
+            self.company_repo.save_company_list_bulk(batch)
+            logger.info(f"Saved final batch of {len(batch)} companies")
 
     def update_bars_history(self, start_date: datetime, end_date: datetime | None) -> None:
         symbol_list = self.symbol_repo.get_symbol_list("USA")

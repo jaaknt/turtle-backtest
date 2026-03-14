@@ -49,8 +49,13 @@ class SymbolRepo:
         return symbol_list
 
     def save_symbol_list(self, values: dict[str, Any]) -> None:
+        self.save_symbol_list_bulk([values])
+
+    def save_symbol_list_bulk(self, values_list: list[dict[str, Any]]) -> None:
+        if not values_list:
+            return
         table = ticker_table
-        stmt = pg_insert(table).values(**values)
+        stmt = pg_insert(table).values(values_list)
         stmt = stmt.on_conflict_do_update(
             index_elements=["symbol"],
             set_={
@@ -65,7 +70,7 @@ class SymbolRepo:
             },
         )
         with self.engine.begin() as conn:
-            logger.debug(f"Inserting symbol {values['symbol']} into database")
+            logger.debug(f"Bulk inserting {len(values_list)} symbols into database")
             conn.execute(stmt)
 
     def get_eodhd_exchange_symbol_list(self, exchange_code: str) -> list[dict[str, Any]]:
@@ -78,7 +83,5 @@ class SymbolRepo:
     def update_symbol_list(self) -> None:
         for exchange in ["NYSE", "NASDAQ"]:
             data = self.get_eodhd_exchange_symbol_list(exchange)
-            for ticker in data:
-                if "-" not in ticker["Code"]:
-                    values = self.map_eodhd_symbol_list(ticker)
-                    self.save_symbol_list(values)
+            values_list = [self.map_eodhd_symbol_list(ticker) for ticker in data if "-" not in ticker["Code"]]
+            self.save_symbol_list_bulk(values_list)
