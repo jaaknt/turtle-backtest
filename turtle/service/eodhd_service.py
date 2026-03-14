@@ -351,7 +351,7 @@ class EodhdService:
                     batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
                     # Process results and collect extended data records
-                    values_to_insert = []
+                    values_to_insert: list[dict[str, object]] = []
                     for idx in range(len(batch_results)):
                         result = batch_results[idx]  # type: ignore[assignment]
                         unique_name = batch[idx].unique_name
@@ -397,20 +397,20 @@ class EodhdService:
 
                     # Insert collected records into database
                     if values_to_insert:
-                        stmt = pg_insert(ticker_extended_table).values(values_to_insert)
-                        on_conflict_stmt = stmt.on_conflict_do_update(
+                        insert_stmt = pg_insert(ticker_extended_table).values(values_to_insert)
+                        on_conflict_stmt = insert_stmt.on_conflict_do_update(
                             index_elements=[ticker_extended_table.c.symbol],
                             set_={
-                                "type": stmt.excluded.type,
-                                "name": stmt.excluded.name,
-                                "sector": stmt.excluded.sector,
-                                "industry": stmt.excluded.industry,
-                                "average_volume": stmt.excluded.average_volume,
-                                "average_price": stmt.excluded.average_price,
-                                "dividend_yield": stmt.excluded.dividend_yield,
-                                "market_cap": stmt.excluded.market_cap,
-                                "pe": stmt.excluded.pe,
-                                "forward_pe": stmt.excluded.forward_pe,
+                                "type": insert_stmt.excluded.type,
+                                "name": insert_stmt.excluded.name,
+                                "sector": insert_stmt.excluded.sector,
+                                "industry": insert_stmt.excluded.industry,
+                                "average_volume": insert_stmt.excluded.average_volume,
+                                "average_price": insert_stmt.excluded.average_price,
+                                "dividend_yield": insert_stmt.excluded.dividend_yield,
+                                "market_cap": insert_stmt.excluded.market_cap,
+                                "pe": insert_stmt.excluded.pe,
+                                "forward_pe": insert_stmt.excluded.forward_pe,
                             },
                         )
                         await session.execute(on_conflict_stmt)

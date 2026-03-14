@@ -153,7 +153,7 @@ class CompanyRepo:
         )
         with self.engine.connect() as conn:
             result = conn.execute(stmt)
-            return result.fetchall()
+            return list(result.fetchall())
 
     def get_company_list(self, symbol_list: list[str]) -> list[Company]:
         result = self._get_company_list_db(symbol_list)

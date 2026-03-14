@@ -55,7 +55,7 @@ class BarsHistoryRepo:
         )
         with self.engine.connect() as conn:
             result = conn.execute(stmt)
-            return result.fetchall()
+            return list(result.fetchall())
 
     def get_bars_history(self, symbol: str, start_date: datetime, end_date: datetime) -> list[Bar]:
         result = self._get_bars_history_db(symbol, start_date, end_date)
