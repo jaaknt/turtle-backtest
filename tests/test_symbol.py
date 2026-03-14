@@ -1,3 +1,5 @@
+import httpx
+import pytest
 from pytest_mock import MockerFixture
 
 from turtle.data.symbol import SymbolRepo
@@ -105,3 +107,47 @@ def test_get_symbol_list_with_symbol_filter(mocker: MockerFixture) -> None:
     ]
 
     assert symbols == expected_all_symbols
+
+
+eodhd_response = [
+    {"Code": "AAPL", "Name": "Apple Inc.", "Exchange": "NASDAQ", "Country": "USA", "Currency": "USD", "Isin": "US0378331005"},
+    {"Code": "MSFT", "Name": "Microsoft Corporation", "Exchange": "NASDAQ", "Country": "USA", "Currency": "USD", "Isin": "US5949181045"},
+]
+
+
+def test_get_eodhd_exchange_symbol_list_returns_data(mocker: MockerFixture) -> None:
+    mock_response = mocker.Mock(spec=httpx.Response)
+    mock_response.json.return_value = eodhd_response
+    mock_get = mocker.patch("turtle.data.symbol.httpx.get", return_value=mock_response)
+
+    repo = SymbolRepo(engine=mocker.Mock(), api_key="test_key")
+    result = repo.get_eodhd_exchange_symbol_list("NASDAQ")
+
+    assert result == eodhd_response
+    mock_response.raise_for_status.assert_called_once()
+
+
+def test_get_eodhd_exchange_symbol_list_api_key_not_in_log(mocker: MockerFixture, caplog: pytest.LogCaptureFixture) -> None:
+    mock_response = mocker.Mock(spec=httpx.Response)
+    mock_response.json.return_value = eodhd_response
+    mocker.patch("turtle.data.symbol.httpx.get", return_value=mock_response)
+
+    import logging
+    repo = SymbolRepo(engine=mocker.Mock(), api_key="super_secret_key")
+    with caplog.at_level(logging.DEBUG, logger="turtle.data.symbol"):
+        repo.get_eodhd_exchange_symbol_list("NYSE")
+
+    assert "super_secret_key" not in caplog.text
+    assert "%2A%2A%2A" in caplog.text  # httpx URL-encodes *** as %2A%2A%2A
+
+
+def test_get_eodhd_exchange_symbol_list_raises_on_http_error(mocker: MockerFixture) -> None:
+    mock_response = mocker.Mock(spec=httpx.Response)
+    mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "404", request=mocker.Mock(), response=mock_response
+    )
+    mocker.patch("turtle.data.symbol.httpx.get", return_value=mock_response)
+
+    repo = SymbolRepo(engine=mocker.Mock(), api_key="test_key")
+    with pytest.raises(httpx.HTTPStatusError):
+        repo.get_eodhd_exchange_symbol_list("NASDAQ")
