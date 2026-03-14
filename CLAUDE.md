@@ -31,6 +31,10 @@ Python-based financial trading strategy backtesting library for US stocks. Suppo
 
 **Need historical data?** → Use `scripts/download_eodhd_data.py` for bulk or `scripts/daily_eod_update.py` for daily
 
+## Git Workflow
+
+Trunk-based development — commit directly to `main`, no pull requests or feature branches.
+
 ## Development Setup
 
 | Command | Purpose |
@@ -241,8 +245,16 @@ Tests organised by component in `tests/`:
 - `test_darvas_box.py`: Darvas Box strategy logic
 - `test_models.py`: Data model validation
 - `test_symbol.py`: Symbol management
+- `test_signal_processor.py`: Signal processing pipeline
+- `test_portfolio.py`: Portfolio management and analytics
+- `test_macd_exit_strategy.py`: MACD exit strategy logic
+- `test_atr_exit_strategy.py`: ATR exit strategy logic
+- `test_volume_momentum_ranking.py`: Volume momentum ranking strategy
+- `test_talib_ema.py`: TA-Lib EMA indicator
 
-Use pytest fixtures for database setup/teardown. Run with `uv run pytest` or `uv run pytest tests/test_specific.py`.
+Shared fixtures live in `tests/conftest.py`. File-specific fixtures stay in the individual test file.
+
+Run with `uv run pytest` or `uv run pytest tests/test_specific.py`.
 
 ## Dependencies & Resources
 
