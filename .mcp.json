@@ -32,6 +32,21 @@
         "-y",
         "@modelcontextprotocol/server-sequential-thinking"
       ]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/home/jack/github/turtle-backtest"
+      ]
+    },
+    "fetch": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-fetch"
+      ]
     }
   }
 }
