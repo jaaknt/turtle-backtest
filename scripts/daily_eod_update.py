@@ -44,7 +44,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 import logging
 from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
-from turtle.service.data_update_service import DataUpdateService
+from turtle.service.alpaca_service import DataUpdateService
 
 logger = logging.getLogger(__name__)
 
