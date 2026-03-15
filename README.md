@@ -103,3 +103,50 @@ See [docs/scripts.md](docs/scripts.md) for complete documentation, usage example
 ## Services
 
 For detailed information about the core service classes that provide the business logic layer, see [docs/service.md](docs/service.md).
+
+## Architecture & Design Decisions
+
+### Layered Architecture
+
+```
+scripts/          ← CLI entry points (argparse, asyncio.run)
+turtle/service/   ← Business logic orchestration
+turtle/signal/    ← Trading signal strategies
+turtle/exit/      ← Exit strategies
+turtle/ranking/   ← Signal ranking strategies
+turtle/portfolio/ ← Multi-position portfolio management
+turtle/backtest/  ← Backtesting engine
+turtle/data/      ← Repository pattern (all SQL lives here)
+turtle/clients/   ← External API clients (async)
+turtle/config/    ← Configuration loading
+```
+
+### Key Design Patterns
+
+**Strategy Pattern** — All pluggable behaviours (signals, exits, rankings) implement a shared abstract base class. Services depend on the abstract type; concrete implementations are swapped at runtime. See `turtle/signal/base.py` and `turtle/signal/darvas_box.py`.
+
+**Repository Pattern** — All database access is isolated in `turtle/data/`. No SQL outside this layer. Private `_get_*` methods fetch raw rows; public methods return typed domain objects.
+
+**Dependency Injection** — All dependencies flow through constructors. The connection pool is built once in `Settings.from_toml()` and passed explicitly through `Service → Repo`. No globals or service locators.
+
+**Configuration via Factory Method** — `Settings.from_toml()` is the single entry point for all config. It loads `config/settings.toml`, validates required environment variables (raises `ValueError` if missing — secrets are never read from TOML), and builds the connection pool.
+
+### Async Boundary
+
+External API clients (`turtle/clients/`) are `async`/`await` using `httpx.AsyncClient`. Services that need concurrent API requests use `asyncio.gather`. **Repositories and backtesting logic are strictly synchronous.** Scripts use `asyncio.run()` as the async entry point.
+
+### Domain Models
+
+- **Dataclasses** for all internal domain objects (`Signal`, `Trade`, `Position`, `Bar`). Computed fields use `@property`; no setters.
+- **Pydantic `BaseModel`** only for external API responses where field aliasing is needed (e.g. `Exchange`, `Ticker` in `turtle/data/models.py`).
+
+### Database
+
+PostgreSQL with `psycopg` and a connection pool (size 10). All tables live in the `turtle` schema. Migrations managed by Alembic in standalone mode with raw SQL (`db/migrations/versions/`).
+
+### Adding a New Strategy
+
+1. Create `turtle/signal/my_strategy.py` extending `TradingStrategy`
+2. Implement `generate_signals(ticker, bars_data, **kwargs) -> list[Signal]`
+3. Register in `turtle/service/signal_service.py`
+4. Add tests in `tests/test_my_strategy.py`
