@@ -67,7 +67,7 @@ See [docs/scripts.md](docs/scripts.md#daily_eod_updatepy) for complete documenta
 For integration into other scripts, you can use the DataUpdateService class directly:
 
 ```python
-from turtle.service.data_update_service import DataUpdateService
+from turtle.service.alpaca_service import DataUpdateService
 from datetime import datetime
 
 data_updater = DataUpdateService()

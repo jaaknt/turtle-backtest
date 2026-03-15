@@ -1,5 +1,4 @@
-import logging.config
-import logging.handlers
+import logging
 from datetime import datetime
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.model import AppConfig
