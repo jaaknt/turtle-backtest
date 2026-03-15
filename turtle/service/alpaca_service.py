@@ -2,10 +2,10 @@ import logging
 from datetime import datetime
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.model import AppConfig
-from turtle.data.bars_history import BarsHistoryRepo
-from turtle.data.company import CompanyRepo
+from turtle.data.alpaca_bars_history import AlpacaBarsHistoryRepo
+from turtle.data.alpaca_company import AlpacaCompanyRepo
+from turtle.data.alpaca_symbol import AlpacaSymbolRepo
 from turtle.data.models import Symbol, SymbolGroup
-from turtle.data.symbol import SymbolRepo
 from turtle.data.symbol_group import SymbolGroupRepo
 
 import pandas as pd
@@ -26,10 +26,14 @@ class DataUpdateService:
         self.time_frame_unit = time_frame_unit
         self.warmup_period = warmup_period
 
-        self.symbol_repo = SymbolRepo(self.engine, app_config.eodhd["api_key"])
+        self.symbol_repo = AlpacaSymbolRepo(
+            self.engine,
+            app_config.alpaca["api_key"],
+            app_config.alpaca["secret_key"],
+        )
         self.symbol_group_repo = SymbolGroupRepo(self.engine)
-        self.company_repo = CompanyRepo(self.engine)
-        self.bars_history = BarsHistoryRepo(
+        self.company_repo = AlpacaCompanyRepo(self.engine)
+        self.bars_history = AlpacaBarsHistoryRepo(
             self.engine,
             app_config.alpaca["api_key"],
             app_config.alpaca["secret_key"],
