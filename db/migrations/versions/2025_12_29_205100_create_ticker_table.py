@@ -22,8 +22,8 @@ def upgrade() -> None:
     op.execute("SET search_path TO turtle, public")
     op.execute("""
         CREATE TABLE turtle.ticker (
-            unique_name TEXT NOT NULL,
-            code TEXT NOT NULL,
+            unique_symbol TEXT NOT NULL,
+            exchange_symbol TEXT NOT NULL,
             name TEXT NOT NULL,
             country TEXT,
             exchange TEXT NOT NULL,
@@ -32,14 +32,14 @@ def upgrade() -> None:
             isin TEXT,
             created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT pk_ticker PRIMARY KEY (unique_name),
-            CONSTRAINT uq_ticker_code_exchange UNIQUE (code, exchange)
+            CONSTRAINT pk_ticker PRIMARY KEY (unique_symbol),
+            CONSTRAINT uq_ticker_symbol_exchange UNIQUE (exchange_symbol, exchange)
         )
     """)
 
     op.execute("COMMENT ON TABLE turtle.ticker IS 'Stock tickers from EODHD'")
-    op.execute("COMMENT ON COLUMN turtle.ticker.unique_name IS 'Unique ticker identifier (Code + .US)'")
-    op.execute("COMMENT ON COLUMN turtle.ticker.code IS 'Ticker symbol'")
+    op.execute("COMMENT ON COLUMN turtle.ticker.unique_symbol IS 'Unique ticker identifier (Symbol + .US)'")
+    op.execute("COMMENT ON COLUMN turtle.ticker.exchange_symbol IS 'Ticker symbol'")
     op.execute("COMMENT ON COLUMN turtle.ticker.name IS 'Company or instrument name'")
     op.execute("COMMENT ON COLUMN turtle.ticker.country IS 'Country of listing'")
     op.execute("COMMENT ON COLUMN turtle.ticker.exchange IS 'Exchange code where the ticker is listed'")

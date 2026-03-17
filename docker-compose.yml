@@ -1,7 +1,7 @@
 services:
-  timescaledb:
-    image: timescale/timescaledb:latest-pg17
-    container_name: timescaledb
+  postgres:
+    image: postgres:17-alpine
+    container_name: turtledb
     restart: unless-stopped
     
     ports:
@@ -10,11 +10,8 @@ services:
     environment:
       # PostgreSQL configuration
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres361}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: trading
-      
-      # TimescaleDB configuration
-      TIMESCALEDB_TELEMETRY: "off"
       
       # Performance tuning
       POSTGRES_MAX_CONNECTIONS: 30
@@ -24,7 +21,7 @@ services:
     
     volumes:
       # Persistent data
-      - timescaledb-data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
       
       # Optional: Custom initialization scripts
       # - ./db/init.sql:/docker-entrypoint-initdb.d/create_tables.sql
@@ -34,7 +31,7 @@ services:
       # - ./postgresql.conf:/etc/postgresql/postgresql.conf
     
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d trading"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -50,6 +47,6 @@ services:
           memory: 2G
 
 volumes:
-  timescaledb-data:
+  postgres_data:
     driver: local
 
