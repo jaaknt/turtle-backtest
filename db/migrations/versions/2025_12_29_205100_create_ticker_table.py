@@ -30,6 +30,8 @@ def upgrade() -> None:
             currency TEXT,
             type TEXT,
             isin TEXT,
+            status turtle.ticker_status NOT NULL DEFAULT 'active',
+            source turtle.data_source_type NOT NULL DEFAULT 'eodhd',
             created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT pk_ticker PRIMARY KEY (unique_symbol),
@@ -46,6 +48,8 @@ def upgrade() -> None:
     op.execute("COMMENT ON COLUMN turtle.ticker.currency IS 'Trading currency'")
     op.execute("COMMENT ON COLUMN turtle.ticker.type IS 'Type of asset (e.g., Common Stock, ETF)'")
     op.execute("COMMENT ON COLUMN turtle.ticker.isin IS 'International Securities Identification Number'")
+    op.execute("COMMENT ON COLUMN turtle.ticker.status IS 'Ticker status (active or inactive)'")
+    op.execute("COMMENT ON COLUMN turtle.ticker.source IS 'Data source provider for the ticker'")
     op.execute("COMMENT ON COLUMN turtle.ticker.created_at IS 'Timestamp when the record was created'")
     op.execute("COMMENT ON COLUMN turtle.ticker.updated_at IS 'Timestamp when the record was last updated'")
 

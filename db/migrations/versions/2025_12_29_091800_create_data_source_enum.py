@@ -5,13 +5,14 @@ Revises: cf4ab544aa26
 Create Date: 2025-12-29 09:17:24.516692+00:00
 
 """
+
 from collections.abc import Sequence
 
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '5293d810be08'
-down_revision: str | Sequence[str] | None = 'cf4ab544aa26'
+revision: str = "5293d810be08"
+down_revision: str | Sequence[str] | None = "cf4ab544aa26"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -26,8 +27,16 @@ def upgrade() -> None:
         COMMENT ON TYPE turtle.data_source_type IS
         'Allowed data source providers for price data'
     """)
+    op.execute("""
+        CREATE TYPE turtle.ticker_status AS ENUM ('active', 'inactive')
+    """)
+    op.execute("""
+        COMMENT ON TYPE turtle.ticker_status IS
+        'Allowed status values for tickers'
+    """)
 
 
 def downgrade() -> None:
-    """Drop data_source_type ENUM."""
+    """Drop data_source_type and ticker_status ENUMs."""
     op.execute("DROP TYPE IF EXISTS turtle.data_source_type CASCADE")
+    op.execute("DROP TYPE IF EXISTS turtle.ticker_status CASCADE")

@@ -110,6 +110,8 @@ class EodhdService:
                             "currency": t.currency,
                             "type": t.type,
                             "isin": t.isin,
+                            "source": "eodhd",
+                            "status": "active",
                         }
                         for t in batch
                     ]
@@ -125,6 +127,8 @@ class EodhdService:
                             "currency": stmt.excluded.currency,
                             "type": stmt.excluded.type,
                             "isin": stmt.excluded.isin,
+                            "source": stmt.excluded.source,
+                            "status": stmt.excluded.status,
                         },
                     )
                     await session.execute(on_conflict_stmt)
