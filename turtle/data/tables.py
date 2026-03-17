@@ -31,16 +31,15 @@ bars_history_table = Table(
 ticker_table = Table(
     "ticker",
     metadata,
-    Column("symbol", Text, primary_key=True),
+    Column("unique_symbol", Text, primary_key=True),
+    Column("exchange_symbol", Text),
     Column("name", Text),
     Column("exchange", Text),
     Column("country", Text),
     Column("currency", Text),
     Column("isin", Text),
-    Column("symbol_type", Text),
-    Column("source", Text),
-    Column("status", Text),
-    Column("modified_at", DateTime, server_default=func.now()),
+    Column("type", Text),
+    Column("updated_at", DateTime, server_default=func.now()),
     schema="turtle",
 )
 

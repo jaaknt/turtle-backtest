@@ -18,24 +18,22 @@ class SymbolRepo:
 
     def map_eodhd_symbol_list(self, ticker: dict[str, Any]) -> dict[str, Any]:
         return {
-            "symbol": ticker["Code"],
+            "unique_symbol": ticker["Code"] + ".US",
+            "exchange_symbol": ticker["Code"],
             "name": ticker["Name"],
             "exchange": ticker["Exchange"],
             "country": ticker["Country"],
             "currency": ticker["Currency"],
             "isin": ticker["Isin"],
-            "symbol_type": "stock",
-            "source": "eodhd",
-            "status": "ACTIVE",
+            "type": "stock",
         }
 
     def _get_symbol_list_db(self, country: str) -> list[Any]:
         table = ticker_table
         stmt = (
-            select(table.c.symbol, table.c.name, table.c.exchange, table.c.country)
+            select(table.c.unique_symbol, table.c.name, table.c.exchange, table.c.country)
             .where(table.c.country == country)
-            .where(table.c.status == "ACTIVE")
-            .order_by(table.c.symbol)
+            .order_by(table.c.unique_symbol)
         )
         with self.engine.connect() as conn:
             result = conn.execute(stmt)
@@ -58,16 +56,16 @@ class SymbolRepo:
         table = ticker_table
         stmt = pg_insert(table).values(values_list)
         stmt = stmt.on_conflict_do_update(
-            index_elements=["symbol"],
+            index_elements=["unique_symbol"],
             set_={
+                "exchange_symbol": stmt.excluded.exchange_symbol,
                 "name": stmt.excluded.name,
                 "exchange": stmt.excluded.exchange,
                 "country": stmt.excluded.country,
                 "currency": stmt.excluded.currency,
                 "isin": stmt.excluded.isin,
-                "symbol_type": stmt.excluded.symbol_type,
-                "source": stmt.excluded.source,
-                "modified_at": func.current_timestamp(),
+                "type": stmt.excluded.type,
+                "updated_at": func.current_timestamp(),
             },
         )
         with self.engine.begin() as conn:
