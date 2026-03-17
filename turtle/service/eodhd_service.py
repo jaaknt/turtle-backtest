@@ -102,31 +102,29 @@ class EodhdService:
                     batch = tickers[i : i + batch_size]
                     values = [
                         {
-                            "symbol": t.code,
+                            "unique_symbol": t.code + ".US",
+                            "exchange_symbol": t.code,
                             "name": t.name,
                             "country": t.country,
                             "exchange": t.exchange,
                             "currency": t.currency,
-                            "symbol_type": t.type,
+                            "type": t.type,
                             "isin": t.isin,
-                            "source": "eodhd",
-                            "status": "ACTIVE",
                         }
                         for t in batch
                     ]
 
                     stmt = pg_insert(ticker_table).values(values)
                     on_conflict_stmt = stmt.on_conflict_do_update(
-                        index_elements=[ticker_table.c.symbol],
+                        index_elements=[ticker_table.c.unique_symbol],
                         set_={
+                            "exchange_symbol": stmt.excluded.exchange_symbol,
                             "name": stmt.excluded.name,
                             "country": stmt.excluded.country,
                             "exchange": stmt.excluded.exchange,
                             "currency": stmt.excluded.currency,
-                            "symbol_type": stmt.excluded.symbol_type,
+                            "type": stmt.excluded.type,
                             "isin": stmt.excluded.isin,
-                            "source": stmt.excluded.source,
-                            "status": stmt.excluded.status,
                         },
                     )
                     await session.execute(on_conflict_stmt)
@@ -226,15 +224,15 @@ class EodhdService:
         try:
             async with self.AsyncSessionLocal() as session:
                 # Fetch tickers to process - Filter: USA, specific exchanges, Common Stock type
-                stmt = select(ticker_table.c.symbol).where(
+                stmt = select(ticker_table.c.exchange_symbol).where(
                     and_(
                         ticker_table.c.country == "USA",
                         ticker_table.c.exchange.in_(US_EXCHANGES),
-                        ticker_table.c.symbol_type == COMMON_STOCK_TYPE,
+                        ticker_table.c.type == COMMON_STOCK_TYPE,
                     )
                 )
                 result = await session.execute(stmt)
-                us_stocks = result.fetchall()  # List of (symbol,) tuples
+                us_stocks = result.fetchall()  # List of (exchange_symbol,) tuples
 
                 # Apply limit if specified (for testing)
                 if ticker_limit is not None:
@@ -253,7 +251,7 @@ class EodhdService:
                     # Create concurrent API requests for this batch
                     tasks = []
                     for row in batch:
-                        eodhd_ticker = f"{row.symbol}.US"  # EODHD API requires "AAPL.US" format
+                        eodhd_ticker = f"{row.exchange_symbol}.US"  # EODHD API requires "AAPL.US" format
                         tasks.append(
                             self.api_client.get_eod_historical_data(
                                 ticker=eodhd_ticker,
@@ -269,7 +267,7 @@ class EodhdService:
                     batch_price_records: list[PriceHistory] = []
                     for idx in range(len(batch_results)):
                         result = batch_results[idx]  # type: ignore[assignment]
-                        eodhd_ticker = f"{batch[idx].symbol}.US"
+                        eodhd_ticker = f"{batch[idx].exchange_symbol}.US"
                         if isinstance(result, Exception):
                             logger.error(f"Error fetching historical data for {eodhd_ticker}: {type(result).__name__}: {result}")
                             total_stocks_failed += 1
@@ -322,15 +320,15 @@ class EodhdService:
         try:
             async with self.AsyncSessionLocal() as session:
                 # Fetch tickers to process - Filter: USA, specific exchanges, Common Stock type
-                stmt = select(ticker_table.c.symbol).where(
+                stmt = select(ticker_table.c.exchange_symbol).where(
                     and_(
                         ticker_table.c.country == "USA",
                         ticker_table.c.exchange.in_(US_EXCHANGES),
-                        ticker_table.c.symbol_type == COMMON_STOCK_TYPE,
+                        ticker_table.c.type == COMMON_STOCK_TYPE,
                     )
                 )
                 result = await session.execute(stmt)
-                us_stocks = result.fetchall()  # List of (symbol,) tuples
+                us_stocks = result.fetchall()  # List of (exchange_symbol,) tuples
 
                 # Apply limit if specified (for testing)
                 if ticker_limit is not None:
@@ -349,7 +347,7 @@ class EodhdService:
                     # Create concurrent API requests for this batch
                     tasks = []
                     for row in batch:
-                        eodhd_ticker = f"{row.symbol}.US"  # EODHD API requires "AAPL.US" format
+                        eodhd_ticker = f"{row.exchange_symbol}.US"  # EODHD API requires "AAPL.US" format
                         tasks.append(self.api_client.get_us_quote_delayed(ticker=eodhd_ticker))
 
                     # Execute API calls concurrently
@@ -359,7 +357,7 @@ class EodhdService:
                     values_to_insert: list[dict[str, object]] = []
                     for idx in range(len(batch_results)):
                         result = batch_results[idx]  # type: ignore[assignment]
-                        eodhd_ticker = f"{batch[idx].symbol}.US"
+                        eodhd_ticker = f"{batch[idx].exchange_symbol}.US"
                         if isinstance(result, Exception):
                             logger.error(f"Error fetching extended data for {eodhd_ticker}: {type(result).__name__}: {result}")
                             total_tickers_failed += 1
