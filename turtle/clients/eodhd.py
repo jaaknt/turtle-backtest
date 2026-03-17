@@ -1,4 +1,5 @@
 import logging
+import re
 from turtle.config.model import AppConfig
 from turtle.data.models import Exchange, PriceHistory, Ticker, TickerExtended
 from typing import Any
@@ -16,6 +17,12 @@ from tenacity import (
 logger = logging.getLogger(__name__)
 
 
+class _RedactApiTokenFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = re.sub(r"api_token=[^&\s]+", "api_token=***", str(record.msg))
+        return True
+
+
 class EodhdApiClient:
     """EODHD API client for fetching financial data."""
 
@@ -27,6 +34,7 @@ class EodhdApiClient:
             logger.error("EODHD API key is not configured. Please update config/settings.toml")
             raise ValueError("EODHD API key is not configured")
         self._client = AsyncClient(base_url=self.BASE_URL)
+        logging.getLogger("httpx").addFilter(_RedactApiTokenFilter())
 
     @retry(
         retry=retry_if_exception_type(httpx.RequestError),

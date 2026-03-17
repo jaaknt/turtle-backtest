@@ -5,7 +5,7 @@ This module contains Table objects used for all database operations
 in the repository layer.
 """
 
-from sqlalchemy import BigInteger, Column, Date, DateTime, Float, MetaData, Numeric, Table, Text
+from sqlalchemy import BigInteger, Column, Date, Float, MetaData, Numeric, Table, Text
 from sqlalchemy.dialects.postgresql import ENUM
 
 # Shared metadata instance for all table definitions
@@ -85,22 +85,6 @@ exchange_table = Table(
     Column("country", Text),
     Column("currency", Text),
     Column("country_iso3", Text),
-    schema="turtle",
-)
-
-# price_history table definition (EODHD)
-price_history_table = Table(
-    "price_history",
-    metadata,
-    Column("symbol", Text, primary_key=True),
-    Column("time", DateTime(timezone=True), primary_key=True),
-    Column("open", Numeric(10, 4)),
-    Column("high", Numeric(10, 4)),
-    Column("low", Numeric(10, 4)),
-    Column("close", Numeric(10, 4)),
-    Column("adjusted_close", Numeric(10, 4)),
-    Column("volume", BigInteger),
-    Column("source", Text),
     schema="turtle",
 )
 

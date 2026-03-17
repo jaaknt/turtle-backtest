@@ -5,9 +5,9 @@ from datetime import datetime
 from turtle.clients.eodhd import EodhdApiClient
 from turtle.config.settings import Settings
 from turtle.data.models import Exchange, PriceHistory, Ticker, TickerExtended
-from turtle.data.tables import exchange_table, price_history_table, ticker_extended_table, ticker_table
+from turtle.data.tables import company_table, daily_bars_table, exchange_table, ticker_table
 
-from sqlalchemy import and_, select, text
+from sqlalchemy import and_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 US_EXCHANGES = ["NASDAQ", "NYSE", "NYSE ARCA", "NYSE MKT"]
 COMMON_STOCK_TYPE = "Common Stock"
 DATE_FROM = "2000-01-01"
-DATE_TO = "2025-12-30"
+DATE_TO = datetime.now().strftime("%Y-%m-%d")
 API_BATCH_SIZE = 50  # Number of concurrent API requests per batch
 DB_BATCH_SIZE = 1000  # Number of records to insert per database batch
 BATCH_DELAY_SECONDS = 1.0  # Delay between API batches to respect rate limits
@@ -166,25 +166,25 @@ class EodhdService:
 
             values_to_insert.append(
                 {
-                    "symbol": record.ticker,  # record.ticker now contains unique_name (e.g., "AAPL.US")
-                    "time": record_date,
+                    "symbol": record.ticker,
+                    "date": record_date,
                     "open": record.open,
                     "high": record.high,
                     "low": record.low,
                     "close": record.close,
                     "adjusted_close": record.adjusted_close,
                     "volume": record.volume,
-                    "source": text("'eodhd'::turtle.data_source_type"),  # Cast to enum type
+                    "source": "eodhd",
                 }
             )
 
         if not values_to_insert:
             return 0
 
-        stmt = pg_insert(price_history_table).values(values_to_insert)
+        stmt = pg_insert(daily_bars_table).values(values_to_insert)
 
         on_conflict_stmt = stmt.on_conflict_do_update(
-            index_elements=[price_history_table.c.symbol, price_history_table.c.time],
+            index_elements=[daily_bars_table.c.symbol, daily_bars_table.c.date],
             set_={
                 "open": stmt.excluded.open,
                 "high": stmt.excluded.high,
@@ -192,7 +192,7 @@ class EodhdService:
                 "close": stmt.excluded.close,
                 "adjusted_close": stmt.excluded.adjusted_close,
                 "volume": stmt.excluded.volume,
-                "source": text("'eodhd'::turtle.data_source_type"),  # Cast to enum type
+                "source": stmt.excluded.source,
             },
         )
         await session.execute(on_conflict_stmt)
@@ -387,7 +387,7 @@ class EodhdService:
 
                             values_to_insert.append(
                                 {
-                                    "symbol": result.symbol,
+                                    "unique_symbol": result.symbol,
                                     "type": result.type,
                                     "name": result.name,
                                     "sector": result.sector,
@@ -404,9 +404,9 @@ class EodhdService:
 
                     # Insert collected records into database
                     if values_to_insert:
-                        insert_stmt = pg_insert(ticker_extended_table).values(values_to_insert)
+                        insert_stmt = pg_insert(company_table).values(values_to_insert)
                         on_conflict_stmt = insert_stmt.on_conflict_do_update(
-                            index_elements=[ticker_extended_table.c.symbol],
+                            index_elements=[company_table.c.unique_symbol],
                             set_={
                                 "type": insert_stmt.excluded.type,
                                 "name": insert_stmt.excluded.name,
