@@ -3,7 +3,7 @@ from dataclasses import asdict
 from datetime import datetime
 from turtle.common.enums import TimeFrameUnit
 from turtle.data.models import Bar
-from turtle.data.tables import bars_history_table
+from turtle.data.tables import daily_bars_table
 from typing import Any
 
 import pandas as pd
@@ -43,7 +43,7 @@ class BarsHistoryRepo:
         }
 
     def _get_bars_history_db(self, symbol: str, start_date: datetime, end_date: datetime) -> list[Any]:
-        table = bars_history_table
+        table = daily_bars_table
         stmt = (
             select(table.c.hdate, table.c.open, table.c.high, table.c.low, table.c.close, table.c.volume, table.c.trade_count)
             .where(table.c.symbol == symbol)

@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 from httpx import URL
-from sqlalchemy import Engine, func, select
+from sqlalchemy import Engine, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 logger = logging.getLogger(__name__)
@@ -21,11 +21,13 @@ class SymbolRepo:
             "unique_symbol": ticker["Code"] + ".US",
             "exchange_symbol": ticker["Code"],
             "name": ticker["Name"],
-            "exchange": ticker["Exchange"],
             "country": ticker["Country"],
+            "exchange": ticker["Exchange"],
             "currency": ticker["Currency"],
-            "isin": ticker["Isin"],
             "type": "stock",
+            "isin": ticker["Isin"],
+            "status": "active",
+            "source": "eodhd",
         }
 
     def _get_symbol_list_db(self, country: str) -> list[Any]:
@@ -65,7 +67,8 @@ class SymbolRepo:
                 "currency": stmt.excluded.currency,
                 "isin": stmt.excluded.isin,
                 "type": stmt.excluded.type,
-                "updated_at": func.current_timestamp(),
+                "source": stmt.excluded.source,
+                "status": stmt.excluded.status,
             },
         )
         with self.engine.begin() as conn:
