@@ -21,6 +21,7 @@ dependencies = [
     "bokeh>=3.9.0",
     "plotly>=6.6.0",
     "quantstats>=0.0.81",          # Portfolio analytics for quantitative analysis
+    "pydantic>=2.0.0",
 ]
 
 [project.optional-dependencies]
