@@ -35,8 +35,8 @@ daily_bars_table = Table(
 ticker_table = Table(
     "ticker",
     metadata,
-    Column("unique_symbol", Text, primary_key=True),
-    Column("exchange_symbol", Text),
+    Column("code", Text, primary_key=True),
+    Column("exchange_code", Text),
     Column("name", Text),
     Column("country", Text),
     Column("exchange", Text),
@@ -52,7 +52,7 @@ ticker_table = Table(
 company_table = Table(
     "company",
     metadata,
-    Column("unique_symbol", Text, primary_key=True),
+    Column("ticker_code", Text, primary_key=True),
     Column("type", Text),
     Column("name", Text),
     Column("sector", Text),

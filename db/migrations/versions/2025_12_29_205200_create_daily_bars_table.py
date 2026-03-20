@@ -34,7 +34,7 @@ def upgrade() -> None:
             volume         BIGINT                  NOT NULL,
             source         turtle.data_source_type NOT NULL,
             created_at     TIMESTAMPTZ             NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at     TIMESTAMPTZ             NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            modified_at     TIMESTAMPTZ             NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
             CONSTRAINT pk_daily_bars PRIMARY KEY (symbol, date),
             CONSTRAINT daily_bars_symbol_check CHECK (length(symbol) > 0)
@@ -54,23 +54,23 @@ def upgrade() -> None:
     op.execute("COMMENT ON COLUMN turtle.daily_bars.volume IS 'Trading volume (number of shares traded)'")
     op.execute("COMMENT ON COLUMN turtle.daily_bars.source IS 'Data source (e.g., alpaca, yahoo, eodhd)'")
     op.execute("COMMENT ON COLUMN turtle.daily_bars.created_at IS 'Timestamp when the record was created'")
-    op.execute("COMMENT ON COLUMN turtle.daily_bars.updated_at IS 'Timestamp when the record was last updated'")
+    op.execute("COMMENT ON COLUMN turtle.daily_bars.modified_at IS 'Timestamp when the record was last updated'")
 
-    # Create trigger for automatic updated_at management
+    # Create trigger for automatic modified_at management
     op.execute("""
-        CREATE TRIGGER daily_bars_updated_at
+        CREATE TRIGGER daily_bars_modified_at
             BEFORE UPDATE ON turtle.daily_bars
             FOR EACH ROW
-            EXECUTE FUNCTION turtle.update_updated_at_column()
+            EXECUTE FUNCTION turtle.update_modified_at_column()
     """)
 
     op.execute("""
-        COMMENT ON TRIGGER daily_bars_updated_at ON turtle.daily_bars IS
-        'Automatically updates updated_at column on row modification'
+        COMMENT ON TRIGGER daily_bars_modified_at ON turtle.daily_bars IS
+        'Automatically updates modified_at column on row modification'
     """)
 
 
 def downgrade() -> None:
     """Drop price_history table and trigger."""
-    op.execute("DROP TRIGGER IF EXISTS price_history_updated_at ON turtle.price_history")
+    op.execute("DROP TRIGGER IF EXISTS price_history_modified_at ON turtle.price_history")
     op.execute("DROP TABLE IF EXISTS turtle.price_history CASCADE")

@@ -18,8 +18,8 @@ class SymbolRepo:
 
     def map_eodhd_symbol_list(self, ticker: dict[str, Any]) -> dict[str, Any]:
         return {
-            "unique_symbol": ticker["Code"] + ".US",
-            "exchange_symbol": ticker["Code"],
+            "code": ticker["Code"] + ".US",
+            "exchange_code": ticker["Code"],
             "name": ticker["Name"],
             "country": ticker["Country"],
             "exchange": ticker["Exchange"],
@@ -33,9 +33,9 @@ class SymbolRepo:
     def _get_symbol_list_db(self, country: str) -> list[Any]:
         table = ticker_table
         stmt = (
-            select(table.c.unique_symbol, table.c.name, table.c.exchange, table.c.country)
+            select(table.c.code, table.c.name, table.c.exchange, table.c.country)
             .where(table.c.country == country)
-            .order_by(table.c.unique_symbol)
+            .order_by(table.c.code)
         )
         with self.engine.connect() as conn:
             result = conn.execute(stmt)
@@ -58,9 +58,9 @@ class SymbolRepo:
         table = ticker_table
         stmt = pg_insert(table).values(values_list)
         stmt = stmt.on_conflict_do_update(
-            index_elements=["unique_symbol"],
+            index_elements=["code"],
             set_={
-                "exchange_symbol": stmt.excluded.exchange_symbol,
+                "exchange_code": stmt.excluded.exchange_code,
                 "name": stmt.excluded.name,
                 "exchange": stmt.excluded.exchange,
                 "country": stmt.excluded.country,

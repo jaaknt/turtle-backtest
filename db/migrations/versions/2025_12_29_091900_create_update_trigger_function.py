@@ -17,23 +17,23 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    """Create update_updated_at_column trigger function."""
+    """Create update_modified_at_column trigger function."""
     op.execute("SET search_path TO turtle, public")
     op.execute("""
-        CREATE OR REPLACE FUNCTION turtle.update_updated_at_column()
+        CREATE OR REPLACE FUNCTION turtle.update_modified_at_column()
         RETURNS TRIGGER AS $$
         BEGIN
-            NEW.updated_at = CURRENT_TIMESTAMP;
+            NEW.modified_at = CURRENT_TIMESTAMP;
             RETURN NEW;
         END;
         $$ LANGUAGE plpgsql;
     """)
     op.execute("""
-        COMMENT ON FUNCTION turtle.update_updated_at_column() IS
-        'Trigger function to automatically update updated_at timestamp on row modification'
+        COMMENT ON FUNCTION turtle.update_modified_at_column() IS
+        'Trigger function to automatically update modified_at timestamp on row modification'
     """)
 
 
 def downgrade() -> None:
-    """Drop update_updated_at_column trigger function."""
-    op.execute("DROP FUNCTION IF EXISTS turtle.update_updated_at_column() CASCADE")
+    """Drop update_modified_at_column trigger function."""
+    op.execute("DROP FUNCTION IF EXISTS turtle.update_modified_at_column() CASCADE")
