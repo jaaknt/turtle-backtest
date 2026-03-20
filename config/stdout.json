@@ -41,6 +41,13 @@
                 "stdout"
             ],
             "propagate": false
+        },
+        "httpx": {
+            "level": "WARNING",
+            "handlers": [
+                "stdout"
+            ],
+            "propagate": false
         }
     }
 }
