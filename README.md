@@ -2,7 +2,7 @@
 Python library to backtest different trading strategies with US stocks
 
 ## Features
-- download all relevant data free from different sources (Alpaca, Alpha Vantage, EODHD, Yahoo Finance)
+- download all relevant data from EODHD API
 - test strategies in local database
 
 ## Installation
@@ -42,53 +42,25 @@ To download exchange data from EODHD, you first need to configure your EODHD API
     ```
     This script will fetch the latest list of exchanges and upsert them into the `turtle.exchange` table.
 
-### Method 1: Using the Daily EOD Update Script (Recommended)
+### Downloading Historical Data
 
-Use the `scripts/daily_eod_update.py` script for convenient command-line data downloads with multiple update modes:
+Use the `scripts/download_eodhd_data.py` script for bulk historical downloads:
 
 ```bash
-# Download symbol list from EODHD
-uv run python scripts/daily_eod_update.py --mode symbols
+# Download all data
+uv run python scripts/download_eodhd_data.py
 
-# Download company data from Yahoo Finance
-uv run python scripts/daily_eod_update.py --mode companies
+# Download with a ticker limit (useful for testing)
+uv run python scripts/download_eodhd_data.py --ticker-limit 10
 
-# Download OHLCV data for specific date (default mode)
-uv run python scripts/daily_eod_update.py --start-date 2024-12-01
-
-# Download OHLCV data for date range
-uv run python scripts/daily_eod_update.py --start-date 2024-12-01 --end-date 2024-12-07
-```
-
-See [docs/scripts.md](docs/scripts.md#daily_eod_updatepy) for complete documentation and usage examples.
-
-### Method 2: Programmatic API
-
-For integration into other scripts, you can use the DataUpdateService class directly:
-
-```python
-from turtle.service.alpaca_service import DataUpdateService
-from datetime import datetime
-
-data_updater = DataUpdateService()
-start_date = datetime(year=2017, month=1, day=1)
-end_date = datetime(year=2024, month=12, day=7)
-
-# Download USA Stocks symbol list (EODHD)
-data_updater.update_symbol_list()
-
-# Download USA Stocks company data (Yahoo Finance)
-data_updater.update_company_list()
-
-# Download USA Stocks daily OHLCV data (Alpaca)
-# Note: exclude current date for complete data
-data_updater.update_bars_history(start_date, end_date)
+# Download for a specific date range
+uv run python scripts/download_eodhd_data.py --start-date 2024-01-01 --end-date 2024-12-31
 ```
 
 **Data Sources:**
 - **Symbol lists**: EODHD API
-- **Company fundamentals**: Yahoo Finance
-- **OHLCV historical data**: Alpaca API
+- **Company fundamentals**: EODHD API
+- **OHLCV historical data**: EODHD API
 
 ## Strategy Testing
 

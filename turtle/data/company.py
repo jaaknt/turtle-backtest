@@ -1,12 +1,10 @@
 import logging
-import time
 from dataclasses import asdict
 from turtle.data.models import Company
 from turtle.data.tables import company_table
 from typing import Any
 
 import pandas as pd
-import yfinance as yf  # type: ignore[import-untyped]
 from sqlalchemy import Engine, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -17,32 +15,6 @@ class CompanyRepo:
     def __init__(self, engine: Engine):
         self.engine = engine
         self.company_list: list[Company] = []
-
-    def map_yahoo_company_data(self, symbol: str, data: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "symbol": symbol,
-            "short_name": data.get("shortName"),
-            "country": data.get("country"),
-            "industry_code": data.get("industry"),
-            "sector_code": data.get("sector"),
-            "employees_count": data.get("fullTimeEmployees"),
-            "dividend_rate": data.get("dividendRate"),
-            "trailing_pe_ratio": None if data.get("trailingPE") == "Infinity" else data.get("trailingPE"),
-            "forward_pe_ratio": None if data.get("forwardPE") == "Infinity" else data.get("forwardPE"),
-            "avg_volume": data.get("averageDailyVolume10Day"),
-            "avg_price": data.get("fiftyDayAverage"),
-            "market_cap": data.get("marketCap"),
-            "enterprice_value": data.get("enterpriseValue"),
-            "beta": data.get("beta"),
-            "shares_float": data.get("floatShares"),
-            "short_ratio": data.get("shortRatio"),
-            "peg_ratio": data.get("pegRatio"),
-            "recommodation_mean": data.get("recommendationMean"),
-            "number_of_analysyst": data.get("numberOfAnalystOpinions"),
-            "roa_value": data.get("returnOnAssets"),
-            "roe_value": data.get("returnOnEquity"),
-            "source": "yahoo",
-        }
 
     def save_company_list(self, values: dict[str, Any]) -> None:
         self.save_company_list_bulk([values])
@@ -81,33 +53,6 @@ class CompanyRepo:
         )
         with self.engine.begin() as conn:
             conn.execute(stmt)
-
-    def fetch_company_data(self, symbol: str) -> dict[str, Any] | None:
-        """Fetch company data from Yahoo Finance without saving. Returns mapped dict or None."""
-        try:
-            ticker = yf.Ticker(symbol)
-            data = ticker.info
-
-            if not data or not isinstance(data, dict):
-                logger.warning(f"No valid data received for symbol: {symbol}")
-                return None
-
-            if "symbol" not in data and "shortName" not in data:
-                logger.warning(f"Symbol {symbol} not found in Yahoo Finance")
-                return None
-
-            time.sleep(1)
-            return self.map_yahoo_company_data(symbol, data)
-
-        except Exception as e:
-            logger.error(f"Error fetching data for symbol {symbol}: {str(e)}")
-            return None
-
-    def update_company_info(self, symbol: str) -> None:
-        values = self.fetch_company_data(symbol)
-        if values:
-            logger.info(f"Saving: {symbol}")
-            self.save_company_list(values)
 
     def convert_df(self) -> pd.DataFrame:
         dtypes = {

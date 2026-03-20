@@ -206,11 +206,7 @@ def main() -> int:
         try:
             # Create database connection and bars_history for strategy
 
-            bars_history = BarsHistoryRepo(
-                engine=settings.engine,
-                alpaca_api_key=settings.app.alpaca["api_key"],
-                alpaca_api_secret=settings.app.alpaca["secret_key"],
-            )
+            bars_history = BarsHistoryRepo(engine=settings.engine)
 
             ranking_strategy: RankingStrategy = _get_ranking_strategy(args.ranking_strategy)
             exit_strategy: ExitStrategy = _get_exit_strategy(args.exit_strategy, bars_history)

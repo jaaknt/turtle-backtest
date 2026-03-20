@@ -1,13 +1,12 @@
 # CLAUDE.md
 
-Python-based financial trading strategy backtesting library for US stocks. Supports multiple strategies (Darvas Box, Mars, Momentum), portfolio management, and market data via Alpaca/EODHD APIs. Data stored in PostgreSQL.
+Python-based financial trading strategy backtesting library for US stocks. Supports multiple strategies (Darvas Box, Mars, Momentum), portfolio management, and market data via EODHD API. Data stored in PostgreSQL.
 
 ## Quick Start & Common Commands
 
 ### Most Common Operations
 | Task | Command | Use When |
 |------|---------|----------|
-| **Update data** | `uv run python scripts/daily_eod_update.py --start-date 2024-06-28` | Daily data refresh |
 | **Generate signals** | `uv run python scripts/signal_runner.py --start-date 2024-06-01 --end-date 2024-06-01 --mode analyze` | Analyze trading opportunities |
 | **Portfolio backtest** | `uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31` | Test multi-position strategy |
 | **Single backtest** | `uv run python scripts/backtest.py --ticker AAPL --start-date 2024-01-01` | Test specific ticker |
@@ -29,7 +28,7 @@ Python-based financial trading strategy backtesting library for US stocks. Suppo
 
 **Want to test portfolio performance?** → Use `scripts/portfolio_runner.py` with date range
 
-**Need historical data?** → Use `scripts/download_eodhd_data.py` for bulk or `scripts/daily_eod_update.py` for daily
+**Need historical data?** → Use `scripts/download_eodhd_data.py` for bulk historical downloads
 
 ## Git Workflow
 
@@ -49,7 +48,6 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 
 | Script | Purpose | Key Parameters | Example |
 |--------|---------|----------------|---------|
-| **daily_eod_update.py** | Daily data updates | `--start-date`, `--mode` (bars/symbols/companies) | `uv run python scripts/daily_eod_update.py --start-date 2024-06-28` |
 | **download_eodhd_data.py** | Bulk historical download | `--ticker-limit`, `--start-date`, `--end-date` | `uv run python scripts/download_eodhd_data.py --ticker-limit 10` |
 | **signal_runner.py** | Generate/analyze signals | `--strategy`, `--mode` (analyze/csv/db) | `uv run python scripts/signal_runner.py --start-date 2024-06-01 --end-date 2024-06-01 --strategy darvas_box --mode analyze` |
 | **backtest.py** | Single ticker backtest | `--ticker`, `--signal-strategy`, `--exit-strategy` | `uv run python scripts/backtest.py --ticker AAPL --start-date 2024-01-01 --end-date 2024-12-31 --signal-strategy darvas_box --exit-strategy profit_loss` |
@@ -86,9 +84,7 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 - **Connection**: psycopg with connection pooling (pool size: 10)
 
 ### Data Sources
-- **EODHD**: Symbol lists, historical OHLCV data
-- **Alpaca**: Historical bars data
-- **Yahoo Finance**: Company fundamentals
+- **EODHD**: Symbol lists, historical OHLCV data, company fundamentals
 
 ## Core Systems Overview
 
@@ -100,13 +96,12 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 ### Configuration System
 - **Settings**: TOML-based with environment variable overrides for secrets
 - **Key Files**: `config/settings.toml`, `.env` (API keys, DB password)
-- **Environment Variables**: `EODHD_API_KEY`, `ALPACA_API_KEY`, `ALPACA_SECRET_KEY`, `DB_PASSWORD`
+- **Environment Variables**: `EODHD_API_KEY`, `DB_PASSWORD`
 - **Database DSN**: `host=localhost port=5432 dbname=trading user=postgres`
 
 ### Service Layer
 | Service | Purpose | Key Methods | Used By |
 |---------|---------|-------------|---------|
-| **DataUpdateService** | Data ingestion from EODHD/Alpaca/Yahoo | `update_symbol_list()`, `update_bars_history()`, `update_company_list()` | `daily_eod_update.py`, `download_eodhd_data.py` |
 | **SignalService** | Signal generation and export | `generate_signals()`, `filter_by_ranking()` | `signal_runner.py` |
 | **BacktestService** | Single-ticker backtesting | `run_backtest()`, `calculate_metrics()` | `backtest.py` |
 | **PortfolioService** | Multi-position portfolio backtest | `run_portfolio_backtest()`, `generate_tearsheet()`, `calculate_benchmark_comparison()` | `portfolio_runner.py` |
@@ -157,7 +152,7 @@ Filters and prioritizes signals for portfolio selection. Returns scores 0-100 (h
 **Basic workflow:**
 ```bash
 # 1. Update data
-uv run python scripts/daily_eod_update.py --start-date 2024-01-01 --end-date 2024-12-31
+uv run python scripts/download_eodhd_data.py --start-date 2024-01-01 --end-date 2024-12-31
 
 # 2. Generate signals (optional - validate)
 uv run python scripts/signal_runner.py --start-date 2024-01-01 --end-date 2024-01-31 --strategy darvas_box --mode analyze
