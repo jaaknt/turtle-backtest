@@ -18,14 +18,18 @@ Stop and report if any step fails — do not skip failures.
 
 3. **Run lint** — `uv run --extra lint ruff check .`. If errors are found, attempt to fix them with `uv run --extra lint ruff check --fix .`, then re-run to confirm clean. If unfixable errors remain, stop and report.
 
-4. **Run type checks** — `uv run pyright` (if configured). Report but do not block on type errors unless `$ARGUMENTS` includes `--strict`.
+4. **Run ruff linter** — `uv run ruff check turtle/ scripts/ app.py`
 
-5. **Stage changes** — `git add` specific files that are modified or untracked (avoid `git add -A` or `git add .` to prevent accidentally staging `.env`, secrets, or large binaries). List what is being staged.
+5. **Run ruff formatter check** — `uv run ruff format --check turtle/ scripts/ app.py`
 
-6. **Write commit message** — if `$ARGUMENTS` is provided, use it as the commit message. Otherwise, inspect `git diff --cached` and write a concise message:
+6. **Run mypy for static type checking** -  `uv run ruff format --check turtle/ scripts/ app.py`, stop if fails
+
+7. **Stage changes** — `git add` specific files that are modified or untracked (avoid `git add -A` or `git add .` to prevent accidentally staging `.env`, secrets, or large binaries). List what is being staged.
+
+8. **Write commit message** — if `$ARGUMENTS` is provided, use it as the commit message. Otherwise, inspect `git diff --cached` and write a concise message:
    - First line: imperative mood, ≤72 chars, no period (e.g. `Add ATR exit strategy with configurable multiplier`)
    - Body (if needed): explain *why*, not *what*
 
-7. **Commit** — `git commit -m "<message>"` with `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` trailer.
+9. **Commit** — `git commit -m "<message>"` with `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` trailer.
 
-8. **Push** — `git push origin main`. Report the result and the final commit hash.
+10. **Push** — `git push origin main`. Report the result and the final commit hash.
