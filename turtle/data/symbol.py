@@ -33,9 +33,7 @@ class SymbolRepo:
     def _get_symbol_list_db(self, country: str) -> list[Any]:
         table = ticker_table
         stmt = (
-            select(table.c.code, table.c.name, table.c.exchange, table.c.country)
-            .where(table.c.country == country)
-            .order_by(table.c.code)
+            select(table.c.code, table.c.name, table.c.exchange, table.c.country).where(table.c.country == country).order_by(table.c.code)
         )
         with self.engine.connect() as conn:
             result = conn.execute(stmt)
