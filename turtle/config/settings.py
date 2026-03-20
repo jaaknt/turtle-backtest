@@ -33,8 +33,6 @@ class Settings:
         required_env_vars = {
             "DB_PASSWORD": ("database", "password"),
             "EODHD_API_KEY": ("app", "eodhd", "api_key"),
-            "ALPACA_API_KEY": ("app", "alpaca", "api_key"),
-            "ALPACA_SECRET_KEY": ("app", "alpaca", "secret_key"),
         }
         missing = [var for var in required_env_vars if not os.getenv(var)]
         if missing:
@@ -44,8 +42,6 @@ class Settings:
         db_config = DatabaseConfig(**data.get("database", {}))
 
         data["app"]["eodhd"]["api_key"] = os.environ["EODHD_API_KEY"]
-        data["app"]["alpaca"]["api_key"] = os.environ["ALPACA_API_KEY"]
-        data["app"]["alpaca"]["secret_key"] = os.environ["ALPACA_SECRET_KEY"]
 
         app_config = AppConfig(**data.get("app", {}))
         pool_config = db_config.pool

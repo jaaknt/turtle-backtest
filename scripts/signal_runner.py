@@ -79,11 +79,7 @@ def get_trading_strategy_instance(strategy_name: str, ranking_strategy: RankingS
         raise ValueError(f"Unknown strategy '{strategy_name}'. Available strategies: {available_strategies}")
 
     # Create BarsHistoryRepo instance for strategy
-    bars_history = BarsHistoryRepo(
-        engine,
-        alpaca_api_key=app.alpaca["api_key"],
-        alpaca_api_secret=app.alpaca["secret_key"],
-    )
+    bars_history = BarsHistoryRepo(engine)
 
     # Create strategy instance with common parameters
     return strategy_class(

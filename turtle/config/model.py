@@ -59,4 +59,3 @@ class AppConfig:
     name: str
     debug: bool
     eodhd: dict[str, str] = field(default_factory=lambda: {"api_key": "**REPLACE_ME**"})
-    alpaca: dict[str, str] = field(default_factory=lambda: {"api_key": "**REPLACE_ME**", "secret_key": "**REPLACE_ME**"})

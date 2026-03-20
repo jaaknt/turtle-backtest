@@ -3,8 +3,6 @@
 name = "turtle-backtest"
 debug = true
 eodhd.api_key = "YOUR_EODHD_API_KEY"
-alpaca.api_key = "YOUR_ALPACA_API_KEY"
-alpaca.secret_key = "YOUR_ALPACA_SECRET_KEY"
 
 [database]
 host = "localhost"

@@ -18,11 +18,7 @@ def test_get_bars_history(mocker: MockerFixture) -> None:
     )
 
     # Instantiate BarsHistoryRepo with the mock connection
-    repo = BarsHistoryRepo(
-        engine=mocker.Mock(),
-        alpaca_api_key="dummy_key",
-        alpaca_api_secret="dummy_secret",
-    )
+    repo = BarsHistoryRepo(engine=mocker.Mock())
 
     # Call the method you want to test
     symbol = "META"

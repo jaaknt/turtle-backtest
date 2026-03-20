@@ -267,11 +267,7 @@ def main() -> int:
         settings = Settings.from_toml()
 
         # Create bars history repository
-        bars_history = BarsHistoryRepo(
-            engine=settings.engine,
-            alpaca_api_key=settings.app.alpaca["api_key"],
-            alpaca_api_secret=settings.app.alpaca["secret_key"],
-        )
+        bars_history = BarsHistoryRepo(engine=settings.engine)
 
         # Create strategy instances
         ranking_strategy = _get_ranking_strategy(args.ranking_strategy)

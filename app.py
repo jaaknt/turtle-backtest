@@ -18,11 +18,7 @@ end_date = datetime(year=2025, month=8, day=12)
 # Create settings and database connection
 settings = Settings.from_toml()
 engine = settings.engine
-bars_history = BarsHistoryRepo(
-    engine,
-    settings.app.alpaca["api_key"],
-    settings.app.alpaca["secret_key"],
-)
+bars_history = BarsHistoryRepo(engine)
 
 # Create DarvasBoxStrategy instance
 darvas_strategy = DarvasBoxStrategy(

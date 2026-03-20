@@ -61,19 +61,14 @@ class TestAppConfig:
     def test_default_api_key_placeholders(self) -> None:
         config = AppConfig(name="test-app", debug=False)
         assert config.eodhd["api_key"] == "**REPLACE_ME**"
-        assert config.alpaca["api_key"] == "**REPLACE_ME**"
-        assert config.alpaca["secret_key"] == "**REPLACE_ME**"
 
     def test_custom_api_keys(self) -> None:
         config = AppConfig(
             name="test-app",
             debug=False,
             eodhd={"api_key": "eodhd_123"},
-            alpaca={"api_key": "alpaca_123", "secret_key": "secret_456"},
         )
         assert config.eodhd["api_key"] == "eodhd_123"
-        assert config.alpaca["api_key"] == "alpaca_123"
-        assert config.alpaca["secret_key"] == "secret_456"
 
 
 class TestSettingsFromToml:
@@ -83,30 +78,26 @@ class TestSettingsFromToml:
 
     def test_raises_when_env_vars_missing(self, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
         mocker.patch("turtle.config.settings.load_dotenv")  # prevent .env file from restoring vars
-        for var in ("DB_PASSWORD", "EODHD_API_KEY", "ALPACA_API_KEY", "ALPACA_SECRET_KEY"):
+        for var in ("DB_PASSWORD", "EODHD_API_KEY"):
             monkeypatch.delenv(var, raising=False)
         with pytest.raises(ValueError, match="Missing required environment variables"):
             Settings.from_toml()
 
     def test_raises_listing_all_missing_vars(self, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
         mocker.patch("turtle.config.settings.load_dotenv")  # prevent .env file from restoring vars
-        for var in ("DB_PASSWORD", "EODHD_API_KEY", "ALPACA_API_KEY", "ALPACA_SECRET_KEY"):
+        for var in ("DB_PASSWORD", "EODHD_API_KEY"):
             monkeypatch.delenv(var, raising=False)
         with pytest.raises(ValueError) as exc_info:
             Settings.from_toml()
         message = str(exc_info.value)
         assert "DB_PASSWORD" in message
         assert "EODHD_API_KEY" in message
-        assert "ALPACA_API_KEY" in message
-        assert "ALPACA_SECRET_KEY" in message
 
     def test_loads_env_vars_into_config(self, required_env_vars: None, mocker: MockerFixture) -> None:
         mocker.patch("turtle.config.settings.create_engine", return_value=mocker.Mock())
         settings = Settings.from_toml()
         assert settings.database.password == "test_password"
         assert settings.app.eodhd["api_key"] == "test_eodhd_key"
-        assert settings.app.alpaca["api_key"] == "test_alpaca_key"
-        assert settings.app.alpaca["secret_key"] == "test_alpaca_secret"
 
     def test_database_config_populated(self, required_env_vars: None, mocker: MockerFixture) -> None:
         mocker.patch("turtle.config.settings.create_engine", return_value=mocker.Mock())
