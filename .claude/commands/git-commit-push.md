@@ -7,7 +7,8 @@ allowed-tools: Bash
 
 # Git Commit and Push
 
-Commit all pending changes and push to `main`. Stop and report if any step fails — do not skip failures.
+Commit all pending changes and push to `main`. Add files and changes that were added by other to local folder. 
+Stop and report if any step fails — do not skip failures.
 
 ## Steps
 

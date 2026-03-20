@@ -22,8 +22,8 @@ def upgrade() -> None:
     op.execute("SET search_path TO turtle, public")
     op.execute("""
         CREATE TABLE turtle.ticker (
-            unique_symbol TEXT NOT NULL,
-            exchange_symbol TEXT NOT NULL,
+            code TEXT NOT NULL,
+            exchange_code TEXT NOT NULL,
             name TEXT NOT NULL,
             country TEXT,
             exchange TEXT NOT NULL,
@@ -33,15 +33,15 @@ def upgrade() -> None:
             status turtle.ticker_status NOT NULL DEFAULT 'active',
             source turtle.data_source_type NOT NULL DEFAULT 'eodhd',
             created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT pk_ticker PRIMARY KEY (unique_symbol),
-            CONSTRAINT uq_ticker_symbol_exchange UNIQUE (exchange_symbol, exchange)
+            modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT pk_ticker PRIMARY KEY (code),
+            CONSTRAINT uq_ticker_symbol_exchange UNIQUE (exchange_code, exchange)
         )
     """)
 
     op.execute("COMMENT ON TABLE turtle.ticker IS 'Stock tickers from EODHD'")
-    op.execute("COMMENT ON COLUMN turtle.ticker.unique_symbol IS 'Unique ticker identifier (Symbol + .US)'")
-    op.execute("COMMENT ON COLUMN turtle.ticker.exchange_symbol IS 'Ticker symbol'")
+    op.execute("COMMENT ON COLUMN turtle.ticker.code IS 'Unique ticker identifier (Symbol + .US)'")
+    op.execute("COMMENT ON COLUMN turtle.ticker.exchange_code IS 'Ticker symbol'")
     op.execute("COMMENT ON COLUMN turtle.ticker.name IS 'Company or instrument name'")
     op.execute("COMMENT ON COLUMN turtle.ticker.country IS 'Country of listing'")
     op.execute("COMMENT ON COLUMN turtle.ticker.exchange IS 'Exchange code where the ticker is listed'")
@@ -51,21 +51,21 @@ def upgrade() -> None:
     op.execute("COMMENT ON COLUMN turtle.ticker.status IS 'Ticker status (active or inactive)'")
     op.execute("COMMENT ON COLUMN turtle.ticker.source IS 'Data source provider for the ticker'")
     op.execute("COMMENT ON COLUMN turtle.ticker.created_at IS 'Timestamp when the record was created'")
-    op.execute("COMMENT ON COLUMN turtle.ticker.updated_at IS 'Timestamp when the record was last updated'")
+    op.execute("COMMENT ON COLUMN turtle.ticker.modified_at IS 'Timestamp when the record was last updated'")
 
     op.execute("""
-        CREATE TRIGGER ticker_updated_at
+        CREATE TRIGGER ticker_modified_at
             BEFORE UPDATE ON turtle.ticker
             FOR EACH ROW
-            EXECUTE FUNCTION turtle.update_updated_at_column()
+            EXECUTE FUNCTION turtle.update_modified_at_column()
     """)
     op.execute("""
-        COMMENT ON TRIGGER ticker_updated_at ON turtle.ticker IS
-        'Automatically updates updated_at column on row modification'
+        COMMENT ON TRIGGER ticker_modified_at ON turtle.ticker IS
+        'Automatically updates modified_at column on row modification'
     """)
 
 
 def downgrade() -> None:
     """Drop ticker table and related trigger."""
-    op.execute("DROP TRIGGER IF EXISTS ticker_updated_at ON turtle.ticker")
+    op.execute("DROP TRIGGER IF EXISTS ticker_modified_at ON turtle.ticker")
     op.execute("DROP TABLE IF EXISTS turtle.ticker CASCADE")

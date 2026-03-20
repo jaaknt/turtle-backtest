@@ -102,8 +102,8 @@ class EodhdService:
                     batch = tickers[i : i + batch_size]
                     values = [
                         {
-                            "unique_symbol": t.code + ".US",
-                            "exchange_symbol": t.code,
+                            "code": t.code + ".US",
+                            "exchange_code": t.code,
                             "name": t.name,
                             "country": t.country,
                             "exchange": t.exchange,
@@ -118,9 +118,9 @@ class EodhdService:
 
                     stmt = pg_insert(ticker_table).values(values)
                     on_conflict_stmt = stmt.on_conflict_do_update(
-                        index_elements=[ticker_table.c.unique_symbol],
+                        index_elements=[ticker_table.c.code],
                         set_={
-                            "exchange_symbol": stmt.excluded.exchange_symbol,
+                            "exchange_code": stmt.excluded.exchange_code,
                             "name": stmt.excluded.name,
                             "country": stmt.excluded.country,
                             "exchange": stmt.excluded.exchange,
@@ -228,7 +228,7 @@ class EodhdService:
         try:
             async with self.AsyncSessionLocal() as session:
                 # Fetch tickers to process - Filter: USA, specific exchanges, Common Stock type
-                stmt = select(ticker_table.c.exchange_symbol).where(
+                stmt = select(ticker_table.c.exchange_code).where(
                     and_(
                         ticker_table.c.country == "USA",
                         ticker_table.c.exchange.in_(US_EXCHANGES),
@@ -236,7 +236,7 @@ class EodhdService:
                     )
                 )
                 result = await session.execute(stmt)
-                us_stocks = result.fetchall()  # List of (exchange_symbol,) tuples
+                us_stocks = result.fetchall()  # List of (exchange_code,) tuples
 
                 # Apply limit if specified (for testing)
                 if ticker_limit is not None:
@@ -255,7 +255,7 @@ class EodhdService:
                     # Create concurrent API requests for this batch
                     tasks = []
                     for row in batch:
-                        eodhd_ticker = f"{row.exchange_symbol}.US"  # EODHD API requires "AAPL.US" format
+                        eodhd_ticker = f"{row.exchange_code}.US"  # EODHD API requires "AAPL.US" format
                         tasks.append(
                             self.api_client.get_eod_historical_data(
                                 ticker=eodhd_ticker,
@@ -271,7 +271,7 @@ class EodhdService:
                     batch_price_records: list[PriceHistory] = []
                     for idx in range(len(batch_results)):
                         result = batch_results[idx]  # type: ignore[assignment]
-                        eodhd_ticker = f"{batch[idx].exchange_symbol}.US"
+                        eodhd_ticker = f"{batch[idx].exchange_code}.US"
                         if isinstance(result, Exception):
                             logger.error(f"Error fetching historical data for {eodhd_ticker}: {type(result).__name__}: {result}")
                             total_stocks_failed += 1
@@ -324,7 +324,7 @@ class EodhdService:
         try:
             async with self.AsyncSessionLocal() as session:
                 # Fetch tickers to process - Filter: USA, specific exchanges, Common Stock type
-                stmt = select(ticker_table.c.exchange_symbol).where(
+                stmt = select(ticker_table.c.exchange_code).where(
                     and_(
                         ticker_table.c.country == "USA",
                         ticker_table.c.exchange.in_(US_EXCHANGES),
@@ -332,7 +332,7 @@ class EodhdService:
                     )
                 )
                 result = await session.execute(stmt)
-                us_stocks = result.fetchall()  # List of (exchange_symbol,) tuples
+                us_stocks = result.fetchall()  # List of (exchange_code,) tuples
 
                 # Apply limit if specified (for testing)
                 if ticker_limit is not None:
@@ -351,7 +351,7 @@ class EodhdService:
                     # Create concurrent API requests for this batch
                     tasks = []
                     for row in batch:
-                        eodhd_ticker = f"{row.exchange_symbol}.US"  # EODHD API requires "AAPL.US" format
+                        eodhd_ticker = f"{row.exchange_code}.US"  # EODHD API requires "AAPL.US" format
                         tasks.append(self.api_client.get_us_quote_delayed(ticker=eodhd_ticker))
 
                     # Execute API calls concurrently
@@ -361,7 +361,7 @@ class EodhdService:
                     values_to_insert: list[dict[str, object]] = []
                     for idx in range(len(batch_results)):
                         result = batch_results[idx]  # type: ignore[assignment]
-                        eodhd_ticker = f"{batch[idx].exchange_symbol}.US"
+                        eodhd_ticker = f"{batch[idx].exchange_code}.US"
                         if isinstance(result, Exception):
                             logger.error(f"Error fetching extended data for {eodhd_ticker}: {type(result).__name__}: {result}")
                             total_tickers_failed += 1
@@ -387,7 +387,7 @@ class EodhdService:
 
                             values_to_insert.append(
                                 {
-                                    "unique_symbol": result.symbol,
+                                    "ticker_code": result.symbol,
                                     "type": result.type,
                                     "name": result.name,
                                     "sector": result.sector,
@@ -406,7 +406,7 @@ class EodhdService:
                     if values_to_insert:
                         insert_stmt = pg_insert(company_table).values(values_to_insert)
                         on_conflict_stmt = insert_stmt.on_conflict_do_update(
-                            index_elements=[company_table.c.unique_symbol],
+                            index_elements=[company_table.c.ticker_code],
                             set_={
                                 "type": insert_stmt.excluded.type,
                                 "name": insert_stmt.excluded.name,

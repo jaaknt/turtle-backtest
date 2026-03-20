@@ -22,7 +22,7 @@ def upgrade() -> None:
     op.execute("SET search_path TO turtle, public")
     op.execute("""
         CREATE TABLE turtle.company (
-            unique_symbol TEXT NOT NULL,
+            ticker_code TEXT NOT NULL,
             type TEXT,
             name TEXT,
             sector TEXT,
@@ -34,14 +34,14 @@ def upgrade() -> None:
             pe NUMERIC(12, 2),
             forward_pe NUMERIC(12, 2),
             created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            -- CONSTRAINT fk_company_symbol FOREIGN KEY (unique_symbol) REFERENCES turtle.ticker(unique_symbol),
-            CONSTRAINT pk_company PRIMARY KEY (unique_symbol)
+            modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            -- CONSTRAINT fk_company_symbol FOREIGN KEY (ticker_code) REFERENCES turtle.ticker(code),
+            CONSTRAINT pk_company PRIMARY KEY (ticker_code)
         )
     """)
 
     op.execute("COMMENT ON TABLE turtle.company IS 'Company information from EODHD US quote delayed API'")
-    op.execute("COMMENT ON COLUMN turtle.company.unique_symbol IS 'Unique ticker identifier (AAPL.US), references ticker.unique_symbol'")
+    op.execute("COMMENT ON COLUMN turtle.company.ticker_code IS 'Unique ticker identifier (AAPL.US), references ticker.code'")
     op.execute("COMMENT ON COLUMN turtle.company.type IS 'Security type (e.g., Common Stock, ETF)'")
     op.execute("COMMENT ON COLUMN turtle.company.name IS 'Company or security name'")
     op.execute("COMMENT ON COLUMN turtle.company.sector IS 'Business sector'")
@@ -53,21 +53,21 @@ def upgrade() -> None:
     op.execute("COMMENT ON COLUMN turtle.company.pe IS 'Price to earnings ratio'")
     op.execute("COMMENT ON COLUMN turtle.company.forward_pe IS 'Forward price to earnings ratio'")
     op.execute("COMMENT ON COLUMN turtle.company.created_at IS 'Timestamp when the record was created'")
-    op.execute("COMMENT ON COLUMN turtle.company.updated_at IS 'Timestamp when the record was last updated'")
+    op.execute("COMMENT ON COLUMN turtle.company.modified_at IS 'Timestamp when the record was last updated'")
 
     op.execute("""
-        CREATE TRIGGER company_updated_at
+        CREATE TRIGGER company_modified_at
             BEFORE UPDATE ON turtle.company
             FOR EACH ROW
-            EXECUTE FUNCTION turtle.update_updated_at_column()
+            EXECUTE FUNCTION turtle.update_modified_at_column()
     """)
     op.execute("""
-        COMMENT ON TRIGGER company_updated_at ON turtle.company IS
-        'Automatically updates updated_at column on row modification'
+        COMMENT ON TRIGGER company_modified_at ON turtle.company IS
+        'Automatically updates modified_at column on row modification'
     """)
 
 
 def downgrade() -> None:
     """Drop company table and related trigger."""
-    op.execute("DROP TRIGGER IF EXISTS company_updated_at ON turtle.company")
+    op.execute("DROP TRIGGER IF EXISTS company_modified_at ON turtle.company")
     op.execute("DROP TABLE IF EXISTS turtle.company CASCADE")

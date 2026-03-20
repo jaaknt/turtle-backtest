@@ -28,7 +28,7 @@ def upgrade() -> None:
             currency TEXT NOT NULL,
             country_iso3 TEXT,
             created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT pk_exchange PRIMARY KEY (code)
         )
     """)
@@ -39,22 +39,22 @@ def upgrade() -> None:
     op.execute("COMMENT ON COLUMN turtle.exchange.currency IS 'Default currency for the exchange'")
     op.execute("COMMENT ON COLUMN turtle.exchange.country_iso3 IS 'ISO 3166-1 alpha-3 country code'")
     op.execute("COMMENT ON COLUMN turtle.exchange.created_at IS 'Timestamp when the record was created'")
-    op.execute("COMMENT ON COLUMN turtle.exchange.updated_at IS 'Timestamp when the record was last updated'")
+    op.execute("COMMENT ON COLUMN turtle.exchange.modified_at IS 'Timestamp when the record was last updated'")
 
     op.execute("""
-        CREATE TRIGGER exchange_updated_at
+        CREATE TRIGGER exchange_modified_at
             BEFORE UPDATE ON turtle.exchange
             FOR EACH ROW
-            EXECUTE FUNCTION turtle.update_updated_at_column()
+            EXECUTE FUNCTION turtle.update_modified_at_column()
     """)
     op.execute("""
-        COMMENT ON TRIGGER exchange_updated_at ON turtle.exchange IS
-        'Automatically updates updated_at column on row modification'
+        COMMENT ON TRIGGER exchange_modified_at ON turtle.exchange IS
+        'Automatically updates modified_at column on row modification'
     """)
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     op.execute("SET search_path TO turtle, public")
-    op.execute("DROP TRIGGER IF EXISTS exchange_updated_at ON turtle.exchange")
+    op.execute("DROP TRIGGER IF EXISTS exchange_modified_at ON turtle.exchange")
     op.execute("DROP TABLE IF EXISTS turtle.exchange CASCADE")
