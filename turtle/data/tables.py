@@ -87,4 +87,3 @@ exchange_table = Table(
     Column("country_iso3", Text),
     schema="turtle",
 )
-

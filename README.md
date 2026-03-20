@@ -16,7 +16,16 @@ uv sync --extra dev
 # Activate python virtualenv in bash
 source ./.venv/bin/activate
 ```
-There are special requirements for TA-lib installation - so look for [instructions](https://github.com/jaaknt/turtle-backtest/blob/main/.github/workflows/build.yml)
+
+## Setup
+
+```bash
+# Start PostgreSQL database
+docker-compose up -d
+
+# Apply database migrations
+uv run alembic upgrade head
+```
 
 ## Download Data
 
@@ -24,14 +33,11 @@ There are special requirements for TA-lib installation - so look for [instructio
 
 To download exchange data from EODHD, you first need to configure your EODHD API key.
 
-1.  **Configure EODHD API Key:**
-    Open `config/settings.toml` and replace `"YOUR_EODHD_API_KEY"` with your actual EODHD API key:
-
-    ```toml
-    [app]
-    # ...
-    eodhd.api_key = "YOUR_EODHD_API_KEY"
-    # ...
+1.  **Configure API Keys and secrets**
+    Copy .env.example -> .env and add your database password and EODHD Api key.
+    ```
+    DB_PASSWORD=
+    EODHD_API_KEY=
     ```
 
 2.  **Run the Download Script:**
