@@ -1,5 +1,5 @@
 import logging
-from turtle.data.tables import daily_bars_table
+from turtle.repositories.tables import daily_bars_table
 from turtle.schemas import DailyBars
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert

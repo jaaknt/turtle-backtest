@@ -1,5 +1,5 @@
 import logging
-from turtle.data.tables import company_table
+from turtle.repositories.tables import company_table
 from turtle.schemas import Company
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert

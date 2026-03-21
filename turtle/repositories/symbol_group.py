@@ -1,6 +1,6 @@
 import logging
 from turtle.data.models import SymbolGroup
-from turtle.data.tables import symbol_group_table
+from turtle.repositories.tables import symbol_group_table
 
 from sqlalchemy import Engine, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
