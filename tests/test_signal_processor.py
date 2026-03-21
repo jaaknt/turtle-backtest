@@ -30,7 +30,7 @@ class TestSignalProcessor:
         """Create sample OHLCV data for ticker."""
         dates = pd.date_range("2024-01-16", periods=10, freq="D")
         data = {
-            "hdate": dates,
+            "date": dates,
             "open": [100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0],
             "high": [102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0, 111.0],
             "low": [99.0, 100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0],

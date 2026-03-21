@@ -134,7 +134,7 @@ class PortfolioAnalytics:
                 logger.warning("Insufficient QQQ data for benchmark calculation")
                 return pd.Series(dtype=float)
 
-            # Calculate daily returns (index is already datetime from hdate)
+            # Calculate daily returns (index is already datetime from date)
             qqq_df = qqq_df.sort_index()  # Sort by date index
             qqq_returns = qqq_df["close"].pct_change().dropna()
             qqq_returns.name = "QQQ_returns"
