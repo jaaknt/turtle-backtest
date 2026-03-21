@@ -5,7 +5,7 @@ from turtle.backtest.models import Trade
 from turtle.common.enums import TimeFrameUnit
 
 import pandas as pd
-import pandas_ta
+from pandas_ta.momentum import macd as ta_macd
 
 from .base import ExitStrategy
 
@@ -31,7 +31,7 @@ class MACDExitStrategy(ExitStrategy):
         df = self.bars_history.get_ticker_history(
             self.ticker, self.start_date - timedelta(days=40), self.end_date, time_frame_unit=TimeFrameUnit.DAY
         )
-        macd_df = pandas_ta.macd(df["close"], fast=self.fastperiod, slow=self.slowperiod, signal=self.signalperiod)
+        macd_df = ta_macd(df["close"], fast=self.fastperiod, slow=self.slowperiod, signal=self.signalperiod)
         df["macd_line"] = macd_df[f"MACD_{self.fastperiod}_{self.slowperiod}_{self.signalperiod}"]
         df["macd_signal"] = macd_df[f"MACDs_{self.fastperiod}_{self.slowperiod}_{self.signalperiod}"]
         # filter index >= start_date
