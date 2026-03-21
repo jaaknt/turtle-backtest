@@ -12,9 +12,9 @@ logger = logging.getLogger(__name__)
 
 DATE_FROM = "2000-01-01"
 DATE_TO = datetime.now().strftime("%Y-%m-%d")
-API_BATCH_SIZE = 50
+API_BATCH_SIZE = 10
 DB_BATCH_SIZE = 1000
-BATCH_DELAY_SECONDS = 1.0
+BATCH_DELAY_SECONDS = 2.0
 
 
 class EodhdService:
