@@ -1,5 +1,5 @@
 import logging
-from turtle.data.models import SymbolGroup
+from turtle.repositories.models import SymbolGroup
 from turtle.repositories.tables import symbol_group_table
 
 from sqlalchemy import Engine, func, select

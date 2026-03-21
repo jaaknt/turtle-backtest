@@ -1,4 +1,4 @@
-from turtle.data.models import Symbol
+from turtle.repositories.models import Symbol
 
 
 def test_symbol_instantiation() -> None:
