@@ -9,7 +9,7 @@
 ## Analysis & Implementation Plan
 
 ### Current Structure Analysis
-The current `DataUpdateService` service in `turtle/service/data_update.py` contains:
+The current `DataUpdateService` service in `turtle/services/data_update.py` contains:
 
 **Data Update Methods (should remain in DataUpdateService):**
 - `update_symbol_list()` - Updates symbol data from EODHD API
@@ -36,7 +36,7 @@ The current `DataUpdateService` service in `turtle/service/data_update.py` conta
 3. **scripts/daily_eod_update.py** - Uses DataUpdateService only for data updates (no changes needed)
 
 ### Implementation Plan
-1. Create new `StrategyRunnerService` service in `turtle/service/strategy_runner.py`
+1. Create new `StrategyRunnerService` service in `turtle/services/strategy_runner.py`
 2. Move strategy instances and methods from DataUpdateService to StrategyRunnerService
 3. Update DataUpdateService to remove strategy-related code
 4. Update main.py to use both services appropriately

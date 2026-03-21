@@ -18,7 +18,7 @@ Python-based financial trading strategy backtesting library for US stocks. Suppo
 - **Strategies**: `/turtle/signal/*.py` - Trading signal implementations
 - **Exit Strategies**: `/turtle/exit/*.py` - Position exit logic
 - **Portfolio**: `/turtle/portfolio/*.py` - Multi-position management
-- **Services**: `/turtle/service/*.py` - Business logic orchestration
+- **Services**: `/turtle/services/*.py` - Business logic orchestration
 
 ### Development Decision Tree
 
@@ -76,7 +76,7 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
   - `eodhd.py`: EODHD API wrapper
 - **turtle/config/**: Configuration management
   - `settings.py`: TOML + environment variable loader
-- **turtle/service/**: Business logic orchestration layer
+- **turtle/services/**: Business logic orchestration layer
 
 ### Database
 - **Schema**: `turtle` (PostgreSQL)
@@ -144,7 +144,7 @@ Filters and prioritizes signals for portfolio selection. Returns scores 0-100 (h
            return signals
    ```
 3. **Add tests**: `tests/test_my_strategy.py`
-4. **Register in SignalService**: Add to strategy mapping in `turtle/service/signal_service.py`
+4. **Register in SignalService**: Add to strategy mapping in `turtle/services/signal_service.py`
 5. **Test**: `uv run python scripts/signal_runner.py --strategy my_strategy --mode analyze`
 
 ### Running Portfolio Backtests
@@ -199,7 +199,7 @@ All pluggable behaviours — signals, exits, rankings — share a common ABC int
 All database operations live in `turtle/data/`. Private `_get_*` methods fetch raw rows; public methods return typed domain objects. No SQL outside `turtle/data/`. See `turtle/data/bars_history.py`.
 
 ### Dependency Injection (Constructor Injection)
-All dependencies are passed explicitly through constructors — no globals, no service locators. The connection pool flows from `Settings` → `Service` → `Repo`. See `turtle/service/signal_service.py`.
+All dependencies are passed explicitly through constructors — no globals, no service locators. The connection pool flows from `Settings` → `Service` → `Repo`. See `turtle/services/signal_service.py`.
 
 ### Domain Models (Dataclasses vs Pydantic)
 - **Dataclasses** for all internal domain objects (`Signal`, `Trade`, `Position`, `Bar`). Use `@property` for computed fields — no setters. See `turtle/signal/models.py`, `turtle/data/models.py`.
@@ -209,7 +209,7 @@ All dependencies are passed explicitly through constructors — no globals, no s
 `Settings.from_toml()` is the single entry point for all config. It loads TOML, validates required env vars (raises `ValueError` if missing — never falls back to TOML values for secrets), builds nested config objects, and creates the connection pool. See `turtle/config/settings.py`.
 
 ### Async Boundary
-External API clients (`turtle/clients/eodhd.py`) are `async`/`await` using `httpx.AsyncClient`. Services that orchestrate bulk API downloads (e.g. `turtle/service/eodhd_service.py`) may also be async when they need concurrent requests via `asyncio.gather`. Repos and backtesting logic must remain synchronous. Scripts may use `asyncio.run()` as the async entry point. Do not make repo methods async.
+External API clients (`turtle/clients/eodhd.py`) are `async`/`await` using `httpx.AsyncClient`. Services that orchestrate bulk API downloads (e.g. `turtle/services/eodhd_service.py`) may also be async when they need concurrent requests via `asyncio.gather`. Repos and backtesting logic must remain synchronous. Scripts may use `asyncio.run()` as the async entry point. Do not make repo methods async.
 
 ### Naming Conventions
 | Construct | Convention | Example |

@@ -29,7 +29,7 @@ The following files need their imports updated:
 - `tests/test_period_return_integration.py`
 - `tests/test_period_return.py` 
 - `tests/test_strategy_performance_tester_simple.py`
-- `turtle/service/strategy_performance_service.py`
+- `turtle/services/strategy_performance_service.py`
 
 ### Refactoring Plan
 

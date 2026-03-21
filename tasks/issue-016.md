@@ -24,7 +24,7 @@ After analyzing the codebase, the following components need modification:
    - `parse_periods()` function converts string to List[pd.Timedelta]
    - Passes list to StrategyPerformanceService
 
-2. **turtle/service/strategy_performance_service.py**:
+2. **turtle/services/strategy_performance_service.py**:
    - `DEFAULT_TEST_PERIODS` list with 6 periods
    - Constructor accepts `test_periods: Optional[List[pd.Timedelta]]`
    - All methods iterate over `self.test_periods` list
@@ -41,7 +41,7 @@ After analyzing the codebase, the following components need modification:
 - Add `--max-holding-period` argument (default: "1M")
 - Convert single period string to single pd.Timedelta
 
-#### 2. Service Layer (turtle/service/strategy_performance_service.py)
+#### 2. Service Layer (turtle/services/strategy_performance_service.py)
 - Replace `DEFAULT_TEST_PERIODS` list with `DEFAULT_HOLDING_PERIOD`
 - Change constructor to accept `max_holding_period: Optional[pd.Timedelta]`
 - Update all methods to use single period instead of list iteration

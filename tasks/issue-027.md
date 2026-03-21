@@ -1,12 +1,12 @@
 # Rename service and script
-- turtle/service/strategy_runner_service.py -> turtle/service/signal_service.py
+- turtle/services/strategy_runner_service.py -> turtle/services/signal_service.py
 - StrategyRunnerService -> SignalService
 - scripts/strategy_runner.py -> scripts/signal_runner.py
 
 ## Implementation Plan
 
 ### Phase 1: File Renaming
-1. **Rename main service file**: `turtle/service/strategy_runner_service.py` → `turtle/service/signal_service.py`
+1. **Rename main service file**: `turtle/services/strategy_runner_service.py` → `turtle/services/signal_service.py`
 2. **Rename main script file**: `scripts/strategy_runner.py` → `scripts/signal_runner.py`
 
 ### Phase 2: Class and Import Updates

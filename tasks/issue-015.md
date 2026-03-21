@@ -8,7 +8,7 @@ The goal is to rename "tester" to "performance" in development files
 
 ## Proposed Changes
   - `turtle/tester/` → `turtle/performance/`
-  - `turtle/service/strategy_tester.py` → `turtle/service/strategy_performance_service.py`
+  - `turtle/services/strategy_tester.py` → `turtle/services/strategy_performance_service.py`
   - `scripts/strategy_tester.py` → `scripts/strategy_performance.py`
   - class `StrategyTesterService` → `StrategyPerformanceService`
   - Update all import statements and references
@@ -20,7 +20,7 @@ After analyzing the codebase, the following components need to be renamed:
 - `turtle/tester/` (contains: `__init__.py`, `models.py`, `period_return.py`, `strategy_performance.py`)
 
 ### Files to Rename
-1. `turtle/service/strategy_tester.py` → `turtle/service/strategy_performance_service.py`
+1. `turtle/services/strategy_tester.py` → `turtle/services/strategy_performance_service.py`
 2. `scripts/strategy_tester.py` → `scripts/strategy_performance.py`
 
 ### Classes to Rename
@@ -31,7 +31,7 @@ After analyzing the codebase, the following components need to be renamed:
 - All references to `strategy_tester` module need updating
 
 ### Files with Import References
-1. `turtle/service/strategy_tester.py`
+1. `turtle/services/strategy_tester.py`
 2. `turtle/tester/models.py` 
 3. `turtle/tester/strategy_performance.py`
 4. `tests/test_period_return.py`
@@ -51,7 +51,7 @@ After analyzing the codebase, the following components need to be renamed:
 - Rename `turtle/tester/` to `turtle/performance/`
 
 ### Step 2: File Renames  
-- `turtle/service/strategy_tester.py` → `turtle/service/strategy_performance_service.py`
+- `turtle/services/strategy_tester.py` → `turtle/services/strategy_performance_service.py`
 - `scripts/strategy_tester.py` → `scripts/strategy_performance.py`
 
 ### Step 3: Class Renames
