@@ -1,5 +1,5 @@
 import logging
-from turtle.data.tables import exchange_table
+from turtle.repositories.tables import exchange_table
 from turtle.schemas import Exchange
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert

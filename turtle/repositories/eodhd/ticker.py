@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Sequence
-from turtle.data.tables import ticker_table
+from turtle.repositories.tables import ticker_table
 from turtle.schemas import Ticker
 
 from sqlalchemy import Engine, and_, select
