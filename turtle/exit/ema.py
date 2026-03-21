@@ -5,7 +5,7 @@ from turtle.backtest.models import Trade
 from turtle.common.enums import TimeFrameUnit
 
 import pandas as pd
-import pandas_ta
+from pandas_ta.overlap import ema as ta_ema
 
 from .base import ExitStrategy
 
@@ -26,7 +26,7 @@ class EMAExitStrategy(ExitStrategy):
         df = self.bars_history.get_ticker_history(
             self.ticker, self.start_date - timedelta(days=40), self.end_date, time_frame_unit=TimeFrameUnit.DAY
         )
-        df["ema"] = pandas_ta.ema(df["close"], length=self.ema_period)
+        df["ema"] = ta_ema(df["close"], length=self.ema_period)
 
         self.df = df[df.index >= self.start_date].copy()
         return self.df

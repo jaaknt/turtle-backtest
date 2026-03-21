@@ -5,7 +5,9 @@ from turtle.ranking.base import RankingStrategy
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
 
 import pandas as pd
-import pandas_ta
+from pandas_ta.momentum import macd as ta_macd
+from pandas_ta.overlap import ema as ta_ema
+from pandas_ta.overlap import sma as ta_sma
 
 from .base import TradingStrategy
 from .models import Signal
@@ -46,10 +48,10 @@ class MarsStrategy(TradingStrategy):
         self.df["consolidation_change"] = (self.df["max_box_4"] - self.df["min_box_4"]) / self.df["close"]
         self.df["hard_stoploss"] = (self.df["max_box_4"] + self.df["min_box_4"]) / 2 - 0.02
 
-        self.df["ema_10"] = pandas_ta.ema(self.df["close"], length=10)
-        self.df["ema_20"] = pandas_ta.ema(self.df["close"], length=20)
+        self.df["ema_10"] = ta_ema(self.df["close"], length=10)
+        self.df["ema_20"] = ta_ema(self.df["close"], length=20)
 
-        macd_df = pandas_ta.macd(self.df["close"], fast=12, slow=26, signal=9)
+        macd_df = ta_macd(self.df["close"], fast=12, slow=26, signal=9)
         self.df["macd"] = macd_df["MACD_12_26_9"]
         self.df["macd_histogram"] = macd_df["MACDh_12_26_9"]
         self.df["macd_signal"] = macd_df["MACDs_12_26_9"]
@@ -57,7 +59,7 @@ class MarsStrategy(TradingStrategy):
         self.df["max_close_10"] = self.df["close"].rolling(window=10).max()
 
         # volume indicators
-        self.df["ema_volume_4"] = pandas_ta.sma(self.df["volume"].shift(1), length=4)
+        self.df["ema_volume_4"] = ta_sma(self.df["volume"].shift(1), length=4)
         self.df["volume_change"] = self.df["volume"] / self.df["ema_volume_4"]
 
         self.df["buy_signal"] = False

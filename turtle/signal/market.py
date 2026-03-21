@@ -4,7 +4,7 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
 
 import pandas as pd
-import pandas_ta
+from pandas_ta.overlap import ema as ta_ema
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +24,8 @@ class MarketData:
             TimeFrameUnit.WEEK,
         )
 
-        self.df["ema_20"] = pandas_ta.ema(self.df["close"], length=20)
-        self.df["ema_10"] = pandas_ta.ema(self.df["close"], length=10)
+        self.df["ema_20"] = ta_ema(self.df["close"], length=20)
+        self.df["ema_10"] = ta_ema(self.df["close"], length=10)
         last_record = self.df.iloc[-1]
 
         logger.info(f"SPY EMA10 - {last_record['ema_10']} EMA20: {last_record['ema_20']}")

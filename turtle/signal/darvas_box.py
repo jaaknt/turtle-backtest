@@ -6,7 +6,8 @@ from turtle.repositories.analytics import OhlcvAnalyticsRepository
 
 import numpy as np
 import pandas as pd
-import pandas_ta
+from pandas_ta.momentum import macd as ta_macd
+from pandas_ta.overlap import ema as ta_ema
 
 from .base import TradingStrategy
 from .models import Signal
@@ -110,18 +111,18 @@ class DarvasBoxStrategy(TradingStrategy):
         self.df["max_high_20"] = self.df["high"].rolling(window=20).max()
 
         # MACD indicator
-        macd_df = pandas_ta.macd(self.df["close"], fast=12, slow=26, signal=9)
+        macd_df = ta_macd(self.df["close"], fast=12, slow=26, signal=9)
         self.df["macd"] = macd_df["MACD_12_26_9"]
         self.df["macd_signal"] = macd_df["MACDs_12_26_9"]
 
         # Exponential Moving Averages for close prices
-        self.df["ema_10"] = pandas_ta.ema(self.df["close"], length=10)
-        self.df["ema_20"] = pandas_ta.ema(self.df["close"], length=20)
-        self.df["ema_50"] = pandas_ta.ema(self.df["close"], length=50)
-        self.df["ema_200"] = pandas_ta.ema(self.df["close"], length=200)
+        self.df["ema_10"] = ta_ema(self.df["close"], length=10)
+        self.df["ema_20"] = ta_ema(self.df["close"], length=20)
+        self.df["ema_50"] = ta_ema(self.df["close"], length=50)
+        self.df["ema_200"] = ta_ema(self.df["close"], length=200)
 
         # Volume indicators
-        self.df["ema_volume_10"] = pandas_ta.ema(self.df["volume"], length=10)
+        self.df["ema_volume_10"] = ta_ema(self.df["volume"], length=10)
 
         # Initialize buy signal column
         self.df["buy_signal"] = False

@@ -7,7 +7,7 @@ from turtle.common.enums import TimeFrameUnit
 from typing import Any
 
 import pandas as pd
-import pandas_ta
+from pandas_ta.volatility import atr as ta_atr
 
 from .base import ExitStrategy
 
@@ -69,7 +69,7 @@ class ATRExitStrategy(ExitStrategy):
             self.ticker, self.start_date - timedelta(days=60), self.end_date, time_frame_unit=TimeFrameUnit.DAY
         )
 
-        df["atr"] = pandas_ta.atr(df["high"], df["low"], df["close"], length=self.atr_period)
+        df["atr"] = ta_atr(df["high"], df["low"], df["close"], length=self.atr_period)
 
         # Filter to requested date range
         self.df = df[df.index >= self.start_date].copy()
