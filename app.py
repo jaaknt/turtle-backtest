@@ -31,19 +31,16 @@ darvas_strategy = DarvasBoxStrategy(
 # Create strategy runner with the trading strategy
 strategy_runner = SignalService(engine=engine, trading_strategy=darvas_strategy)
 
-# Get ticker list (now with correct method signature)
+# Get ticker list and collect all signals
 signals = []
 for ticker in strategy_runner.get_symbol_list():
-    signals = strategy_runner.get_signals(ticker, end_date, end_date)
+    signals.extend(strategy_runner.get_signals(ticker, end_date, end_date))
 
-
-# Extract just the symbol names for get_company_list
-symbol_names = [ticker.ticker for ticker in signals]
-df: pd.DataFrame = strategy_runner.get_company_list(symbol_names)
+df: pd.DataFrame = pd.DataFrame([{"ticker": s.ticker, "date": s.date.date(), "ranking": s.ranking} for s in signals])
 
 # Streamlit commands to visualize the DataFrame
 st.title("DataFrame Visualization with Streamlit")
 st.write("Here is a simple DataFrame:")
 
 # Display the DataFrame
-st.dataframe(df)  # You can also use st.write(df) or st.table(df)
+st.dataframe(df)
