@@ -58,10 +58,12 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 ## Architecture Overview
 
 ### Core Components
-- **turtle/data/**: Sync psycopg repositories for data access (PostgreSQL)
-  - `bars_history.py`, `company.py`, `symbol.py`, `symbol_group.py`
-- **turtle/repositories/**: Async SQLAlchemy repositories for data access (PostgreSQL)
-  - `eodhd.py`: Exchange, ticker, daily bars, company upserts
+- **turtle/data/**: Shared domain models (`models.py` — dataclasses for `Symbol`, `SymbolGroup`, `Bar`)
+- **turtle/repositories/**: All database access (sync Engine reads + async Session writes)
+  - `tables.py`: SQLAlchemy Core table definitions
+  - `analytics.py`: `OhlcvAnalyticsRepository` — bulk OHLCV reads returning DataFrames (pandas/polars)
+  - `symbol_group.py`: `SymbolGroupRepository` — symbol group reads/writes
+  - `eodhd/`: `ExchangeRepository`, `TickerRepository`, `TickerQueryRepository`, `DailyBarsRepository`, `CompanyRepository`
 - **turtle/signal/**: Trading signal implementations
   - `base.py`: TradingStrategy abstract base
   - `darvas_box.py`, `mars.py`, `momentum.py`, `market.py`
@@ -82,8 +84,8 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 
 ### Database
 - **Schema**: `turtle` (PostgreSQL)
-- **Tables**: `ticker`, `bars_history`, `company`, `symbol_group`
-- **Connection**: psycopg with connection pooling (pool size: 10)
+- **Tables**: `ticker`, `daily_bars`, `company`, `symbol_group`, `exchange`
+- **Connection**: SQLAlchemy `Engine` (sync reads) + `AsyncSession` (async writes)
 
 ### Data Sources
 - **EODHD**: Symbol lists, historical OHLCV data, company fundamentals
@@ -185,9 +187,9 @@ open reports/results.html
 |---------|-----------|---------|
 | **Database connection failed** | `docker-compose ps` to verify postgres running, check `.env` credentials | Verify DB exists with `psql -U postgres -l`, test port 5432 access |
 | **API rate limiting** | Use `--ticker-limit 10` for testing, verify API keys in `.env` | Check EODHD_API_KEY active, typical limit 20 req/sec |
-| **No signals generated** | Verify data exists: `SELECT COUNT(*) FROM turtle.bars_history WHERE ticker='AAPL'`, enable `--verbose` | Check ticker has sufficient history, validate strategy parameters |
+| **No signals generated** | Verify data exists: `SELECT COUNT(*) FROM turtle.daily_bars WHERE symbol='AAPL'`, enable `--verbose` | Check ticker has sufficient history, validate strategy parameters |
 | **Portfolio backtest errors** | Lower `--min-signal-ranking`, verify `initial_capital >= position_max_amount * max_positions` | Ensure signals exist for date range, validate benchmark data (SPY/QQQ) |
-| **Slow queries/high memory** | Add indexes: `CREATE INDEX idx_bars_ticker_date ON turtle.bars_history(ticker, date)`, use `--ticker-limit` | Increase `pool_size` in settings.toml, process data in batches |
+| **Slow queries/high memory** | Add indexes: `CREATE INDEX idx_daily_bars_symbol_date ON turtle.daily_bars(symbol, date)`, use `--ticker-limit` | Process data in batches |
 | **Migration failures** | `uv run alembic current` to check version, `uv run alembic downgrade -1` to rollback | Review `turtle.alembic_version` table, test upgrade/downgrade paths |
 
 **For detailed troubleshooting**: Check logs in `logs/` directory, use `--verbose` flag, consult script `--help` output.
@@ -198,14 +200,14 @@ open reports/results.html
 All pluggable behaviours — signals, exits, rankings — share a common ABC interface. Services depend on the abstract type; concrete implementations are swapped at runtime without changing any service code. See `turtle/signal/base.py` (base) and `turtle/signal/darvas_box.py` (concrete). Same pattern in `turtle/exit/` and `turtle/ranking/`.
 
 ### Repository Pattern (Data Access)
-All database operations live in `turtle/data/` (sync psycopg repos) or `turtle/repositories/` (async SQLAlchemy repos). Private `_get_*` methods fetch raw rows; public methods return typed domain objects. No SQL outside these two directories. See `turtle/data/bars_history.py` and `turtle/repositories/eodhd.py`.
+All database operations live in `turtle/repositories/`. No SQL outside this directory. Sync `Engine`-based repos handle reads; async `AsyncSession`-based repos handle writes. See `turtle/repositories/analytics.py` (sync reads) and `turtle/repositories/eodhd/` (async writes).
 
 ### Dependency Injection (Constructor Injection)
 All dependencies are passed explicitly through constructors — no globals, no service locators. The connection pool flows from `Settings` → `Service` → `Repo`. See `turtle/services/signal_service.py`.
 
 ### Domain Models (Dataclasses vs Pydantic)
 - **Dataclasses** for all internal domain objects (`Signal`, `Trade`, `Position`, `Bar`). Use `@property` for computed fields — no setters. See `turtle/signal/models.py`, `turtle/data/models.py`.
-- **Pydantic `BaseModel`** only for external API responses where field aliasing (`alias=`) is needed. See `Exchange`, `Ticker`, `Company` in `turtle/data/models.py`.
+- **Pydantic `BaseModel`** only for external API responses where field aliasing (`alias=`) is needed. See `Exchange`, `Ticker`, `Company` in `turtle/schemas/`.
 
 ### Configuration (Factory Method)
 `Settings.from_toml()` is the single entry point for all config. It loads TOML, validates required env vars (raises `ValueError` if missing — never falls back to TOML values for secrets), builds nested config objects, and creates the connection pool. See `turtle/config/settings.py`.
@@ -216,7 +218,7 @@ External API clients (`turtle/clients/eodhd.py`) are `async`/`await` using `http
 ### Naming Conventions
 | Construct | Convention | Example |
 |-----------|-----------|---------|
-| Classes | PascalCase | `DarvasBoxStrategy`, `BarsHistoryRepo` |
+| Classes | PascalCase | `DarvasBoxStrategy`, `OhlcvAnalyticsRepository` |
 | Methods / variables | snake_case | `get_signals()`, `start_date` |
 | Private methods | leading underscore | `_get_bars_history_db()` |
 | Constants / enums | UPPER_SNAKE_CASE | `TimeFrameUnit.DAY` |
@@ -237,17 +239,17 @@ Use `@staticmethod` for pure utility functions that belong logically to a class 
 ## Testing
 
 Tests organised by component in `tests/`:
-- `test_bars_history.py`: Historical data operations
-- `test_company.py`: Company data operations
-- `test_darvas_box.py`: Darvas Box strategy logic
 - `test_models.py`: Data model validation
-- `test_symbol.py`: Symbol management
+- `test_darvas_box.py`: Darvas Box strategy logic
 - `test_signal_processor.py`: Signal processing pipeline
 - `test_portfolio.py`: Portfolio management and analytics
 - `test_macd_exit_strategy.py`: MACD exit strategy logic
 - `test_atr_exit_strategy.py`: ATR exit strategy logic
 - `test_volume_momentum_ranking.py`: Volume momentum ranking strategy
+- `test_ohlcv_analytics_repository.py`: OhlcvAnalyticsRepository (pandas/polars reads)
+- `test_repositories_eodhd.py`: EODHD repository classes (exchange, ticker, daily bars, company)
 - `test_pandas_ta_ema.py`: pandas-ta EMA indicator
+- `test_settings.py`: Configuration loading
 
 Shared fixtures live in `tests/conftest.py`. File-specific fixtures stay in the individual test file.
 
