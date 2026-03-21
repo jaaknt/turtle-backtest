@@ -4,8 +4,8 @@ from collections.abc import AsyncGenerator
 from datetime import datetime
 from turtle.clients.eodhd import EodhdApiClient
 from turtle.config.settings import Settings
-from turtle.data.models import Company, Exchange, PriceHistory, Ticker
 from turtle.data.tables import company_table, daily_bars_table, exchange_table, ticker_table
+from turtle.schemas import Company, Exchange, PriceHistory, Ticker
 
 from sqlalchemy import and_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
