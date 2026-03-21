@@ -66,12 +66,12 @@ company_table = Table(
     schema="turtle",
 )
 
-# symbol_group table definition
-symbol_group_table = Table(
-    "symbol_group",
+# ticker_group table definition
+ticker_group_table = Table(
+    "ticker_group",
     metadata,
-    Column("symbol_group", Text, primary_key=True),
-    Column("symbol", Text, primary_key=True),
+    Column("code", Text, primary_key=True),
+    Column("ticker_code", Text, primary_key=True),
     Column("rate", Numeric),
     schema="turtle",
 )
