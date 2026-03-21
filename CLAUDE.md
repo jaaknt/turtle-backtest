@@ -58,8 +58,10 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 ## Architecture Overview
 
 ### Core Components
-- **turtle/data/**: Repository pattern for data access (PostgreSQL)
+- **turtle/data/**: Sync psycopg repositories for data access (PostgreSQL)
   - `bars_history.py`, `company.py`, `symbol.py`, `symbol_group.py`
+- **turtle/repositories/**: Async SQLAlchemy repositories for data access (PostgreSQL)
+  - `eodhd.py`: Exchange, ticker, daily bars, company upserts
 - **turtle/signal/**: Trading signal implementations
   - `base.py`: TradingStrategy abstract base
   - `darvas_box.py`, `mars.py`, `momentum.py`, `market.py`
@@ -196,7 +198,7 @@ open reports/results.html
 All pluggable behaviours — signals, exits, rankings — share a common ABC interface. Services depend on the abstract type; concrete implementations are swapped at runtime without changing any service code. See `turtle/signal/base.py` (base) and `turtle/signal/darvas_box.py` (concrete). Same pattern in `turtle/exit/` and `turtle/ranking/`.
 
 ### Repository Pattern (Data Access)
-All database operations live in `turtle/data/`. Private `_get_*` methods fetch raw rows; public methods return typed domain objects. No SQL outside `turtle/data/`. See `turtle/data/bars_history.py`.
+All database operations live in `turtle/data/` (sync psycopg repos) or `turtle/repositories/` (async SQLAlchemy repos). Private `_get_*` methods fetch raw rows; public methods return typed domain objects. No SQL outside these two directories. See `turtle/data/bars_history.py` and `turtle/repositories/eodhd.py`.
 
 ### Dependency Injection (Constructor Injection)
 All dependencies are passed explicitly through constructors — no globals, no service locators. The connection pool flows from `Settings` → `Service` → `Repo`. See `turtle/services/signal_service.py`.

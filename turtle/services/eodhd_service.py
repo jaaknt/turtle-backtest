@@ -1,26 +1,20 @@
 import asyncio
 import logging
-from collections.abc import AsyncGenerator
 from datetime import datetime
 from turtle.clients.eodhd import EodhdApiClient
 from turtle.config.settings import Settings
-from turtle.data.tables import company_table, daily_bars_table, exchange_table, ticker_table
-from turtle.schemas import Company, Exchange, PriceHistory, Ticker
+from turtle.repositories.eodhd import CompanyRepository, DailyBarsRepository, ExchangeRepository, TickerRepository
+from turtle.schemas import Company, PriceHistory
 
-from sqlalchemy import and_, select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 logger = logging.getLogger(__name__)
 
-# Constants for historical data download
-US_EXCHANGES = ["NASDAQ", "NYSE", "NYSE ARCA", "NYSE MKT"]
-COMMON_STOCK_TYPE = "Common Stock"
 DATE_FROM = "2000-01-01"
 DATE_TO = datetime.now().strftime("%Y-%m-%d")
-API_BATCH_SIZE = 50  # Number of concurrent API requests per batch
-DB_BATCH_SIZE = 1000  # Number of records to insert per database batch
-BATCH_DELAY_SECONDS = 1.0  # Delay between API batches to respect rate limits
+API_BATCH_SIZE = 50
+DB_BATCH_SIZE = 1000
+BATCH_DELAY_SECONDS = 1.0
 
 
 class EodhdService:
@@ -38,46 +32,16 @@ class EodhdService:
             expire_on_commit=False,
         )
 
-    async def _get_db_session(self) -> AsyncGenerator[AsyncSession]:
-        """Helper to get an async database session."""
-        async with self.AsyncSessionLocal() as session:
-            yield session
-
     async def download_exchanges(self) -> None:
-        """
-        Downloads exchange data from EODHD and stores it in the database.
-        """
+        """Downloads exchange data from EODHD and stores it in the database."""
         logger.info("Starting EODHD exchange data download...")
         try:
-            exchanges: list[Exchange] = await self.api_client.get_exchanges()
+            exchanges = await self.api_client.get_exchanges()
             logger.info(f"Fetched {len(exchanges)} exchanges from EODHD.")
-
             async with self.AsyncSessionLocal() as session:
-                values = [
-                    {
-                        "code": ex.code,
-                        "name": ex.name,
-                        "country": ex.country,
-                        "currency": ex.currency,
-                        "country_iso3": ex.country_iso3,
-                    }
-                    for ex in exchanges
-                ]
-
-                stmt = pg_insert(exchange_table).values(values)
-
-                on_conflict_stmt = stmt.on_conflict_do_update(
-                    index_elements=[exchange_table.c.code],
-                    set_={
-                        "name": stmt.excluded.name,
-                        "country": stmt.excluded.country,
-                        "currency": stmt.excluded.currency,
-                        "country_iso3": stmt.excluded.country_iso3,
-                    },
-                )
-                await session.execute(on_conflict_stmt)
-                await session.commit()
-                logger.info(f"Successfully stored/updated {len(exchanges)} exchanges in the database.")
+                repo = ExchangeRepository(session)
+                await repo.upsert(exchanges)
+            logger.info(f"Successfully stored/updated {len(exchanges)} exchanges in the database.")
         except Exception as e:
             logger.error(f"Error downloading or storing exchanges: {e}", exc_info=True)
             raise
@@ -91,131 +55,27 @@ class EodhdService:
         """
         logger.info("Starting EODHD US ticker data download...")
         try:
-            tickers: list[Ticker] = await self.api_client.get_tickers_for_exchange("US")
+            tickers = await self.api_client.get_tickers_for_exchange("US")
             logger.info(f"Fetched {len(tickers)} tickers from EODHD for US exchange.")
-
             async with self.AsyncSessionLocal() as session:
-                total_processed = 0
-
-                # Process tickers in batches
-                for i in range(0, len(tickers), batch_size):
-                    batch = tickers[i : i + batch_size]
-                    values = [
-                        {
-                            "code": t.code + ".US",
-                            "exchange_code": t.code,
-                            "name": t.name,
-                            "country": t.country,
-                            "exchange": t.exchange,
-                            "currency": t.currency,
-                            "type": t.type,
-                            "isin": t.isin,
-                            "source": "eodhd",
-                            "status": "active",
-                        }
-                        for t in batch
-                    ]
-
-                    stmt = pg_insert(ticker_table).values(values)
-                    on_conflict_stmt = stmt.on_conflict_do_update(
-                        index_elements=[ticker_table.c.code],
-                        set_={
-                            "exchange_code": stmt.excluded.exchange_code,
-                            "name": stmt.excluded.name,
-                            "country": stmt.excluded.country,
-                            "exchange": stmt.excluded.exchange,
-                            "currency": stmt.excluded.currency,
-                            "type": stmt.excluded.type,
-                            "isin": stmt.excluded.isin,
-                            "source": stmt.excluded.source,
-                            "status": stmt.excluded.status,
-                        },
-                    )
-                    await session.execute(on_conflict_stmt)
-                    total_processed += len(batch)
-                    logger.info(f"Processed batch {i // batch_size + 1}: {total_processed}/{len(tickers)} tickers")
-
-                await session.commit()
-                logger.info(f"Successfully stored/updated {total_processed} US tickers in the database.")
+                repo = TickerRepository(session)
+                total = await repo.upsert(tickers, batch_size=batch_size)
+            logger.info(f"Successfully stored/updated {total} US tickers in the database.")
         except Exception as e:
             logger.error(f"Error downloading or storing US tickers: {e}", exc_info=True)
             raise
-
-    async def _insert_price_history_batch(self, session: AsyncSession, price_records: list[PriceHistory]) -> int:
-        """
-        Helper method to insert a batch of price history records into the database.
-
-        Args:
-            session: Database session
-            price_records: List of PriceHistory records to insert
-
-        Returns:
-            Number of records inserted/updated
-        """
-        if not price_records:
-            return 0
-
-        values_to_insert = []
-        for record in price_records:
-            # Convert date string to datetime object
-            try:
-                record_date = datetime.fromisoformat(record.date)
-            except ValueError as e:
-                logger.warning(f"Invalid date format for {record.ticker}: {record.date}, skipping. Error: {e}")
-                continue
-
-            values_to_insert.append(
-                {
-                    "symbol": record.ticker,
-                    "date": record_date,
-                    "open": record.open,
-                    "high": record.high,
-                    "low": record.low,
-                    "close": record.close,
-                    "adjusted_close": record.adjusted_close,
-                    "volume": record.volume,
-                    "source": "eodhd",
-                }
-            )
-
-        if not values_to_insert:
-            return 0
-
-        stmt = pg_insert(daily_bars_table).values(values_to_insert)
-
-        on_conflict_stmt = stmt.on_conflict_do_update(
-            index_elements=[daily_bars_table.c.symbol, daily_bars_table.c.date],
-            set_={
-                "open": stmt.excluded.open,
-                "high": stmt.excluded.high,
-                "low": stmt.excluded.low,
-                "close": stmt.excluded.close,
-                "adjusted_close": stmt.excluded.adjusted_close,
-                "volume": stmt.excluded.volume,
-                "source": stmt.excluded.source,
-            },
-        )
-        await session.execute(on_conflict_stmt)
-        await session.commit()
-
-        return len(values_to_insert)
 
     async def download_historical_data(
         self, ticker_limit: int | None = None, start_date: str | None = None, end_date: str | None = None
     ) -> None:
         """
         Downloads historical EOD data for filtered US stocks and stores it in the database.
-        Uses batch processing for both API calls and database inserts to manage memory efficiently.
 
         Args:
-            ticker_limit: Optional limit on number of tickers to process. Useful for testing.
-                         If None, processes all tickers. Default: None.
-            start_date: Optional start date for historical data (format: YYYY-MM-DD).
-                       If None, uses DATE_FROM constant. Default: None.
-            end_date: Optional end date for historical data (format: YYYY-MM-DD).
-                     If None, uses DATE_TO constant. Default: None.
+            ticker_limit: Optional limit on number of tickers to process.
+            start_date: Optional start date (YYYY-MM-DD). Defaults to DATE_FROM.
+            end_date: Optional end date (YYYY-MM-DD). Defaults to today.
         """
-        # Use provided dates or fall back to defaults
         from_date = start_date or DATE_FROM
         to_date = end_date or DATE_TO
 
@@ -227,50 +87,31 @@ class EodhdService:
 
         try:
             async with self.AsyncSessionLocal() as session:
-                # Fetch tickers to process - Filter: USA, specific exchanges, Common Stock type
-                stmt = select(ticker_table.c.exchange_code).where(
-                    and_(
-                        ticker_table.c.country == "USA",
-                        ticker_table.c.exchange.in_(US_EXCHANGES),
-                        ticker_table.c.type == COMMON_STOCK_TYPE,
-                    )
-                )
-                result = await session.execute(stmt)
-                us_stocks = result.fetchall()  # List of (exchange_code,) tuples
-
-                # Apply limit if specified (for testing)
+                ticker_repo = TickerRepository(session)
+                us_stocks = await ticker_repo.fetch_us_stocks(limit=ticker_limit)
                 if ticker_limit is not None:
-                    us_stocks = us_stocks[:ticker_limit]
                     logger.info(f"Limiting to first {ticker_limit} tickers for testing.")
 
                 logger.info(f"Found {len(us_stocks)} US stocks matching criteria for historical data download.")
-
-                # Process in batches to manage API rate limits and memory
                 num_batches = (len(us_stocks) + API_BATCH_SIZE - 1) // API_BATCH_SIZE
+                bars_repo = DailyBarsRepository(session)
 
                 for i in range(0, len(us_stocks), API_BATCH_SIZE):
                     batch = us_stocks[i : i + API_BATCH_SIZE]
                     batch_num = i // API_BATCH_SIZE + 1
 
-                    # Create concurrent API requests for this batch
-                    tasks = []
-                    for row in batch:
-                        eodhd_ticker = f"{row.exchange_code}.US"  # EODHD API requires "AAPL.US" format
-                        tasks.append(
-                            self.api_client.get_eod_historical_data(
-                                ticker=eodhd_ticker,
-                                from_date=from_date,
-                                to_date=to_date,
-                            )
+                    tasks = [
+                        self.api_client.get_eod_historical_data(
+                            ticker=f"{row.exchange_code}.US",
+                            from_date=from_date,
+                            to_date=to_date,
                         )
-
-                    # Execute API calls concurrently
+                        for row in batch
+                    ]
                     batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                    # Process results and collect price history records
                     batch_price_records: list[PriceHistory] = []
-                    for idx in range(len(batch_results)):
-                        result = batch_results[idx]  # type: ignore[assignment]
+                    for idx, result in enumerate(batch_results):
                         eodhd_ticker = f"{batch[idx].exchange_code}.US"
                         if isinstance(result, Exception):
                             logger.error(f"Error fetching historical data for {eodhd_ticker}: {type(result).__name__}: {result}")
@@ -279,12 +120,10 @@ class EodhdService:
                             batch_price_records.extend(result)
                             total_stocks_processed += 1
 
-                    # Insert collected records into database in smaller batches
                     if batch_price_records:
                         for j in range(0, len(batch_price_records), DB_BATCH_SIZE):
                             db_batch = batch_price_records[j : j + DB_BATCH_SIZE]
-                            records_inserted = await self._insert_price_history_batch(session, db_batch)
-                            total_records_inserted += records_inserted
+                            total_records_inserted += await bars_repo.upsert_batch(db_batch)
 
                     logger.info(
                         f"Batch {batch_num}/{num_batches}: Processed {len(batch)} stocks, "
@@ -292,17 +131,15 @@ class EodhdService:
                         f"Total: {total_stocks_processed} stocks, {total_records_inserted} records inserted."
                     )
 
-                    # Rate limiting: Add delay between API batches (except for the last batch)
                     if i + API_BATCH_SIZE < len(us_stocks):
                         await asyncio.sleep(BATCH_DELAY_SECONDS)
 
-                logger.info(
-                    f"Historical data download completed. "
-                    f"Successfully processed: {total_stocks_processed} stocks, "
-                    f"Failed: {total_stocks_failed} stocks, "
-                    f"Total records inserted/updated: {total_records_inserted}"
-                )
-
+            logger.info(
+                f"Historical data download completed. "
+                f"Successfully processed: {total_stocks_processed} stocks, "
+                f"Failed: {total_stocks_failed} stocks, "
+                f"Total records inserted/updated: {total_records_inserted}"
+            )
         except Exception as e:
             logger.error(f"Error downloading or storing historical data: {e}", exc_info=True)
             raise
@@ -310,11 +147,9 @@ class EodhdService:
     async def download_company_data(self, ticker_limit: int | None = None) -> None:
         """
         Downloads company data for US stocks and stores it in the database.
-        Uses batch processing for both API calls and database inserts to manage rate limits efficiently.
 
         Args:
-            ticker_limit: Optional limit on number of tickers to process. Useful for testing.
-                         If None, processes all tickers. Default: None.
+            ticker_limit: Optional limit on number of tickers to process.
         """
         logger.info("Starting EODHD company data download for US stocks...")
         total_records_inserted = 0
@@ -323,51 +158,29 @@ class EodhdService:
 
         try:
             async with self.AsyncSessionLocal() as session:
-                # Fetch tickers to process - Filter: USA, specific exchanges, Common Stock type
-                stmt = select(ticker_table.c.exchange_code).where(
-                    and_(
-                        ticker_table.c.country == "USA",
-                        ticker_table.c.exchange.in_(US_EXCHANGES),
-                        ticker_table.c.type == COMMON_STOCK_TYPE,
-                    )
-                )
-                result = await session.execute(stmt)
-                us_stocks = result.fetchall()  # List of (exchange_code,) tuples
-
-                # Apply limit if specified (for testing)
+                ticker_repo = TickerRepository(session)
+                us_stocks = await ticker_repo.fetch_us_stocks(limit=ticker_limit)
                 if ticker_limit is not None:
-                    us_stocks = us_stocks[:ticker_limit]
                     logger.info(f"Limiting to first {ticker_limit} tickers for testing.")
 
                 logger.info(f"Found {len(us_stocks)} US stocks matching criteria for company data download.")
-
-                # Process in batches to manage API rate limits
                 num_batches = (len(us_stocks) + API_BATCH_SIZE - 1) // API_BATCH_SIZE
+                company_repo = CompanyRepository(session)
 
                 for i in range(0, len(us_stocks), API_BATCH_SIZE):
                     batch = us_stocks[i : i + API_BATCH_SIZE]
                     batch_num = i // API_BATCH_SIZE + 1
 
-                    # Create concurrent API requests for this batch
-                    tasks = []
-                    for row in batch:
-                        eodhd_ticker = f"{row.exchange_code}.US"  # EODHD API requires "AAPL.US" format
-                        tasks.append(self.api_client.get_us_quote_delayed(ticker=eodhd_ticker))
-
-                    # Execute API calls concurrently
+                    tasks = [self.api_client.get_us_quote_delayed(ticker=f"{row.exchange_code}.US") for row in batch]
                     batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                    # Process results and collect company data records
                     values_to_insert: list[dict[str, object]] = []
-                    for idx in range(len(batch_results)):
-                        result = batch_results[idx]  # type: ignore[assignment]
+                    for idx, result in enumerate(batch_results):
                         eodhd_ticker = f"{batch[idx].exchange_code}.US"
                         if isinstance(result, Exception):
                             logger.error(f"Error fetching company data for {eodhd_ticker}: {type(result).__name__}: {result}")
                             total_tickers_failed += 1
                         elif isinstance(result, Company):
-                            # Validate that we have meaningful data (not all fields are None)
-                            # Check if at least one of the critical fields has data
                             has_data = any(
                                 [
                                     result.type,
@@ -379,7 +192,6 @@ class EodhdService:
                                     result.market_cap,
                                 ]
                             )
-
                             if not has_data:
                                 logger.warning(f"Skipping {eodhd_ticker} - API returned empty data (all fields are None)")
                                 total_tickers_failed += 1
@@ -402,45 +214,24 @@ class EodhdService:
                             )
                             total_tickers_processed += 1
 
-                    # Insert collected records into database
-                    if values_to_insert:
-                        insert_stmt = pg_insert(company_table).values(values_to_insert)
-                        on_conflict_stmt = insert_stmt.on_conflict_do_update(
-                            index_elements=[company_table.c.ticker_code],
-                            set_={
-                                "type": insert_stmt.excluded.type,
-                                "name": insert_stmt.excluded.name,
-                                "sector": insert_stmt.excluded.sector,
-                                "industry": insert_stmt.excluded.industry,
-                                "average_volume": insert_stmt.excluded.average_volume,
-                                "average_price": insert_stmt.excluded.average_price,
-                                "dividend_yield": insert_stmt.excluded.dividend_yield,
-                                "market_cap": insert_stmt.excluded.market_cap,
-                                "pe": insert_stmt.excluded.pe,
-                                "forward_pe": insert_stmt.excluded.forward_pe,
-                            },
-                        )
-                        await session.execute(on_conflict_stmt)
-                        await session.commit()
-                        total_records_inserted += len(values_to_insert)
+                    inserted = await company_repo.upsert_batch(values_to_insert)
+                    total_records_inserted += inserted
 
                     logger.info(
                         f"Batch {batch_num}/{num_batches}: Processed {len(batch)} tickers, "
-                        f"inserted {len(values_to_insert)} records. "
+                        f"inserted {inserted} records. "
                         f"Total: {total_tickers_processed} tickers, {total_records_inserted} records inserted."
                     )
 
-                    # Rate limiting: Add delay between API batches (except for the last batch)
                     if i + API_BATCH_SIZE < len(us_stocks):
                         await asyncio.sleep(BATCH_DELAY_SECONDS)
 
-                logger.info(
-                    f"Company data download completed. "
-                    f"Successfully processed: {total_tickers_processed} tickers, "
-                    f"Failed: {total_tickers_failed} tickers, "
-                    f"Total records inserted/updated: {total_records_inserted}"
-                )
-
+            logger.info(
+                f"Company data download completed. "
+                f"Successfully processed: {total_tickers_processed} tickers, "
+                f"Failed: {total_tickers_failed} tickers, "
+                f"Total records inserted/updated: {total_records_inserted}"
+            )
         except Exception as e:
             logger.error(f"Error downloading or storing company data: {e}", exc_info=True)
             raise
