@@ -2,8 +2,8 @@
 
 from datetime import datetime
 from turtle.backtest.models import Trade
-from turtle.data.bars_history import BarsHistoryRepo
 from turtle.exit import MACDExitStrategy
+from turtle.repositories.analytics import OhlcvAnalyticsRepository
 from unittest.mock import Mock
 
 import pandas as pd
@@ -14,8 +14,8 @@ class TestMACDExitStrategy:
     """Test cases for MACDExitStrategy."""
 
     def create_mock_bars_history(self) -> Mock:
-        """Create a mock BarsHistoryRepo for testing."""
-        mock_bars_history = Mock(spec=BarsHistoryRepo)
+        """Create a mock bars history repo for testing."""
+        mock_bars_history = Mock(spec=OhlcvAnalyticsRepository)
         return mock_bars_history
 
     def test_init(self) -> None:

@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime, timedelta
 from turtle.common.enums import TimeFrameUnit
-from turtle.data.bars_history import BarsHistoryRepo
+from turtle.repositories.analytics import OhlcvAnalyticsRepository
 from turtle.signal.base import TradingStrategy
 from turtle.signal.models import Signal
 
@@ -22,7 +22,7 @@ class PortfolioSignalProcessor:
     def __init__(
         self,
         trading_strategy: TradingStrategy,
-        bars_history: BarsHistoryRepo,
+        bars_history: OhlcvAnalyticsRepository,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         batch_size: int = 50,
     ):

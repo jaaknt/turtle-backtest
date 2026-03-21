@@ -54,7 +54,6 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
-from turtle.data.bars_history import BarsHistoryRepo
 from turtle.exit.atr import ATRExitStrategy
 from turtle.exit.base import ExitStrategy
 from turtle.exit.buy_and_hold import BuyAndHoldExitStrategy
@@ -64,6 +63,7 @@ from turtle.exit.profit_loss import ProfitLossExitStrategy
 from turtle.ranking.base import RankingStrategy
 from turtle.ranking.momentum import MomentumRanking
 from turtle.ranking.volume_momentum import VolumeMomentumRanking
+from turtle.repositories.analytics import OhlcvAnalyticsRepository
 from turtle.services.portfolio_service import PortfolioService
 
 # PortfolioResults no longer needed - analytics prints directly
@@ -76,7 +76,7 @@ from turtle.signal.momentum import MomentumStrategy
 logger = logging.getLogger(__name__)
 
 
-def _get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, bars_history: BarsHistoryRepo) -> TradingStrategy:
+def _get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, bars_history: OhlcvAnalyticsRepository) -> TradingStrategy:
     """Create trading strategy instance by name."""
     strategy_classes: dict[str, type[TradingStrategy]] = {
         "darvas_box": DarvasBoxStrategy,
@@ -97,7 +97,7 @@ def _get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy,
     )
 
 
-def _get_exit_strategy(strategy_name: str, bars_history: BarsHistoryRepo) -> ExitStrategy:
+def _get_exit_strategy(strategy_name: str, bars_history: OhlcvAnalyticsRepository) -> ExitStrategy:
     """Create exit strategy instance by name."""
     strategy_classes: dict[str, type[ExitStrategy]] = {
         "buy_and_hold": BuyAndHoldExitStrategy,
@@ -267,7 +267,7 @@ def main() -> int:
         settings = Settings.from_toml()
 
         # Create bars history repository
-        bars_history = BarsHistoryRepo(engine=settings.engine)
+        bars_history = OhlcvAnalyticsRepository(engine=settings.engine)
 
         # Create strategy instances
         ranking_strategy = _get_ranking_strategy(args.ranking_strategy)

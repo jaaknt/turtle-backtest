@@ -4,10 +4,10 @@ import logging
 from datetime import datetime, timedelta
 from turtle.backtest.models import Benchmark, FutureTrade, Trade
 from turtle.common.enums import TimeFrameUnit
-from turtle.data.bars_history import BarsHistoryRepo
 from turtle.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
 from turtle.exit.atr import ATRExitStrategy
 from turtle.portfolio.models import Position
+from turtle.repositories.analytics import OhlcvAnalyticsRepository
 from turtle.signal.models import Signal
 
 import pandas as pd
@@ -32,7 +32,7 @@ class SignalProcessor:
     def __init__(
         self,
         max_holding_period: int,
-        bars_history: BarsHistoryRepo,
+        bars_history: OhlcvAnalyticsRepository,
         exit_strategy: ExitStrategy,
         benchmark_tickers: list[str],
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,

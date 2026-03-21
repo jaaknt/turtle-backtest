@@ -1,8 +1,8 @@
 from datetime import datetime
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.settings import Settings
-from turtle.data.bars_history import BarsHistoryRepo
 from turtle.ranking.momentum import MomentumRanking
+from turtle.repositories.analytics import OhlcvAnalyticsRepository
 from turtle.services.signal_service import SignalService
 from turtle.signal.darvas_box import DarvasBoxStrategy
 
@@ -18,7 +18,7 @@ end_date = datetime(year=2025, month=8, day=12)
 # Create settings and database connection
 settings = Settings.from_toml()
 engine = settings.engine
-bars_history = BarsHistoryRepo(engine)
+bars_history = OhlcvAnalyticsRepository(engine)
 
 # Create DarvasBoxStrategy instance
 darvas_strategy = DarvasBoxStrategy(

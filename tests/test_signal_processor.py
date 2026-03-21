@@ -17,7 +17,7 @@ class TestSignalProcessor:
 
     @pytest.fixture
     def mock_bars_history(self) -> Mock:
-        """Create a mock BarsHistoryRepo."""
+        """Create a mock bars history repo."""
         return Mock()
 
     @pytest.fixture

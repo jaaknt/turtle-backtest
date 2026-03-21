@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from turtle.backtest.models import Trade
-from turtle.data.bars_history import BarsHistoryRepo
+from turtle.repositories.analytics import OhlcvAnalyticsRepository
 
 import pandas as pd
 
@@ -11,7 +11,7 @@ import pandas as pd
 class ExitStrategy(ABC):
     """Abstract base class for exit strategies."""
 
-    def __init__(self, bars_history: BarsHistoryRepo):
+    def __init__(self, bars_history: OhlcvAnalyticsRepository):
         self.bars_history = bars_history
 
     def initialize(self, ticker: str, start_date: datetime, end_date: datetime) -> None:
