@@ -168,7 +168,7 @@ def test_ranking() -> None:
 
     # Test case 1: Stock with $50 price (should return rank 12 for price component only)
     mock_df = pd.DataFrame({
-        'hdate': [test_date],
+        "date": [test_date],
         'close': [50.0],
         'open': [49.0],
         'high': [51.0],
@@ -186,7 +186,7 @@ def test_ranking() -> None:
 
     # Test case 2: High-priced stock (should return rank 1)
     mock_df_expensive = pd.DataFrame({
-        'hdate': [test_date],
+        "date": [test_date],
         'close': [1500.0],
         'open': [1480.0],
         'high': [1520.0],
@@ -204,7 +204,7 @@ def test_ranking() -> None:
 
     # Test case 3: Low-priced stock (should return rank 20 for price component)
     mock_df_cheap = pd.DataFrame({
-        'hdate': [test_date],
+        "date": [test_date],
         'close': [8.50],
         'open': [8.20],
         'high': [8.80],

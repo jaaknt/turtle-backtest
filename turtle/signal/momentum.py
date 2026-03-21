@@ -82,7 +82,7 @@ class MomentumStrategy(TradingStrategy):
         self.calculate_indicators()
 
         # Filter data to target date range
-        filtered_df = self.df[self.df["hdate"] >= start_date].copy()
+        filtered_df = self.df[self.df["date"] >= start_date].copy()
         if filtered_df.empty:
             logger.debug(f"{ticker} - no data after date filtering")
             return []
@@ -107,7 +107,7 @@ class MomentumStrategy(TradingStrategy):
 
         # print all values from start_date to end_date where buy_signals is False
         for _, row in filtered_df[~buy_signals].iterrows():
-            logger.debug(f"{ticker} - no buy signal on {row['hdate'].date()}")
+            logger.debug(f"{ticker} - no buy signal on {row['date'].date()}")
             logger.debug(f"  close: {row['close']} max_close_20: {row['max_close_20']} ema_10: {row['ema_10']} ema_20: {row['ema_20']}")
             logger.debug(
                 f"  ema_50: {row['ema_50']} ema_200: {row['ema_200']} "
@@ -117,7 +117,7 @@ class MomentumStrategy(TradingStrategy):
             logger.debug(f"  (close - open) / close: {(row['close'] - row['open']) / row['close']}")
 
         # Get the dates where buy signals occur
-        signal_dates = filtered_df[buy_signals]["hdate"].tolist()
+        signal_dates = filtered_df[buy_signals]["date"].tolist()
 
         # Return list of Signal objects
         return [

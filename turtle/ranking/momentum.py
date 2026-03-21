@@ -212,7 +212,7 @@ class MomentumRanking(RankingStrategy):
                  - Period high component: 0-20 (higher scores for longer period as highest close)
         """
 
-        self.filtered_df = df[df["hdate"] <= date].copy()
+        self.filtered_df = df[df["date"] <= date].copy()
 
         # Get the closing price from the target date
         closing_price = self.filtered_df.iloc[-1]["close"]

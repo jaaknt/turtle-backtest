@@ -65,31 +65,30 @@ class MarsStrategy(TradingStrategy):
         self.df["buy_signal"] = False
 
         self.df = self.df.reset_index()
-        # self.df["hdate"] = pd.to_datetime(self.df["hdate"]) - pd.Timedelta(days=6)
 
     def is_buy_signal(self, ticker: str, row: pd.Series) -> bool:
         # last close > max(close, 10)
         if row["close"] < row["max_close_10"]:
             logger.debug(
-                f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} close < max_close_10, "
+                f"{ticker} {row['date'].strftime('%Y-%m-%d')} close < max_close_10, "
                 f"close: {row['close']} max_close_10: {row['max_close_10']}"
             )
             return False
 
         # EMA(close, 10) > EMA(close, 20)
         if row["ema_10"] < row["ema_20"]:
-            logger.debug(f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} EMA_10 < EMA_20, EMA10: {row['ema_10']} EMA20: {row['ema_20']}")
+            logger.debug(f"{ticker} {row['date'].strftime('%Y-%m-%d')} EMA_10 < EMA_20, EMA10: {row['ema_10']} EMA20: {row['ema_20']}")
             return False
 
         # MACD_signal is not NaN or MACD is not NaN
         if pd.isna(row["macd"]) or pd.isna(row["macd_signal"]):
-            logger.debug(f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} MACD_signal is NaN")
+            logger.debug(f"{ticker} {row['date'].strftime('%Y-%m-%d')} MACD_signal is NaN")
             return False
 
         # consolidation_change < 0.12
         if row["consolidation_change"] > 0.12:
             logger.debug(
-                f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} consolidation_change > 0.12, "
+                f"{ticker} {row['date'].strftime('%Y-%m-%d')} consolidation_change > 0.12, "
                 f"consolidation_change: {row['consolidation_change']}"
             )
             return False
@@ -97,7 +96,7 @@ class MarsStrategy(TradingStrategy):
         # (close - hard_stoploss / close < 0.16
         if (row["close"] - row["hard_stoploss"]) / row["close"] > 0.25:
             logger.debug(
-                f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} (close - (max_box_4 - min_box_4) / 2) / close < 0.16, "
+                f"{ticker} {row['date'].strftime('%Y-%m-%d')} (close - (max_box_4 - min_box_4) / 2) / close < 0.16, "
                 f"close: {row['close']} hard_stoploss: {row['hard_stoploss']}"
             )
             return False
@@ -106,13 +105,13 @@ class MarsStrategy(TradingStrategy):
         # if last volume < EMA(volume, 4)*1.10
         if row["volume"] < row["ema_volume_4"] * 0.9:
             logger.debug(
-                f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} volume < EMA_volume_4 * 1.10, "
+                f"{ticker} {row['date'].strftime('%Y-%m-%d')} volume < EMA_volume_4 * 1.10, "
                 f"volume: {row['volume']} EMA_volume_4 * 1.10: {row['ema_volume_4']*1.10}"
             )
             return False
         """
 
-        logger.debug(f"{ticker} {row['hdate'].strftime('%Y-%m-%d')} buy signal")
+        logger.debug(f"{ticker} {row['date'].strftime('%Y-%m-%d')} buy signal")
         return True
 
     def calculate_entries(self, ticker: str, start_date: datetime, end_date: datetime) -> None:
@@ -124,7 +123,7 @@ class MarsStrategy(TradingStrategy):
         self.calculate_indicators()
 
         self.df_orig = self.df.copy()
-        self.df = self.df.query("hdate >= @start_date and hdate <= @end_date")
+        self.df = self.df.query("date >= @start_date and date <= @end_date")
 
         # skip rows before start_date and after end_date
         for i, row in self.df.iterrows():
@@ -150,12 +149,12 @@ class MarsStrategy(TradingStrategy):
         self.calculate_indicators()
 
         # Filter to the date range
-        filtered_df = self.df[(self.df["hdate"].dt.date >= start_date.date()) & (self.df["hdate"].dt.date <= end_date.date())]
+        filtered_df = self.df[(self.df["date"].dt.date >= start_date.date()) & (self.df["date"].dt.date <= end_date.date())]
 
         signals = []
         for _, row in filtered_df.iterrows():
             if self.is_buy_signal(ticker, row):
-                signals.append(Signal(ticker=ticker, date=row["hdate"], ranking=0))
+                signals.append(Signal(ticker=ticker, date=row["date"], ranking=0))
 
         return signals
 
@@ -201,7 +200,7 @@ class MarsStrategy(TradingStrategy):
             return 0
 
         # Filter to the specific date
-        target_df = self.df[self.df["hdate"].dt.date == date_to_check.date()]
+        target_df = self.df[self.df["date"].dt.date == date_to_check.date()]
 
         if target_df.empty:
             logger.debug(f"{ticker} - no data for ranking on date {date_to_check.date()}")

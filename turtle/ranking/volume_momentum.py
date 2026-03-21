@@ -336,7 +336,7 @@ class VolumeMomentumRanking(RankingStrategy):
 
         Quality gates applied for selectivity improvement.
         """
-        self.filtered_df = df[df["hdate"] <= date].copy()
+        self.filtered_df = df[df["date"] <= date].copy()
 
         if len(self.filtered_df) < 130:  # Require more data for quality analysis
             return 1

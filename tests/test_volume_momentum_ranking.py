@@ -38,7 +38,7 @@ def create_test_data(length: int = 100) -> pd.DataFrame:
     volumes = volumes * volume_multiplier
 
     return pd.DataFrame({
-        'hdate': dates,
+        "date": dates,
         'open': opens,
         'high': highs,
         'low': lows,
@@ -97,7 +97,7 @@ def test_volume_weighted_momentum_component() -> None:
     ])
 
     data = pd.DataFrame({
-        'hdate': dates,
+        "date": dates,
         'open': prices,
         'high': prices * 1.01,
         'low': prices * 0.99,
@@ -125,7 +125,7 @@ def test_volatility_adjusted_strength_component() -> None:
     prices = prices + small_noise
 
     data = pd.DataFrame({
-        'hdate': dates,
+        "date": dates,
         'open': prices,
         'high': prices * 1.005,
         'low': prices * 0.995,
@@ -153,7 +153,7 @@ def test_liquidity_quality_component() -> None:
     volumes = np.abs(volumes)  # Ensure positive
 
     data = pd.DataFrame({
-        'hdate': dates,
+        "date": dates,
         'open': prices,
         'high': prices,
         'low': prices,
@@ -181,7 +181,7 @@ def test_technical_confluence_component() -> None:
     prices = base_prices + noise
 
     data = pd.DataFrame({
-        'hdate': dates,
+        "date": dates,
         'open': prices,
         'high': prices * 1.01,
         'low': prices * 0.99,
@@ -207,7 +207,7 @@ def test_rsi_calculation() -> None:
     prices = 100 + np.sin(np.linspace(0, 4*np.pi, 50)) * 5
 
     data = pd.DataFrame({
-        'hdate': dates,
+        "date": dates,
         'open': prices,
         'high': prices,
         'low': prices,
@@ -230,7 +230,7 @@ def test_moving_average_calculation() -> None:
     prices = np.linspace(80, 120, 100)  # Clear uptrend
 
     data = pd.DataFrame({
-        'hdate': dates,
+        "date": dates,
         'open': prices,
         'high': prices,
         'low': prices,
@@ -258,7 +258,7 @@ def test_momentum_calculation() -> None:
     prices = np.concatenate([early_prices, late_prices])
 
     data = pd.DataFrame({
-        'hdate': dates,
+        "date": dates,
         'open': prices,
         'high': prices,
         'low': prices,
