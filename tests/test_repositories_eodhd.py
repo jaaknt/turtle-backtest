@@ -5,6 +5,7 @@ from turtle.repositories.eodhd import (
     CompanyRepository,
     DailyBarsRepository,
     ExchangeRepository,
+    TickerQueryRepository,
     TickerRepository,
 )
 from turtle.schemas import Company, DailyBars, Exchange, Ticker
@@ -98,28 +99,28 @@ async def test_ticker_upsert_appends_us_suffix(session: AsyncMock) -> None:
 
 
 @pytest.mark.anyio
-async def test_fetch_us_stocks_no_limit(session: AsyncMock) -> None:
+async def test_fetch_tickers_no_limit(session: AsyncMock) -> None:
     mock_rows = [MagicMock(exchange_code=f"TICK{i}") for i in range(5)]
     mock_result = MagicMock()
     mock_result.fetchall.return_value = mock_rows
     session.execute.return_value = mock_result
 
     repo = TickerRepository(session)
-    result = await repo.fetch_us_stocks(limit=None)
+    result = await repo.fetch_tickers(country="USA", limit=None)
 
     assert result == mock_rows
     session.execute.assert_called_once()
 
 
 @pytest.mark.anyio
-async def test_fetch_us_stocks_with_limit(session: AsyncMock) -> None:
+async def test_fetch_tickers_with_limit(session: AsyncMock) -> None:
     mock_rows = [MagicMock(exchange_code=f"TICK{i}") for i in range(5)]
     mock_result = MagicMock()
     mock_result.fetchall.return_value = mock_rows
     session.execute.return_value = mock_result
 
     repo = TickerRepository(session)
-    result = await repo.fetch_us_stocks(limit=2)
+    result = await repo.fetch_tickers(country="USA", limit=2)
 
     assert result == mock_rows[:2]
 
@@ -177,3 +178,52 @@ async def test_company_upsert_calls_execute_and_commit(session: AsyncMock) -> No
     assert count == 2
     session.execute.assert_called_once()
     session.commit.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# TickerQueryRepository
+# ---------------------------------------------------------------------------
+
+
+def _make_engine_mock(rows: list[MagicMock]) -> MagicMock:
+    mock_result = MagicMock()
+    mock_result.fetchall.return_value = rows
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value = mock_result
+    mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+    mock_conn.__exit__ = MagicMock(return_value=False)
+    mock_engine = MagicMock()
+    mock_engine.connect.return_value = mock_conn
+    return mock_engine
+
+
+def test_ticker_query_get_symbol_list_returns_codes() -> None:
+    rows = [MagicMock(code=c) for c in ["AAPL.US", "AMZN.US", "TSLA.US"]]
+    engine = _make_engine_mock(rows)
+    repo = TickerQueryRepository(engine)
+    result = repo.get_symbol_list("USA")
+    assert result == ["AAPL.US", "AMZN.US", "TSLA.US"]
+
+
+def test_ticker_query_get_symbol_list_empty() -> None:
+    engine = _make_engine_mock([])
+    repo = TickerQueryRepository(engine)
+    result = repo.get_symbol_list("USA")
+    assert result == []
+
+
+def test_ticker_query_get_symbol_list_min_code_filter() -> None:
+    rows = [MagicMock(code=c) for c in ["AAPL.US", "AMZN.US", "GOOGL.US", "MSFT.US", "TSLA.US"]]
+    engine = _make_engine_mock(rows)
+    repo = TickerQueryRepository(engine)
+    assert repo.get_symbol_list("USA", min_code="MSFT.US") == ["MSFT.US", "TSLA.US"]
+    assert repo.get_symbol_list("USA", min_code="Z") == []
+    assert repo.get_symbol_list("USA", min_code="") == ["AAPL.US", "AMZN.US", "GOOGL.US", "MSFT.US", "TSLA.US"]
+
+
+def test_ticker_query_get_symbol_list_limit() -> None:
+    rows = [MagicMock(code=c) for c in ["AAPL.US", "AMZN.US", "TSLA.US"]]
+    engine = _make_engine_mock(rows)
+    repo = TickerQueryRepository(engine)
+    assert repo.get_symbol_list("USA", limit=2) == ["AAPL.US", "AMZN.US"]
+    assert repo.get_symbol_list("USA", limit=None) == ["AAPL.US", "AMZN.US", "TSLA.US"]

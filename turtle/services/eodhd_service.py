@@ -88,7 +88,7 @@ class EodhdService:
         try:
             async with self.AsyncSessionLocal() as session:
                 ticker_repo = TickerRepository(session)
-                us_stocks = await ticker_repo.fetch_us_stocks(limit=ticker_limit)
+                us_stocks = await ticker_repo.fetch_tickers(country="USA", limit=ticker_limit)
                 if ticker_limit is not None:
                     logger.info(f"Limiting to first {ticker_limit} tickers for testing.")
 
@@ -159,7 +159,7 @@ class EodhdService:
         try:
             async with self.AsyncSessionLocal() as session:
                 ticker_repo = TickerRepository(session)
-                us_stocks = await ticker_repo.fetch_us_stocks(limit=ticker_limit)
+                us_stocks = await ticker_repo.fetch_tickers(country="USA", limit=ticker_limit)
                 if ticker_limit is not None:
                     logger.info(f"Limiting to first {ticker_limit} tickers for testing.")
 

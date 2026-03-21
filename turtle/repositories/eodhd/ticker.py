@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from turtle.data.tables import ticker_table
 from turtle.schemas import Ticker
 
-from sqlalchemy import and_, select
+from sqlalchemy import Engine, and_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Row
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +12,39 @@ logger = logging.getLogger(__name__)
 
 US_EXCHANGES = ["NASDAQ", "NYSE", "NYSE ARCA", "NYSE MKT"]
 COMMON_STOCK_TYPE = "Common Stock"
+
+
+class TickerQueryRepository:
+    """Sync Engine-based repository for ticker list reads."""
+
+    def __init__(self, engine: Engine) -> None:
+        self._engine = engine
+
+    def get_symbol_list(
+        self,
+        country: str,
+        min_code: str = "",
+        limit: int | None = None,
+    ) -> list[str]:
+        t = ticker_table
+        stmt = (
+            select(t.c.code)
+            .where(
+                and_(
+                    ticker_table.c.country == country,
+                    ticker_table.c.exchange.in_(US_EXCHANGES),
+                    ticker_table.c.type == COMMON_STOCK_TYPE,
+                )
+            )
+            .order_by(t.c.code)
+        )
+        with self._engine.connect() as conn:
+            codes = [row.code for row in conn.execute(stmt).fetchall()]
+        if min_code:
+            codes = [c for c in codes if c >= min_code]
+        if limit is not None:
+            codes = codes[:limit]
+        return codes
 
 
 class TickerRepository:
@@ -59,10 +92,10 @@ class TickerRepository:
         await self._session.commit()
         return total
 
-    async def fetch_us_stocks(self, limit: int | None = None) -> Sequence[Row]:
+    async def fetch_tickers(self, country: str, limit: int | None = None) -> Sequence[Row]:
         stmt = select(ticker_table.c.exchange_code).where(
             and_(
-                ticker_table.c.country == "USA",
+                ticker_table.c.country == country,
                 ticker_table.c.exchange.in_(US_EXCHANGES),
                 ticker_table.c.type == COMMON_STOCK_TYPE,
             )
