@@ -1,12 +1,13 @@
 """Tests for turtle/repositories/eodhd.py async repository classes."""
 
+from datetime import date
 from turtle.repositories.eodhd import (
     CompanyRepository,
     DailyBarsRepository,
     ExchangeRepository,
     TickerRepository,
 )
-from turtle.schemas import Company, Exchange, PriceHistory, Ticker
+from turtle.schemas import Company, DailyBars, Exchange, Ticker
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -33,8 +34,8 @@ def _ticker(code: str = "AAPL") -> Ticker:
     return Ticker(Code=code, Name="Apple", Country="USA", Exchange="NASDAQ", Currency="USD", Type="Common Stock")
 
 
-def _price_history(ticker: str = "AAPL.US", date: str = "2024-01-02") -> PriceHistory:
-    return PriceHistory(ticker=ticker, date=date, open=100.0, high=105.0, low=99.0, close=103.0, adjusted_close=103.0, volume=1000000)
+def _daily_bars(ticker: str = "AAPL.US", bar_date: date = date(2024, 1, 2)) -> DailyBars:
+    return DailyBars(ticker=ticker, date=bar_date, open=100.0, high=105.0, low=99.0, close=103.0, adjusted_close=103.0, volume=1000000)
 
 
 # ---------------------------------------------------------------------------
@@ -140,31 +141,11 @@ async def test_daily_bars_upsert_empty_returns_zero(session: AsyncMock) -> None:
 @pytest.mark.anyio
 async def test_daily_bars_upsert_valid_records(session: AsyncMock) -> None:
     repo = DailyBarsRepository(session)
-    records = [_price_history(date="2024-01-02"), _price_history(date="2024-01-03")]
+    records = [_daily_bars(bar_date=date(2024, 1, 2)), _daily_bars(bar_date=date(2024, 1, 3))]
     count = await repo.upsert_batch(records)
     assert count == 2
     session.execute.assert_called_once()
     session.commit.assert_called_once()
-
-
-@pytest.mark.anyio
-async def test_daily_bars_upsert_skips_invalid_date(session: AsyncMock) -> None:
-    repo = DailyBarsRepository(session)
-    records = [_price_history(date="not-a-date"), _price_history(date="2024-01-03")]
-    count = await repo.upsert_batch(records)
-    assert count == 1
-    session.execute.assert_called_once()
-    session.commit.assert_called_once()
-
-
-@pytest.mark.anyio
-async def test_daily_bars_upsert_all_invalid_dates_returns_zero(session: AsyncMock) -> None:
-    repo = DailyBarsRepository(session)
-    records = [_price_history(date="bad"), _price_history(date="also-bad")]
-    count = await repo.upsert_batch(records)
-    assert count == 0
-    session.execute.assert_not_called()
-    session.commit.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

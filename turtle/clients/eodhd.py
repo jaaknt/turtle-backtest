@@ -1,7 +1,7 @@
 import logging
 import re
 from turtle.config.model import AppConfig
-from turtle.schemas import Company, Exchange, PriceHistory, Ticker
+from turtle.schemas import Company, DailyBars, Exchange, Ticker
 from typing import Any
 
 import httpx
@@ -78,7 +78,7 @@ class EodhdApiClient:
             return [Ticker(**data) for data in response_data]
         raise TypeError("Unexpected response format from EODHD API for tickers")
 
-    async def get_eod_historical_data(self, ticker: str, from_date: str, to_date: str) -> list[PriceHistory]:
+    async def get_eod_historical_data(self, ticker: str, from_date: str, to_date: str) -> list[DailyBars]:
         """
         Fetches End-of-Day historical price data for a given ticker with exchange suffix (e.g., "AAPL.US").
 
@@ -91,9 +91,7 @@ class EodhdApiClient:
         params = {"from": from_date, "to": to_date, "period": "d", "order": "a"}
         response_data = await self._get(path, params=params)
         if isinstance(response_data, list):
-            # EODHD API response contains `date`, which conflicts with Pydantic's `date` type
-            # We explicitly pass ticker here to the PriceHistory model.
-            return [PriceHistory(ticker=ticker, **data) for data in response_data]
+            return [DailyBars(ticker=ticker, **data) for data in response_data]
         raise TypeError("Unexpected response format from EODHD API for historical data")
 
     async def get_us_quote_delayed(self, ticker: str) -> Company:

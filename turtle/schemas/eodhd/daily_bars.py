@@ -1,11 +1,13 @@
+from datetime import date
+
 from pydantic import BaseModel
 
 
-class PriceHistory(BaseModel):
-    """Represents one historical price data point (EOD) from EODHD."""
+class DailyBars(BaseModel):
+    """Represents one EOD daily bar from EODHD."""
 
     ticker: str
-    date: str
+    date: date
     open: float
     high: float
     low: float
