@@ -1,7 +1,7 @@
 import logging
 import re
 from turtle.config.model import AppConfig
-from turtle.data.models import Exchange, PriceHistory, Ticker, TickerExtended
+from turtle.data.models import Company, Exchange, PriceHistory, Ticker
 from typing import Any
 
 import httpx
@@ -96,7 +96,7 @@ class EodhdApiClient:
             return [PriceHistory(ticker=ticker, **data) for data in response_data]
         raise TypeError("Unexpected response format from EODHD API for historical data")
 
-    async def get_us_quote_delayed(self, ticker: str) -> TickerExtended:
+    async def get_us_quote_delayed(self, ticker: str) -> Company:
         """
         Fetches extended quote data for a US ticker from the delayed quotes API.
 
@@ -104,7 +104,7 @@ class EodhdApiClient:
             ticker: Ticker symbol with exchange suffix (e.g., "AAPL.US")
 
         Returns:
-            TickerExtended object with extended ticker information
+            Company object with extended ticker information
         """
         params = {"s": ticker}
         response_data = await self._get("us-quote-delayed", params=params)
@@ -129,25 +129,25 @@ class EodhdApiClient:
             # Add symbol to ticker data (redundant but ensures consistency)
             ticker_data["symbol"] = ticker
 
-            # Create TickerExtended object
-            ticker_extended = TickerExtended(**ticker_data)
+            # Create Company object
+            company = Company(**ticker_data)
 
             # Debug: Log the parsed object to see what values were extracted
-            logger.debug("Parsed TickerExtended object:")
-            logger.debug(f"  symbol: {ticker_extended.symbol}")
-            logger.debug(f"  type: {ticker_extended.type}")
-            logger.debug(f"  name: {ticker_extended.name}")
-            logger.debug(f"  sector: {ticker_extended.sector}")
-            logger.debug(f"  industry: {ticker_extended.industry}")
-            logger.debug(f"  average_volume: {ticker_extended.average_volume}")
-            logger.debug(f"  fifty_day_average_price: {ticker_extended.fifty_day_average_price}")
-            logger.debug(f"  dividend_yield: {ticker_extended.dividend_yield}")
-            logger.debug(f"  market_cap: {ticker_extended.market_cap}")
-            logger.debug(f"  pe: {ticker_extended.pe}")
-            logger.debug(f"  forward_pe: {ticker_extended.forward_pe}")
+            logger.debug("Parsed Company object:")
+            logger.debug(f"  symbol: {company.symbol}")
+            logger.debug(f"  type: {company.type}")
+            logger.debug(f"  name: {company.name}")
+            logger.debug(f"  sector: {company.sector}")
+            logger.debug(f"  industry: {company.industry}")
+            logger.debug(f"  average_volume: {company.average_volume}")
+            logger.debug(f"  fifty_day_average_price: {company.fifty_day_average_price}")
+            logger.debug(f"  dividend_yield: {company.dividend_yield}")
+            logger.debug(f"  market_cap: {company.market_cap}")
+            logger.debug(f"  pe: {company.pe}")
+            logger.debug(f"  forward_pe: {company.forward_pe}")
             logger.debug("=" * 50)
 
-            return ticker_extended
+            return company
         raise TypeError("Unexpected response format from EODHD API for US quote delayed")
 
     async def close(self) -> None:

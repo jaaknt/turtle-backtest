@@ -67,7 +67,7 @@ async def main(
 
         if data in ("company", "all"):
             logger.info("Downloading company data...")
-            await eodhd_service.download_ticker_company_data(ticker_limit=ticker_limit)
+            await eodhd_service.download_company_data(ticker_limit=ticker_limit)
 
         if data in ("history", "all"):
             logger.info("Downloading historical price data...")
