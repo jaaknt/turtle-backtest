@@ -4,7 +4,7 @@ This document describes the command-line scripts that provide convenient interfa
 
 ## download_eodhd_data.py
 
-The `download_eodhd_data.py` script downloads bulk data from the EODHD API and stores it in the database. It covers four datasets: exchanges, US ticker lists, extended ticker fundamentals, and full historical price data. Use this for initial database population or large historical backfills.
+The `download_eodhd_data.py` script downloads bulk data from the EODHD API and stores it in the database. It covers four datasets: exchanges, US ticker lists, company fundamentals, and full historical price data. Use this for initial database population or large historical backfills.
 
 **Key Features:**
 - Selective dataset download via `--data` flag
@@ -16,7 +16,7 @@ The `download_eodhd_data.py` script downloads bulk data from the EODHD API and s
 **Datasets:**
 - `exchange` — Exchange reference data (name, country, currency)
 - `us_ticker` — Full US ticker list for NYSE and NASDAQ (stored in `turtle.ticker`)
-- `extended` — Extended fundamentals per ticker: sector, industry, market cap, P/E, volume (stored in `turtle.ticker_extended`)
+- `company` — Extended fundamentals per ticker: sector, industry, market cap, P/E, volume (stored in `turtle.company`)
 - `history` — Full OHLCV price history per ticker (stored in `turtle.price_history`)
 - `all` — All four datasets in sequence (default)
 
@@ -31,8 +31,8 @@ uv run python scripts/download_eodhd_data.py --data exchange
 # Download only US ticker list
 uv run python scripts/download_eodhd_data.py --data us_ticker
 
-# Download extended fundamentals, limited to 10 tickers (for testing)
-uv run python scripts/download_eodhd_data.py --data extended --ticker-limit 10
+# Download company fundamentals, limited to 10 tickers (for testing)
+uv run python scripts/download_eodhd_data.py --data company --ticker-limit 10
 
 # Download historical price data for a specific date range
 uv run python scripts/download_eodhd_data.py --data history --start-date 2024-01-01 --end-date 2024-12-31
@@ -42,7 +42,7 @@ uv run python scripts/download_eodhd_data.py --data history --ticker-limit 10 --
 ```
 
 **Options:**
-- `--data` — Dataset to download: `exchange`, `us_ticker`, `extended`, `history`, `all` (default: `all`)
+- `--data` — Dataset to download: `exchange`, `us_ticker`, `company`, `history`, `all` (default: `all`)
 - `--ticker-limit` — Limit processing to first N tickers (useful for testing)
 - `--start-date` — Start date for historical data in `YYYY-MM-DD` format (default: `2000-01-01`)
 - `--end-date` — End date for historical data in `YYYY-MM-DD` format (default: `2025-12-30`)
@@ -55,8 +55,8 @@ uv run python scripts/download_eodhd_data.py --data exchange
 # 2. Download US ticker list
 uv run python scripts/download_eodhd_data.py --data us_ticker
 
-# 3. Download extended fundamentals
-uv run python scripts/download_eodhd_data.py --data extended
+# 3. Download company fundamentals
+uv run python scripts/download_eodhd_data.py --data company
 
 # 4. Download full price history (long-running — thousands of tickers)
 uv run python scripts/download_eodhd_data.py --data history --start-date 2020-01-01 --end-date 2024-12-31

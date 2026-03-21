@@ -4,7 +4,7 @@ from collections.abc import AsyncGenerator
 from datetime import datetime
 from turtle.clients.eodhd import EodhdApiClient
 from turtle.config.settings import Settings
-from turtle.data.models import Exchange, PriceHistory, Ticker, TickerExtended
+from turtle.data.models import Company, Exchange, PriceHistory, Ticker
 from turtle.data.tables import company_table, daily_bars_table, exchange_table, ticker_table
 
 from sqlalchemy import and_, select
@@ -307,7 +307,7 @@ class EodhdService:
             logger.error(f"Error downloading or storing historical data: {e}", exc_info=True)
             raise
 
-    async def download_ticker_company_data(self, ticker_limit: int | None = None) -> None:
+    async def download_company_data(self, ticker_limit: int | None = None) -> None:
         """
         Downloads company data for US stocks and stores it in the database.
         Uses batch processing for both API calls and database inserts to manage rate limits efficiently.
@@ -365,7 +365,7 @@ class EodhdService:
                         if isinstance(result, Exception):
                             logger.error(f"Error fetching company data for {eodhd_ticker}: {type(result).__name__}: {result}")
                             total_tickers_failed += 1
-                        elif isinstance(result, TickerExtended):
+                        elif isinstance(result, Company):
                             # Validate that we have meaningful data (not all fields are None)
                             # Check if at least one of the critical fields has data
                             has_data = any(

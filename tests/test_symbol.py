@@ -53,7 +53,7 @@ def test_get_symbol_list_empty(mocker: MockerFixture) -> None:
 
 def test_get_symbol_list_with_symbol_filter(mocker: MockerFixture) -> None:
     # Extended mock data for testing symbol filtering
-    extended_mocked_data = [
+    company_mocked_data = [
         ("AAPL", "Apple Inc.", "NASDAQ", "USA"),
         ("AMZN", "Amazon.com Inc.", "NASDAQ", "USA"),
         ("GOOGL", "Alphabet Inc.", "NASDAQ", "USA"),
@@ -63,7 +63,7 @@ def test_get_symbol_list_with_symbol_filter(mocker: MockerFixture) -> None:
 
     # Mock the _get_symbol_list_db method
     mock_get_symbol_list_db = mocker.patch.object(
-        SymbolRepo, "_get_symbol_list_db", return_value=extended_mocked_data
+        SymbolRepo, "_get_symbol_list_db", return_value=company_mocked_data
     )
 
     repo = SymbolRepo(engine=mocker.Mock(), api_key="dummy_key")

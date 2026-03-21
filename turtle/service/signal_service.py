@@ -4,7 +4,6 @@ from datetime import datetime
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.model import AppConfig
 from turtle.data.bars_history import BarsHistoryRepo
-from turtle.data.company import CompanyRepo
 from turtle.data.symbol import SymbolRepo
 
 # from turtle.signal.momentum import MomentumStrategy
@@ -14,7 +13,6 @@ from turtle.signal.base import TradingStrategy
 from turtle.signal.market import MarketData
 from turtle.signal.models import Signal
 
-import pandas as pd
 from sqlalchemy import Engine
 
 logger = logging.getLogger(__name__)
@@ -35,7 +33,6 @@ class SignalService:
 
         self.engine = engine
         self.symbol_repo = SymbolRepo(self.engine, app_config.eodhd["api_key"])
-        self.company_repo = CompanyRepo(self.engine)
         self.bars_history = BarsHistoryRepo(self.engine)
         self.market_data = MarketData(self.bars_history)
 
@@ -57,16 +54,3 @@ class SignalService:
         symbols = self.symbol_repo.get_symbol_list(symbol_filter)
         symbol_list = [symbol.symbol for symbol in symbols][:max_symbols]  # limits list to max symbols
         return symbol_list
-
-    def get_company_list(self, symbol_names: list[str]) -> pd.DataFrame:
-        """
-        Get company information for the provided list of symbols.
-
-        Args:
-            symbol_names: List of stock symbols to get company data for
-
-        Returns:
-            DataFrame containing company information
-        """
-        self.company_repo.get_company_list(symbol_names)
-        return self.company_repo.convert_df()
