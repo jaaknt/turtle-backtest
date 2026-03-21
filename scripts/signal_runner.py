@@ -36,10 +36,10 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.config.logging import LogConfig
 from turtle.config.model import AppConfig
 from turtle.config.settings import Settings
-from turtle.data.bars_history import BarsHistoryRepo
 from turtle.ranking.base import RankingStrategy
 from turtle.ranking.momentum import MomentumRanking
 from turtle.ranking.volume_momentum import VolumeMomentumRanking
+from turtle.repositories.analytics import OhlcvAnalyticsRepository
 from turtle.services.signal_service import SignalService
 from turtle.signal.base import TradingStrategy
 
@@ -78,8 +78,7 @@ def get_trading_strategy_instance(strategy_name: str, ranking_strategy: RankingS
         available_strategies = ", ".join(strategy_classes.keys())
         raise ValueError(f"Unknown strategy '{strategy_name}'. Available strategies: {available_strategies}")
 
-    # Create BarsHistoryRepo instance for strategy
-    bars_history = BarsHistoryRepo(engine)
+    bars_history = OhlcvAnalyticsRepository(engine)
 
     # Create strategy instance with common parameters
     return strategy_class(

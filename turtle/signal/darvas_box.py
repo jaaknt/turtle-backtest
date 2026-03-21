@@ -1,8 +1,8 @@
 import logging
 from datetime import datetime, timedelta
 from turtle.common.enums import TimeFrameUnit
-from turtle.data.bars_history import BarsHistoryRepo
 from turtle.ranking.base import RankingStrategy
+from turtle.repositories.analytics import OhlcvAnalyticsRepository
 
 import numpy as np
 import pandas as pd
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class DarvasBoxStrategy(TradingStrategy):
     def __init__(
         self,
-        bars_history: BarsHistoryRepo,
+        bars_history: OhlcvAnalyticsRepository,
         ranking_strategy: RankingStrategy,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         warmup_period: int = 730,

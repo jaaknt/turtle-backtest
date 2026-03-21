@@ -1,7 +1,7 @@
 import warnings
 from datetime import datetime
-from turtle.data.bars_history import BarsHistoryRepo
 from turtle.ranking.momentum import MomentumRanking
+from turtle.repositories.analytics import OhlcvAnalyticsRepository
 from turtle.signal.darvas_box import DarvasBoxStrategy
 from unittest.mock import MagicMock
 
@@ -38,7 +38,7 @@ def test_check_local_min() -> None:
 
 
 def test_collect() -> None:
-    bars_history_mock = MagicMock(spec=BarsHistoryRepo)
+    bars_history_mock = MagicMock(spec=OhlcvAnalyticsRepository)
     ranking_strategy_mock = MagicMock(spec=MomentumRanking)
     strategy = DarvasBoxStrategy(bars_history_mock, ranking_strategy_mock, warmup_period=3, min_bars=3)
 
@@ -67,7 +67,7 @@ def test_collect() -> None:
 
 def test_calculate_indicators() -> None:
     # Call the method
-    bars_history_mock = MagicMock(spec=BarsHistoryRepo)
+    bars_history_mock = MagicMock(spec=OhlcvAnalyticsRepository)
     ranking_strategy_mock = MagicMock(spec=MomentumRanking)
     strategy = DarvasBoxStrategy(bars_history_mock, ranking_strategy_mock, warmup_period=3, min_bars=3)
 

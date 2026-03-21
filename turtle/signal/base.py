@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from turtle.common.enums import TimeFrameUnit
-from turtle.data.bars_history import BarsHistoryRepo
 from turtle.ranking.base import RankingStrategy
+from turtle.repositories.analytics import OhlcvAnalyticsRepository
 
 import pandas as pd
 
@@ -19,7 +19,7 @@ class TradingStrategy(ABC):
 
     def __init__(
         self,
-        bars_history: BarsHistoryRepo,
+        bars_history: OhlcvAnalyticsRepository,
         ranking_strategy: RankingStrategy,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         warmup_period: int = 730,

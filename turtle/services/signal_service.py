@@ -3,8 +3,8 @@ import logging
 from datetime import datetime
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.model import AppConfig
-from turtle.data.bars_history import BarsHistoryRepo
 from turtle.data.symbol import SymbolRepo
+from turtle.repositories.analytics import OhlcvAnalyticsRepository
 
 # from turtle.signal.momentum import MomentumStrategy
 # from turtle.signal.darvas_box import DarvasBoxStrategy
@@ -33,7 +33,7 @@ class SignalService:
 
         self.engine = engine
         self.symbol_repo = SymbolRepo(self.engine, app_config.eodhd["api_key"])
-        self.bars_history = BarsHistoryRepo(self.engine)
+        self.bars_history = OhlcvAnalyticsRepository(self.engine)
         self.market_data = MarketData(self.bars_history)
 
     def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:

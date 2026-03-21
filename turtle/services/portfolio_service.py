@@ -7,7 +7,6 @@ from pathlib import Path
 from turtle.backtest.models import FutureTrade
 from turtle.backtest.processor import SignalProcessor
 from turtle.common.enums import TimeFrameUnit
-from turtle.data.bars_history import BarsHistoryRepo
 from turtle.exit.atr import safe_float_conversion
 from turtle.exit.base import ExitStrategy
 from turtle.portfolio.analytics import PortfolioAnalytics
@@ -32,7 +31,7 @@ class PortfolioService:
         self,
         trading_strategy: TradingStrategy,
         exit_strategy: ExitStrategy,
-        bars_history: BarsHistoryRepo,
+        bars_history: OhlcvAnalyticsRepository,
         start_date: datetime,
         end_date: datetime,
         initial_capital: float = 30000.0,
@@ -76,7 +75,6 @@ class PortfolioService:
         )
 
         self.analytics = PortfolioAnalytics()
-        self.ohlcv_repo = OhlcvAnalyticsRepository(bars_history.engine)
 
         # Initialize signal processor for shared calculations
         self.signal_processor = SignalProcessor(
@@ -274,7 +272,7 @@ class PortfolioService:
             self.portfolio_manager.state,
             self.start_date,
             self.end_date,
-            self.ohlcv_repo,
+            self.bars_history,
             output_file=output_file,
         )
 

@@ -35,7 +35,6 @@ from turtle.backtest.processor import SignalProcessor
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
-from turtle.data.bars_history import BarsHistoryRepo
 from turtle.exit import (
     ATRExitStrategy,
     BuyAndHoldExitStrategy,
@@ -47,6 +46,7 @@ from turtle.exit import (
 from turtle.ranking.base import RankingStrategy
 from turtle.ranking.momentum import MomentumRanking
 from turtle.ranking.volume_momentum import VolumeMomentumRanking
+from turtle.repositories.analytics import OhlcvAnalyticsRepository
 from turtle.services.backtest_service import BacktestService
 from turtle.services.signal_service import SignalService
 from turtle.signal.base import TradingStrategy
@@ -57,7 +57,7 @@ from turtle.signal.momentum import MomentumStrategy
 logger = logging.getLogger(__name__)
 
 
-def _get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, bars_history: BarsHistoryRepo) -> TradingStrategy:
+def _get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, bars_history: OhlcvAnalyticsRepository) -> TradingStrategy:
     """Get the trading strategy instance by name."""
 
     if strategy_name == "darvas_box":
@@ -95,7 +95,7 @@ def _get_ranking_strategy(strategy_name: str) -> RankingStrategy:
         raise ValueError(f"Unknown ranking strategy '{strategy_name}'")
 
 
-def _get_exit_strategy(strategy_name: str, bars_history: BarsHistoryRepo) -> ExitStrategy:
+def _get_exit_strategy(strategy_name: str, bars_history: OhlcvAnalyticsRepository) -> ExitStrategy:
     """Get the exit strategy instance by name."""
     if strategy_name == "buy_and_hold":
         return BuyAndHoldExitStrategy(bars_history=bars_history)
@@ -206,7 +206,7 @@ def main() -> int:
         try:
             # Create database connection and bars_history for strategy
 
-            bars_history = BarsHistoryRepo(engine=settings.engine)
+            bars_history = OhlcvAnalyticsRepository(engine=settings.engine)
 
             ranking_strategy: RankingStrategy = _get_ranking_strategy(args.ranking_strategy)
             exit_strategy: ExitStrategy = _get_exit_strategy(args.exit_strategy, bars_history)
