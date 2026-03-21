@@ -174,7 +174,7 @@ class EodhdService:
                     tasks = [self.api_client.get_us_quote_delayed(ticker=f"{row.exchange_code}.US") for row in batch]
                     batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                    values_to_insert: list[dict[str, object]] = []
+                    companies_to_insert = []
                     for idx, result in enumerate(batch_results):
                         eodhd_ticker = f"{batch[idx].exchange_code}.US"
                         if isinstance(result, Exception):
@@ -197,24 +197,10 @@ class EodhdService:
                                 total_tickers_failed += 1
                                 continue
 
-                            values_to_insert.append(
-                                {
-                                    "ticker_code": result.symbol,
-                                    "type": result.type,
-                                    "name": result.name,
-                                    "sector": result.sector,
-                                    "industry": result.industry,
-                                    "average_volume": result.average_volume,
-                                    "average_price": result.fifty_day_average_price,
-                                    "dividend_yield": result.dividend_yield,
-                                    "market_cap": result.market_cap,
-                                    "pe": result.pe,
-                                    "forward_pe": result.forward_pe,
-                                }
-                            )
+                            companies_to_insert.append(result)
                             total_tickers_processed += 1
 
-                    inserted = await company_repo.upsert_batch(values_to_insert)
+                    inserted = await company_repo.upsert_batch(companies_to_insert)
                     total_records_inserted += inserted
 
                     logger.info(

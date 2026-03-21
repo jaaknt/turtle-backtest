@@ -2,7 +2,7 @@ import logging
 from collections.abc import Sequence
 from datetime import datetime
 from turtle.data.tables import company_table, daily_bars_table, exchange_table, ticker_table
-from turtle.schemas import Exchange, PriceHistory, Ticker
+from turtle.schemas import Company, Exchange, PriceHistory, Ticker
 
 from sqlalchemy import and_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -160,10 +160,26 @@ class CompanyRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def upsert_batch(self, values: list[dict[str, object]]) -> int:
-        if not values:
+    async def upsert_batch(self, companies: list[Company]) -> int:
+        if not companies:
             return 0
 
+        values = [
+            {
+                "ticker_code": c.symbol,
+                "type": c.type,
+                "name": c.name,
+                "sector": c.sector,
+                "industry": c.industry,
+                "average_volume": c.average_volume,
+                "average_price": c.fifty_day_average_price,
+                "dividend_yield": c.dividend_yield,
+                "market_cap": c.market_cap,
+                "pe": c.pe,
+                "forward_pe": c.forward_pe,
+            }
+            for c in companies
+        ]
         stmt = pg_insert(company_table).values(values)
         on_conflict_stmt = stmt.on_conflict_do_update(
             index_elements=[company_table.c.ticker_code],
@@ -182,4 +198,4 @@ class CompanyRepository:
         )
         await self._session.execute(on_conflict_stmt)
         await self._session.commit()
-        return len(values)
+        return len(companies)
