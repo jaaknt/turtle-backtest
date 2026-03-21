@@ -74,7 +74,7 @@ For comprehensive strategy analysis and performance testing, use the command-lin
 
 - **`scripts/signal_runner.py`** - Signal analysis with multiple modes (list/signal/top)
 - **`scripts/backtest.py`** - Complete signal-to-exit backtesting with configurable strategies
-- **`scripts/strategy_performance.py`** - Performance backtesting with metrics and benchmarks
+- **`scripts/portfolio_runner.py`** - Portfolio-level backtesting with capital constraints
 
 See [docs/scripts.md](docs/scripts.md) for complete documentation, usage examples, and all available options.
 
@@ -87,23 +87,24 @@ For detailed information about the core service classes that provide the busines
 ### Layered Architecture
 
 ```
-scripts/          ← CLI entry points (argparse, asyncio.run)
-turtle/services/   ← Business logic orchestration
-turtle/signal/    ← Trading signal strategies
-turtle/exit/      ← Exit strategies
-turtle/ranking/   ← Signal ranking strategies
-turtle/portfolio/ ← Multi-position portfolio management
-turtle/backtest/  ← Backtesting engine
-turtle/data/      ← Repository pattern (all SQL lives here)
-turtle/clients/   ← External API clients (async)
-turtle/config/    ← Configuration loading
+scripts/               ← CLI entry points (argparse, asyncio.run)
+turtle/services/       ← Business logic orchestration
+turtle/signal/         ← Trading signal strategies
+turtle/exit/           ← Exit strategies
+turtle/ranking/        ← Signal ranking strategies
+turtle/portfolio/      ← Multi-position portfolio management
+turtle/backtest/       ← Backtesting engine
+turtle/repositories/   ← Repository pattern (all SQL lives here)
+turtle/data/           ← Domain model dataclasses
+turtle/clients/        ← External API clients (async)
+turtle/config/         ← Configuration loading
 ```
 
 ### Key Design Patterns
 
 **Strategy Pattern** — All pluggable behaviours (signals, exits, rankings) implement a shared abstract base class. Services depend on the abstract type; concrete implementations are swapped at runtime. See `turtle/signal/base.py` and `turtle/signal/darvas_box.py`.
 
-**Repository Pattern** — All database access is isolated in `turtle/data/`. No SQL outside this layer. Private `_get_*` methods fetch raw rows; public methods return typed domain objects.
+**Repository Pattern** — All database access is isolated in `turtle/repositories/`. No SQL outside this layer. Sync `Engine`-based repos handle reads; async `AsyncSession`-based repos handle writes.
 
 **Dependency Injection** — All dependencies flow through constructors. The connection pool is built once in `Settings.from_toml()` and passed explicitly through `Service → Repo`. No globals or service locators.
 
@@ -116,11 +117,11 @@ External API clients (`turtle/clients/`) are `async`/`await` using `httpx.AsyncC
 ### Domain Models
 
 - **Dataclasses** for all internal domain objects (`Signal`, `Trade`, `Position`, `Bar`). Computed fields use `@property`; no setters.
-- **Pydantic `BaseModel`** only for external API responses where field aliasing is needed (e.g. `Exchange`, `Ticker` in `turtle/data/models.py`).
+- **Pydantic `BaseModel`** only for external API responses where field aliasing is needed (e.g. `Exchange`, `Ticker` in `turtle/schemas/`).
 
 ### Database
 
-PostgreSQL with `psycopg` and a connection pool (size 10). All tables live in the `turtle` schema. Migrations managed by Alembic in standalone mode with raw SQL (`db/migrations/versions/`).
+PostgreSQL via SQLAlchemy — sync `Engine` for read-heavy analytical queries, async `AsyncSession` for bulk writes. All tables live in the `turtle` schema. Table definitions in `turtle/repositories/tables.py`. Migrations managed by Alembic in standalone mode with raw SQL (`db/migrations/versions/`).
 
 ### Adding a New Strategy
 

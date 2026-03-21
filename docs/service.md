@@ -2,30 +2,30 @@
 
 This document describes the core service classes that provide the business logic layer for the turtle backtest library. These services orchestrate data management, signal generation, backtesting, and portfolio management operations.
 
-## DataUpdateService
+## EodhdService
 
-The `DataUpdateService` is responsible for data ingestion and management operations. It handles downloading and storing market data from multiple external APIs into the PostgreSQL database.
+The `EodhdService` is responsible for data ingestion from the EODHD API. It downloads and stores exchange reference data, US ticker lists, historical OHLCV prices, and company fundamentals into PostgreSQL. All operations are async and use concurrent batch requests.
 
 **Key Features:**
-- Downloads symbol lists from EODHD API for US markets
-- Retrieves company fundamental data from Yahoo Finance
-- Fetches historical OHLCV (Open, High, Low, Close, Volume) data from Alpaca API
-- Manages database connections using connection pooling
-- Supports configurable time frame units (DAY, WEEK, MONTH)
+- Downloads exchange reference data from EODHD
+- Downloads US ticker list for NYSE and NASDAQ
+- Fetches historical OHLCV data with configurable date ranges
+- Downloads company fundamental data
+- Configurable batch sizes and rate-limit delays
 
 **Primary Methods:**
-- `update_symbol_list()` - Downloads and stores US stock symbols
-- `update_company_list()` - Retrieves company information for all symbols
-- `update_bars_history(start_date, end_date)` - Downloads historical price data for date range
-- `get_company_list(symbol_list)` - Returns company data as DataFrame
-- `get_symbol_group_list(symbol_group)` - Retrieves custom symbol groupings
+- `download_exchanges()` — Fetches and upserts exchange reference data
+- `download_us_tickers()` — Downloads US ticker list into `turtle.ticker`
+- `download_historical_data(ticker_limit, start_date, end_date)` — Downloads OHLCV history into `turtle.daily_bars`
+- `download_company_data(ticker_limit)` — Downloads company fundamentals into `turtle.company`
 
 **Usage:**
 ```python
-data_updater = DataUpdateService(time_frame_unit=TimeFrameUnit.DAY)
-data_updater.update_symbol_list()
-data_updater.update_company_list()
-data_updater.update_bars_history(start_date, end_date)
+import asyncio
+service = EodhdService(settings)
+asyncio.run(service.download_exchanges())
+asyncio.run(service.download_us_tickers())
+asyncio.run(service.download_historical_data(start_date="2024-01-01", end_date="2024-12-31"))
 ```
 
 ## SignalService
@@ -40,24 +40,23 @@ The `SignalService` provides a clean interface for executing trading strategies 
 - Retrieves company information for analysis
 
 **Constructor Parameters:**
-- `pool` - Database connection pool
-- `app_config` - Application configuration with API keys
+- `engine` - SQLAlchemy `Engine` instance
 - `trading_strategy` - TradingStrategy instance to execute
 - `time_frame_unit` - Time frame for analysis (default: DAY)
 - `warmup_period` - Historical data warmup period in days (default: 730)
 
 **Primary Methods:**
 - `get_signals(ticker, start_date, end_date)` - Gets list of Signal objects for ticker over date range
-- `get_symbol_list(symbol_filter, max_symbols)` - Returns filtered list of stock symbols
-- `get_company_list(symbol_names)` - Retrieves company data as DataFrame for provided symbols
+- `get_symbol_list(country, max_symbols)` - Returns list of stock ticker codes (default country: `"USA"`)
 
 **Usage:**
 ```python
 from turtle.signal.darvas_box import DarvasBoxStrategy
+from turtle.repositories.analytics import OhlcvAnalyticsRepository
 
-# Initialize with specific strategy
+bars_history = OhlcvAnalyticsRepository(engine)
 strategy = DarvasBoxStrategy(bars_history, time_frame_unit=TimeFrameUnit.DAY)
-signal_service = SignalService(pool, app_config, strategy)
+signal_service = SignalService(engine, strategy)
 
 # Get signals for specific ticker
 signals = signal_service.get_signals("AAPL", start_date, end_date)
@@ -97,10 +96,11 @@ The `BacktestService` orchestrates complete signal-to-exit backtesting by combin
 ```python
 from turtle.signal.darvas_box import DarvasBoxStrategy
 from turtle.exit.atr import ATRExitStrategy
+from turtle.repositories.analytics import OhlcvAnalyticsRepository
 
-# Initialize components
+bars_history = OhlcvAnalyticsRepository(engine)
 strategy = DarvasBoxStrategy(bars_history)
-signal_service = SignalService(pool, app_config, strategy)
+signal_service = SignalService(engine, strategy)
 exit_strategy = ATRExitStrategy(bars_history, atr_multiplier=2.0)
 signal_processor = SignalProcessor(30, bars_history, exit_strategy, ["QQQ", "SPY"])
 
@@ -218,10 +218,10 @@ portfolio_service.run_backtest(
 
 Choose the appropriate service based on your analysis needs:
 
-### DataUpdateService
+### EodhdService
 **Use when:** You need to download and manage market data
-- Initial database setup with symbol lists and company data
-- Daily/periodic OHLCV data updates
+- Initial database setup with exchange, ticker, and company data
+- Bulk or incremental OHLCV historical data downloads
 - Building and maintaining your market data foundation
 
 ### SignalService
@@ -247,7 +247,7 @@ Choose the appropriate service based on your analysis needs:
 
 ## Typical Workflow
 
-1. **Data Setup**: Use `DataUpdateService` to populate your database with market data
+1. **Data Setup**: Use `EodhdService` (via `scripts/download_eodhd_data.py`) to populate your database with market data
 2. **Strategy Development**: Use `SignalService` to test and refine signal generation logic
 3. **Strategy Validation**: Use `BacktestService` to test complete strategies with exit logic
 4. **Portfolio Testing**: Use `PortfolioService` for realistic portfolio-level backtesting
@@ -257,7 +257,7 @@ Choose the appropriate service based on your analysis needs:
 **Simple Signal Analysis:**
 ```python
 # Test signals for specific stocks
-signal_service = SignalService(pool, config, darvas_strategy)
+signal_service = SignalService(engine, darvas_strategy)
 signals = signal_service.get_signals("AAPL", start_date, end_date)
 ```
 
