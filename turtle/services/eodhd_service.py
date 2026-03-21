@@ -4,7 +4,7 @@ from datetime import datetime
 from turtle.clients.eodhd import EodhdApiClient
 from turtle.config.settings import Settings
 from turtle.repositories.eodhd import CompanyRepository, DailyBarsRepository, ExchangeRepository, TickerRepository
-from turtle.schemas import Company, PriceHistory
+from turtle.schemas import Company, DailyBars
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -110,7 +110,7 @@ class EodhdService:
                     ]
                     batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                    batch_price_records: list[PriceHistory] = []
+                    batch_price_records: list[DailyBars] = []
                     for idx, result in enumerate(batch_results):
                         eodhd_ticker = f"{batch[idx].exchange_code}.US"
                         if isinstance(result, Exception):
