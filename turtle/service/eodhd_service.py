@@ -307,16 +307,16 @@ class EodhdService:
             logger.error(f"Error downloading or storing historical data: {e}", exc_info=True)
             raise
 
-    async def download_ticker_extended_data(self, ticker_limit: int | None = None) -> None:
+    async def download_ticker_company_data(self, ticker_limit: int | None = None) -> None:
         """
-        Downloads extended ticker data for US stocks and stores it in the database.
+        Downloads company data for US stocks and stores it in the database.
         Uses batch processing for both API calls and database inserts to manage rate limits efficiently.
 
         Args:
             ticker_limit: Optional limit on number of tickers to process. Useful for testing.
                          If None, processes all tickers. Default: None.
         """
-        logger.info("Starting EODHD extended ticker data download for US stocks...")
+        logger.info("Starting EODHD company data download for US stocks...")
         total_records_inserted = 0
         total_tickers_processed = 0
         total_tickers_failed = 0
@@ -339,7 +339,7 @@ class EodhdService:
                     us_stocks = us_stocks[:ticker_limit]
                     logger.info(f"Limiting to first {ticker_limit} tickers for testing.")
 
-                logger.info(f"Found {len(us_stocks)} US stocks matching criteria for extended data download.")
+                logger.info(f"Found {len(us_stocks)} US stocks matching criteria for company data download.")
 
                 # Process in batches to manage API rate limits
                 num_batches = (len(us_stocks) + API_BATCH_SIZE - 1) // API_BATCH_SIZE
@@ -357,13 +357,13 @@ class EodhdService:
                     # Execute API calls concurrently
                     batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                    # Process results and collect extended data records
+                    # Process results and collect company data records
                     values_to_insert: list[dict[str, object]] = []
                     for idx in range(len(batch_results)):
                         result = batch_results[idx]  # type: ignore[assignment]
                         eodhd_ticker = f"{batch[idx].exchange_code}.US"
                         if isinstance(result, Exception):
-                            logger.error(f"Error fetching extended data for {eodhd_ticker}: {type(result).__name__}: {result}")
+                            logger.error(f"Error fetching company data for {eodhd_ticker}: {type(result).__name__}: {result}")
                             total_tickers_failed += 1
                         elif isinstance(result, TickerExtended):
                             # Validate that we have meaningful data (not all fields are None)
@@ -435,14 +435,14 @@ class EodhdService:
                         await asyncio.sleep(BATCH_DELAY_SECONDS)
 
                 logger.info(
-                    f"Extended ticker data download completed. "
+                    f"Company data download completed. "
                     f"Successfully processed: {total_tickers_processed} tickers, "
                     f"Failed: {total_tickers_failed} tickers, "
                     f"Total records inserted/updated: {total_records_inserted}"
                 )
 
         except Exception as e:
-            logger.error(f"Error downloading or storing extended ticker data: {e}", exc_info=True)
+            logger.error(f"Error downloading or storing company data: {e}", exc_info=True)
             raise
 
     async def close(self) -> None:
