@@ -174,7 +174,7 @@ class EodhdService:
                     tasks = [self.api_client.get_us_quote_delayed(ticker=f"{row.exchange_code}.US") for row in batch]
                     batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                    companies_to_insert = []
+                    companies_to_insert: list[Company] = []
                     for idx, result in enumerate(batch_results):
                         eodhd_ticker = f"{batch[idx].exchange_code}.US"
                         if isinstance(result, Exception):
