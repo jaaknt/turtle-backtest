@@ -1,15 +1,23 @@
 ---
-description: Review staged and unstaged changes before committing. Use when the user wants a code review of pending changes.
+description: Review staged and unstaged changes before committing, or review a specific commit. Use when the user wants a code review of pending or already-committed changes.
 ---
 
 # Code Review
 
-Review all uncommitted and staged changes before committing. Provide a structured, actionable review.
+## Usage
+- `/code-review` — review all uncommitted and staged changes
+- `/code-review <commit>` — review a specific commit (e.g. `/code-review 8350bf8`)
 
 ## Steps
 
+**If a commit hash was provided:**
+1. Run `git show <commit>` to get the full diff
+2. Run `git show <commit> --stat` to see affected files and the commit message
+
+**If no commit hash (default — reviewing uncommitted changes):**
 1. Run `git diff HEAD` and `git diff --cached` to get all staged and unstaged changes
 2. Run `git status` to understand what files are affected
+
 3. Review changes against the criteria below and report findings grouped by severity
 
 ## Review Criteria
