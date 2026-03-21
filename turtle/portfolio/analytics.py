@@ -128,7 +128,7 @@ class PortfolioAnalytics:
         """Calculate QQQ benchmark returns for comparison."""
         try:
             # Fetch QQQ historical data
-            qqq_df = ohlcv_repo.get_bars("QQQ", start_date.date(), end_date.date())
+            qqq_df = ohlcv_repo.get_bars_pd("QQQ", start_date.date(), end_date.date())
 
             if qqq_df.empty or len(qqq_df) < 2:
                 logger.warning("Insufficient QQQ data for benchmark calculation")
