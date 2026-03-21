@@ -3,8 +3,7 @@
 import logging
 import warnings
 from datetime import datetime
-from turtle.common.enums import TimeFrameUnit
-from turtle.data.bars_history import BarsHistoryRepo
+from turtle.repositories.analytics import OhlcvAnalyticsRepository
 
 import matplotlib
 import numpy as np
@@ -35,7 +34,7 @@ class PortfolioAnalytics:
         portfolio_state: PortfolioState,
         start_date: datetime,
         end_date: datetime,
-        bars_history: BarsHistoryRepo,
+        ohlcv_repo: OhlcvAnalyticsRepository,
         output_file: str | None = None,
     ) -> None:
         """Generate portfolio analysis with printed metrics and tearsheet report."""
@@ -54,7 +53,7 @@ class PortfolioAnalytics:
         portfolio_returns = self._prepare_returns_for_quantstats(daily_returns)
 
         # Calculate QQQ benchmark returns
-        benchmark_returns = self._calculate_benchmark_returns(start_date, end_date, bars_history)
+        benchmark_returns = self._calculate_benchmark_returns(start_date, end_date, ohlcv_repo)
 
         # Generate tearsheet report if we have returns data
         if not portfolio_returns.empty:
@@ -125,11 +124,11 @@ class PortfolioAnalytics:
 
         return returns
 
-    def _calculate_benchmark_returns(self, start_date: datetime, end_date: datetime, bars_history: BarsHistoryRepo) -> pd.Series:
+    def _calculate_benchmark_returns(self, start_date: datetime, end_date: datetime, ohlcv_repo: OhlcvAnalyticsRepository) -> pd.Series:
         """Calculate QQQ benchmark returns for comparison."""
         try:
             # Fetch QQQ historical data
-            qqq_df = bars_history.get_ticker_history("QQQ", start_date, end_date, TimeFrameUnit.DAY)
+            qqq_df = ohlcv_repo.get_bars("QQQ", start_date.date(), end_date.date())
 
             if qqq_df.empty or len(qqq_df) < 2:
                 logger.warning("Insufficient QQQ data for benchmark calculation")

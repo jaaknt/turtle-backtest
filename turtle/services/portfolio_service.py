@@ -13,6 +13,7 @@ from turtle.exit.base import ExitStrategy
 from turtle.portfolio.analytics import PortfolioAnalytics
 from turtle.portfolio.manager import PortfolioManager
 from turtle.portfolio.selector import PortfolioSignalSelector
+from turtle.repositories.analytics import OhlcvAnalyticsRepository
 from turtle.signal.base import TradingStrategy
 from turtle.signal.models import Signal
 
@@ -75,6 +76,7 @@ class PortfolioService:
         )
 
         self.analytics = PortfolioAnalytics()
+        self.ohlcv_repo = OhlcvAnalyticsRepository(bars_history.engine)
 
         # Initialize signal processor for shared calculations
         self.signal_processor = SignalProcessor(
@@ -272,7 +274,7 @@ class PortfolioService:
             self.portfolio_manager.state,
             self.start_date,
             self.end_date,
-            self.bars_history,
+            self.ohlcv_repo,
             output_file=output_file,
         )
 
