@@ -34,7 +34,7 @@ async def main(
     Main function to download EODHD data.
 
     Args:
-        data: Which datasets to download - exchange, us_ticker, extended, history, or all.
+        data: Which datasets to download - exchange, us_ticker, company, history, or all.
         ticker_limit: Optional limit on number of tickers to download data for.
                      If None, downloads all tickers. Useful for testing.
         start_date: Optional start date for historical data (format: YYYY-MM-DD).
@@ -65,9 +65,9 @@ async def main(
             logger.info("Downloading US ticker data...")
             await eodhd_service.download_us_tickers()
 
-        if data in ("extended", "all"):
-            logger.info("Downloading extended ticker data...")
-            await eodhd_service.download_ticker_extended_data(ticker_limit=ticker_limit)
+        if data in ("company", "all"):
+            logger.info("Downloading company data...")
+            await eodhd_service.download_ticker_company_data(ticker_limit=ticker_limit)
 
         if data in ("history", "all"):
             logger.info("Downloading historical price data...")
@@ -98,8 +98,8 @@ Examples:
   # Download only US ticker list
   python scripts/download_eodhd_data.py --data us_ticker
 
-  # Download only extended ticker data
-  python scripts/download_eodhd_data.py --data extended --ticker-limit 10
+  # Download only company data
+  python scripts/download_eodhd_data.py --data company --ticker-limit 10
 
   # Download only historical price data
   python scripts/download_eodhd_data.py --data history --start-date 2024-01-01 --end-date 2024-12-31
@@ -117,11 +117,11 @@ Examples:
     parser.add_argument(
         "--data",
         type=str,
-        choices=["exchange", "us_ticker", "extended", "history", "all"],
+        choices=["exchange", "us_ticker", "company", "history", "all"],
         default="all",
         help=(
             "Which datasets to download: exchange (exchange list), us_ticker (US ticker list), "
-            "extended (extended ticker data), history (historical price data), all (everything). Default: all"
+            "company (company data), history (historical price data), all (everything). Default: all"
         ),
     )
     parser.add_argument("--ticker-limit", type=int, metavar="N", help="Limit data download to first N tickers (for testing)")
