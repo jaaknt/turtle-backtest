@@ -17,7 +17,7 @@ The `download_eodhd_data.py` script downloads bulk data from the EODHD API and s
 - `exchange` — Exchange reference data (name, country, currency)
 - `us_ticker` — Full US ticker list for NYSE and NASDAQ (stored in `turtle.ticker`)
 - `company` — Extended fundamentals per ticker: sector, industry, market cap, P/E, volume (stored in `turtle.company`)
-- `history` — Full OHLCV price history per ticker (stored in `turtle.price_history`)
+- `history` — Full OHLCV price history per ticker (stored in `turtle.daily_bars`)
 - `all` — All four datasets in sequence (default)
 
 **Usage:**
@@ -64,114 +64,40 @@ uv run python scripts/download_eodhd_data.py --data history --start-date 2020-01
 
 **Notes:**
 - Requires `EODHD_API_KEY` environment variable
-- Historical download is rate-limited (1 second delay between batches of 50 concurrent requests)
-- For daily incremental updates use `daily_eod_update.py` instead
+- Historical download is rate-limited (configurable batch size and delay)
 
-## daily_eod_update.py
+## signal_runner.py
 
-The `daily_eod_update.py` script provides a command-line interface for updating the database with stock market data. It supports multiple update modes for different types of data operations.
+The `signal_runner.py` script runs trading strategy signal analysis across the symbol universe or a specific ticker list.
 
-**Key Features:**
-- Multiple update modes: bars (OHLCV data), symbols (symbol lists), companies (company data)
-- Supports single date or date range updates for OHLCV data
-- Built-in validation to ensure successful data retrieval
-- Dry-run mode for testing without making changes
-- Comprehensive logging with optional verbose output
-- Trading day calculations (excludes weekends)
-- Smart date validation based on mode requirements
-
-**Update Modes:**
-- `bars` (default) - Update OHLCV historical data for all symbols (requires dates)
-- `symbols` - Download USA stocks symbol list from EODHD
-- `companies` - Download company fundamental data from Yahoo Finance
+**Modes:**
+- `list` (default) — Scan all symbols and print those with signals in the date range
+- `signal` — Check specific tickers (requires `--tickers`)
+- `top` — Print the top 20 signals by ranking
 
 **Usage:**
 ```bash
-# Update OHLCV data for specific date (default mode)
-uv run python scripts/daily_eod_update.py --start-date 2024-12-01
+# Scan all symbols for signals on a given day
+uv run python scripts/signal_runner.py --start-date 2024-06-01 --end-date 2024-06-01
 
-# Update OHLCV data for date range
-uv run python scripts/daily_eod_update.py --start-date 2024-12-01 --end-date 2024-12-07
+# Check specific tickers
+uv run python scripts/signal_runner.py --start-date 2024-06-01 --end-date 2024-06-01 --mode signal --tickers AAPL MSFT
 
-# Download symbol list from EODHD
-uv run python scripts/daily_eod_update.py --mode symbols
+# Get top 20 signals
+uv run python scripts/signal_runner.py --start-date 2024-06-01 --end-date 2024-06-01 --mode top
 
-# Download company data from Yahoo Finance
-uv run python scripts/daily_eod_update.py --mode companies
-
-# Dry run to preview updates without making changes
-uv run python scripts/daily_eod_update.py --mode symbols --dry-run
-
-# Enable detailed logging
-uv run python scripts/daily_eod_update.py --start-date 2024-12-01 --verbose
+# Use a different strategy
+uv run python scripts/signal_runner.py --start-date 2024-06-01 --end-date 2024-06-01 --trading-strategy mars
 ```
 
 **Options:**
-- `--mode` - Update mode: bars, symbols, or companies (default: bars)
-- `--start-date` - Start date in YYYY-MM-DD format (required for bars mode)
-- `--end-date` - End date in YYYY-MM-DD format, defaults to start-date
-- `--dry-run` - Show what would be updated without making changes
-- `--verbose` - Enable detailed logging output
-
-**Mode-Specific Behavior:**
-- **bars mode**: Requires --start-date parameter, updates OHLCV historical data
-- **symbols mode**: No date parameters needed, downloads symbol list from EODHD
-- **companies mode**: No date parameters needed, downloads company data from Yahoo Finance
-
-**Data Validation:**
-- Mode-specific validation for each update type
-- Verifies data was successfully retrieved for sample symbols
-- Checks at least 80% success rate for validation to pass
-- Provides detailed feedback on update success/failure
-
-## strategy_performance.py
-
-The `strategy_performance.py` script performs comprehensive strategy backtesting by analyzing historical signals and calculating performance metrics over specified holding periods.
-
-**Key Features:**
-- Comprehensive performance analysis with multiple metrics
-- Benchmark comparison against market indices (QQQ, SPY)
-- Multiple holding period analysis
-- Flexible output formats (console, CSV, JSON)
-- Support for custom symbol lists and limits
-- Dry-run mode for testing configuration
-
-**Usage:**
-```bash
-# Test Darvas Box strategy for January 2024
-uv run python scripts/strategy_performance.py --strategy darvas_box --start-date 2024-01-01 --end-date 2024-01-31
-
-# Test with custom holding period and limited symbols
-uv run python scripts/strategy_performance.py --strategy mars --start-date 2024-01-01 --end-date 2024-03-31 --max-holding-period 2W --max-symbols 50
-
-# Save results to CSV file
-uv run python scripts/strategy_performance.py --strategy momentum --start-date 2024-01-01 --end-date 2024-02-29 --output csv --save results.csv
-
-# Test specific symbols only
-uv run python scripts/strategy_performance.py --strategy darvas_box --start-date 2024-01-01 --end-date 2024-01-31 --symbols "AAPL,MSFT,NVDA"
-```
-
-**Required Options:**
-- `--strategy` - Strategy to test (darvas_box, mars, momentum)
-- `--start-date` - Start date for signal generation (YYYY-MM-DD)
-- `--end-date` - End date for signal generation (YYYY-MM-DD)
-
-**Optional Parameters:**
-- `--max-holding-period` - Maximum holding period (default: 1M, format: 3d, 1W, 2W, 1M)
-- `--symbols` - Comma-separated list of specific symbols to test
-- `--max-symbols` - Maximum number of symbols to test
-- `--time-frame` - Time frame for analysis (DAY, WEEK, default: DAY)
-- `--output` - Output format (console, csv, json, default: console)
-- `--save` - Save results to specified filename
-- `--verbose` - Enable detailed logging
-- `--dry-run` - Show configuration without running test
-
-**Performance Metrics:**
-- Total and valid signal counts
-- Average, best, and worst returns
-- Win rates and success percentages
-- Benchmark performance comparisons
-- Period-based analysis results
+- `--start-date` / `--end-date` — Date range (required)
+- `--mode` — `list`, `signal`, or `top` (default: `list`)
+- `--tickers` — Space-separated ticker list (required for `signal` mode)
+- `--trading-strategy` — `darvas_box`, `mars`, `momentum` (default: `darvas_box`)
+- `--ranking-strategy` — `momentum`, `volume_momentum` (default: `momentum`)
+- `--max-tickers` — Maximum symbols to scan (default: 10000)
+- `--verbose` — Enable detailed logging
 
 ## backtest.py
 
