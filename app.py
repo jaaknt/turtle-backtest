@@ -29,7 +29,7 @@ darvas_strategy = DarvasBoxStrategy(
 )
 
 # Create strategy runner with the trading strategy
-strategy_runner = SignalService(engine=engine, app_config=settings.app, trading_strategy=darvas_strategy)
+strategy_runner = SignalService(engine=engine, trading_strategy=darvas_strategy)
 
 # Get ticker list (now with correct method signature)
 signals = []

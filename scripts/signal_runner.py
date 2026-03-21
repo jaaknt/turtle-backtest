@@ -187,9 +187,7 @@ def main() -> int:
 
         # Initialize strategy runner with the trading strategy
         logger.info("Initializing strategy runner...")
-        strategy_runner = SignalService(
-            engine=settings.engine, app_config=settings.app, trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY
-        )
+        strategy_runner = SignalService(engine=settings.engine, trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY)
 
         # Run analysis based on mode
         if args.mode == "list":

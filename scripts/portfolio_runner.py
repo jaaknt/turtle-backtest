@@ -296,7 +296,6 @@ def main() -> int:
         else:
             signal_service = SignalService(
                 engine=settings.engine,
-                app_config=settings.app,
                 trading_strategy=trading_strategy,
                 time_frame_unit=TimeFrameUnit.DAY,
             )
