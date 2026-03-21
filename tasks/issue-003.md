@@ -18,15 +18,15 @@ The functions to be renamed are located in `/turtle/strategy/darvas_box.py`:
 
 1. **`validate_momentum`** (line 283):
    - Returns boolean indicating if ticker has trading signal for specific date
-   - Used in: `turtle/service/strategy_runner.py:61` and Jupyter notebook
+   - Used in: `turtle/services/strategy_runner.py:61` and Jupyter notebook
 
 2. **`validate_momentum_all_dates`** (line 296): 
    - Returns count of trading signals across date range
-   - Used in: `turtle/service/strategy_runner.py:73` and Jupyter notebook
+   - Used in: `turtle/services/strategy_runner.py:73` and Jupyter notebook
 
 ### Files Requiring Updates
 - **Primary definition**: `/turtle/strategy/darvas_box.py`
-- **Dependencies**: `/turtle/service/strategy_runner.py` 
+- **Dependencies**: `/turtle/services/strategy_runner.py` 
 - **Jupyter notebook**: `/examples/backtesting.ipynb`
 - **No test files** found using these functions
 
@@ -56,7 +56,7 @@ All function names have been successfully refactored:
 
 Updated locations:
 - Primary definitions in `/turtle/strategy/darvas_box.py`
-- Function calls in `/turtle/service/strategy_runner.py`
+- Function calls in `/turtle/services/strategy_runner.py`
 - Notebook cells in `/examples/backtesting.ipynb`
 - Updated code comments to reflect new naming
 

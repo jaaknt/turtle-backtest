@@ -40,7 +40,7 @@ from turtle.data.bars_history import BarsHistoryRepo
 from turtle.ranking.base import RankingStrategy
 from turtle.ranking.momentum import MomentumRanking
 from turtle.ranking.volume_momentum import VolumeMomentumRanking
-from turtle.service.signal_service import SignalService
+from turtle.services.signal_service import SignalService
 from turtle.signal.base import TradingStrategy
 
 logger = logging.getLogger(__name__)

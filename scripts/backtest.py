@@ -47,8 +47,8 @@ from turtle.exit import (
 from turtle.ranking.base import RankingStrategy
 from turtle.ranking.momentum import MomentumRanking
 from turtle.ranking.volume_momentum import VolumeMomentumRanking
-from turtle.service.backtest_service import BacktestService
-from turtle.service.signal_service import SignalService
+from turtle.services.backtest_service import BacktestService
+from turtle.services.signal_service import SignalService
 from turtle.signal.base import TradingStrategy
 from turtle.signal.darvas_box import DarvasBoxStrategy
 from turtle.signal.mars import MarsStrategy

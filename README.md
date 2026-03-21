@@ -88,7 +88,7 @@ For detailed information about the core service classes that provide the busines
 
 ```
 scripts/          ← CLI entry points (argparse, asyncio.run)
-turtle/service/   ← Business logic orchestration
+turtle/services/   ← Business logic orchestration
 turtle/signal/    ← Trading signal strategies
 turtle/exit/      ← Exit strategies
 turtle/ranking/   ← Signal ranking strategies
@@ -126,5 +126,5 @@ PostgreSQL with `psycopg` and a connection pool (size 10). All tables live in th
 
 1. Create `turtle/signal/my_strategy.py` extending `TradingStrategy`
 2. Implement `generate_signals(ticker, bars_data, **kwargs) -> list[Signal]`
-3. Register in `turtle/service/signal_service.py`
+3. Register in `turtle/services/signal_service.py`
 4. Add tests in `tests/test_my_strategy.py`

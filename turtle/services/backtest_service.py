@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from turtle.backtest.models import FutureTrade
 from turtle.backtest.processor import SignalProcessor
-from turtle.service.signal_service import SignalService
+from turtle.services.signal_service import SignalService
 
 # from turtle.signal.models import Signal
 

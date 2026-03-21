@@ -64,10 +64,10 @@ from turtle.exit.profit_loss import ProfitLossExitStrategy
 from turtle.ranking.base import RankingStrategy
 from turtle.ranking.momentum import MomentumRanking
 from turtle.ranking.volume_momentum import VolumeMomentumRanking
-from turtle.service.portfolio_service import PortfolioService
+from turtle.services.portfolio_service import PortfolioService
 
 # PortfolioResults no longer needed - analytics prints directly
-from turtle.service.signal_service import SignalService
+from turtle.services.signal_service import SignalService
 from turtle.signal.base import TradingStrategy
 from turtle.signal.darvas_box import DarvasBoxStrategy
 from turtle.signal.mars import MarsStrategy

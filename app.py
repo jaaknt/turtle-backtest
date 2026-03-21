@@ -3,7 +3,7 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.config.settings import Settings
 from turtle.data.bars_history import BarsHistoryRepo
 from turtle.ranking.momentum import MomentumRanking
-from turtle.service.signal_service import SignalService
+from turtle.services.signal_service import SignalService
 from turtle.signal.darvas_box import DarvasBoxStrategy
 
 import pandas as pd

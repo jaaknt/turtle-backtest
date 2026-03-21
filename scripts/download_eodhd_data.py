@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from turtle.config.settings import Settings
-from turtle.service.eodhd_service import EodhdService
+from turtle.services.eodhd_service import EodhdService
 
 logger = logging.getLogger(__name__)
 

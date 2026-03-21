@@ -9,21 +9,21 @@ The goal is to rename classes/methods to be semantically more correct
 ### Files requiring changes:
 
 #### 1. File Renames
-- `turtle/service/data_update.py` → `turtle/service/data_update_service.py`
-- `turtle/service/strategy_runner.py` → `turtle/service/strategy_runner_service.py`
+- `turtle/services/data_update.py` → `turtle/services/data_update_service.py`
+- `turtle/services/strategy_runner.py` → `turtle/services/strategy_runner_service.py`
 
 #### 2. Import Statement Updates for data_update_service (6 files):
-- `main.py:1` - `from turtle.service.data_update import DataUpdateService`
-- `scripts/daily_eod_update.py:1` - `from turtle.service.data_update import DataUpdateService`
+- `main.py:1` - `from turtle.services.data_update import DataUpdateService`
+- `scripts/daily_eod_update.py:1` - `from turtle.services.data_update import DataUpdateService`
 - `README.md` - documentation reference
 - `examples/symbol_group.ipynb` - notebook imports
 - `examples/backtesting.ipynb` - notebook imports  
 - `examples/pandas.ipynb` - notebook imports
 
 #### 3. Import Statement Updates for strategy_runner_service (4 files):
-- `main.py:1` - `from turtle.service.strategy_runner import StrategyRunnerService`
-- `app.py:1` - `from turtle.service.strategy_runner import StrategyRunnerService`
-- `scripts/strategy_runner.py:1` - `from turtle.service.strategy_runner import StrategyRunnerService`
+- `main.py:1` - `from turtle.services.strategy_runner import StrategyRunnerService`
+- `app.py:1` - `from turtle.services.strategy_runner import StrategyRunnerService`
+- `scripts/strategy_runner.py:1` - `from turtle.services.strategy_runner import StrategyRunnerService`
 - `examples/symbol_group.ipynb` - notebook imports
 
 #### 4. Class Rename PeriodReturnStrategy → TradeExitStrategy (4 files):
@@ -39,8 +39,8 @@ The goal is to rename classes/methods to be semantically more correct
 - `EMAExitStrategy(PeriodReturnStrategy)` → `EMAExitStrategy(TradeExitStrategy)`
 
 ### Todo List:
-1. [ ] Rename turtle/service/data_update.py to turtle/service/data_update_service.py
-2. [ ] Rename turtle/service/strategy_runner.py to turtle/service/strategy_runner_service.py
+1. [ ] Rename turtle/services/data_update.py to turtle/services/data_update_service.py
+2. [ ] Rename turtle/services/strategy_runner.py to turtle/services/strategy_runner_service.py
 3. [ ] Update import statements for data_update_service in 6 files (main.py, scripts/, examples/, README.md)
 4. [ ] Update import statements for strategy_runner_service in 4 files (main.py, app.py, scripts/, examples/)
 5. [ ] Rename PeriodReturnStrategy class to TradeExitStrategy in turtle/performance/period_return.py
