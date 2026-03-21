@@ -1,7 +1,7 @@
 import logging
 import re
 from turtle.config.model import AppConfig
-from turtle.data.models import Company, Exchange, PriceHistory, Ticker
+from turtle.schemas import Company, Exchange, PriceHistory, Ticker
 from typing import Any
 
 import httpx
