@@ -39,7 +39,9 @@ class OhlcvAnalyticsRepository:
         """
         stmt = self._build_stmt(ticker, start_date, end_date)
         with self._engine.connect() as conn:
-            return pd.read_sql(stmt, conn, index_col="date")
+            df = pd.read_sql(stmt, conn, index_col="date")
+        df.index = pd.to_datetime(df.index)
+        return df
 
     def get_ticker_history(
         self,

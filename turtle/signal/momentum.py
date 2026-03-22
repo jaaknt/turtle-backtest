@@ -4,6 +4,7 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.ranking.base import RankingStrategy
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
 
+import pandas as pd
 from pandas_ta.momentum import macd as ta_macd
 from pandas_ta.overlap import ema as ta_ema
 
@@ -66,6 +67,8 @@ class MomentumStrategy(TradingStrategy):
         self.df["close_100_days_ago"] = self.df["close"].shift(70)
 
         self.df = self.df.reset_index()
+        if "date" in self.df.columns:
+            self.df["date"] = pd.to_datetime(self.df["date"]).dt.date
 
     def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
         """

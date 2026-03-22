@@ -65,6 +65,8 @@ class MarsStrategy(TradingStrategy):
         self.df["buy_signal"] = False
 
         self.df = self.df.reset_index()
+        if "date" in self.df.columns:
+            self.df["date"] = pd.to_datetime(self.df["date"]).dt.date
 
     def is_buy_signal(self, ticker: str, row: pd.Series) -> bool:
         # last close > max(close, 10)
