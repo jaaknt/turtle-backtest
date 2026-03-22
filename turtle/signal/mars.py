@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import date, timedelta
 from turtle.common.enums import TimeFrameUnit
 from turtle.ranking.base import RankingStrategy
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
@@ -30,7 +30,7 @@ class MarsStrategy(TradingStrategy):
 
         self.df_orig = pd.DataFrame()
 
-    def collect_data(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
+    def collect_data(self, ticker: str, start_date: date, end_date: date) -> bool:
         self.df = self.bars_history.get_ticker_history(
             ticker,
             start_date - timedelta(days=self.warmup_period),
@@ -114,7 +114,7 @@ class MarsStrategy(TradingStrategy):
         logger.debug(f"{ticker} {row['date'].strftime('%Y-%m-%d')} buy signal")
         return True
 
-    def calculate_entries(self, ticker: str, start_date: datetime, end_date: datetime) -> None:
+    def calculate_entries(self, ticker: str, start_date: date, end_date: date) -> None:
         # collect data for the ticker and end_date
         if not self.collect_data(ticker, start_date, end_date):
             logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
@@ -129,7 +129,7 @@ class MarsStrategy(TradingStrategy):
         for i, row in self.df.iterrows():
             self.df.at[i, "buy_signal"] = self.is_buy_signal(ticker, row)
 
-    def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
+    def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
         """
         Get trading signals for a ticker within a date range.
 
@@ -143,13 +143,13 @@ class MarsStrategy(TradingStrategy):
         """
         # Collect data for the date range
         if not self.collect_data(ticker, start_date, end_date):
-            logger.debug(f"{ticker} - not enough data for range {start_date.date()} to {end_date.date()}")
+            logger.debug(f"{ticker} - not enough data for range {start_date} to {end_date}")
             return []
 
         self.calculate_indicators()
 
         # Filter to the date range
-        filtered_df = self.df[(self.df["date"].dt.date >= start_date.date()) & (self.df["date"].dt.date <= end_date.date())]
+        filtered_df = self.df[(self.df["date"] >= start_date) & (self.df["date"] <= end_date)]
 
         signals = []
         for _, row in filtered_df.iterrows():
@@ -183,7 +183,7 @@ class MarsStrategy(TradingStrategy):
         else:
             return 0
 
-    def ranking(self, ticker: str, date_to_check: datetime) -> int:
+    def ranking(self, ticker: str, date_to_check: date) -> int:
         """
         Calculate a ranking score for a ticker based on its closing price on a given date.
 
@@ -196,14 +196,14 @@ class MarsStrategy(TradingStrategy):
         """
         # Collect data for the specific date
         if not self.collect_data(ticker, date_to_check, date_to_check):
-            logger.debug(f"{ticker} - not enough data for ranking on date {date_to_check.date()}")
+            logger.debug(f"{ticker} - not enough data for ranking on date {date_to_check}")
             return 0
 
         # Filter to the specific date
-        target_df = self.df[self.df["date"].dt.date == date_to_check.date()]
+        target_df = self.df[self.df["date"] == date_to_check]
 
         if target_df.empty:
-            logger.debug(f"{ticker} - no data for ranking on date {date_to_check.date()}")
+            logger.debug(f"{ticker} - no data for ranking on date {date_to_check}")
             return 0
 
         # Get the closing price from the target date

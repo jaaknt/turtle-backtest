@@ -26,7 +26,7 @@ import argparse
 import logging
 import pathlib
 import sys
-from datetime import datetime
+from datetime import date
 
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
@@ -111,10 +111,10 @@ def _get_exit_strategy(strategy_name: str, bars_history: OhlcvAnalyticsRepositor
         raise ValueError(f"Unknown exit strategy '{strategy_name}'")
 
 
-def iso_date_type(date_string: str) -> datetime:
+def iso_date_type(date_string: str) -> date:
     """Custom argparse type for ISO date validation"""
     try:
-        return datetime.fromisoformat(date_string)
+        return date.fromisoformat(date_string)
     except ValueError as err:
         raise argparse.ArgumentTypeError(f"Invalid date format: '{date_string}'. Expected ISO format (YYYY-MM-DD)") from err
 

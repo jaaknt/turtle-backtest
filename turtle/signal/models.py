@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date
 
 
 @dataclass
@@ -8,10 +8,10 @@ class Signal:
 
     Attributes:
         ticker (str): Stock symbol code
-        date (datetime): Date when the signal was generated
+        date (date): Date when the signal was generated
         ranking (int): Ranking score of the signal (1-100)
     """
 
     ticker: str
-    date: datetime
+    date: date
     ranking: int

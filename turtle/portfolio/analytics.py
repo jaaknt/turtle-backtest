@@ -2,7 +2,7 @@
 
 import logging
 import warnings
-from datetime import datetime
+from datetime import date, datetime
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
 
 import matplotlib
@@ -32,8 +32,8 @@ class PortfolioAnalytics:
     def generate_results(
         self,
         portfolio_state: PortfolioState,
-        start_date: datetime,
-        end_date: datetime,
+        start_date: date,
+        end_date: date,
         ohlcv_repo: OhlcvAnalyticsRepository,
         output_file: str | None = None,
     ) -> None:
@@ -124,11 +124,11 @@ class PortfolioAnalytics:
 
         return returns
 
-    def _calculate_benchmark_returns(self, start_date: datetime, end_date: datetime, ohlcv_repo: OhlcvAnalyticsRepository) -> pd.Series:
+    def _calculate_benchmark_returns(self, start_date: date, end_date: date, ohlcv_repo: OhlcvAnalyticsRepository) -> pd.Series:
         """Calculate QQQ benchmark returns for comparison."""
         try:
             # Fetch QQQ historical data
-            qqq_df = ohlcv_repo.get_bars_pd("QQQ", start_date.date(), end_date.date())
+            qqq_df = ohlcv_repo.get_bars_pd("QQQ", start_date, end_date)
 
             if qqq_df.empty or len(qqq_df) < 2:
                 logger.warning("Insufficient QQQ data for benchmark calculation")

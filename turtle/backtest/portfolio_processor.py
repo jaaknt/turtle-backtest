@@ -1,7 +1,7 @@
 """Portfolio-aware signal processing for multi-stock backtesting."""
 
 import logging
-from datetime import datetime, timedelta
+from datetime import date, timedelta
 from turtle.common.enums import TimeFrameUnit
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
 from turtle.signal.base import TradingStrategy
@@ -42,7 +42,7 @@ class PortfolioSignalProcessor:
 
     def generate_universe_signals(
         self,
-        date: datetime,
+        date: date,
         universe: list[str],
         exclude_tickers: set[str] | None = None,
         min_ranking: int = 50,
@@ -82,7 +82,7 @@ class PortfolioSignalProcessor:
 
         return qualified_signals
 
-    def _process_ticker_batch(self, date: datetime, tickers: list[str]) -> list[Signal]:
+    def _process_ticker_batch(self, date: date, tickers: list[str]) -> list[Signal]:
         """
         Process a batch of tickers for signal generation.
 
@@ -107,7 +107,7 @@ class PortfolioSignalProcessor:
 
         return batch_signals
 
-    def _generate_ticker_signals(self, ticker: str, date: datetime) -> list[Signal]:
+    def _generate_ticker_signals(self, ticker: str, date: date) -> list[Signal]:
         """
         Generate signals for a single ticker.
 
@@ -127,7 +127,7 @@ class PortfolioSignalProcessor:
             )
 
             # Filter for signals on target date
-            target_signals = [s for s in signals if s.date.date() == date.date()]
+            target_signals = [s for s in signals if s.date == date]
 
             return target_signals
 

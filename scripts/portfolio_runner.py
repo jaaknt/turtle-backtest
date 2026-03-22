@@ -46,7 +46,7 @@ import argparse
 import logging
 import pathlib
 import sys
-from datetime import datetime
+from datetime import date
 
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
@@ -130,10 +130,10 @@ def _get_ranking_strategy(strategy_name: str) -> RankingStrategy:
     return strategy_class()
 
 
-def iso_date_type(date_string: str) -> datetime:
+def iso_date_type(date_string: str) -> date:
     """Custom argparse type for ISO date validation."""
     try:
-        return datetime.fromisoformat(date_string)
+        return date.fromisoformat(date_string)
     except ValueError as err:
         raise argparse.ArgumentTypeError(f"Invalid date format: '{date_string}'. Expected ISO format (YYYY-MM-DD)") from err
 
@@ -303,7 +303,7 @@ def main() -> int:
             logger.info(f"Using {len(universe)} tickers from symbol database")
 
         # Run the backtest (now prints results and generates tearsheet automatically)
-        logger.info(f"Running portfolio backtest from {args.start_date.date()} to {args.end_date.date()}")
+        logger.info(f"Running portfolio backtest from {args.start_date} to {args.end_date}")
         portfolio_service.run_backtest(
             start_date=args.start_date,
             end_date=args.end_date,

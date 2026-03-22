@@ -1,6 +1,6 @@
 # from typing import List, Tuple
 import logging
-from datetime import datetime
+from datetime import date
 from turtle.common.enums import TimeFrameUnit
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
 from turtle.repositories.eodhd import TickerQueryRepository
@@ -34,7 +34,7 @@ class SignalService:
         self.bars_history = OhlcvAnalyticsRepository(self.engine)
         self.market_data = MarketData(self.bars_history)
 
-    def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
+    def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
         """Wrapper function for TradingStrategy.get_signals."""
         return self.trading_strategy.get_signals(ticker, start_date, end_date)
 

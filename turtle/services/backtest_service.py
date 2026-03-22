@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import date
 from turtle.backtest.models import FutureTrade
 from turtle.backtest.processor import SignalProcessor
 from turtle.services.signal_service import SignalService
@@ -14,7 +14,7 @@ class BacktestService:
         self.signal_service = signal_service
         self.signal_processor = signal_processor
 
-    def run(self, start_date: datetime, end_date: datetime, tickers: list[str] | None) -> list[FutureTrade]:
+    def run(self, start_date: date, end_date: date, tickers: list[str] | None) -> list[FutureTrade]:
         """
         Run the backtest for the specified date range.
 

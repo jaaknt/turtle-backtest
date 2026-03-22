@@ -2,7 +2,7 @@
 
 import csv
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from turtle.backtest.models import FutureTrade
 from turtle.backtest.processor import SignalProcessor
@@ -32,8 +32,8 @@ class PortfolioService:
         trading_strategy: TradingStrategy,
         exit_strategy: ExitStrategy,
         bars_history: OhlcvAnalyticsRepository,
-        start_date: datetime,
-        end_date: datetime,
+        start_date: date,
+        end_date: date,
         initial_capital: float = 30000.0,
         position_min_amount: float = 1500.0,
         position_max_amount: float = 3000.0,
@@ -90,8 +90,8 @@ class PortfolioService:
 
     def run_backtest(
         self,
-        start_date: datetime,
-        end_date: datetime,
+        start_date: date,
+        end_date: date,
         universe: list[str],
         output_file: str | None = None,
     ) -> None:
@@ -104,7 +104,7 @@ class PortfolioService:
             universe: List of stock tickers to consider
             output_file: Optional file path for HTML tearsheet output
         """
-        logger.info(f"Starting portfolio backtest: {start_date.date()} to {end_date.date()} ({len(universe)} stocks)")
+        logger.info(f"Starting portfolio backtest: {start_date} to {end_date} ({len(universe)} stocks)")
 
         current_date = start_date
 
@@ -131,7 +131,7 @@ class PortfolioService:
         )
         print(f"Trades PL: ${total_value:.2f} current snapshot total value: ${self.portfolio_manager.current_snapshot.total_value:.2f}")
 
-    def _process_trading_day(self, current_date: datetime, end_date: datetime, universe: list[str]) -> None:
+    def _process_trading_day(self, current_date: date, end_date: date, universe: list[str]) -> None:
         """
         Process a single trading day: generate signals, manage positions, update portfolio.
 
@@ -143,9 +143,7 @@ class PortfolioService:
         # Step 1: Record daily snapshot
         self.portfolio_manager.record_daily_snapshot(current_date)
 
-        logger.info(
-            f"Processing trading day: {current_date.date()} Total value: ${self.portfolio_manager.current_snapshot.total_value:.2f}"
-        )
+        logger.info(f"Processing trading day: {current_date} Total value: ${self.portfolio_manager.current_snapshot.total_value:.2f}")
 
         # Step 2: Process scheduled exits
         self._process_exits(current_date)
@@ -160,7 +158,7 @@ class PortfolioService:
         # Step 5: Update portfolio with current prices
         self._update_portfolio_prices(current_date)
 
-    def _process_exits(self, current_date: datetime) -> None:
+    def _process_exits(self, current_date: date) -> None:
         """
         Process scheduled exits for current date using pre-calculated trade data.
 
@@ -172,7 +170,7 @@ class PortfolioService:
 
         for position in positions_to_process:
             # Check if this position's scheduled exit date matches current date
-            if position.exit.date.date() <= current_date.date():
+            if position.exit.date.date() <= current_date:
                 logger.info(f"Exiting position for {position.ticker} on {position.exit.date.date()}")
                 self.portfolio_manager.close_position(exit=position.exit, position_size=position.position_size)
             else:
@@ -180,7 +178,7 @@ class PortfolioService:
 
         logger.info(f"positions after exits: {len(self.portfolio_manager.current_snapshot.positions)}")
 
-    def _generate_entry_signals(self, current_date: datetime, universe: list[str]) -> list[Signal]:
+    def _generate_entry_signals(self, current_date: date, universe: list[str]) -> list[Signal]:
         """
         Generate trading signals for all stocks in universe.
 
@@ -211,7 +209,7 @@ class PortfolioService:
 
         return qualified_signals
 
-    def _process_signals(self, signals: list[Signal], current_date: datetime, end_date: datetime) -> None:
+    def _process_signals(self, signals: list[Signal], current_date: date, end_date: date) -> None:
         """
         Process new position entries using complete ClosedTrade calculations.
 
@@ -244,7 +242,7 @@ class PortfolioService:
             if self.portfolio_manager.current_snapshot.cash < self.portfolio_manager.position_min_amount:
                 break
 
-    def _update_portfolio_prices(self, current_date: datetime) -> None:
+    def _update_portfolio_prices(self, current_date: date) -> None:
         """
         Update current prices for all portfolio positions.
 

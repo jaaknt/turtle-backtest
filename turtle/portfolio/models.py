@@ -1,7 +1,7 @@
 """Data models for portfolio backtesting."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date
 from turtle.backtest.models import FutureTrade, Trade
 
 
@@ -67,7 +67,7 @@ class DailyPortfolioSnapshot:
         positions: List of positions at snapshot time
     """
 
-    date: datetime
+    date: date
     cash: float
     positions: list[Position]
 

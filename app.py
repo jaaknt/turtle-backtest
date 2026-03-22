@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.settings import Settings
 from turtle.ranking.momentum import MomentumRanking
@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-end_date = datetime(year=2025, month=8, day=12)
+end_date = date(2025, 8, 12)
 
 # Create settings and database connection
 settings = Settings.from_toml()
@@ -36,7 +36,7 @@ signals = []
 for ticker in strategy_runner.get_symbol_list():
     signals.extend(strategy_runner.get_signals(ticker, end_date, end_date))
 
-df: pd.DataFrame = pd.DataFrame([{"ticker": s.ticker, "date": s.date.date(), "ranking": s.ranking} for s in signals])
+df: pd.DataFrame = pd.DataFrame([{"ticker": s.ticker, "date": s.date, "ranking": s.ranking} for s in signals])
 
 # Streamlit commands to visualize the DataFrame
 st.title("DataFrame Visualization with Streamlit")
