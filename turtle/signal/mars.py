@@ -52,9 +52,14 @@ class MarsStrategy(TradingStrategy):
         self.df["ema_20"] = ta_ema(self.df["close"], length=20)
 
         macd_df = ta_macd(self.df["close"], fast=12, slow=26, signal=9)
-        self.df["macd"] = macd_df["MACD_12_26_9"]
-        self.df["macd_histogram"] = macd_df["MACDh_12_26_9"]
-        self.df["macd_signal"] = macd_df["MACDs_12_26_9"]
+        if macd_df is None:
+            self.df["macd"] = float("nan")
+            self.df["macd_histogram"] = float("nan")
+            self.df["macd_signal"] = float("nan")
+        else:
+            self.df["macd"] = macd_df["MACD_12_26_9"]
+            self.df["macd_histogram"] = macd_df["MACDh_12_26_9"]
+            self.df["macd_signal"] = macd_df["MACDs_12_26_9"]
 
         self.df["max_close_10"] = self.df["close"].rolling(window=10).max()
 

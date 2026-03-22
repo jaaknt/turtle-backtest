@@ -89,7 +89,7 @@ class BacktestService:
 
     def _print_top_signals(self, signal_results: list[FutureTrade]) -> None:
         """
-        Print the top 5 performing signals by return percentage.
+        Print the top 20 performing signals by return percentage.
 
         Args:
             signal_results: List of FutureTrade objects to analyze
@@ -98,10 +98,10 @@ class BacktestService:
             logger.warning("No signal results to display top performers.")
             return
 
-        # Sort by return percentage in descending order and take top 5
-        top_signals = sorted(signal_results, key=lambda x: x.realized_pct, reverse=True)[:5]
+        # Sort by return percentage in descending order and take top 20
+        top_signals = sorted(signal_results, key=lambda x: x.realized_pct, reverse=True)[:20]
 
-        print("\nTop 5 Performing Signals:")
+        print("\nTop 20 Performing Signals:")
         print("-" * 80)
         print(f"{'Rank':<4} {'Ticker':<8} {'Return%':<8} {'Ranking':<8} {'Entry Date':<12} {'Exit Date':<12} {'Days':<5}")
         print("-" * 80)
