@@ -37,6 +37,7 @@ from turtle.config.logging import LogConfig
 from turtle.config.model import AppConfig
 from turtle.config.settings import Settings
 from turtle.ranking.base import RankingStrategy
+from turtle.ranking.breakout_quality import BreakoutQualityRanking
 from turtle.ranking.momentum import MomentumRanking
 from turtle.ranking.volume_momentum import VolumeMomentumRanking
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
@@ -51,6 +52,7 @@ def get_ranking_strategy_instance(ranking_name: str) -> RankingStrategy:
     ranking_classes: dict[str, type[RankingStrategy]] = {
         "momentum": MomentumRanking,
         "volume_momentum": VolumeMomentumRanking,
+        "breakout_quality": BreakoutQualityRanking,
     }
 
     ranking_class = ranking_classes.get(ranking_name.lower())
@@ -132,7 +134,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--ranking-strategy",
         type=str,
         default="momentum",
-        choices=["momentum", "volume_momentum"],
+        choices=["momentum", "volume_momentum", "breakout_quality"],
         help="Ranking strategy to use (default: momentum)",
     )
 

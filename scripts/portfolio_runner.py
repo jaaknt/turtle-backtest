@@ -61,6 +61,7 @@ from turtle.exit.ema import EMAExitStrategy
 from turtle.exit.macd import MACDExitStrategy
 from turtle.exit.profit_loss import ProfitLossExitStrategy
 from turtle.ranking.base import RankingStrategy
+from turtle.ranking.breakout_quality import BreakoutQualityRanking
 from turtle.ranking.momentum import MomentumRanking
 from turtle.ranking.volume_momentum import VolumeMomentumRanking
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
@@ -120,6 +121,7 @@ def _get_ranking_strategy(strategy_name: str) -> RankingStrategy:
     strategy_classes: dict[str, type[RankingStrategy]] = {
         "momentum": MomentumRanking,
         "volume_momentum": VolumeMomentumRanking,
+        "breakout_quality": BreakoutQualityRanking,
     }
 
     strategy_class = strategy_classes.get(strategy_name.lower())
@@ -182,7 +184,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--ranking-strategy",
         type=str,
         default="momentum",
-        choices=["momentum", "volume_momentum"],
+        choices=["momentum", "volume_momentum", "breakout_quality"],
         help="Ranking strategy to use (default: momentum)",
     )
 
