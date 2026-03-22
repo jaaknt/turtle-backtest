@@ -45,6 +45,8 @@ class MomentumStrategy(TradingStrategy):
         # Rolling window indicators
         self.df["max_close_20"] = self.df["close"].rolling(window=20).max()
         self.df["max_high_20"] = self.df["high"].rolling(window=20).max()
+        self.df["max_close_10"] = self.df["close"].shift(1).rolling(window=10).max()
+        self.df["min_close_10"] = self.df["close"].shift(1).rolling(window=10).min()
 
         # MACD indicator
         macd_df = ta_macd(self.df["close"], fast=12, slow=26, signal=9)
@@ -59,6 +61,9 @@ class MomentumStrategy(TradingStrategy):
 
         # Volume indicators
         self.df["ema_volume_10"] = ta_ema(self.df["volume"], length=10)
+
+        # 100-day price change: current close vs close 70 bars ago (weekends are skipped, so 70 bars is roughly 100 calendar days)
+        self.df["close_100_days_ago"] = self.df["close"].shift(70)
 
         self.df = self.df.reset_index()
 
@@ -97,6 +102,8 @@ class MomentumStrategy(TradingStrategy):
             & (filtered_df["volume"] >= filtered_df["ema_volume_10"] * 1.10)
             & (filtered_df["macd"] > filtered_df["macd_signal"])
             & ((filtered_df["close"] - filtered_df["open"]) / filtered_df["close"] >= 0.008)
+            & ((filtered_df["close"] - filtered_df["close_100_days_ago"]) / filtered_df["close_100_days_ago"] >= 0.30)
+            & ((filtered_df["max_close_10"] - filtered_df["min_close_10"]) / filtered_df["close"] <= 0.10)
         )
 
         # Add EMA200 conditions only for daily timeframe
@@ -115,6 +122,14 @@ class MomentumStrategy(TradingStrategy):
             )
             logger.debug(f"  macd: {row['macd']} macd_signal: {row['macd_signal']}")
             logger.debug(f"  (close - open) / close: {(row['close'] - row['open']) / row['close']}")
+            logger.debug(
+                f"  100d price change: {(row['close'] - row['close_100_days_ago']) / row['close_100_days_ago']:.2%} "
+                f"(close: {row['close']} close_100d: {row['close_100_days_ago']})"
+            )
+            logger.debug(
+                f"  10d consolidation: {(row['max_close_10'] - row['min_close_10']) / row['close']:.2%} "
+                f"(max_close_10: {row['max_close_10']} min_close_10: {row['min_close_10']})"
+            )
 
         # Get the dates where buy signals occur
         signal_dates = filtered_df[buy_signals]["date"].tolist()
