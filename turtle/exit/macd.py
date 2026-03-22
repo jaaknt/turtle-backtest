@@ -32,8 +32,12 @@ class MACDExitStrategy(ExitStrategy):
             self.ticker, self.start_date - timedelta(days=40), self.end_date, time_frame_unit=TimeFrameUnit.DAY
         )
         macd_df = ta_macd(df["close"], fast=self.fastperiod, slow=self.slowperiod, signal=self.signalperiod)
-        df["macd_line"] = macd_df[f"MACD_{self.fastperiod}_{self.slowperiod}_{self.signalperiod}"]
-        df["macd_signal"] = macd_df[f"MACDs_{self.fastperiod}_{self.slowperiod}_{self.signalperiod}"]
+        if macd_df is None:
+            df["macd_line"] = float("nan")
+            df["macd_signal"] = float("nan")
+        else:
+            df["macd_line"] = macd_df[f"MACD_{self.fastperiod}_{self.slowperiod}_{self.signalperiod}"]
+            df["macd_signal"] = macd_df[f"MACDs_{self.fastperiod}_{self.slowperiod}_{self.signalperiod}"]
         # filter index >= start_date
         self.df = df[df.index >= self.start_date].copy()
         return self.df
