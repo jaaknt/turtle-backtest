@@ -219,7 +219,10 @@ def main() -> int:
         logger.info("Initializing strategy runner...")
         signal_service = SignalService(engine=settings.engine, trading_strategy=trading_strategy, time_frame_unit=TimeFrameUnit.DAY)
         signal_processor = SignalProcessor(
-            max_holding_period=60, bars_history=signal_service.bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
+            max_holding_period=60,
+            bars_history=signal_service.bars_history,
+            exit_strategy=exit_strategy,
+            benchmark_tickers=["SPY.US", "QQQ.US"],
         )
         backtest_service = BacktestService(signal_service=signal_service, signal_processor=signal_processor)
 

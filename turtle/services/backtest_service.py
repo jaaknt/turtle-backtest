@@ -66,9 +66,9 @@ class BacktestService:
         spy_returns = []
         for result in signal_results:
             for benchmark in result.benchmark_list:
-                if benchmark.ticker == "QQQ":
+                if benchmark.ticker == "QQQ.US":
                     qqq_returns.append(benchmark.return_pct)
-                elif benchmark.ticker == "SPY":
+                elif benchmark.ticker == "SPY.US":
                     spy_returns.append(benchmark.return_pct)
 
         avg_return_pct_qqq = sum(qqq_returns) / len(qqq_returns) if qqq_returns else 0.0
