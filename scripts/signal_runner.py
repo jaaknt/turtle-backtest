@@ -82,7 +82,7 @@ def get_trading_strategy_instance(strategy_name: str, ranking_strategy: RankingS
 
     # Create strategy instance with common parameters
     return strategy_class(
-        bars_history=bars_history, ranking_strategy=ranking_strategy, time_frame_unit=TimeFrameUnit.DAY, warmup_period=365
+        bars_history=bars_history, ranking_strategy=ranking_strategy, time_frame_unit=TimeFrameUnit.DAY
     )
 
 
