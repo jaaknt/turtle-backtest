@@ -102,7 +102,7 @@ class EodhdService:
 
                     tasks = [
                         self.api_client.get_eod_historical_data(
-                            ticker=f"{row.exchange_code}.US",
+                            ticker=f"{row.code}",
                             from_date=from_date,
                             to_date=to_date,
                         )
@@ -112,7 +112,7 @@ class EodhdService:
 
                     batch_price_records: list[DailyBars] = []
                     for idx, result in enumerate(batch_results):
-                        eodhd_ticker = f"{batch[idx].exchange_code}.US"
+                        eodhd_ticker = f"{batch[idx].code}"
                         if isinstance(result, Exception):
                             logger.error(f"Error fetching historical data for {eodhd_ticker}: {type(result).__name__}: {result}")
                             total_stocks_failed += 1

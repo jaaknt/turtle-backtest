@@ -35,7 +35,7 @@ class TickerQueryRepository:
                 and_(
                     ticker_table.c.country == country,
                     ticker_table.c.exchange.in_(US_EXCHANGES),
-                    ticker_table.c.type == COMMON_STOCK_TYPE,
+                    # ticker_table.c.type == COMMON_STOCK_TYPE,
                 )
             )
             .order_by(t.c.code)
@@ -95,12 +95,21 @@ class TickerRepository:
         return total
 
     async def fetch_tickers(self, country: str, limit: int | None = None) -> Sequence[Row]:
-        stmt = select(ticker_table.c.exchange_code).where(
-            and_(
-                ticker_table.c.country == country,
-                ticker_table.c.exchange.in_(US_EXCHANGES),
-                ticker_table.c.type == COMMON_STOCK_TYPE,
+        # ticker_table.c.exchange.in_(US_EXCHANGES),
+        # ticker_table.c.type == COMMON_STOCK_TYPE,
+
+        t = ticker_table
+        tg = ticker_group_table
+
+        stmt = (
+            select(t.c.code)
+            .select_from(t.join(tg, (and_(t.c.code == tg.c.ticker_code, tg.c.code == "active"))))
+            .where(
+                and_(
+                    ticker_table.c.country == country,
+                )
             )
+            .order_by(t.c.code)
         )
         result = await self._session.execute(stmt)
         rows = result.fetchall()
