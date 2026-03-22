@@ -97,6 +97,59 @@ class BacktestService:
                     f" Annual: {avg_ranked_annual_pct:,.0f}%"
                     f" count: {len(ranked_results)}"
                 )
+                if i == 80:
+                    self._print_pnl_distribution(ranked_results, rank_label=f"{i + 1}-{i + 20}")
+
+    def _print_pnl_distribution(self, results: list[FutureTrade], rank_label: str = "") -> None:
+        """Print PnL distribution across fixed return buckets."""
+        buckets: list[tuple[str, float, float]] = [
+            ("<-5%", float("-inf"), -5.0),
+            ("-5%:-3%", -5.0, -3.0),
+            ("-3%:-1%", -3.0, -1.0),
+            ("-1%:0%", -1.0, 0.0),
+            ("0%:1%", 0.0, 1.0),
+            ("1%:3%", 1.0, 3.0),
+            ("3%:5%", 3.0, 5.0),
+            ("5%:10%", 5.0, 10.0),
+            (">10%", 10.0, float("inf")),
+        ]
+        n = len(results)
+        print("   PnL Distribution:")
+        for label, lo, hi in buckets:
+            count = sum(1 for r in results if lo <= r.realized_pct < hi)
+            pct = count / n * 100 if n else 0.0
+            bar = "#" * int(pct / 2)
+            print(f"   {label:>10}  {count:>4} ({pct:>5.1f}%)  {bar}")
+
+        sorted_results = sorted(results, key=lambda r: r.realized_pct, reverse=True)
+        header = f"   {'Ticker':<10} {'Return%':>8}  {'Annual%':>9}  {'Entry':>10}  {'Exit':>10}  {'Days':>5}"
+        sep = "   " + "-" * 60
+
+        label_suffix = f" (rank {rank_label})" if rank_label else ""
+
+        top_n = sorted_results[:10]
+        print(f"\n   Top {len(top_n)}{label_suffix}:")
+        print(header)
+        print(sep)
+        for r in top_n:
+            days = (r.exit.date - r.entry.date).days
+            annual_str = f"{min(r.annualized_pct, 9999.0):>8.0f}%"
+            print(
+                f"   {r.signal.ticker:<10} {r.realized_pct:>7.2f}%  {annual_str}  "
+                f"{r.entry.date.strftime('%Y-%m-%d')}  {r.exit.date.strftime('%Y-%m-%d')}  {days:>5}"
+            )
+
+        bottom_n = sorted_results[-10:][::-1]
+        print(f"\n   Bottom {len(bottom_n)}{label_suffix}:")
+        print(header)
+        print(sep)
+        for r in bottom_n:
+            days = (r.exit.date - r.entry.date).days
+            annual_str = f"{min(r.annualized_pct, 9999.0):>8.0f}%"
+            print(
+                f"   {r.signal.ticker:<10} {r.realized_pct:>7.2f}%  {annual_str}  "
+                f"{r.entry.date.strftime('%Y-%m-%d')}  {r.exit.date.strftime('%Y-%m-%d')}  {days:>5}"
+            )
 
     def _print_top_signals(self, signal_results: list[FutureTrade]) -> None:
         """

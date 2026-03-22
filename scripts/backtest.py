@@ -44,6 +44,7 @@ from turtle.exit import (
     ProfitLossExitStrategy,
 )
 from turtle.ranking.base import RankingStrategy
+from turtle.ranking.breakout_quality import BreakoutQualityRanking
 from turtle.ranking.momentum import MomentumRanking
 from turtle.ranking.volume_momentum import VolumeMomentumRanking
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
@@ -91,6 +92,8 @@ def _get_ranking_strategy(strategy_name: str) -> RankingStrategy:
         return MomentumRanking()
     elif strategy_name == "volume_momentum":
         return VolumeMomentumRanking()
+    elif strategy_name == "breakout_quality":
+        return BreakoutQualityRanking()
     else:
         raise ValueError(f"Unknown ranking strategy '{strategy_name}'")
 
@@ -167,8 +170,12 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--ranking-strategy",
         type=str,
         default="momentum",
-        choices=["momentum", "volume_momentum"],
-        help="Ranking strategy to use: momentum (EMA200-based), volume_momentum (volume+volatility-based) (default: momentum)",
+        choices=["momentum", "volume_momentum", "breakout_quality"],
+        help=(
+            "Ranking strategy to use: momentum (EMA200-based), "
+            "volume_momentum (volume+volatility-based), "
+            "breakout_quality (breakout event strength) (default: momentum)"
+        ),
     )
 
     parser.add_argument("--max-tickers", type=int, default=10000, help="Maximum number of tickers to test")
