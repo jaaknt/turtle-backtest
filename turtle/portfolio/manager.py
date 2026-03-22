@@ -1,7 +1,7 @@
 """Portfolio position and cash management."""
 
 import logging
-from datetime import datetime
+from datetime import date
 from turtle.backtest.models import Trade
 
 from .models import DailyPortfolioSnapshot, PortfolioState, Position
@@ -18,8 +18,8 @@ class PortfolioManager:
 
     def __init__(
         self,
-        start_date: datetime,
-        end_date: datetime,
+        start_date: date,
+        end_date: date,
         initial_capital: float = 30000.0,
         position_min_amount: float = 1500.0,
         position_max_amount: float = 3000.0,
@@ -132,7 +132,7 @@ class PortfolioManager:
 
         return None
 
-    def record_daily_snapshot(self, current_date: datetime) -> DailyPortfolioSnapshot:
+    def record_daily_snapshot(self, current_date: date) -> DailyPortfolioSnapshot:
         """
         Record daily portfolio snapshot for performance tracking.
 

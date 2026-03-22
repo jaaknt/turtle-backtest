@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from turtle.backtest.models import Benchmark, FutureTrade, Trade
 from turtle.common.enums import TimeFrameUnit
 from turtle.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
@@ -53,7 +53,7 @@ class SignalProcessor:
         self.benchmark_tickers = benchmark_tickers
         self.time_frame_unit = time_frame_unit
 
-    def run(self, signal: Signal, end_date: datetime | None = None) -> FutureTrade | None:
+    def run(self, signal: Signal, end_date: date | datetime | None = None) -> FutureTrade | None:
         """
         Process a Signal object to create a complete ClosedTrade.
 
@@ -81,7 +81,9 @@ class SignalProcessor:
         logger.debug(f"Entry calculated: {entry.date} at ${entry.price}")
 
         # Step 2: Calculate exit data using strategy
-        exit: Trade | None = self.calculate_exit_data(signal, entry.date, entry.price, end_date)
+        is_date_only = isinstance(end_date, date) and not isinstance(end_date, datetime)
+        end_datetime = datetime.combine(end_date, datetime.min.time()) if is_date_only else end_date
+        exit: Trade | None = self.calculate_exit_data(signal, entry.date, entry.price, end_datetime)
         if exit is None:  # No trading data available for exit
             logger.warning(f"Skipping signal for {signal.ticker} on {signal.date}: No exit data")
             return None

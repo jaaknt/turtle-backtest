@@ -25,7 +25,7 @@ import argparse
 import logging
 import pathlib
 import sys
-from datetime import datetime
+from datetime import date
 
 from sqlalchemy import Engine
 
@@ -86,10 +86,10 @@ def get_trading_strategy_instance(strategy_name: str, ranking_strategy: RankingS
     )
 
 
-def iso_date_type(date_string: str) -> datetime:
+def iso_date_type(date_string: str) -> date:
     """Custom argparse type for ISO date validation"""
     try:
-        return datetime.fromisoformat(date_string)
+        return date.fromisoformat(date_string)
     except ValueError as err:
         raise argparse.ArgumentTypeError(f"Invalid date format: '{date_string}'. Expected ISO format (YYYY-MM-DD)") from err
 
@@ -198,7 +198,7 @@ def main() -> int:
 
                 if len(signals) > 0:
                     for signal in signals:
-                        print(f"  ✓ Signal {ticker} on {signal.date.date()} ranking: {signal.ranking} ")
+                        print(f"  ✓ Signal {ticker} on {signal.date} ranking: {signal.ranking} ")
 
         elif args.mode == "top":
             logger.info("Getting top 20 signals...")
@@ -212,7 +212,7 @@ def main() -> int:
             else:
                 top_signals = sorted(signal_list, key=lambda s: s.ranking, reverse=True)[:20]
                 for signal in top_signals:
-                    print(f"  ✓ Signal {signal.ticker} on {signal.date.date()} ranking: {signal.ranking} ")
+                    print(f"  ✓ Signal {signal.ticker} on {signal.date} ranking: {signal.ranking} ")
 
         elif args.mode == "signal":
             if not args.tickers:
@@ -223,7 +223,7 @@ def main() -> int:
 
                 if len(signals) > 0:
                     for signal in signals:
-                        print(f"  ✓ Signal {ticker} on {signal.date.date()} ranking: {signal.ranking} ")
+                        print(f"  ✓ Signal {ticker} on {signal.date} ranking: {signal.ranking} ")
 
         logger.info("Strategy analysis completed successfully")
         return 0

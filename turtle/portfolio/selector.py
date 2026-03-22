@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import date
 from turtle.signal.models import Signal
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class PortfolioSignalSelector:
         available_signals: list[Signal],
         current_positions: set[str],
         available_positions: int,
-        current_date: datetime,
+        current_date: date,
     ) -> list[Signal]:
         """
         Select the best entry signals for new positions.

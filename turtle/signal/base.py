@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import date
 from turtle.common.enums import TimeFrameUnit
 from turtle.ranking.base import RankingStrategy
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
@@ -43,7 +43,7 @@ class TradingStrategy(ABC):
         self.df = pd.DataFrame()
 
     @abstractmethod
-    def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
+    def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
         """
         Get trading signals for a ticker within a date range.
 
@@ -58,7 +58,7 @@ class TradingStrategy(ABC):
         pass
 
     @abstractmethod
-    def collect_data(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
+    def collect_data(self, ticker: str, start_date: date, end_date: date) -> bool:
         """
         Collect historical market data for analysis.
 

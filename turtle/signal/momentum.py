@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import date, timedelta
 from turtle.common.enums import TimeFrameUnit
 from turtle.ranking.base import RankingStrategy
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
@@ -24,7 +24,7 @@ class MomentumStrategy(TradingStrategy):
     ):
         super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars)
 
-    def collect_data(self, ticker: str, start_date: datetime, end_date: datetime) -> bool:
+    def collect_data(self, ticker: str, start_date: date, end_date: date) -> bool:
         self.df = self.bars_history.get_ticker_history(
             ticker,
             start_date - timedelta(days=self.warmup_period),
@@ -62,7 +62,7 @@ class MomentumStrategy(TradingStrategy):
 
         self.df = self.df.reset_index()
 
-    def get_signals(self, ticker: str, start_date: datetime, end_date: datetime) -> list[Signal]:
+    def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
         """
         Get trading signals for a ticker within a date range.
 
@@ -107,7 +107,7 @@ class MomentumStrategy(TradingStrategy):
 
         # print all values from start_date to end_date where buy_signals is False
         for _, row in filtered_df[~buy_signals].iterrows():
-            logger.debug(f"{ticker} - no buy signal on {row['date'].date()}")
+            logger.debug(f"{ticker} - no buy signal on {row['date']}")
             logger.debug(f"  close: {row['close']} max_close_20: {row['max_close_20']} ema_10: {row['ema_10']} ema_20: {row['ema_20']}")
             logger.debug(
                 f"  ema_50: {row['ema_50']} ema_200: {row['ema_200']} "
