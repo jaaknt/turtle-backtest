@@ -97,7 +97,7 @@ class BacktestService:
                     f" Annual: {avg_ranked_annual_pct:,.0f}%"
                     f" count: {len(ranked_results)}"
                 )
-                if i == 80:
+                if i in (60, 80):
                     self._print_pnl_distribution(ranked_results, rank_label=f"{i + 1}-{i + 20}")
 
     def _print_pnl_distribution(self, results: list[FutureTrade], rank_label: str = "") -> None:
