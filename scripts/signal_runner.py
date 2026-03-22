@@ -81,9 +81,7 @@ def get_trading_strategy_instance(strategy_name: str, ranking_strategy: RankingS
     bars_history = OhlcvAnalyticsRepository(engine)
 
     # Create strategy instance with common parameters
-    return strategy_class(
-        bars_history=bars_history, ranking_strategy=ranking_strategy, time_frame_unit=TimeFrameUnit.DAY
-    )
+    return strategy_class(bars_history=bars_history, ranking_strategy=ranking_strategy, time_frame_unit=TimeFrameUnit.DAY)
 
 
 def iso_date_type(date_string: str) -> date:

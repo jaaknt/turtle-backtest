@@ -128,6 +128,8 @@ class DarvasBoxStrategy(TradingStrategy):
         self.df["buy_signal"] = False
 
         self.df = self.df.reset_index()
+        if "date" in self.df.columns:
+            self.df["date"] = pd.to_datetime(self.df["date"]).dt.date
 
         # self.darvas_box_breakout()
 
