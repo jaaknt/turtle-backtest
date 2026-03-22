@@ -63,7 +63,7 @@ def demonstrate_portfolio_api() -> None:
         start_date=datetime(2023, 1, 1),
         end_date=datetime(2024, 8, 30),
         universe=universe,
-        benchmark_tickers=['SPY', 'QQQ']
+        benchmark_tickers=['SPY.US', 'QQQ.US']
     )
 
     # Step 6: Analyze results
