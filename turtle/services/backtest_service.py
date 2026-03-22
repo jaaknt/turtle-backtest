@@ -1,10 +1,9 @@
 import logging
-from datetime import date
+from datetime import date, datetime
+from turtle.backtest.benchmark_utils import calculate_benchmark_list
 from turtle.backtest.models import FutureTrade
 from turtle.backtest.processor import SignalProcessor
 from turtle.services.signal_service import SignalService
-
-# from turtle.signal.models import Signal
 
 logger = logging.getLogger(__name__)
 
@@ -44,11 +43,11 @@ class BacktestService:
             signal_result: FutureTrade | None = self.signal_processor.run(signal)
             if signal_result is not None:
                 signal_results.append(signal_result)
-        self._print_summary(signal_results)
+        self._print_summary(signal_results, start_date, end_date)
         self._print_top_signals(signal_results)
         return signal_results
 
-    def _print_summary(self, signal_results: list[FutureTrade]) -> None:
+    def _print_summary(self, signal_results: list[FutureTrade], start_date: date, end_date: date) -> None:
         """
         Print average(return_pct), average benchmark returns
         Print total trades and winning trades and win rate
@@ -61,18 +60,19 @@ class BacktestService:
 
         avg_return_pct = sum(result.realized_pct for result in signal_results) / len(signal_results)
 
-        # Calculate average benchmark returns
-        qqq_returns = []
-        spy_returns = []
-        for result in signal_results:
-            for benchmark in result.benchmark_list:
-                if benchmark.ticker == "QQQ.US":
-                    qqq_returns.append(benchmark.return_pct)
-                elif benchmark.ticker == "SPY.US":
-                    spy_returns.append(benchmark.return_pct)
-
-        avg_return_pct_qqq = sum(qqq_returns) / len(qqq_returns) if qqq_returns else 0.0
-        avg_return_pct_spy = sum(spy_returns) / len(spy_returns) if spy_returns else 0.0
+        # Calculate full-period benchmark returns (start_date to end_date)
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        end_dt = datetime.combine(end_date, datetime.min.time())
+        benchmarks = calculate_benchmark_list(
+            start_dt,
+            end_dt,
+            self.signal_processor.benchmark_tickers,
+            self.signal_processor.bars_history,
+            self.signal_processor.time_frame_unit,
+        )
+        benchmark_returns = {b.ticker: b.return_pct for b in benchmarks}
+        avg_return_pct_qqq = benchmark_returns.get("QQQ.US", 0.0)
+        avg_return_pct_spy = benchmark_returns.get("SPY.US", 0.0)
 
         print(
             f"Backtest Summary:"

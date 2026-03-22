@@ -72,23 +72,22 @@ def calculate_benchmark(
             logger.warning(f"No {ticker} data available for benchmark calculation")
             return None
 
-        # Find entry price (open price on or after entry_date)
-        entry_data = df[df.index == pd.Timestamp(entry_date)]
+        # Find entry price: open on first available trading day on or after entry_date
+        entry_data = df[df.index >= pd.Timestamp(entry_date)]
 
         if entry_data.empty:
-            logger.warning(f"No {ticker} entry data available for {entry_date}")
+            logger.warning(f"No {ticker} entry data available on or after {entry_date}")
             return None
 
         entry_price = float(entry_data.iloc[0]["open"])
 
-        # Find exit price (close price on or closest to exit_date)
-        exit_data = df[df.index == pd.Timestamp(exit_date)]
+        # Find exit price: close on last available trading day on or before exit_date
+        exit_data = df[df.index <= pd.Timestamp(exit_date)]
 
         if exit_data.empty:
-            logger.warning(f"No {ticker} exit data available for {exit_date}")
+            logger.warning(f"No {ticker} exit data available on or before {exit_date}")
             return None
 
-        # Get last available date up to exit_date
         exit_price = float(exit_data.iloc[-1]["close"])
 
         if entry_price <= 0:
