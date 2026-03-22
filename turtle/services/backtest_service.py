@@ -70,22 +70,33 @@ class BacktestService:
             self.signal_processor.bars_history,
             self.signal_processor.time_frame_unit,
         )
-        benchmark_returns = {b.ticker: b.return_pct for b in benchmarks}
-        avg_return_pct_qqq = benchmark_returns.get("QQQ.US", 0.0)
-        avg_return_pct_spy = benchmark_returns.get("SPY.US", 0.0)
+        benchmark_map = {b.ticker: b for b in benchmarks}
+        qqq = benchmark_map.get("QQQ.US")
+        spy = benchmark_map.get("SPY.US")
 
+        qqq_return = qqq.return_pct if qqq else 0.0
+        qqq_annual = qqq.annualized_pct if qqq else 0.0
+        spy_return = spy.return_pct if spy else 0.0
+        spy_annual = spy.annualized_pct if spy else 0.0
+
+        avg_days_held = sum((result.exit.date - result.entry.date).days for result in signal_results) / len(signal_results)
         print(
             f"Backtest Summary:"
             f" Average Return (Ticker): {avg_return_pct:.2f}% count: {len(signal_results)}"
-            f" Average Days Held: {sum((result.exit.date - result.entry.date).days for result in signal_results) / len(signal_results):.2f}"
-            f" Average Return (QQQ): {avg_return_pct_qqq:.2f}%"
-            f" Average Return (SPY): {avg_return_pct_spy:.2f}%"
+            f" Average Days Held: {avg_days_held:.2f}"
+            f"\n QQQ: Period: {qqq_return:.2f}% Annual: {qqq_annual:.2f}%"
+            f"\n SPY: Period: {spy_return:.2f}% Annual: {spy_annual:.2f}%"
         )
         for i in range(0, 100, 20):
             ranked_results = [result for result in signal_results if i < result.signal.ranking < i + 21]
             if ranked_results:
                 avg_ranked_return_pct = sum(result.realized_pct for result in ranked_results) / len(ranked_results)
-                print(f" Average Return Rank [{i + 1}-{i + 20}]: {avg_ranked_return_pct:.2f}% count: {len(ranked_results)}")
+                avg_ranked_annual_pct = sum(min(result.annualized_pct, 9999.0) for result in ranked_results) / len(ranked_results)
+                print(
+                    f" Average Return Rank [{i + 1}-{i + 20}]: {avg_ranked_return_pct:.2f}%"
+                    f" Annual: {avg_ranked_annual_pct:,.0f}%"
+                    f" count: {len(ranked_results)}"
+                )
 
     def _print_top_signals(self, signal_results: list[FutureTrade]) -> None:
         """
@@ -102,15 +113,17 @@ class BacktestService:
         top_signals = sorted(signal_results, key=lambda x: x.realized_pct, reverse=True)[:20]
 
         print("\nTop 20 Performing Signals:")
-        print("-" * 80)
-        print(f"{'Rank':<4} {'Ticker':<8} {'Return%':<8} {'Ranking':<8} {'Entry Date':<12} {'Exit Date':<12} {'Days':<5}")
-        print("-" * 80)
+        print("-" * 100)
+        print(f"{'Rank':<4} {'Ticker':<10} {'Return%':<9} {'Annual%':<10} {'Ranking':<8} {'Entry Date':<12} {'Exit Date':<12} {'Days':<5}")
+        print("-" * 100)
 
         for i, result in enumerate(top_signals, 1):
             days_held = (result.exit.date - result.entry.date).days
+            annual_str = f"{min(result.annualized_pct, 9999.0):>8.0f}%"
             print(
-                f"{i:<4} {result.signal.ticker:<8} {result.realized_pct:>7.2f}% "
+                f"{i:<4} {result.signal.ticker:<10} {result.realized_pct:>7.2f}%  "
+                f"{annual_str:<10}"
                 f"{result.signal.ranking:<8} {result.entry.date.strftime('%Y-%m-%d'):<12} "
                 f"{result.exit.date.strftime('%Y-%m-%d'):<12} {days_held:<5}"
             )
-        print("-" * 80)
+        print("-" * 100)

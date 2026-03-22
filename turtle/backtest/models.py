@@ -40,6 +40,20 @@ class Benchmark:
     entry_date: datetime
     exit_date: datetime
 
+    @property
+    def annualized_pct(self) -> float:
+        """
+        Calculate the annualized percentage return.
+
+        Returns:
+            Annualized return = ((1 + return_pct/100) ^ (365 / days) - 1) * 100
+            Returns return_pct if holding period is zero.
+        """
+        days = (self.exit_date - self.entry_date).days
+        if days <= 0:
+            return self.return_pct
+        return ((1 + self.return_pct / 100.0) ** (365.0 / days) - 1) * 100.0
+
 
 @dataclass
 class FutureTrade:
@@ -94,6 +108,22 @@ class FutureTrade:
         if self.entry.price <= 0:
             raise ValueError(f"Invalid entry price: {self.entry.price}")
         return ((self.exit.price - self.entry.price) / self.entry.price) * 100.0
+
+    @property
+    def annualized_pct(self) -> float:
+        """
+        Calculate the annualized percentage return.
+
+        Returns:
+            Annualized return = ((exit_price / entry_price) ^ (365 / holding_days) - 1) * 100
+            Returns realized_pct if holding period is zero.
+        """
+        if self.entry.price <= 0:
+            raise ValueError(f"Invalid entry price: {self.entry.price}")
+        holding_days = self.holding_days
+        if holding_days <= 0:
+            return self.realized_pct
+        return ((self.exit.price / self.entry.price) ** (365.0 / holding_days) - 1) * 100.0
 
     @property
     def exit_reason(self) -> str:
