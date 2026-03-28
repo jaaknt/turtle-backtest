@@ -59,14 +59,19 @@ class MomentumRanking(RankingStrategy):
             return 0
 
         # Get current EMA200 (last row)
-        current_ema200 = self.filtered_df.at[self.filtered_df.index[-1], "ema_200"]
+        current_ema200_raw = self.filtered_df.at[self.filtered_df.index[-1], "ema_200"]
 
         # Get EMA200 from 20 trading days ago
-        past_ema200 = self.filtered_df.at[self.filtered_df.index[-21], "ema_200"]
+        past_ema200_raw = self.filtered_df.at[self.filtered_df.index[-21], "ema_200"]
+
+        # Handle invalid data — guard before casting to float
+        if pd.isna(current_ema200_raw) or pd.isna(past_ema200_raw):
+            return 0
+        current_ema200 = float(current_ema200_raw)  # type: ignore[arg-type]
+        past_ema200 = float(past_ema200_raw)  # type: ignore[arg-type]
         logger.debug(f"EMA200 1M - Current: {current_ema200}, Past: {past_ema200}")
 
-        # Handle invalid data
-        if pd.isna(current_ema200) or pd.isna(past_ema200) or past_ema200 <= 0:
+        if past_ema200 <= 0:
             return 0
 
         # Calculate percentage change
