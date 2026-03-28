@@ -184,8 +184,8 @@ class DarvasBoxStrategy(TradingStrategy):
                 if row["close"] > box_top:
                     status = "breakout_up"
                     # for further filtering afterwards
-                    self.df.at[i, "box_bottom"] = box_bottom
-                    self.df.at[i, "box_top"] = box_top
+                    self.df.at[i, "box_bottom"] = box_bottom  # type: ignore[assignment]
+                    self.df.at[i, "box_top"] = box_top  # type: ignore[assignment]
                 elif row["close"] < box_bottom:
                     status = "breakout_down"
             elif status == "breakout_up" or status == "breakout_down":
