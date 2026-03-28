@@ -140,9 +140,13 @@ uv python install 3.13
 sudo apt install -y postgresql-17
 sudo systemctl enable --now postgresql
 
-# Create database and set password
-sudo -u postgres psql -c "CREATE DATABASE trading;"
-sudo -u postgres psql -c "ALTER USER postgres PASSWORD '<strong_password>';"
+# Run the init script manually (docker-compose is not involved on VPS)
+export POSTGRES_USER=postgres
+export POSTGRES_DB=postgres
+export DB_ALEMBIC_PASSWORD=<alembic_password>
+export DB_APP_PASSWORD=<app_password>
+export DB_CLAUDE_PASSWORD=<claude_password>
+sudo -E -u postgres bash ~/turtle-backtest/db/init.sh
 ```
 
 ### Phase 3: Application Deployment
@@ -155,7 +159,8 @@ cd ~/turtle-backtest
 # Create secrets file
 sudo mkdir /etc/turtle-backtest
 sudo tee /etc/turtle-backtest/secrets.env <<EOF
-DB_PASSWORD=<strong_password>
+DB_APP_PASSWORD=<app_password>
+DB_ALEMBIC_PASSWORD=<alembic_password>
 EODHD_API_KEY=<api_key>
 EOF
 sudo chmod 600 /etc/turtle-backtest/secrets.env
