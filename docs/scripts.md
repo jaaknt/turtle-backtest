@@ -18,14 +18,10 @@ The `download_eodhd_data.py` script downloads bulk data from the EODHD API and s
 - `us_ticker` — Full US ticker list for NYSE and NASDAQ (stored in `turtle.ticker`)
 - `company` — Extended fundamentals per ticker: sector, industry, market cap, P/E, volume (stored in `turtle.company`)
 - `history` — Full OHLCV price history per ticker (stored in `turtle.daily_bars`)
-- `all` — All four datasets in sequence (default)
 
 **Usage:**
 ```bash
-# Download all datasets (default)
-uv run python scripts/download_eodhd_data.py
-
-# Download only exchange reference data
+# Download exchange reference data
 uv run python scripts/download_eodhd_data.py --data exchange
 
 # Download only US ticker list
@@ -42,7 +38,7 @@ uv run python scripts/download_eodhd_data.py --data history --ticker-limit 10 --
 ```
 
 **Options:**
-- `--data` — Dataset to download: `exchange`, `us_ticker`, `company`, `history`, `all` (default: `all`)
+- `--data` — Dataset to download: `exchange`, `us_ticker`, `company`, `history` (required)
 - `--ticker-limit` — Limit processing to first N tickers (useful for testing)
 - `--start-date` — Start date for historical data in `YYYY-MM-DD` format (default: `2000-01-01`)
 - `--end-date` — End date for historical data in `YYYY-MM-DD` format (default: `2025-12-30`)

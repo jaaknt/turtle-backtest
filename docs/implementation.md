@@ -186,7 +186,7 @@ gunzip -c ~/trading_backup.sql.gz | psql -h 127.0.0.1 -U postgres trading
 
 Alternatively, skip migration and re-download fresh data from EODHD:
 ```bash
-uv run python scripts/download_eodhd_data.py --start-date 2020-01-01 --end-date 2024-12-31
+uv run python scripts/download_eodhd_data.py --data history --start-date 2020-01-01 --end-date 2024-12-31
 ```
 
 ### Phase 5: Systemd Services
@@ -202,7 +202,7 @@ Type=oneshot
 User=turtle
 WorkingDirectory=/home/turtle/turtle-backtest
 EnvironmentFile=/etc/turtle-backtest/secrets.env
-ExecStart=/home/turtle/.local/bin/uv run python scripts/download_eodhd_data.py
+ExecStart=/home/turtle/.local/bin/uv run python scripts/download_eodhd_data.py --data history
 ```
 
 **Timer — `/etc/systemd/system/turtle-download.timer`:**

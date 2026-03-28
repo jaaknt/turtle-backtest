@@ -25,7 +25,7 @@ class _ApiTokenFilter(logging.Filter):
 
 
 async def main(
-    data: str = "all",
+    data: str,
     ticker_limit: int | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
@@ -34,7 +34,7 @@ async def main(
     Main function to download EODHD data.
 
     Args:
-        data: Which datasets to download - exchange, us_ticker, company, history, or all.
+        data: Which dataset to download - exchange, us_ticker, company, or history.
         ticker_limit: Optional limit on number of tickers to download data for.
                      If None, downloads all tickers. Useful for testing.
         start_date: Optional start date for historical data (format: YYYY-MM-DD).
@@ -47,7 +47,7 @@ async def main(
     # Obfuscate api_token in httpx request logs
     logging.getLogger("httpx").addFilter(_ApiTokenFilter())
     logger.info("Starting EODHD data download script.")
-    logger.info(f"Dataset(s) to download: {data}")
+    logger.info(f"Dataset to download: {data}")
     if ticker_limit is not None:
         logger.info(f"Running in TEST MODE - limiting to {ticker_limit} tickers")
     if start_date or end_date:
@@ -57,19 +57,19 @@ async def main(
     eodhd_service = EodhdService(settings)
     try:
         # Download based on data parameter
-        if data in ("exchange", "all"):
+        if data == "exchange":
             logger.info("Downloading exchange data...")
             await eodhd_service.download_exchanges()
 
-        if data in ("us_ticker", "all"):
+        elif data == "us_ticker":
             logger.info("Downloading US ticker data...")
             await eodhd_service.download_us_tickers()
 
-        if data in ("company", "all"):
+        elif data == "company":
             logger.info("Downloading company data...")
             await eodhd_service.download_company_data(ticker_limit=ticker_limit)
 
-        if data in ("history", "all"):
+        elif data == "history":
             logger.info("Downloading historical price data...")
             await eodhd_service.download_historical_data(ticker_limit=ticker_limit, start_date=start_date, end_date=end_date)
 
@@ -89,40 +89,31 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Download all datasets (default)
-  python scripts/download_eodhd_data.py
-
-  # Download only exchange data
+  # Download exchange data
   python scripts/download_eodhd_data.py --data exchange
 
-  # Download only US ticker list
+  # Download US ticker list
   python scripts/download_eodhd_data.py --data us_ticker
 
-  # Download only company data
+  # Download company data
   python scripts/download_eodhd_data.py --data company --ticker-limit 10
 
-  # Download only historical price data
+  # Download historical price data
   python scripts/download_eodhd_data.py --data history --start-date 2024-01-01 --end-date 2024-12-31
 
   # Test historical data with 10 tickers
   python scripts/download_eodhd_data.py --data history --ticker-limit 10
 
-  # Download with custom date range for all datasets
-  python scripts/download_eodhd_data.py --start-date 2024-01-01 --end-date 2024-12-31
-
   # Test with limited tickers and custom date range
-  python scripts/download_eodhd_data.py --ticker-limit 10 --start-date 2024-06-01 --end-date 2024-06-30
+  python scripts/download_eodhd_data.py --data history --ticker-limit 10 --start-date 2024-06-01 --end-date 2024-06-30
         """,
     )
     parser.add_argument(
         "--data",
         type=str,
-        choices=["exchange", "us_ticker", "company", "history", "all"],
-        default="all",
-        help=(
-            "Which datasets to download: exchange (exchange list), us_ticker (US ticker list), "
-            "company (company data), history (historical price data), all (everything). Default: all"
-        ),
+        choices=["exchange", "us_ticker", "company", "history"],
+        required=True,
+        help="Which dataset to download: exchange, us_ticker, company, or history.",
     )
     parser.add_argument("--ticker-limit", type=int, metavar="N", help="Limit data download to first N tickers (for testing)")
     parser.add_argument(
