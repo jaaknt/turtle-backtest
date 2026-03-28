@@ -82,6 +82,10 @@ See [docs/scripts.md](docs/scripts.md) for complete documentation, usage example
 
 For detailed information about the core service classes that provide the business logic layer, see [docs/service.md](docs/service.md).
 
+## Deployment
+
+For a guide on deploying to a Hetzner VPS (server sizing, PostgreSQL setup, systemd timers, backups), see [docs/implementation.md](docs/implementation.md).
+
 ## Architecture & Design Decisions
 
 ### Layered Architecture
