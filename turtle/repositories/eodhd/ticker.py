@@ -95,21 +95,50 @@ class TickerRepository:
         return total
 
     async def fetch_tickers(self, country: str, limit: int | None = None) -> Sequence[Row]:
-        # ticker_table.c.exchange.in_(US_EXCHANGES),
-        # ticker_table.c.type == COMMON_STOCK_TYPE,
+        """Fetch all common stocks on major US exchanges for a given country.
 
-        t = ticker_table
-        tg = ticker_group_table
-
+        Used for bulk data downloads (e.g. company fundamentals) where exchange
+        and type filters matter but active-group membership does not.
+        Returns rows with code in "TICKER.US" format.
+        """
         stmt = (
-            select(t.c.code)
-            .select_from(t.join(tg, (and_(t.c.code == tg.c.ticker_code, tg.c.code == "active"))))
+            select(ticker_table.c.code)
+            .where(
+                and_(
+                    ticker_table.c.country == country,
+                    ticker_table.c.exchange.in_(US_EXCHANGES),
+                    ticker_table.c.type == COMMON_STOCK_TYPE,
+                )
+            )
+            .order_by(ticker_table.c.code)
+        )
+        result = await self._session.execute(stmt)
+        rows = result.fetchall()
+        if limit is not None:
+            rows = rows[:limit]
+        return rows
+
+    async def fetch_active_tickers(self, country: str, limit: int | None = None) -> Sequence[Row]:
+        """Fetch tickers that belong to the active symbol group for a given country.
+
+        Used for historical OHLCV downloads where the active group defines the
+        universe of interest regardless of exchange or instrument type.
+        Returns rows with code in "TICKER.US" format.
+        """
+        stmt = (
+            select(ticker_table.c.code)
+            .select_from(
+                ticker_table.join(
+                    ticker_group_table,
+                    (and_(ticker_table.c.code == ticker_group_table.c.ticker_code, ticker_group_table.c.code == "active")),
+                )
+            )
             .where(
                 and_(
                     ticker_table.c.country == country,
                 )
             )
-            .order_by(t.c.code)
+            .order_by(ticker_table.c.code)
         )
         result = await self._session.execute(stmt)
         rows = result.fetchall()
