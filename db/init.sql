@@ -1,78 +1,31 @@
-CREATE SCHEMA IF NOT EXISTS turtle;
+\getenv alembic_password DB_ALEMBIC_PASSWORD
+\getenv db_password DB_PASSWORD
 
-CREATE TABLE IF NOT EXISTS turtle.ticker(
-    symbol          varchar(20) NOT NULL,
-    "name"          text        NOT NULL,
-    exchange        varchar(20) NOT NULL,
-    country         varchar(3),
-    currency        varchar(3),
-    isin            varchar(30),
-    symbol_type     varchar(20) NOT NULL,
-    source          varchar(20) NOT NULL,
-    "status"        varchar(20) NOT NULL,
-    reason_code     varchar(50),
-    created_at      timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    modified_at     timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_ticker PRIMARY KEY (symbol)
-);
+-- Create trading database
+CREATE DATABASE trading
+    WITH
+    OWNER = postgres
+    ENCODING = 'UTF8'
+    LC_COLLATE = 'en_US.UTF-8'
+    LC_CTYPE = 'en_US.UTF-8'
+    TEMPLATE = template0;
 
-CREATE TABLE IF NOT EXISTS turtle.bars_history(
-    symbol          varchar(20) NOT NULL,
-    hdate           date        NOT NULL,
-    open            numeric(15,6),
-    high            numeric(15,6),
-    low             numeric(15,6),
-    close           numeric(15,6),
-    volume          bigint,
-    trade_count     bigint,
-    source          varchar(20) NOT NULL,
-    created_at      timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    modified_at     timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_bars_history PRIMARY KEY (symbol, hdate)
-);
+\connect trading
 
-CREATE TABLE IF NOT EXISTS turtle.company(
-    symbol          varchar(20) NOT NULL,
-    short_name      text,
-    country         varchar(50),
-    industry_code   varchar(50),
-    sector_code     varchar(50),
-    employees_count bigint,
-    dividend_rate   numeric(12,6),
-    trailing_pe_ratio numeric(12,6),
-    forward_pe_ratio numeric(12,6),
-    avg_volume      bigint,  
-    avg_price       numeric(20,10),  
-    market_cap      bigint,
-    enterprice_value bigint,
-    beta            numeric(12,6), 
-    shares_float    bigint,
-    short_ratio     numeric(12,6),
-    peg_ratio       numeric(12,6),
-    recommodation_mean numeric(12,6),
-    number_of_analysyst bigint,
-    roa_value       numeric(12,6),
-    roe_value       numeric(12,6),  
-    source          varchar(20) NOT NULL,
-    created_at      timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    modified_at     timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_company PRIMARY KEY (symbol)
-);
+-- alembic: full access for migrations
+CREATE USER alembic WITH PASSWORD :'alembic_password';
+GRANT ALL PRIVILEGES ON DATABASE trading TO alembic;
 
-CREATE TABLE IF NOT EXISTS turtle.symbol_group(
-    symbol_group    varchar(20) NOT NULL,
-    symbol          varchar(20) NOT NULL,
-    rate            numeric(12,6),
-    created_at      timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    modified_at     timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_symbol_group PRIMARY KEY (symbol_group, symbol)
-);
+CREATE SCHEMA IF NOT EXISTS turtle AUTHORIZATION alembic;
+GRANT ALL ON SCHEMA turtle TO alembic;
+ALTER DEFAULT PRIVILEGES IN SCHEMA turtle GRANT ALL ON TABLES TO alembic;
+ALTER DEFAULT PRIVILEGES IN SCHEMA turtle GRANT ALL ON SEQUENCES TO alembic;
+ALTER DEFAULT PRIVILEGES IN SCHEMA turtle GRANT ALL ON FUNCTIONS TO alembic;
 
-
-INSERT INTO turtle.ticker
-(symbol, "name", exchange, country, currency, isin, symbol_type, "source", created_at, modified_at, status, reason_code)
-VALUES('QQQ', 'Nasdaq 100 index ETF', 'NASDAQ', 'USA', 'USD', null, 'ETF', 'special', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'ACTIVE', null);
-
-INSERT INTO turtle.ticker
-(symbol, "name", exchange, country, currency, isin, symbol_type, "source", created_at, modified_at, status, reason_code)
-VALUES('SPY', 'SPX index ETF', 'NASDAQ', 'USA', 'USD', null, 'ETF', 'special', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'ACTIVE', null);
+-- trading_ro: readonly access to turtle schema
+CREATE USER trading_ro WITH PASSWORD :'db_password';
+GRANT CONNECT ON DATABASE trading TO trading_ro;
+GRANT USAGE ON SCHEMA turtle TO trading_ro;
+GRANT SELECT ON ALL TABLES IN SCHEMA turtle TO trading_ro;
+ALTER DEFAULT PRIVILEGES IN SCHEMA turtle GRANT SELECT ON TABLES TO trading_ro;
+ALTER DEFAULT PRIVILEGES IN SCHEMA turtle GRANT SELECT ON SEQUENCES TO trading_ro;
