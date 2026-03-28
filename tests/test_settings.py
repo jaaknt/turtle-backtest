@@ -78,19 +78,19 @@ class TestSettingsFromToml:
 
     def test_raises_when_env_vars_missing(self, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
         mocker.patch("turtle.config.settings.load_dotenv")  # prevent .env file from restoring vars
-        for var in ("DB_PASSWORD", "EODHD_API_KEY"):
+        for var in ("DB_APP_PASSWORD", "EODHD_API_KEY"):
             monkeypatch.delenv(var, raising=False)
         with pytest.raises(ValueError, match="Missing required environment variables"):
             Settings.from_toml()
 
     def test_raises_listing_all_missing_vars(self, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
         mocker.patch("turtle.config.settings.load_dotenv")  # prevent .env file from restoring vars
-        for var in ("DB_PASSWORD", "EODHD_API_KEY"):
+        for var in ("DB_APP_PASSWORD", "EODHD_API_KEY"):
             monkeypatch.delenv(var, raising=False)
         with pytest.raises(ValueError) as exc_info:
             Settings.from_toml()
         message = str(exc_info.value)
-        assert "DB_PASSWORD" in message
+        assert "DB_APP_PASSWORD" in message
         assert "EODHD_API_KEY" in message
 
     def test_loads_env_vars_into_config(self, required_env_vars: None, mocker: MockerFixture) -> None:
@@ -105,7 +105,7 @@ class TestSettingsFromToml:
         assert settings.database.host == "localhost"
         assert settings.database.port == 5432
         assert settings.database.dbname == "trading"
-        assert settings.database.user == "postgres"
+        assert settings.database.user == "app_user"
 
     def test_pool_config_populated(self, required_env_vars: None, mocker: MockerFixture) -> None:
         mocker.patch("turtle.config.settings.create_engine", return_value=mocker.Mock())

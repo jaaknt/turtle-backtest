@@ -88,7 +88,7 @@ class EodhdService:
         try:
             async with self.AsyncSessionLocal() as session:
                 ticker_repo = TickerRepository(session)
-                us_stocks = await ticker_repo.fetch_tickers(country="USA", limit=ticker_limit)
+                us_stocks = await ticker_repo.fetch_active_tickers(country="USA", limit=ticker_limit)
                 if ticker_limit is not None:
                     logger.info(f"Limiting to first {ticker_limit} tickers for testing.")
 
@@ -171,12 +171,12 @@ class EodhdService:
                     batch = us_stocks[i : i + API_BATCH_SIZE]
                     batch_num = i // API_BATCH_SIZE + 1
 
-                    tasks = [self.api_client.get_us_quote_delayed(ticker=f"{row.exchange_code}.US") for row in batch]
+                    tasks = [self.api_client.get_us_quote_delayed(ticker=f"{row.code}") for row in batch]
                     batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
                     companies_to_insert: list[Company] = []
                     for idx, result in enumerate(batch_results):
-                        eodhd_ticker = f"{batch[idx].exchange_code}.US"
+                        eodhd_ticker = f"{batch[idx].code}"
                         if isinstance(result, Exception):
                             logger.error(f"Error fetching company data for {eodhd_ticker}: {type(result).__name__}: {result}")
                             total_tickers_failed += 1
