@@ -48,7 +48,7 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 
 | Script | Purpose | Key Parameters | Example |
 |--------|---------|----------------|---------|
-| **download_eodhd_data.py** | Bulk historical download | `--ticker-limit`, `--start-date`, `--end-date` | `uv run python scripts/download_eodhd_data.py --ticker-limit 10` |
+| **download_eodhd_data.py** | Bulk historical download | `--data` (required), `--ticker-limit`, `--start-date`, `--end-date` | `uv run python scripts/download_eodhd_data.py --data history --ticker-limit 10` |
 | **signal_runner.py** | Generate/analyze signals | `--strategy`, `--mode` (analyze/csv/db) | `uv run python scripts/signal_runner.py --start-date 2024-06-01 --end-date 2024-06-01 --strategy darvas_box --mode analyze` |
 | **backtest.py** | Single ticker backtest | `--ticker`, `--signal-strategy`, `--exit-strategy` | `uv run python scripts/backtest.py --ticker AAPL --start-date 2024-01-01 --end-date 2024-12-31 --signal-strategy darvas_box --exit-strategy profit_loss` |
 | **portfolio_runner.py** | Portfolio backtest | `--trading-strategy`, `--ranking-strategy`, `--initial-capital`, `--output-file` | `uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31 --output-file results.html` |
@@ -163,7 +163,7 @@ Filters and prioritizes signals for portfolio selection. Returns scores 0-100 (h
 **Basic workflow:**
 ```bash
 # 1. Update data
-uv run python scripts/download_eodhd_data.py --start-date 2024-01-01 --end-date 2024-12-31
+uv run python scripts/download_eodhd_data.py --data history --start-date 2024-01-01 --end-date 2024-12-31
 
 # 2. Generate signals (optional - validate)
 uv run python scripts/signal_runner.py --start-date 2024-01-01 --end-date 2024-01-31 --strategy darvas_box --mode analyze
