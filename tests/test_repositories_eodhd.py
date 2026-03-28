@@ -99,6 +99,40 @@ async def test_ticker_upsert_appends_us_suffix(session: AsyncMock) -> None:
 
 
 @pytest.mark.anyio
+async def test_fetch_group_tickers_no_limit(session: AsyncMock) -> None:
+    mock_rows = [MagicMock(code=f"TICK{i}.US") for i in range(5)]
+    mock_result = MagicMock()
+    mock_result.fetchall.return_value = mock_rows
+    session.execute.return_value = mock_result
+
+    repo = TickerRepository(session)
+    result = await repo.fetch_group_tickers(country="USA", group_code="active", limit=None)
+
+    assert result == mock_rows
+    session.execute.assert_called_once()
+
+
+@pytest.mark.anyio
+async def test_fetch_group_tickers_with_limit(session: AsyncMock) -> None:
+    mock_rows = [MagicMock(code=f"TICK{i}.US") for i in range(5)]
+    mock_result = MagicMock()
+    mock_result.fetchall.return_value = mock_rows
+    session.execute.return_value = mock_result
+
+    repo = TickerRepository(session)
+    result = await repo.fetch_group_tickers(country="USA", group_code="active", limit=3)
+
+    assert result == mock_rows[:3]
+
+
+@pytest.mark.anyio
+async def test_fetch_group_tickers_empty_group_code_raises(session: AsyncMock) -> None:
+    repo = TickerRepository(session)
+    with pytest.raises(ValueError, match="group_code must be a non-empty string"):
+        await repo.fetch_group_tickers(country="USA", group_code="")
+
+
+@pytest.mark.anyio
 async def test_fetch_tickers_no_limit(session: AsyncMock) -> None:
     mock_rows = [MagicMock(exchange_code=f"TICK{i}") for i in range(5)]
     mock_result = MagicMock()

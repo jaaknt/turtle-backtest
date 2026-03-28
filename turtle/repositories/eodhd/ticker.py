@@ -118,19 +118,21 @@ class TickerRepository:
             rows = rows[:limit]
         return rows
 
-    async def fetch_active_tickers(self, country: str, limit: int | None = None) -> Sequence[Row]:
-        """Fetch tickers that belong to the active symbol group for a given country.
+    async def fetch_group_tickers(self, country: str, group_code: str, limit: int | None = None) -> Sequence[Row]:
+        """Fetch tickers that belong to a named symbol group for a given country.
 
-        Used for historical OHLCV downloads where the active group defines the
+        Used for historical OHLCV downloads where the group defines the
         universe of interest regardless of exchange or instrument type.
         Returns rows with code in "TICKER.US" format.
         """
+        if not group_code:
+            raise ValueError("group_code must be a non-empty string")
         stmt = (
             select(ticker_table.c.code)
             .select_from(
                 ticker_table.join(
                     ticker_group_table,
-                    (and_(ticker_table.c.code == ticker_group_table.c.ticker_code, ticker_group_table.c.code == "active")),
+                    (and_(ticker_table.c.code == ticker_group_table.c.ticker_code, ticker_group_table.c.code == group_code)),
                 )
             )
             .where(
