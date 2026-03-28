@@ -58,7 +58,8 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 ## Architecture Overview
 
 ### Core Components
-- **turtle/data/**: Shared domain models (`models.py` — dataclasses for `Symbol`, `SymbolGroup`, `Bar`)
+- **turtle/common/**: Shared enums and utilities
+  - `enums.py`: `TimeFrameUnit` enum (DAY, WEEK)
 - **turtle/repositories/**: All database access (sync Engine reads + async Session writes)
   - `tables.py`: SQLAlchemy Core table definitions
   - `analytics.py`: `OhlcvAnalyticsRepository` — bulk OHLCV reads returning DataFrames (pandas/polars)
@@ -75,11 +76,16 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 - **turtle/portfolio/**: Multi-position portfolio management
   - `manager.py`, `selector.py`, `analytics.py`
 - **turtle/ranking/**: Signal ranking strategies
-  - `momentum.py`, `volume_momentum.py`
+  - `momentum.py`, `volume_momentum.py`, `breakout_quality.py`
 - **turtle/clients/**: External API clients
   - `eodhd.py`: EODHD API wrapper
 - **turtle/config/**: Configuration management
   - `settings.py`: TOML + environment variable loader
+  - `model.py`: Config dataclasses (`DatabaseConfig`, `AppConfig`, `DatabasePoolConfig`)
+  - `logging.py`: Logging configuration
+- **turtle/logger/**: JSON structured logging handler
+- **turtle/schemas/**: Pydantic models for external API responses
+  - `eodhd/`: `exchange.py` → `Exchange`, `ticker.py` → `Ticker`, `company.py` → `Company`, `daily_bars.py` → `DailyBars`
 - **turtle/services/**: Business logic orchestration layer
 
 ### Database
@@ -117,6 +123,7 @@ Filters and prioritizes signals for portfolio selection. Returns scores 0-100 (h
 **Available Strategies:**
 - **MomentumRanking**: Price momentum over lookback period (default: 20 days)
 - **VolumeMomentumRanking**: Combined price + volume momentum (weights: 0.7 price, 0.3 volume)
+- **BreakoutQualityRanking**: Scores breakout strength at signal time — volume conviction (0-30), breakout extension (0-25), trend health / EMA stack (0-25), MACD conviction (0-20)
 
 **Usage in portfolio backtesting:** Applied by `PortfolioSignalSelector` with configurable `min_ranking` threshold.
 
@@ -148,7 +155,7 @@ Filters and prioritizes signals for portfolio selection. Returns scores 0-100 (h
            return signals
    ```
 3. **Add tests**: `tests/test_my_strategy.py`
-4. **Register in SignalService**: Add to strategy mapping in `turtle/services/signal_service.py`
+4. **Wire via dependency injection**: Instantiate your strategy and pass it to the service constructor — see `scripts/signal_runner.py` (`get_trading_strategy_instance`) for the canonical wiring pattern
 5. **Test**: `uv run python scripts/signal_runner.py --strategy my_strategy --mode analyze`
 
 ### Running Portfolio Backtests
@@ -165,7 +172,7 @@ uv run python scripts/signal_runner.py --start-date 2024-01-01 --end-date 2024-0
 uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31 --output-file results.html
 
 # 4. Review results
-open reports/results.html
+xdg-open reports/results.html
 ```
 
 **Advanced options**: Use `--ranking-strategy`, `--exit-strategy`, `--initial-capital`, `--position-min-amount`, `--min-signal-ranking` to customize.
@@ -246,6 +253,7 @@ Tests organised by component in `tests/`:
 - `test_macd_exit_strategy.py`: MACD exit strategy logic
 - `test_atr_exit_strategy.py`: ATR exit strategy logic
 - `test_volume_momentum_ranking.py`: Volume momentum ranking strategy
+- `test_breakout_quality_ranking.py`: Breakout quality ranking strategy
 - `test_ohlcv_analytics_repository.py`: OhlcvAnalyticsRepository (pandas/polars reads)
 - `test_repositories_eodhd.py`: EODHD repository classes (exchange, ticker, daily bars, company)
 - `test_pandas_ta_ema.py`: pandas-ta EMA indicator
@@ -257,7 +265,7 @@ Run with `uv run pytest` or `uv run pytest tests/test_specific.py`.
 
 ## Dependencies & Resources
 
-**Core Libraries**: pandas/numpy (data), pandas-ta (technical analysis), alpaca-py (market data API), yfinance (Yahoo Finance), psycopg (PostgreSQL), backtesting (backtest framework), streamlit (web UI), plotly (visualization)
+**Core Libraries**: pandas/numpy (data), polars (fast DataFrames), pandas-ta (technical analysis), pydantic (schema validation), alpaca-py (market data API), yfinance (Yahoo Finance), psycopg (PostgreSQL), backtesting (backtest framework), quantstats (performance analytics), streamlit (web UI), plotly/bokeh (visualization)
 
 **Special Requirements**: Python 3.13+
 
