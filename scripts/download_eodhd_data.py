@@ -3,6 +3,7 @@ import asyncio
 import logging
 import re
 import sys
+from datetime import date
 from pathlib import Path
 
 # Add project root to path to import turtle modules
@@ -34,8 +35,8 @@ class _ApiTokenFilter(logging.Filter):
 async def main(
     data: str,
     ticker_limit: int | None = None,
-    start_date: str | None = None,
-    end_date: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
 ) -> None:
     """
     Main function to download EODHD data.
@@ -82,7 +83,11 @@ async def main(
 
         elif data == "history":
             logger.info("Downloading historical price data...")
-            await eodhd_service.download_historical_data(ticker_limit=ticker_limit, start_date=start_date, end_date=end_date)
+            await eodhd_service.download_historical_data(
+                ticker_limit=ticker_limit,
+                start_date=start_date.isoformat() if start_date else None,
+                end_date=end_date.isoformat() if end_date else None,
+            )
 
         logger.info("EODHD data download completed successfully.")
     except Exception as e:
@@ -92,6 +97,14 @@ async def main(
     finally:
         await eodhd_service.close()
         logger.info("EODHD data download script finished.")
+
+
+def iso_date_type(date_string: str) -> date:
+    """Custom argparse type for ISO date validation."""
+    try:
+        return date.fromisoformat(date_string)
+    except ValueError as err:
+        raise argparse.ArgumentTypeError(f"Invalid date format: '{date_string}'. Expected ISO format (YYYY-MM-DD)") from err
 
 
 if __name__ == "__main__":
@@ -129,13 +142,13 @@ Examples:
     parser.add_argument("--ticker-limit", type=int, metavar="N", help="Limit data download to first N tickers (for testing)")
     parser.add_argument(
         "--start-date",
-        type=str,
+        type=iso_date_type,
         metavar="YYYY-MM-DD",
         help="Start date for historical data (format: YYYY-MM-DD). If not specified, uses default from service.",
     )
     parser.add_argument(
         "--end-date",
-        type=str,
+        type=iso_date_type,
         metavar="YYYY-MM-DD",
         help="End date for historical data (format: YYYY-MM-DD). If not specified, uses default from service.",
     )
