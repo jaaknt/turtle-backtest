@@ -81,8 +81,12 @@ class SignalProcessor:
         logger.debug(f"Entry calculated: {entry.date} at ${entry.price}")
 
         # Step 2: Calculate exit data using strategy
-        is_date_only = isinstance(end_date, date) and not isinstance(end_date, datetime)
-        end_datetime = datetime.combine(end_date, datetime.min.time()) if is_date_only else end_date
+        if isinstance(end_date, datetime):
+            end_datetime: datetime | None = end_date
+        elif isinstance(end_date, date):
+            end_datetime = datetime.combine(end_date, datetime.min.time())
+        else:
+            end_datetime = None
         exit: Trade | None = self.calculate_exit_data(signal, entry.date, entry.price, end_datetime)
         if exit is None:  # No trading data available for exit
             logger.warning(f"Skipping signal for {signal.ticker} on {signal.date}: No exit data")

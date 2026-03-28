@@ -52,7 +52,7 @@ class Benchmark:
         days = (self.exit_date - self.entry_date).days
         if days <= 0:
             return self.return_pct
-        return ((1 + self.return_pct / 100.0) ** (365.0 / days) - 1) * 100.0
+        return float(((1 + self.return_pct / 100.0) ** (365.0 / days) - 1) * 100.0)
 
 
 @dataclass
@@ -123,7 +123,7 @@ class FutureTrade:
         holding_days = self.holding_days
         if holding_days <= 0:
             return self.realized_pct
-        return ((self.exit.price / self.entry.price) ** (365.0 / holding_days) - 1) * 100.0
+        return float(((self.exit.price / self.entry.price) ** (365.0 / holding_days) - 1) * 100.0)
 
     @property
     def exit_reason(self) -> str:
