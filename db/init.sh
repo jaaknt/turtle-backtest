@@ -33,14 +33,16 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "trading" <<-EOSQL
     GRANT USAGE ON SCHEMA turtle TO app_user;
     GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA turtle TO app_user;
     GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA turtle TO app_user;
-    ALTER DEFAULT PRIVILEGES IN SCHEMA turtle GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
-    ALTER DEFAULT PRIVILEGES IN SCHEMA turtle GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO app_user;
+    -- FOR ROLE alembic: ensures tables created by alembic migrations inherit these grants
+    ALTER DEFAULT PRIVILEGES FOR ROLE alembic IN SCHEMA turtle GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
+    ALTER DEFAULT PRIVILEGES FOR ROLE alembic IN SCHEMA turtle GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO app_user;
 
     -- claude: readonly access to turtle schema
     CREATE USER claude WITH PASSWORD '${DB_CLAUDE_PASSWORD}';
     GRANT CONNECT ON DATABASE trading TO claude;
     GRANT USAGE ON SCHEMA turtle TO claude;
     GRANT SELECT ON ALL TABLES IN SCHEMA turtle TO claude;
-    ALTER DEFAULT PRIVILEGES IN SCHEMA turtle GRANT SELECT ON TABLES TO claude;
-    ALTER DEFAULT PRIVILEGES IN SCHEMA turtle GRANT SELECT ON SEQUENCES TO claude;
+    -- FOR ROLE alembic: ensures tables created by alembic migrations inherit these grants
+    ALTER DEFAULT PRIVILEGES FOR ROLE alembic IN SCHEMA turtle GRANT SELECT ON TABLES TO claude;
+    ALTER DEFAULT PRIVILEGES FOR ROLE alembic IN SCHEMA turtle GRANT SELECT ON SEQUENCES TO claude;
 EOSQL
