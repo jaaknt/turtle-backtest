@@ -17,7 +17,7 @@ uv sync --extra dev
 source ./.venv/bin/activate
 ```
 
-## Setup
+## Development
 
 ```bash
 # Start PostgreSQL database
