@@ -1,11 +1,13 @@
+import os
 import sys
+import tomllib
 from logging.config import fileConfig
 from pathlib import Path
-from turtle.config.settings import Settings
 
 from alembic import context
 from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
+from sqlalchemy.engine import URL
 
 # Add project root to path for imports
 project_root = Path(__file__).resolve().parents[2]
@@ -23,10 +25,25 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Load database configuration from settings.toml
-settings = Settings.from_toml("./config/settings.toml")
-# Override database URL from settings (use SQLAlchemy URL format)
-config.set_main_option("sqlalchemy.url", settings.database.sqlalchemy_url)
+# Alembic always connects as the dedicated 'alembic' user with full DDL privileges.
+# Read only host/port/dbname from TOML — no app secrets required.
+alembic_password = os.environ.get("DB_ALEMBIC_PASSWORD")
+if not alembic_password:
+    raise ValueError("Missing required environment variable: DB_ALEMBIC_PASSWORD")
+
+with open(project_root / "config/settings.toml", "rb") as _f:
+    _toml = tomllib.load(_f)
+_db = _toml["database"]
+
+alembic_url = URL.create(
+    "postgresql+psycopg",
+    username="alembic",
+    password=alembic_password,
+    host=_db["host"],
+    port=_db["port"],
+    database=_db["dbname"],
+)
+config.set_main_option("sqlalchemy.url", alembic_url.render_as_string(hide_password=False))
 
 # add your model's MetaData object here
 # for 'autogenerate' support

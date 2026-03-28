@@ -31,14 +31,14 @@ class Settings:
 
         # Require secrets from environment variables — never fall back to TOML values
         required_env_vars = {
-            "DB_PASSWORD": ("database", "password"),
+            "DB_APP_PASSWORD": ("database", "password"),
             "EODHD_API_KEY": ("app", "eodhd", "api_key"),
         }
         missing = [var for var in required_env_vars if not os.getenv(var)]
         if missing:
             raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
 
-        data["database"]["password"] = os.environ["DB_PASSWORD"]
+        data["database"]["password"] = os.environ["DB_APP_PASSWORD"]
         db_config = DatabaseConfig(**data.get("database", {}))
 
         data["app"]["eodhd"]["api_key"] = os.environ["EODHD_API_KEY"]
