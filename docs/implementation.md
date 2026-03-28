@@ -69,11 +69,11 @@ turtle-backtest runs locally today. This guide covers moving it to a Hetzner VPS
 
 | Option | Pros | Cons |
 |--------|------|------|
-| **pg_dump → pg_restore** | Fast, exact copy | Requires local DB to be running |
-| Re-download from EODHD | Clean slate | Uses API quota, slow for large datasets |
+| pg_dump → pg_restore | Fast, exact copy | Requires local DB to be running |
+| **Re-download from EODHD** | Clean slate | Uses API quota, slow for large datasets |
 | rsync data directory | Raw copy | Risky if PostgreSQL minor versions differ |
 
-**Recommended: pg_dump → pg_restore.**
+**Recommended: Re-download from EODHD**
 
 ### 7. Backups
 
@@ -137,26 +137,54 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv python install 3.13
 
 # Install PostgreSQL 17
+sudo apt install -y curl ca-certificates
+sudo install -d /usr/share/postgresql-common/pgdg
+sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+sudo apt update
 sudo apt install -y postgresql-17
 sudo systemctl enable --now postgresql
+
+# Clone the repo
+git clone https://github.com/jaaknt/turtle-backtest.git ~/turtle-backtest
+cd ~/turtle-backtest
+
 
 # Run the init script manually (docker-compose is not involved on VPS)
 export POSTGRES_USER=postgres
 export POSTGRES_DB=postgres
-export POSTGRES_PASSWORD:<postgres_password>
+export POSTGRES_PASSWORD=<postgres_password>
 export DB_ALEMBIC_PASSWORD=<alembic_password>
 export DB_APP_PASSWORD=<app_password>
 export DB_CLAUDE_PASSWORD=<claude_password>
-sudo -E -u postgres bash ~/turtle-backtest/db/init.sh
+sudo -E -u postgres bash ./db/init.sh
+
+# Set user postgres password <optonal>
+sudo -u postgres psql
+\password postgres
+<postgres_password>
 ```
 
+#### Allow access to database from external the Tailscale IP  
+```bash
+# Find your Tailscale IP
+tailscale ip -4 
+
+# Edit postgresql.conf:
+sudo vi /etc/postgresql/17/main/postgresql.conf
+listen_addresses = 'localhost,100.x.x.x'   # your tailscale IP
+
+# Edit pg_hba.conf:
+sudo vi /etc/postgresql/17/main/pg_hba.conf
+host    all    all    100.64.0.0/10    scram-sha-256
+
+# restart database
+sudo systemctl restart postgresql
+
+```
 ### Phase 3: Application Deployment
 
 ```bash
-# Clone the repo
-git clone https://github.com/<user>/turtle-backtest.git ~/turtle-backtest
-cd ~/turtle-backtest
-
 # Create secrets file
 sudo mkdir /etc/turtle-backtest
 sudo tee /etc/turtle-backtest/secrets.env <<EOF
@@ -166,8 +194,11 @@ EODHD_API_KEY=<api_key>
 EOF
 sudo chmod 600 /etc/turtle-backtest/secrets.env
 sudo chown turtle:turtle /etc/turtle-backtest/secrets.env
+# add to current environment
+set -a && source /etc/turtle-backtest/secrets.env && set +a
 
 # Install dependencies and apply migrations
+source /etc/turtle-backtest/secrets.env
 uv sync
 uv run alembic upgrade head
 ```
@@ -187,7 +218,14 @@ gunzip -c ~/trading_backup.sql.gz | psql -h 127.0.0.1 -U postgres trading
 
 Alternatively, skip migration and re-download fresh data from EODHD:
 ```bash
-uv run python scripts/download_eodhd_data.py --data history --start-date 2020-01-01 --end-date 2024-12-31
+uv run python scripts/download_eodhd_data.py --data exchange
+uv run python scripts/download_eodhd_data.py --data us_ticker
+uv run python scripts/download_eodhd_data.py --data company
+
+# set active group that is needed for stocks history download
+PGPASSWORD=$DB_APP_PASSWORD psql -h localhost -p 5432 -U app_user -d trading -f examples/active_symbol_goup_setup.sql
+
+uv run python scripts/download_eodhd_data.py --data history 
 ```
 
 ### Phase 5: Systemd Services
