@@ -3,7 +3,7 @@ import asyncio
 import logging
 import re
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 # Add project root to path to import turtle modules
@@ -34,9 +34,9 @@ class _ApiTokenFilter(logging.Filter):
 
 async def main(
     data: str,
+    start_date: date,
+    end_date: date,
     ticker_limit: int | None = None,
-    start_date: date | None = None,
-    end_date: date | None = None,
 ) -> None:
     """
     Main function to download EODHD data.
@@ -45,10 +45,8 @@ async def main(
         data: Which dataset to download - exchange, us_ticker, company, or history.
         ticker_limit: Optional limit on number of tickers to download data for.
                      If None, downloads all tickers. Useful for testing.
-        start_date: Optional start date for historical data (format: YYYY-MM-DD).
-                   If None, uses default from service configuration.
-        end_date: Optional end date for historical data (format: YYYY-MM-DD).
-                 If None, uses default from service configuration.
+        start_date: Start date for historical data. Defaults to 2026-01-01.
+        end_date: End date for historical data. Defaults to today minus 30 days.
     """
     # Force logging to stdout for this script
     logging.basicConfig(level=logging.INFO, stream=sys.stdout, format="[%(levelname)s|%(module)s|%(funcName)s] %(message)s")
@@ -86,8 +84,8 @@ async def main(
             logger.info("Downloading historical price data...")
             await eodhd_service.download_historical_data(
                 ticker_limit=ticker_limit,
-                start_date=start_date.isoformat() if start_date else None,
-                end_date=end_date.isoformat() if end_date else None,
+                start_date=start_date.isoformat(),
+                end_date=end_date.isoformat(),
             )
 
         logger.info("EODHD data download completed successfully.")
@@ -146,13 +144,15 @@ Examples:
         "--start-date",
         type=iso_date_type,
         metavar="YYYY-MM-DD",
-        help="Start date for historical data (format: YYYY-MM-DD). If not specified, uses default from service.",
+        default=date(2026, 1, 1),
+        help="Start date for historical data (YYYY-MM-DD). Default: 2026-01-01.",
     )
     parser.add_argument(
         "--end-date",
         type=iso_date_type,
         metavar="YYYY-MM-DD",
-        help="End date for historical data (format: YYYY-MM-DD). If not specified, uses default from service.",
+        default=date.today() - timedelta(days=30),
+        help="End date for historical data (YYYY-MM-DD). Default: today minus 30 days.",
     )
 
     args = parser.parse_args()
@@ -161,9 +161,9 @@ Examples:
         asyncio.run(
             main(
                 data=args.data,
-                ticker_limit=args.ticker_limit,
                 start_date=args.start_date,
                 end_date=args.end_date,
+                ticker_limit=args.ticker_limit,
             )
         )
     except Exception:
