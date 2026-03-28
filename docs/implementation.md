@@ -143,6 +143,7 @@ sudo systemctl enable --now postgresql
 # Run the init script manually (docker-compose is not involved on VPS)
 export POSTGRES_USER=postgres
 export POSTGRES_DB=postgres
+export POSTGRES_PASSWORD:<postgres_password>
 export DB_ALEMBIC_PASSWORD=<alembic_password>
 export DB_APP_PASSWORD=<app_password>
 export DB_CLAUDE_PASSWORD=<claude_password>
