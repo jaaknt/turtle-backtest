@@ -65,9 +65,10 @@ async def main(
     if start_date or end_date:
         logger.info(f"Custom date range: {start_date or 'default'} to {end_date or 'default'}")
 
-    settings = Settings.from_toml()
-    eodhd_service = EodhdService(settings)
+    eodhd_service = None
     try:
+        settings = Settings.from_toml()
+        eodhd_service = EodhdService(settings)
         # Download based on data parameter
         if data == "exchange":
             logger.info("Downloading exchange data...")
@@ -95,7 +96,8 @@ async def main(
         # Re-raise the exception for the script to exit with an error code
         raise
     finally:
-        await eodhd_service.close()
+        if eodhd_service is not None:
+            await eodhd_service.close()
         logger.info("EODHD data download script finished.")
 
 
