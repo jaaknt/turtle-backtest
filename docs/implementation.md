@@ -250,7 +250,8 @@ ExecStart=/home/turtle/.local/bin/uv run python scripts/download_eodhd_data.py -
 Description=Daily EODHD Download
 
 [Timer]
-OnCalendar=*-*-* 21:00:00
+OnCalendar=*-*-* 05:00:00
+TimeZone=Europe/Tallinn
 Persistent=true
 
 [Install]
