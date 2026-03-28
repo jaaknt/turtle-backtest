@@ -18,8 +18,13 @@ logger = logging.getLogger(__name__)
 
 
 class _RedactApiTokenFilter(logging.Filter):
+    _PATTERN = re.compile(r"api_token=[^&\s\"]+")
+
     def filter(self, record: logging.LogRecord) -> bool:
-        record.msg = re.sub(r"api_token=[^&\s]+", "api_token=***", str(record.msg))
+        record.msg = self._PATTERN.sub("api_token=***", str(record.msg))
+        if record.args:
+            args = record.args if isinstance(record.args, tuple) else (record.args,)
+            record.args = tuple(self._PATTERN.sub("api_token=***", s) if "api_token=" in (s := str(arg)) else arg for arg in args)
         return True
 
 
@@ -33,8 +38,10 @@ class EodhdApiClient:
         if self.api_key == "**REPLACE_ME**":
             logger.error("EODHD API key is not configured. Please update config/settings.toml")
             raise ValueError("EODHD API key is not configured")
-        self._client = AsyncClient(base_url=self.BASE_URL)
-        logging.getLogger("httpx").addFilter(_RedactApiTokenFilter())
+        self._client = AsyncClient(base_url=self.BASE_URL, timeout=30.0)
+        token_filter = _RedactApiTokenFilter()
+        for handler in logging.getLogger().handlers:
+            handler.addFilter(token_filter)
 
     @retry(
         retry=retry_if_exception_type(httpx.RequestError),

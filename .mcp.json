@@ -6,10 +6,10 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-postgres",
-        "postgresql://postgres:${DB_PASSWORD}@localhost:5432/trading"
+        "postgresql://claude:${DB_CLAUDE_PASSWORD}@localhost:5432/trading"
       ],
       "env": {
-        "DB_PASSWORD": "${DB_PASSWORD}"
+        "DB_CLAUDE_PASSWORD": "${DB_CLAUDE_PASSWORD}"
       }
     },
     "context7": {

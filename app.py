@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-end_date = date(2025, 8, 12)
+end_date = date.today()
 
 # Create settings and database connection
 settings = Settings.from_toml()
