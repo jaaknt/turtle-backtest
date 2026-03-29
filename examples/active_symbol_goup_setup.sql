@@ -3,9 +3,16 @@ setup an "active" ticker group based on criteria such as industry classification
 average price, market cap, and trading volume. This group can be used for focused 
 analysis or backtesting on a subset of actively traded stocks.
 */
+select 'exchange', count(*) from turtle.exchange
+union all
 select 'company', count(*) from turtle.company
 union all
-select 'ticker', count(*) from turtle.ticker;
+select 'ticker', count(*) from turtle.ticker
+union all
+select 'ticker_group', count(*) from turtle.ticker_group
+union all
+select 'daily_bars', count(*) from turtle.daily_bars
+;
 
 insert into turtle.ticker_group 
   (select 'active'   as code
