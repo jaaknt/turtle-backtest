@@ -144,15 +144,15 @@ Examples:
         "--start-date",
         type=iso_date_type,
         metavar="YYYY-MM-DD",
-        default=date(2026, 1, 1),
-        help="Start date for historical data (YYYY-MM-DD). Default: 2026-01-01.",
+        default=date.today() - timedelta(days=30),
+        help="Start date for historical data (YYYY-MM-DD). Default: 30 days ago.",
     )
     parser.add_argument(
         "--end-date",
         type=iso_date_type,
         metavar="YYYY-MM-DD",
-        default=date.today() - timedelta(days=30),
-        help="End date for historical data (YYYY-MM-DD). Default: today minus 30 days.",
+        default=date.today(),
+        help="End date for historical data (YYYY-MM-DD). Default: today",
     )
 
     args = parser.parse_args()
