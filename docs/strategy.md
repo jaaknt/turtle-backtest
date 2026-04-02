@@ -115,6 +115,7 @@ The system provides multiple exit strategy implementations in `turtle/exit/` tha
 | **EMA Exit** | `ema.py` | Exit when price closes below EMA | ema_period |
 | **MACD Exit** | `macd.py` | Exit on MACD bearish signals | fastperiod, slowperiod, signalperiod |
 | **ATR Stop Loss** | `atr.py` | Volatility-based stop losses | atr_period, atr_multiplier |
+| **Trailing Percentage Loss** | `trailing_percentage_loss.py` | Trailing stop as % below running max close; stop only moves up | percentage_loss |
 
 ### Usage with Signal Strategies
 

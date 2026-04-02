@@ -70,7 +70,7 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
   - `darvas_box.py`, `mars.py`, `momentum.py`, `market.py`
 - **turtle/exit/**: Exit strategy implementations
   - `base.py`: ExitStrategy abstract base
-  - `buy_and_hold.py`, `profit_loss.py`, `ema.py`, `macd.py`, `atr.py`
+  - `buy_and_hold.py`, `profit_loss.py`, `ema.py`, `macd.py`, `atr.py`, `trailing_percentage_loss.py`
 - **turtle/backtest/**: Backtesting engine
   - `processor.py`, `portfolio_processor.py`, `benchmark_utils.py`
 - **turtle/portfolio/**: Multi-position portfolio management
@@ -250,8 +250,12 @@ Tests organised by component in `tests/`:
 - `test_darvas_box.py`: Darvas Box strategy logic
 - `test_signal_processor.py`: Signal processing pipeline
 - `test_portfolio.py`: Portfolio management and analytics
-- `test_macd_exit_strategy.py`: MACD exit strategy logic
-- `test_atr_exit_strategy.py`: ATR exit strategy logic
+- `exit/test_macd_exit_strategy.py`: MACD exit strategy logic
+- `exit/test_atr_exit_strategy.py`: ATR exit strategy logic
+- `exit/test_ema_exit_strategy.py`: EMA exit strategy logic
+- `exit/test_buy_and_hold_exit_strategy.py`: Buy and hold exit strategy logic
+- `exit/test_profit_loss_exit_strategy.py`: Profit/loss exit strategy logic
+- `exit/test_trailing_percentage_loss_exit_strategy.py`: Trailing percentage loss exit strategy logic
 - `test_volume_momentum_ranking.py`: Volume momentum ranking strategy
 - `test_breakout_quality_ranking.py`: Breakout quality ranking strategy
 - `test_ohlcv_analytics_repository.py`: OhlcvAnalyticsRepository (pandas/polars reads)

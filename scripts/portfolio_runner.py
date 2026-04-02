@@ -12,7 +12,8 @@ Options:
     --start-date YYYY-MM-DD          Start date for backtest (required)
     --end-date YYYY-MM-DD            End date for backtest (required)
     --trading-strategy STRATEGY      Trading strategy: darvas_box, mars, momentum (default: darvas_box)
-    --exit-strategy STRATEGY         Exit strategy: buy_and_hold, profit_loss, ema, macd, atr (default: buy_and_hold)
+    --exit-strategy STRATEGY         Exit strategy: buy_and_hold, profit_loss, ema, macd, atr,
+                                     trailing_percentage_loss (default: buy_and_hold)
     --ranking-strategy STRATEGY      Ranking strategy: momentum, volume_momentum (default: momentum)
     --initial-capital NUM            Starting capital amount (default: 30000.0)
     --position-min-amount NUM        Minimum position size (default: 1500.0)
@@ -60,6 +61,7 @@ from turtle.exit.buy_and_hold import BuyAndHoldExitStrategy
 from turtle.exit.ema import EMAExitStrategy
 from turtle.exit.macd import MACDExitStrategy
 from turtle.exit.profit_loss import ProfitLossExitStrategy
+from turtle.exit.trailing_percentage_loss import TrailingPercentageLossExitStrategy
 from turtle.ranking.base import RankingStrategy
 from turtle.ranking.breakout_quality import BreakoutQualityRanking
 from turtle.ranking.momentum import MomentumRanking
@@ -106,6 +108,7 @@ def _get_exit_strategy(strategy_name: str, bars_history: OhlcvAnalyticsRepositor
         "ema": EMAExitStrategy,
         "macd": MACDExitStrategy,
         "atr": ATRExitStrategy,
+        "trailing_percentage_loss": TrailingPercentageLossExitStrategy,
     }
 
     strategy_class = strategy_classes.get(strategy_name.lower())
@@ -176,7 +179,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--exit-strategy",
         type=str,
         default="buy_and_hold",
-        choices=["buy_and_hold", "profit_loss", "ema", "macd", "atr"],
+        choices=["buy_and_hold", "profit_loss", "ema", "macd", "atr", "trailing_percentage_loss"],
         help="Exit strategy to use (default: buy_and_hold)",
     )
 

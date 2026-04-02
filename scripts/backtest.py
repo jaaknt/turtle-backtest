@@ -14,7 +14,8 @@ Options:
     --end-date YYYY-MM-DD    End date for analysis (required for count mode)
     --tickers TICKER         Comma-separated list of specific tickers to test
     --trading-strategy STRATEGY      Trading strategy: darvas_box, mars, momentum (default: darvas_box)
-    --exit-strategy STRATEGY         Exit strategy: buy_and_hold, profit_loss, ema, macd, atr (default: buy_and_hold)
+    --exit-strategy STRATEGY         Exit strategy: buy_and_hold, profit_loss, ema, macd, atr,
+                                     trailing_percentage_loss (default: buy_and_hold)
     --ranking-strategy STRATEGY      Ranking strategy: momentum, volume_momentum (default: momentum)
     --max-tickers NUM        Maximum number of tickers to test (default: 10000)
     --mode MODE              Analysis mode: list (default: list)
@@ -42,6 +43,7 @@ from turtle.exit import (
     ExitStrategy,
     MACDExitStrategy,
     ProfitLossExitStrategy,
+    TrailingPercentageLossExitStrategy,
 )
 from turtle.ranking.base import RankingStrategy
 from turtle.ranking.breakout_quality import BreakoutQualityRanking
@@ -110,6 +112,8 @@ def _get_exit_strategy(strategy_name: str, bars_history: OhlcvAnalyticsRepositor
         return MACDExitStrategy(bars_history=bars_history)
     elif strategy_name == "atr":
         return ATRExitStrategy(bars_history=bars_history)
+    elif strategy_name == "trailing_percentage_loss":
+        return TrailingPercentageLossExitStrategy(bars_history=bars_history)
     else:
         raise ValueError(f"Unknown exit strategy '{strategy_name}'")
 
@@ -162,7 +166,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--exit-strategy",
         type=str,
         default="buy_and_hold",
-        choices=["buy_and_hold", "profit_loss", "ema", "macd", "atr"],
+        choices=["buy_and_hold", "profit_loss", "ema", "macd", "atr", "trailing_percentage_loss"],
         help="Exit strategy to use (default: buy_and_hold)",
     )
 
