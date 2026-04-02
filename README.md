@@ -2,8 +2,13 @@
 Python library to backtest different trading strategies with US stocks
 
 ## Features
-- download all relevant data from EODHD API
-- test strategies in local database
+- Download all relevant data from EODHD API (exchanges, tickers, company fundamentals, OHLCV history)
+- Trading strategies: Darvas Box, Mars, Momentum
+- Exit strategies: Buy and Hold, Profit/Loss, EMA, MACD, ATR, Trailing Percentage Loss
+- Ranking strategies: Momentum, Volume Momentum, Breakout Quality
+- Single-ticker backtesting with benchmark comparison
+- Portfolio-level backtesting with capital constraints and position sizing
+- HTML tearsheet generation with performance analytics
 
 ## Installation
 ```
@@ -102,6 +107,8 @@ turtle/repositories/   ← Repository pattern (all SQL lives here)
 turtle/data/           ← Domain model dataclasses
 turtle/clients/        ← External API clients (async)
 turtle/config/         ← Configuration loading
+turtle/common/         ← Shared utilities (iso_date_type, safe_float_conversion)
+turtle/factories.py    ← Strategy factory functions (string → class mapping for CLI)
 ```
 
 ### Key Design Patterns
@@ -131,5 +138,5 @@ PostgreSQL via SQLAlchemy — sync `Engine` for read-heavy analytical queries, a
 
 1. Create `turtle/signal/my_strategy.py` extending `TradingStrategy`
 2. Implement `generate_signals(ticker, bars_data, **kwargs) -> list[Signal]`
-3. Register in `turtle/services/signal_service.py`
+3. Register in `turtle/factories.py` (`get_trading_strategy` dict)
 4. Add tests in `tests/test_my_strategy.py`

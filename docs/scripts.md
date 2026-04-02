@@ -2,6 +2,8 @@
 
 This document describes the command-line scripts that provide convenient interfaces for common operations using the turtle backtest services.
 
+All strategy name → class mappings used by `--trading-strategy`, `--exit-strategy`, and `--ranking-strategy` flags are defined in `turtle/factories.py`. Add new strategies there to make them available across all scripts.
+
 ## download_eodhd_data.py
 
 The `download_eodhd_data.py` script downloads bulk data from the EODHD API and stores it in the database. It covers four datasets: exchanges, US ticker lists, company fundamentals, and full historical price data. Use this for initial database population or large historical backfills.

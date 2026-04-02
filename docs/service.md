@@ -252,6 +252,20 @@ Choose the appropriate service based on your analysis needs:
 3. **Strategy Validation**: Use `BacktestService` to test complete strategies with exit logic
 4. **Portfolio Testing**: Use `PortfolioService` for realistic portfolio-level backtesting
 
+## Strategy Instantiation
+
+When instantiating strategies from CLI string names (e.g. `--trading-strategy darvas_box`), use the factory functions in `turtle/factories.py` — they own the canonical name → class mapping:
+
+```python
+from turtle.factories import get_trading_strategy, get_exit_strategy, get_ranking_strategy
+
+ranking_strategy = get_ranking_strategy("momentum")
+exit_strategy = get_exit_strategy("atr", bars_history)
+trading_strategy = get_trading_strategy("darvas_box", ranking_strategy, bars_history)
+```
+
+For programmatic use where the concrete class is already known, instantiate the strategy directly.
+
 ## Integration Examples
 
 **Simple Signal Analysis:**

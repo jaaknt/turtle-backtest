@@ -46,14 +46,7 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 
 ## Scripts Quick Reference
 
-| Script | Purpose | Key Parameters | Example |
-|--------|---------|----------------|---------|
-| **download_eodhd_data.py** | Bulk historical download | `--data` (required), `--ticker-limit`, `--start-date`, `--end-date` | `uv run python scripts/download_eodhd_data.py --data history --ticker-limit 10` |
-| **signal_runner.py** | Generate/analyze signals | `--strategy`, `--mode` (analyze/csv/db) | `uv run python scripts/signal_runner.py --start-date 2024-06-01 --end-date 2024-06-01 --strategy darvas_box --mode analyze` |
-| **backtest.py** | Single ticker backtest | `--ticker`, `--signal-strategy`, `--exit-strategy` | `uv run python scripts/backtest.py --ticker AAPL --start-date 2024-01-01 --end-date 2024-12-31 --signal-strategy darvas_box --exit-strategy profit_loss` |
-| **portfolio_runner.py** | Portfolio backtest | `--trading-strategy`, `--ranking-strategy`, `--initial-capital`, `--output-file` | `uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31 --output-file results.html` |
-
-**Use `--help` flag with any script for complete parameter documentation.**
+For full script parameters and examples see [docs/scripts.md](docs/scripts.md). Use `--help` with any script for inline documentation.
 
 ## Architecture Overview
 
@@ -113,12 +106,8 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 - **Database DSN**: `host=localhost port=5432 dbname=trading user=postgres`
 
 ### Service Layer
-| Service | Purpose | Key Methods | Used By |
-|---------|---------|-------------|---------|
-| **SignalService** | Signal generation and export | `generate_signals()`, `filter_by_ranking()` | `signal_runner.py` |
-| **BacktestService** | Single-ticker backtesting | `run_backtest()`, `calculate_metrics()` | `backtest.py` |
-| **PortfolioService** | Multi-position portfolio backtest | `run_portfolio_backtest()`, `generate_tearsheet()`, `calculate_benchmark_comparison()` | `portfolio_runner.py` |
-| **EODHDService** | EODHD API operations | `fetch_eod_data()`, `fetch_ticker_list()`, `validate_response()` | `DataUpdateService` |
+
+For service API details, constructor parameters, and usage examples see [docs/service.md](docs/service.md).
 
 ### Ranking System
 Filters and prioritizes signals for portfolio selection. Returns scores 0-100 (higher = stronger signal).
@@ -163,22 +152,7 @@ Filters and prioritizes signals for portfolio selection. Returns scores 0-100 (h
 
 ### Running Portfolio Backtests
 
-**Basic workflow:**
-```bash
-# 1. Update data
-uv run python scripts/download_eodhd_data.py --data history --start-date 2024-01-01 --end-date 2024-12-31
-
-# 2. Generate signals (optional - validate)
-uv run python scripts/signal_runner.py --start-date 2024-01-01 --end-date 2024-01-31 --strategy darvas_box --mode analyze
-
-# 3. Run backtest
-uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31 --output-file results.html
-
-# 4. Review results
-xdg-open reports/results.html
-```
-
-**Advanced options**: Use `--ranking-strategy`, `--exit-strategy`, `--initial-capital`, `--position-min-amount`, `--min-signal-ranking` to customize.
+For the full data-update → signal → backtest workflow and all available options see [docs/scripts.md](docs/scripts.md#portfolio_runnerpy).
 
 ## Examples Directory
 
@@ -191,18 +165,9 @@ xdg-open reports/results.html
 | **portfolio_backtest_example.py** | Programmatic portfolio backtesting template | `uv run python examples/portfolio_backtest_example.py` |
 | **portfolio_backtest_api_demo.py** | API-style portfolio backtesting demo | `uv run python examples/portfolio_backtest_api_demo.py` |
 
-## Troubleshooting Quick Reference
+## Troubleshooting
 
-| Problem | Quick Fix | Details |
-|---------|-----------|---------|
-| **Database connection failed** | `docker-compose ps` to verify postgres running, check `.env` credentials | Verify DB exists with `psql -U postgres -l`, test port 5432 access |
-| **API rate limiting** | Use `--ticker-limit 10` for testing, verify API keys in `.env` | Check EODHD_API_KEY active, typical limit 20 req/sec |
-| **No signals generated** | Verify data exists: `SELECT COUNT(*) FROM turtle.daily_bars WHERE symbol='AAPL'`, enable `--verbose` | Check ticker has sufficient history, validate strategy parameters |
-| **Portfolio backtest errors** | Lower `--min-signal-ranking`, verify `initial_capital >= position_max_amount * max_positions` | Ensure signals exist for date range, validate benchmark data (SPY/QQQ) |
-| **Slow queries/high memory** | Add indexes: `CREATE INDEX idx_daily_bars_symbol_date ON turtle.daily_bars(symbol, date)`, use `--ticker-limit` | Process data in batches |
-| **Migration failures** | `uv run alembic current` to check version, `uv run alembic downgrade -1` to rollback | Review `turtle.alembic_version` table, test upgrade/downgrade paths |
-
-**For detailed troubleshooting**: Check logs in `logs/` directory, use `--verbose` flag, consult script `--help` output.
+For common issues and fixes see [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Design Patterns & Principles
 
