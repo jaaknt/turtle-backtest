@@ -36,13 +36,10 @@ from turtle.common.cli import iso_date_type
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
-from turtle.exit.base import ExitStrategy
 from turtle.factories import get_exit_strategy, get_ranking_strategy, get_trading_strategy
-from turtle.ranking.base import RankingStrategy
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
 from turtle.services.backtest_service import BacktestService
 from turtle.services.signal_service import SignalService
-from turtle.signal.base import TradingStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -140,9 +137,9 @@ def main() -> int:
 
             bars_history = OhlcvAnalyticsRepository(engine=settings.engine)
 
-            ranking_strategy: RankingStrategy = get_ranking_strategy(args.ranking_strategy)
-            exit_strategy: ExitStrategy = get_exit_strategy(args.exit_strategy, bars_history)
-            trading_strategy: TradingStrategy = get_trading_strategy(args.trading_strategy, ranking_strategy, bars_history)
+            ranking_strategy = get_ranking_strategy(args.ranking_strategy)
+            exit_strategy = get_exit_strategy(args.exit_strategy, bars_history)
+            trading_strategy = get_trading_strategy(args.trading_strategy, ranking_strategy, bars_history)
         except ValueError as e:
             logger.error(str(e))
             return 1

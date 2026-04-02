@@ -19,10 +19,8 @@ def safe_float_conversion(value: Any) -> float:
     Raises:
         ValueError: If value cannot be converted to float
     """
-    # Check for pandas Series (has iloc attribute)
     if hasattr(value, "iloc") and hasattr(value, "dtype"):
         return float(value.iloc[0])
-    # Check for pandas scalar (has item attribute but not iloc)
     elif hasattr(value, "item") and not isinstance(value, int | float):
         return float(value.item())
     else:
