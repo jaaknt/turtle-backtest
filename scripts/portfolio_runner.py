@@ -47,100 +47,20 @@ import argparse
 import logging
 import pathlib
 import sys
-from datetime import date
 
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
+from turtle.common.cli import iso_date_type
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
-from turtle.exit.atr import ATRExitStrategy
-from turtle.exit.base import ExitStrategy
-from turtle.exit.buy_and_hold import BuyAndHoldExitStrategy
-from turtle.exit.ema import EMAExitStrategy
-from turtle.exit.macd import MACDExitStrategy
-from turtle.exit.profit_loss import ProfitLossExitStrategy
-from turtle.exit.trailing_percentage_loss import TrailingPercentageLossExitStrategy
-from turtle.ranking.base import RankingStrategy
-from turtle.ranking.breakout_quality import BreakoutQualityRanking
-from turtle.ranking.momentum import MomentumRanking
-from turtle.ranking.volume_momentum import VolumeMomentumRanking
+from turtle.factories import get_exit_strategy, get_ranking_strategy, get_trading_strategy
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
 from turtle.services.portfolio_service import PortfolioService
-
-# PortfolioResults no longer needed - analytics prints directly
 from turtle.services.signal_service import SignalService
-from turtle.signal.base import TradingStrategy
-from turtle.signal.darvas_box import DarvasBoxStrategy
-from turtle.signal.mars import MarsStrategy
-from turtle.signal.momentum import MomentumStrategy
 
 logger = logging.getLogger(__name__)
-
-
-def _get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, bars_history: OhlcvAnalyticsRepository) -> TradingStrategy:
-    """Create trading strategy instance by name."""
-    strategy_classes: dict[str, type[TradingStrategy]] = {
-        "darvas_box": DarvasBoxStrategy,
-        "mars": MarsStrategy,
-        "momentum": MomentumStrategy,
-    }
-
-    strategy_class = strategy_classes.get(strategy_name.lower())
-    if strategy_class is None:
-        available_strategies = ", ".join(strategy_classes.keys())
-        raise ValueError(f"Unknown trading strategy '{strategy_name}'. Available strategies: {available_strategies}")
-
-    return strategy_class(
-        bars_history=bars_history,
-        ranking_strategy=ranking_strategy,
-        time_frame_unit=TimeFrameUnit.DAY,
-        warmup_period=365,  # 1 year warmup for indicators
-    )
-
-
-def _get_exit_strategy(strategy_name: str, bars_history: OhlcvAnalyticsRepository) -> ExitStrategy:
-    """Create exit strategy instance by name."""
-    strategy_classes: dict[str, type[ExitStrategy]] = {
-        "buy_and_hold": BuyAndHoldExitStrategy,
-        "profit_loss": ProfitLossExitStrategy,
-        "ema": EMAExitStrategy,
-        "macd": MACDExitStrategy,
-        "atr": ATRExitStrategy,
-        "trailing_percentage_loss": TrailingPercentageLossExitStrategy,
-    }
-
-    strategy_class = strategy_classes.get(strategy_name.lower())
-    if strategy_class is None:
-        available_strategies = ", ".join(strategy_classes.keys())
-        raise ValueError(f"Unknown exit strategy '{strategy_name}'. Available strategies: {available_strategies}")
-
-    return strategy_class(bars_history=bars_history)
-
-
-def _get_ranking_strategy(strategy_name: str) -> RankingStrategy:
-    """Create ranking strategy instance by name."""
-    strategy_classes: dict[str, type[RankingStrategy]] = {
-        "momentum": MomentumRanking,
-        "volume_momentum": VolumeMomentumRanking,
-        "breakout_quality": BreakoutQualityRanking,
-    }
-
-    strategy_class = strategy_classes.get(strategy_name.lower())
-    if strategy_class is None:
-        available_strategies = ", ".join(strategy_classes.keys())
-        raise ValueError(f"Unknown ranking strategy '{strategy_name}'. Available strategies: {available_strategies}")
-
-    return strategy_class()
-
-
-def iso_date_type(date_string: str) -> date:
-    """Custom argparse type for ISO date validation."""
-    try:
-        return date.fromisoformat(date_string)
-    except ValueError as err:
-        raise argparse.ArgumentTypeError(f"Invalid date format: '{date_string}'. Expected ISO format (YYYY-MM-DD)") from err
 
 
 def create_argument_parser() -> argparse.ArgumentParser:
@@ -275,9 +195,9 @@ def main() -> int:
         bars_history = OhlcvAnalyticsRepository(engine=settings.engine)
 
         # Create strategy instances
-        ranking_strategy = _get_ranking_strategy(args.ranking_strategy)
-        trading_strategy = _get_trading_strategy(args.trading_strategy, ranking_strategy, bars_history)
-        exit_strategy = _get_exit_strategy(args.exit_strategy, bars_history)
+        ranking_strategy = get_ranking_strategy(args.ranking_strategy)
+        trading_strategy = get_trading_strategy(args.trading_strategy, ranking_strategy, bars_history)
+        exit_strategy = get_exit_strategy(args.exit_strategy, bars_history)
 
         # Initialize portfolio service
         logger.info("Initializing portfolio service...")

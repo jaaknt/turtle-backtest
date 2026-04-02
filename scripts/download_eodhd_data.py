@@ -9,6 +9,7 @@ from pathlib import Path
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from turtle.common.cli import iso_date_type
 from turtle.config.settings import Settings
 from turtle.services.eodhd_service import EodhdService
 
@@ -97,14 +98,6 @@ async def main(
         if eodhd_service is not None:
             await eodhd_service.close()
         logger.info("EODHD data download script finished.")
-
-
-def iso_date_type(date_string: str) -> date:
-    """Custom argparse type for ISO date validation."""
-    try:
-        return date.fromisoformat(date_string)
-    except ValueError as err:
-        raise argparse.ArgumentTypeError(f"Invalid date format: '{date_string}'. Expected ISO format (YYYY-MM-DD)") from err
 
 
 if __name__ == "__main__":

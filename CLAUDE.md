@@ -60,6 +60,9 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 ### Core Components
 - **turtle/common/**: Shared enums and utilities
   - `enums.py`: `TimeFrameUnit` enum (DAY, WEEK)
+  - `cli.py`: `iso_date_type` — argparse type helper for ISO date strings (YYYY-MM-DD)
+  - `pandas_utils.py`: `safe_float_conversion` — safe pandas scalar → float coercion
+- **turtle/factories.py**: Strategy factories for CLI scripts — canonical string → class mapping for trading, exit, and ranking strategies (`get_trading_strategy`, `get_exit_strategy`, `get_ranking_strategy`)
 - **turtle/repositories/**: All database access (sync Engine reads + async Session writes)
   - `tables.py`: SQLAlchemy Core table definitions
   - `analytics.py`: `OhlcvAnalyticsRepository` — bulk OHLCV reads returning DataFrames (pandas/polars)
