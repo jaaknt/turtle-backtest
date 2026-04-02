@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from turtle.common.pandas_utils import safe_float_conversion
 from turtle.ranking.base import RankingStrategy
 
 import pandas as pd
@@ -67,8 +68,8 @@ class MomentumRanking(RankingStrategy):
         # Handle invalid data — guard before casting to float
         if pd.isna(current_ema200_raw) or pd.isna(past_ema200_raw):
             return 0
-        current_ema200 = float(current_ema200_raw)  # type: ignore[arg-type]
-        past_ema200 = float(past_ema200_raw)  # type: ignore[arg-type]
+        current_ema200 = safe_float_conversion(current_ema200_raw)
+        past_ema200 = safe_float_conversion(past_ema200_raw)
         logger.debug(f"EMA200 1M - Current: {current_ema200}, Past: {past_ema200}")
 
         if past_ema200 <= 0:
