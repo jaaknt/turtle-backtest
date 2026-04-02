@@ -4,10 +4,10 @@ import logging
 from datetime import datetime
 from turtle.backtest.models import Trade
 from turtle.common.enums import TimeFrameUnit
+from turtle.common.pandas_utils import safe_float_conversion
 
 import pandas as pd
 
-from .atr import safe_float_conversion
 from .base import ExitStrategy
 
 logger = logging.getLogger(__name__)

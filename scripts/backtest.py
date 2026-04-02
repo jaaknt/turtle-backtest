@@ -27,103 +27,24 @@ import argparse
 import logging
 import pathlib
 import sys
-from datetime import date
 
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
 from turtle.backtest.processor import SignalProcessor
+from turtle.common.cli import iso_date_type
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
-from turtle.exit import (
-    ATRExitStrategy,
-    BuyAndHoldExitStrategy,
-    EMAExitStrategy,
-    ExitStrategy,
-    MACDExitStrategy,
-    ProfitLossExitStrategy,
-    TrailingPercentageLossExitStrategy,
-)
+from turtle.exit.base import ExitStrategy
+from turtle.factories import get_exit_strategy, get_ranking_strategy, get_trading_strategy
 from turtle.ranking.base import RankingStrategy
-from turtle.ranking.breakout_quality import BreakoutQualityRanking
-from turtle.ranking.momentum import MomentumRanking
-from turtle.ranking.volume_momentum import VolumeMomentumRanking
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
 from turtle.services.backtest_service import BacktestService
 from turtle.services.signal_service import SignalService
 from turtle.signal.base import TradingStrategy
-from turtle.signal.darvas_box import DarvasBoxStrategy
-from turtle.signal.mars import MarsStrategy
-from turtle.signal.momentum import MomentumStrategy
 
 logger = logging.getLogger(__name__)
-
-
-def _get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, bars_history: OhlcvAnalyticsRepository) -> TradingStrategy:
-    """Get the trading strategy instance by name."""
-
-    if strategy_name == "darvas_box":
-        return DarvasBoxStrategy(
-            bars_history=bars_history,
-            ranking_strategy=ranking_strategy,
-            time_frame_unit=TimeFrameUnit.DAY,
-            warmup_period=365,
-        )
-    elif strategy_name == "mars":
-        return MarsStrategy(
-            bars_history=bars_history,
-            ranking_strategy=ranking_strategy,
-            time_frame_unit=TimeFrameUnit.DAY,
-            warmup_period=365,
-        )
-    elif strategy_name == "momentum":
-        return MomentumStrategy(
-            bars_history=bars_history,
-            ranking_strategy=ranking_strategy,
-            time_frame_unit=TimeFrameUnit.DAY,
-            warmup_period=365,
-        )
-    else:
-        raise ValueError(f"Unknown trading strategy '{strategy_name}'")
-
-
-def _get_ranking_strategy(strategy_name: str) -> RankingStrategy:
-    """Get the ranking strategy instance by name."""
-    if strategy_name == "momentum":
-        return MomentumRanking()
-    elif strategy_name == "volume_momentum":
-        return VolumeMomentumRanking()
-    elif strategy_name == "breakout_quality":
-        return BreakoutQualityRanking()
-    else:
-        raise ValueError(f"Unknown ranking strategy '{strategy_name}'")
-
-
-def _get_exit_strategy(strategy_name: str, bars_history: OhlcvAnalyticsRepository) -> ExitStrategy:
-    """Get the exit strategy instance by name."""
-    if strategy_name == "buy_and_hold":
-        return BuyAndHoldExitStrategy(bars_history=bars_history)
-    elif strategy_name == "profit_loss":
-        return ProfitLossExitStrategy(bars_history=bars_history)
-    elif strategy_name == "ema":
-        return EMAExitStrategy(bars_history=bars_history)
-    elif strategy_name == "macd":
-        return MACDExitStrategy(bars_history=bars_history)
-    elif strategy_name == "atr":
-        return ATRExitStrategy(bars_history=bars_history)
-    elif strategy_name == "trailing_percentage_loss":
-        return TrailingPercentageLossExitStrategy(bars_history=bars_history)
-    else:
-        raise ValueError(f"Unknown exit strategy '{strategy_name}'")
-
-
-def iso_date_type(date_string: str) -> date:
-    """Custom argparse type for ISO date validation"""
-    try:
-        return date.fromisoformat(date_string)
-    except ValueError as err:
-        raise argparse.ArgumentTypeError(f"Invalid date format: '{date_string}'. Expected ISO format (YYYY-MM-DD)") from err
 
 
 def create_argument_parser() -> argparse.ArgumentParser:
@@ -219,9 +140,9 @@ def main() -> int:
 
             bars_history = OhlcvAnalyticsRepository(engine=settings.engine)
 
-            ranking_strategy: RankingStrategy = _get_ranking_strategy(args.ranking_strategy)
-            exit_strategy: ExitStrategy = _get_exit_strategy(args.exit_strategy, bars_history)
-            trading_strategy: TradingStrategy = _get_trading_strategy(args.trading_strategy, ranking_strategy, bars_history)
+            ranking_strategy: RankingStrategy = get_ranking_strategy(args.ranking_strategy)
+            exit_strategy: ExitStrategy = get_exit_strategy(args.exit_strategy, bars_history)
+            trading_strategy: TradingStrategy = get_trading_strategy(args.trading_strategy, ranking_strategy, bars_history)
         except ValueError as e:
             logger.error(str(e))
             return 1

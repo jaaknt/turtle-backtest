@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 from turtle.backtest.models import Trade
 from turtle.common.enums import TimeFrameUnit
-from typing import Any
+from turtle.common.pandas_utils import safe_float_conversion
 
 import pandas as pd
 from pandas_ta.volatility import atr as ta_atr
@@ -12,35 +12,6 @@ from pandas_ta.volatility import atr as ta_atr
 from .base import ExitStrategy
 
 logger = logging.getLogger(__name__)
-
-
-def safe_float_conversion(value: Any) -> float:
-    """
-    Safely convert pandas Series elements or scalar values to float.
-
-    Handles the type ambiguity that Pylance detects when accessing
-    pandas DataFrame elements that could return Series[Any] or scalar values.
-
-    Args:
-        value: Value from pandas DataFrame that could be scalar or Series
-
-    Returns:
-        float: Converted float value
-
-    Raises:
-        ValueError: If value cannot be converted to float
-    """
-    # Check for pandas Series (has iloc attribute)
-    if hasattr(value, "iloc") and hasattr(value, "dtype"):
-        # Handle pandas Series case - get first element
-        return float(value.iloc[0])
-    # Check for pandas scalar (has item attribute but not iloc)
-    elif hasattr(value, "item") and not isinstance(value, int | float):
-        # Handle pandas scalar case
-        return float(value.item())
-    else:
-        # Handle regular scalar case (int, float, or other numeric types)
-        return float(value)
 
 
 class ATRExitStrategy(ExitStrategy):

@@ -58,6 +58,10 @@ description: Review staged and unstaged changes before committing, or review a s
 - New logic has corresponding tests in `tests/`
 - Fixtures belong in `conftest.py` (shared) or the individual test file (local)
 
+### Documentation
+- Check all *.md files and propose improvements in these files
+- Check existing comments/docstrings in *.py files
+
 ## Output Format
 
 Report findings as:
