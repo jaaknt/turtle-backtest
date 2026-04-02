@@ -6,6 +6,7 @@ from .buy_and_hold import BuyAndHoldExitStrategy
 from .ema import EMAExitStrategy
 from .macd import MACDExitStrategy
 from .profit_loss import ProfitLossExitStrategy
+from .trailing_percentage_loss import TrailingPercentageLossExitStrategy
 
 __all__ = [
     "ExitStrategy",
@@ -14,4 +15,5 @@ __all__ = [
     "EMAExitStrategy",
     "MACDExitStrategy",
     "ATRExitStrategy",
+    "TrailingPercentageLossExitStrategy",
 ]

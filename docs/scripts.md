@@ -102,7 +102,7 @@ The `backtest.py` script provides comprehensive backtesting capabilities by comb
 **Key Features:**
 - Complete signal-to-exit backtesting workflow
 - Multiple trading strategies (Darvas Box, Mars, Momentum)
-- Multiple exit strategies (Buy and Hold, Profit/Loss, EMA, MACD, ATR)
+- Multiple exit strategies (Buy and Hold, Profit/Loss, EMA, MACD, ATR, Trailing Percentage Loss)
 - Configurable ranking strategies
 - Flexible ticker selection and limiting
 - Multiple analysis modes (list, signal, top)
@@ -139,6 +139,7 @@ uv run python scripts/backtest.py --start-date 2024-01-15 --end-date 2024-01-15 
   - `ema` - Exit when price closes below EMA
   - `macd` - Exit on MACD bearish signals
   - `atr` - Volatility-based stop losses using ATR
+  - `trailing_percentage_loss` - Trailing stop set as a fixed percentage below the running max close
 - `--ranking-strategy` - Signal ranking method (default: momentum)
   - `momentum` - Momentum-based ranking
 - `--max-tickers` - Maximum number of tickers to test (default: 10000)
@@ -154,6 +155,7 @@ uv run python scripts/backtest.py --start-date 2024-01-15 --end-date 2024-01-15 
 - **EMA**: Technical analysis exit when price closes below exponential moving average
 - **MACD**: Exit based on MACD indicator bearish crossovers
 - **ATR**: Volatility-adjusted stop losses using Average True Range multipliers
+- **Trailing Percentage Loss**: Trailing stop set as a fixed percentage below the running maximum close price; stop only moves up, never down
 
 **Output:**
 - Signal processing results with entry/exit analysis
@@ -187,6 +189,7 @@ The `portfolio_runner.py` script provides sophisticated portfolio-level backtest
 - `ema` - Exit when price closes below exponential moving average
 - `macd` - Exit on MACD bearish signals
 - `atr` - Volatility-based stop losses using Average True Range
+- `trailing_percentage_loss` - Trailing stop set as a fixed percentage below the running max close
 
 **Ranking Strategies:**
 - `momentum` (default) - Momentum-based signal ranking
@@ -225,7 +228,7 @@ uv run python scripts/portfolio_runner.py \
 
 **Strategy Configuration:**
 - `--trading-strategy` - Trading strategy: darvas_box, mars, momentum (default: darvas_box)
-- `--exit-strategy` - Exit strategy: buy_and_hold, profit_loss, ema, macd, atr (default: buy_and_hold)
+- `--exit-strategy` - Exit strategy: buy_and_hold, profit_loss, ema, macd, atr, trailing_percentage_loss (default: buy_and_hold)
 - `--ranking-strategy` - Ranking strategy: momentum, volume_momentum (default: momentum)
 
 **Portfolio Parameters:**
