@@ -29,6 +29,16 @@ insert into turtle.ticker_group
 
 insert into turtle.ticker_group (code, ticker_code, rate)
 values  ('active', 'SPY.US', null),
-        ('active', 'QQQ.US', null);
+        ('active', 'QQQ.US', null),
+        ('active', 'XLV.US', NULL),                                                                                                                                                                                                                                 ('active', 'XLF.US', NULL),
+        ('active', 'XLI.US', NULL),                                                                                                                                                                                                                                 ('active', 'XLK.US', NULL),
+        ('active', 'XLY.US', NULL),
+        ('active', 'XLC.US', NULL),
+        ('active', 'XLB.US', NULL),
+        ('active', 'XLE.US', NULL),
+        ('active', 'XLRE.US', NULL),
+        ('active', 'XLP.US', NULL),
+        ('active', 'XLU.US', NULL)
+  ON CONFLICT DO NOTHING;
 
 select 'ticker_group', count(*) from turtle.ticker_group where code = 'active';
