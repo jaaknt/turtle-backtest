@@ -30,6 +30,20 @@ Python-based financial trading strategy backtesting library for US stocks. Suppo
 
 **Need historical data?** → Use `scripts/download_eodhd_data.py` for bulk historical downloads
 
+## MCP Servers
+
+Configured in `.mcp.json`. Prefer these over CLI equivalents when the operation is supported (`github` over `gh`, `postgres` for direct queries). Use built-in Read/Edit/Grep/Glob tools instead of `filesystem` for code operations.
+
+| Server | Purpose |
+|--------|---------|
+| `postgres` | Direct read-only SQL queries against `trading` db as `claude` user (`hetzner:5432`). Requires `DB_CLAUDE_PASSWORD` env var. |
+| `github` | GitHub API — issues, PRs, commits, actions (prefer over `gh` CLI when supported) |
+| `context7` | Fetch current library/framework docs |
+| `filesystem` | File operations — prefer built-in Read/Edit/Grep/Glob instead |
+| `playwright` | Browser automation and UI testing |
+| `sequential-thinking` | Structured multi-step reasoning for complex multi-condition problems |
+| `fetch` | HTTP fetch for external URLs |
+
 ## Git Workflow
 
 Trunk-based development — commit directly to `main`, no pull requests or feature branches.
@@ -43,10 +57,6 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 | `docker-compose up -d` | Start PostgreSQL database |
 | `uv run pytest` | Run all tests |
 | `uv run alembic upgrade head` | Apply database migrations |
-
-## Scripts Quick Reference
-
-For full script parameters and examples see [docs/scripts.md](docs/scripts.md). Use `--help` with any script for inline documentation.
 
 ## Architecture Overview
 
@@ -71,8 +81,7 @@ For full script parameters and examples see [docs/scripts.md](docs/scripts.md). 
   - `processor.py`, `portfolio_processor.py`, `benchmark_utils.py`
 - **turtle/portfolio/**: Multi-position portfolio management
   - `manager.py`, `selector.py`, `analytics.py`
-- **turtle/ranking/**: Signal ranking strategies
-  - `momentum.py`, `volume_momentum.py`, `breakout_quality.py`
+- **turtle/ranking/**: Signal ranking strategies — `momentum.py`, `volume_momentum.py`, `breakout_quality.py` (see [docs/strategy.md](docs/strategy.md))
 - **turtle/clients/**: External API clients
   - `eodhd.py`: EODHD API wrapper
 - **turtle/config/**: Configuration management
@@ -89,9 +98,6 @@ For full script parameters and examples see [docs/scripts.md](docs/scripts.md). 
 - **Tables**: `ticker`, `daily_bars`, `company`, `symbol_group`, `exchange`
 - **Connection**: SQLAlchemy `Engine` (sync reads) + `AsyncSession` (async writes)
 
-### Data Sources
-- **EODHD**: Symbol lists, historical OHLCV data, company fundamentals
-
 ## Core Systems Overview
 
 ### Portfolio Management
@@ -102,22 +108,8 @@ For full script parameters and examples see [docs/scripts.md](docs/scripts.md). 
 ### Configuration System
 - **Settings**: TOML-based with environment variable overrides for secrets
 - **Key Files**: `config/settings.toml`, `.env` (API keys, DB password)
-- **Environment Variables**: `EODHD_API_KEY`, `DB_PASSWORD`
-- **Database DSN**: `host=localhost port=5432 dbname=trading user=postgres`
-
-### Service Layer
-
-For service API details, constructor parameters, and usage examples see [docs/service.md](docs/service.md).
-
-### Ranking System
-Filters and prioritizes signals for portfolio selection. Returns scores 0-100 (higher = stronger signal).
-
-**Available Strategies:**
-- **MomentumRanking**: Price momentum over lookback period (default: 20 days)
-- **VolumeMomentumRanking**: Combined price + volume momentum (weights: 0.7 price, 0.3 volume)
-- **BreakoutQualityRanking**: Scores breakout strength at signal time — volume conviction (0-30), breakout extension (0-25), trend health / EMA stack (0-25), MACD conviction (0-20)
-
-**Usage in portfolio backtesting:** Applied by `PortfolioSignalSelector` with configurable `min_ranking` threshold.
+- **Environment Variables**: `EODHD_API_KEY`, `DB_APP_PASSWORD` (required by app; see `turtle/config/settings.py`)
+- **Database DSN**: `host=localhost port=5432 dbname=trading user=app_user`
 
 ## Database Migrations
 
@@ -150,10 +142,6 @@ Filters and prioritizes signals for portfolio selection. Returns scores 0-100 (h
 4. **Wire via dependency injection**: Instantiate your strategy and pass it to the service constructor — see `scripts/signal_runner.py` (`get_trading_strategy_instance`) for the canonical wiring pattern
 5. **Test**: `uv run python scripts/signal_runner.py --strategy my_strategy --mode analyze`
 
-### Running Portfolio Backtests
-
-For the full data-update → signal → backtest workflow and all available options see [docs/scripts.md](docs/scripts.md#portfolio_runnerpy).
-
 ## Examples Directory
 
 | Example | Purpose | Command |
@@ -164,10 +152,6 @@ For the full data-update → signal → backtest workflow and all available opti
 | **pandas.ipynb** | Data analysis and exploration | `uv run jupyter notebook examples/pandas.ipynb` |
 | **portfolio_backtest_example.py** | Programmatic portfolio backtesting template | `uv run python examples/portfolio_backtest_example.py` |
 | **portfolio_backtest_api_demo.py** | API-style portfolio backtesting demo | `uv run python examples/portfolio_backtest_api_demo.py` |
-
-## Troubleshooting
-
-For common issues and fixes see [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Design Patterns & Principles
 
@@ -240,7 +224,3 @@ Run with `uv run pytest` or `uv run pytest tests/test_specific.py`.
 **Core Libraries**: pandas/numpy (data), polars (fast DataFrames), pandas-ta (technical analysis), pydantic (schema validation), alpaca-py (market data API), yfinance (Yahoo Finance), psycopg (PostgreSQL), backtesting (backtest framework), quantstats (performance analytics), streamlit (web UI), plotly/bokeh (visualization)
 
 **Special Requirements**: Python 3.13+
-
-**Configuration**: Environment setup via `.env` file, TOML-based settings in `config/settings.toml`
-
-**Additional Documentation**: Full API details in code docstrings, complete examples in `examples/` directory
