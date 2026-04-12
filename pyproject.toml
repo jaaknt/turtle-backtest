@@ -51,6 +51,11 @@ lint.select = [
     "C4", # flake8-comprehensions
     "UP", # pyupgrade
 ]
+exclude = [
+    "db/migrations",
+    ".venv",
+    "__pycache__",
+]
 
 [tool.ruff.format]
 quote-style = "double"
