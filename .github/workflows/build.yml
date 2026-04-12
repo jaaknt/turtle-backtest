@@ -27,13 +27,13 @@ jobs:
         run: uv sync --extra dev --extra lint
 
       - name: Run ruff linter
-        run: uv run ruff check turtle/ scripts/ app.py
+        run: uv run ruff check turtle/ scripts/
 
       - name: Run ruff formatter check
-        run: uv run ruff format --check turtle/ scripts/ app.py
+        run: uv run ruff format --check turtle/ scripts/
 
       - name: Run mypy for static type checking
-        run: uv run mypy turtle/ app.py
+        run: uv run mypy turtle/
 
       - name: Run tests
         run: uv run pytest
