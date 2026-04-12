@@ -18,11 +18,11 @@ Stop and report if any step fails — do not skip failures.
 
 3. **Run lint** — `uv run --extra lint ruff check .`. If errors are found, attempt to fix them with `uv run --extra lint ruff check --fix .`, then re-run to confirm clean. If unfixable errors remain, stop and report.
 
-4. **Run ruff linter** — `uv run ruff check turtle/ scripts/ app.py`
+4. **Run ruff linter** — `uv run ruff check turtle/ scripts/`
 
-5. **Run ruff formatter check** — `uv run ruff format --check turtle/ scripts/ app.py`
+5. **Run ruff formatter check** — `uv run ruff format --check turtle/ scripts/`
 
-6. **Run mypy for static type checking** -  `uv run ruff format --check turtle/ scripts/ app.py`, stop if fails
+6. **Run mypy for static type checking** -  `uv run ruff format --check turtle/ scripts/`, stop if fails
 
 7. **Stage changes** — `git add` specific files that are modified or untracked (avoid `git add -A` or `git add .` to prevent accidentally staging `.env`, secrets, or large binaries). List what is being staged.
 
