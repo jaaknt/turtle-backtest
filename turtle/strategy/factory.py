@@ -46,34 +46,34 @@ def get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, 
 
 def get_exit_strategy(strategy_name: str, bars_history: OhlcvAnalyticsRepository) -> ExitStrategy:
     """Create an exit strategy instance by name."""
-    strategy_classes: dict[str, type[ExitStrategy]] = {
-        "buy_and_hold": BuyAndHoldExitStrategy,
-        "profit_loss": ProfitLossExitStrategy,
-        "ema": EMAExitStrategy,
-        "macd": MACDExitStrategy,
-        "atr": ATRExitStrategy,
-        "trailing_percentage_loss": TrailingPercentageLossExitStrategy,
+    strategies: dict[str, Callable[[], ExitStrategy]] = {
+        "buy_and_hold": lambda: BuyAndHoldExitStrategy(bars_history),
+        "profit_loss": lambda: ProfitLossExitStrategy(bars_history),
+        "ema": lambda: EMAExitStrategy(bars_history),
+        "macd": lambda: MACDExitStrategy(bars_history),
+        "atr": lambda: ATRExitStrategy(bars_history),
+        "trailing_percentage_loss": lambda: TrailingPercentageLossExitStrategy(bars_history),
     }
 
-    strategy_class = strategy_classes.get(strategy_name.lower())
-    if strategy_class is None:
-        available = ", ".join(strategy_classes.keys())
+    factory = strategies.get(strategy_name.lower())
+    if factory is None:
+        available = ", ".join(strategies.keys())
         raise ValueError(f"Unknown exit strategy '{strategy_name}'. Available strategies: {available}")
 
-    return strategy_class(bars_history=bars_history)
+    return factory()
 
 
 def get_ranking_strategy(strategy_name: str) -> RankingStrategy:
     """Create a ranking strategy instance by name."""
-    strategy_classes: dict[str, type[RankingStrategy]] = {
-        "momentum": MomentumRanking,
-        "volume_momentum": VolumeMomentumRanking,
-        "breakout_quality": BreakoutQualityRanking,
+    strategies: dict[str, Callable[[], RankingStrategy]] = {
+        "momentum": lambda: MomentumRanking(),
+        "volume_momentum": lambda: VolumeMomentumRanking(),
+        "breakout_quality": lambda: BreakoutQualityRanking(),
     }
 
-    strategy_class = strategy_classes.get(strategy_name.lower())
-    if strategy_class is None:
-        available = ", ".join(strategy_classes.keys())
+    factory = strategies.get(strategy_name.lower())
+    if factory is None:
+        available = ", ".join(strategies.keys())
         raise ValueError(f"Unknown ranking strategy '{strategy_name}'. Available strategies: {available}")
 
-    return strategy_class()
+    return factory()
