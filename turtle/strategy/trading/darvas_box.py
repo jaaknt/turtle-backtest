@@ -1,5 +1,5 @@
 import logging
-from datetime import date, timedelta
+from datetime import date
 from turtle.common.enums import TimeFrameUnit
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.strategy.ranking.base import RankingStrategy
@@ -88,14 +88,7 @@ class DarvasBoxStrategy(TradingStrategy):
                 return True
         return True
 
-    def collect_data(self, ticker: str, start_date: date, end_date: date) -> bool:
-        self.df = self.bars_history.get_ticker_history(
-            ticker,
-            start_date - timedelta(days=self.warmup_period),
-            end_date,
-            self.time_frame_unit,
-        )
-        return not (self.df.empty or self.df.shape[0] < self.min_bars)
+
 
     def calculate_indicators(self) -> None:
         """Calculate technical indicators for the strategy.
