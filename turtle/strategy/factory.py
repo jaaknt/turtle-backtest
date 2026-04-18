@@ -9,7 +9,7 @@ For programmatic use where the concrete class is already known, instantiate
 the strategy directly instead of going through the factory.
 """
 
-from turtle.common.enums import TimeFrameUnit
+from collections.abc import Callable
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.strategy.exit.atr import ATRExitStrategy
 from turtle.strategy.exit.base import ExitStrategy
@@ -30,22 +30,18 @@ from turtle.strategy.trading.momentum import MomentumStrategy
 
 def get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, bars_history: OhlcvAnalyticsRepository) -> TradingStrategy:
     """Create a trading strategy instance by name."""
-    strategy_classes: dict[str, type[TradingStrategy]] = {
-        "darvas_box": DarvasBoxStrategy,
-        "mars": MarsStrategy,
-        "momentum": MomentumStrategy,
+    strategies: dict[str, Callable[[], TradingStrategy]] = {
+        "darvas_box": lambda: DarvasBoxStrategy(bars_history, ranking_strategy),
+        "mars": lambda: MarsStrategy(bars_history, ranking_strategy),
+        "momentum": lambda: MomentumStrategy(bars_history, ranking_strategy),
     }
 
-    strategy_class = strategy_classes.get(strategy_name.lower())
-    if strategy_class is None:
-        available = ", ".join(strategy_classes.keys())
+    factory = strategies.get(strategy_name.lower())
+    if factory is None:
+        available = ", ".join(strategies.keys())
         raise ValueError(f"Unknown trading strategy '{strategy_name}'. Available strategies: {available}")
 
-    return strategy_class(
-        bars_history=bars_history,
-        ranking_strategy=ranking_strategy,
-        time_frame_unit=TimeFrameUnit.DAY,
-    )
+    return factory()
 
 
 def get_exit_strategy(strategy_name: str, bars_history: OhlcvAnalyticsRepository) -> ExitStrategy:
