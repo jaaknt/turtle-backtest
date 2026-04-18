@@ -38,7 +38,7 @@ description: Review staged and unstaged changes before committing, or review a s
 
 ### Design Patterns
 - Strategy pattern: new signal/exit/ranking strategies must extend the correct ABC
-- Repository pattern: data access only in `turtle/data/`, private `_get_*` for raw rows
+- Repository pattern: data access only in `turtle/repository/`, private `_get_*` for raw rows
 - Dependency injection: dependencies passed via constructor, no globals or service locators
 - `Settings.from_toml()` is the only config entry point
 
