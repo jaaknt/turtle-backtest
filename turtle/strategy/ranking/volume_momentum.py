@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import date
 from turtle.strategy.ranking.base import RankingStrategy
 
 import pandas as pd
@@ -315,7 +315,7 @@ class VolumeMomentumRanking(RankingStrategy):
 
         return min(100, score)
 
-    def ranking(self, df: pd.DataFrame | pl.DataFrame, date: datetime) -> int:
+    def ranking(self, df: pd.DataFrame | pl.DataFrame, date: date) -> int:
         """
         Calculate a combined ranking score based on volume-weighted technical analysis.
 

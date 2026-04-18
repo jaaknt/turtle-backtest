@@ -22,7 +22,7 @@ class MomentumStrategy(TradingStrategy):
         ranking_strategy: RankingStrategy,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.WEEK,
         warmup_period: int = 720,  # 2 years for daily EMA200 + weekly data
-        min_bars: int = 240,
+        min_bars: int = 100,
         use_polars: bool = False,
     ):
         super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars, use_polars)
