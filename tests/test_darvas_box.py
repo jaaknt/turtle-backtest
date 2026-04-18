@@ -1,8 +1,8 @@
 import warnings
 from datetime import date, datetime
-from turtle.ranking.momentum import MomentumRanking
+from turtle.strategy.ranking.momentum import MomentumRanking
 from turtle.repository.analytics import OhlcvAnalyticsRepository
-from turtle.trading.darvas_box import DarvasBoxStrategy
+from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
 from unittest.mock import MagicMock
 
 import pandas as pd

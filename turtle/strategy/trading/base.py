@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from datetime import date
 from turtle.common.enums import TimeFrameUnit
-from turtle.ranking.base import RankingStrategy
 from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.strategy.ranking.base import RankingStrategy
 
 import pandas as pd
 

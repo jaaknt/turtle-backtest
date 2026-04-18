@@ -3,8 +3,8 @@ from turtle.backtest.benchmark_utils import calculate_benchmark
 from turtle.backtest.models import FutureTrade, Trade
 from turtle.backtest.processor import SignalProcessor
 from turtle.common.enums import TimeFrameUnit
-from turtle.exit import BuyAndHoldExitStrategy
-from turtle.trading.models import Signal
+from turtle.strategy.exit import BuyAndHoldExitStrategy
+from turtle.strategy.trading.models import Signal
 from typing import Any
 from unittest.mock import Mock
 

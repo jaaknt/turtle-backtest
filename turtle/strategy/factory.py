@@ -10,22 +10,22 @@ the strategy directly instead of going through the factory.
 """
 
 from turtle.common.enums import TimeFrameUnit
-from turtle.exit.atr import ATRExitStrategy
-from turtle.exit.base import ExitStrategy
-from turtle.exit.buy_and_hold import BuyAndHoldExitStrategy
-from turtle.exit.ema import EMAExitStrategy
-from turtle.exit.macd import MACDExitStrategy
-from turtle.exit.profit_loss import ProfitLossExitStrategy
-from turtle.exit.trailing_percentage_loss import TrailingPercentageLossExitStrategy
-from turtle.ranking.base import RankingStrategy
-from turtle.ranking.breakout_quality import BreakoutQualityRanking
-from turtle.ranking.momentum import MomentumRanking
-from turtle.ranking.volume_momentum import VolumeMomentumRanking
 from turtle.repository.analytics import OhlcvAnalyticsRepository
-from turtle.trading.base import TradingStrategy
-from turtle.trading.darvas_box import DarvasBoxStrategy
-from turtle.trading.mars import MarsStrategy
-from turtle.trading.momentum import MomentumStrategy
+from turtle.strategy.exit.atr import ATRExitStrategy
+from turtle.strategy.exit.base import ExitStrategy
+from turtle.strategy.exit.buy_and_hold import BuyAndHoldExitStrategy
+from turtle.strategy.exit.ema import EMAExitStrategy
+from turtle.strategy.exit.macd import MACDExitStrategy
+from turtle.strategy.exit.profit_loss import ProfitLossExitStrategy
+from turtle.strategy.exit.trailing_percentage_loss import TrailingPercentageLossExitStrategy
+from turtle.strategy.ranking.base import RankingStrategy
+from turtle.strategy.ranking.breakout_quality import BreakoutQualityRanking
+from turtle.strategy.ranking.momentum import MomentumRanking
+from turtle.strategy.ranking.volume_momentum import VolumeMomentumRanking
+from turtle.strategy.trading.base import TradingStrategy
+from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
+from turtle.strategy.trading.mars import MarsStrategy
+from turtle.strategy.trading.momentum import MomentumStrategy
 
 
 def get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, bars_history: OhlcvAnalyticsRepository) -> TradingStrategy:

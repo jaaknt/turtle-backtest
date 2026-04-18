@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from turtle.backtest.models import Trade
-from turtle.exit import ProfitLossExitStrategy
+from turtle.strategy.exit import ProfitLossExitStrategy
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from unittest.mock import Mock
 

@@ -2,7 +2,7 @@
 
 This document describes the command-line scripts that provide convenient interfaces for common operations using the turtle backtest services.
 
-All strategy name → class mappings used by `--trading-strategy`, `--exit-strategy`, and `--ranking-strategy` flags are defined in `turtle/factory.py`. Add new strategies there to make them available across all scripts.
+All strategy name → class mappings used by `--trading-strategy`, `--exit-strategy`, and `--ranking-strategy` flags are defined in `turtle/strategy/factory.py`. Add new strategies there to make them available across all scripts.
 
 ## download_eodhd_data.py
 

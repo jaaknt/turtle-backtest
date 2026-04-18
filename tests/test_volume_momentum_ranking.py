@@ -1,6 +1,6 @@
 import warnings
 from datetime import datetime
-from turtle.ranking.volume_momentum import VolumeMomentumRanking
+from turtle.strategy.ranking.volume_momentum import VolumeMomentumRanking
 
 import numpy as np
 import pandas as pd

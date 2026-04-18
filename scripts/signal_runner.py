@@ -33,9 +33,9 @@ from turtle.common.cli import iso_date_type
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
-from turtle.factory import get_ranking_strategy, get_trading_strategy
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.service.signal_service import SignalService
+from turtle.strategy.factory import get_ranking_strategy, get_trading_strategy
 
 logger = logging.getLogger(__name__)
 
