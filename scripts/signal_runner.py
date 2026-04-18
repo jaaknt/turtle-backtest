@@ -34,6 +34,7 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
 from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.eodhd import TickerQueryRepository
 from turtle.service.signal_service import SignalService
 from turtle.strategy.factory import get_ranking_strategy, get_trading_strategy
 
@@ -138,12 +139,13 @@ def main() -> int:
             market_ticker="SPY",
             time_frame_unit=TimeFrameUnit.DAY,
         )
+        symbol_repo = TickerQueryRepository(settings.engine)
 
         # Run analysis based on mode
         if args.mode == "list":
             if args.tickers:
                 logger.warning("Tickers parameter is ignored in list mode")
-            for ticker in strategy_runner.get_symbol_list(max_symbols=args.max_tickers):
+            for ticker in symbol_repo.get_symbol_list("USA", limit=args.max_tickers):
                 signals = strategy_runner.get_signals(ticker, start_date, end_date)
 
                 if len(signals) > 0:
@@ -153,7 +155,7 @@ def main() -> int:
         elif args.mode == "top":
             logger.info("Getting top 20 signals...")
             signal_list = []
-            for ticker in strategy_runner.get_symbol_list(max_symbols=args.max_tickers):
+            for ticker in symbol_repo.get_symbol_list("USA", limit=args.max_tickers):
                 signal_list.extend(strategy_runner.get_signals(ticker, start_date, end_date))
 
             # Flatten the list and get top 20 signals
