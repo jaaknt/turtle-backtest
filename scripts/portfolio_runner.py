@@ -56,8 +56,8 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
 from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.eodhd import TickerQueryRepository
 from turtle.service.portfolio_service import PortfolioService
-from turtle.service.signal_service import SignalService
 from turtle.strategy.factory import get_exit_strategy, get_ranking_strategy, get_trading_strategy
 
 logger = logging.getLogger(__name__)
@@ -219,13 +219,7 @@ def main() -> int:
             universe = args.tickers
             logger.info(f"Using specific tickers: {', '.join(universe)}")
         else:
-            signal_service = SignalService(
-                engine=settings.engine,
-                trading_strategy=trading_strategy,
-                market_ticker="SPY",
-                time_frame_unit=TimeFrameUnit.DAY,
-            )
-            universe = signal_service.get_symbol_list(max_symbols=args.max_tickers)
+            universe = TickerQueryRepository(settings.engine).get_symbol_list("USA", limit=args.max_tickers)
             logger.info(f"Using {len(universe)} tickers from symbol database")
 
         # Run the backtest (now prints results and generates tearsheet automatically)

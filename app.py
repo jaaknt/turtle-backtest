@@ -2,6 +2,7 @@ from datetime import date
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.settings import Settings
 from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.eodhd import TickerQueryRepository
 from turtle.service.signal_service import SignalService
 from turtle.strategy.ranking.momentum import MomentumRanking
 from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
@@ -33,7 +34,7 @@ strategy_runner = SignalService(engine=engine, trading_strategy=darvas_strategy,
 
 # Get ticker list and collect all signals
 signals = []
-for ticker in strategy_runner.get_symbol_list():
+for ticker in TickerQueryRepository(engine).get_symbol_list("USA"):
     signals.extend(strategy_runner.get_signals(ticker, end_date, end_date))
 
 df: pd.DataFrame = pd.DataFrame([{"ticker": s.ticker, "date": s.date, "ranking": s.ranking} for s in signals])

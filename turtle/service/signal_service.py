@@ -4,7 +4,6 @@ from datetime import date
 from turtle.common.enums import TimeFrameUnit
 from turtle.model import Signal
 from turtle.repository.analytics import OhlcvAnalyticsRepository
-from turtle.repository.eodhd import TickerQueryRepository
 from turtle.service.market import MarketData
 
 # from turtle.strategy.trading.momentum import MomentumStrategy
@@ -31,23 +30,9 @@ class SignalService:
         self.warmup_period = warmup_period
 
         self.engine = engine
-        self.symbol_repo = TickerQueryRepository(self.engine)
         self.bars_history = OhlcvAnalyticsRepository(self.engine)
         self.market_data = MarketData(self.bars_history, market_ticker)
 
     def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
         """Wrapper function for TradingStrategy.get_signals."""
         return self.trading_strategy.get_signals(ticker, start_date, end_date)
-
-    def get_symbol_list(self, symbol_filter: str = "USA", max_symbols: int = 10_000) -> list[str]:
-        """
-        Get list of symbols to test.
-
-        Args:
-            symbol_filter: Filter for symbol selection
-            max_symbols: Optional limit on number of symbols
-
-        Returns:
-            List of symbol strings
-        """
-        return self.symbol_repo.get_symbol_list(symbol_filter, limit=max_symbols)

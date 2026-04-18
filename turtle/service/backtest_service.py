@@ -3,15 +3,17 @@ from datetime import date, datetime
 from turtle.backtest.benchmark_utils import calculate_benchmark_list
 from turtle.backtest.processor import SignalProcessor
 from turtle.model import FutureTrade
+from turtle.repository.eodhd import TickerQueryRepository
 from turtle.service.signal_service import SignalService
 
 logger = logging.getLogger(__name__)
 
 
 class BacktestService:
-    def __init__(self, signal_service: SignalService, signal_processor: SignalProcessor) -> None:
+    def __init__(self, signal_service: SignalService, signal_processor: SignalProcessor, symbol_repo: TickerQueryRepository) -> None:
         self.signal_service = signal_service
         self.signal_processor = signal_processor
+        self.symbol_repo = symbol_repo
 
     def run(self, start_date: date, end_date: date, tickers: list[str] | None) -> list[FutureTrade]:
         """
@@ -29,7 +31,7 @@ class BacktestService:
             for ticker in tickers:
                 signals.extend(self.signal_service.get_signals(ticker, start_date, end_date))
         else:
-            tickers = self.signal_service.get_symbol_list()
+            tickers = self.symbol_repo.get_symbol_list("USA")
             logger.info(f"Running backtest for {len(tickers)} tickers")
             for ticker in tickers:
                 signals.extend(self.signal_service.get_signals(ticker, start_date, end_date))

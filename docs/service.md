@@ -30,24 +30,22 @@ asyncio.run(service.download_historical_data(start_date="2024-01-01", end_date="
 
 ## SignalService
 
-The `SignalService` provides a clean interface for executing trading strategies against historical market data. It acts as a wrapper around trading strategy implementations and provides symbol management capabilities.
+The `SignalService` provides a clean interface for executing trading strategies against historical market data. It acts as a wrapper around trading strategy implementations.
 
 **Key Features:**
 - Executes any TradingStrategy implementation on US stock symbols
-- Provides symbol list filtering and management
 - Integrates with data repositories for market data access
 - Supports configurable time frame units and warmup periods
-- Retrieves company information for analysis
 
 **Constructor Parameters:**
 - `engine` - SQLAlchemy `Engine` instance
 - `trading_strategy` - TradingStrategy instance to execute
+- `market_ticker` - Market index ticker for regime filter (e.g. `"SPY"`)
 - `time_frame_unit` - Time frame for analysis (default: DAY)
 - `warmup_period` - Historical data warmup period in days (default: 730)
 
 **Primary Methods:**
 - `get_signals(ticker, start_date, end_date)` - Gets list of Signal objects for ticker over date range
-- `get_symbol_list(country, max_symbols)` - Returns list of stock ticker codes (default country: `"USA"`)
 
 **Usage:**
 ```python
@@ -60,9 +58,6 @@ signal_service = SignalService(engine, strategy, market_ticker="SPY")
 
 # Get signals for specific ticker
 signals = signal_service.get_signals("AAPL", start_date, end_date)
-
-# Get symbol universe for analysis
-symbols = signal_service.get_symbol_list("USA", max_symbols=1000)
 ```
 
 ## BacktestService
@@ -81,6 +76,7 @@ The `BacktestService` orchestrates complete signal-to-exit backtesting by combin
 **Constructor Parameters:**
 - `signal_service` - SignalService instance for signal generation
 - `signal_processor` - SignalProcessor instance for converting signals to trade results
+- `symbol_repo` - TickerQueryRepository instance for fetching the symbol universe
 
 **Primary Methods:**
 - `run(start_date, end_date, tickers)` - Execute backtest and return FutureTrade results
@@ -103,9 +99,10 @@ strategy = DarvasBoxStrategy(bars_history)
 signal_service = SignalService(engine, strategy, market_ticker="SPY")
 exit_strategy = ATRExitStrategy(bars_history, atr_multiplier=2.0)
 signal_processor = SignalProcessor(30, bars_history, exit_strategy, ["QQQ", "SPY"])
+symbol_repo = TickerQueryRepository(engine)
 
 # Run backtest
-backtest_service = BacktestService(signal_service, signal_processor)
+backtest_service = BacktestService(signal_service, signal_processor, symbol_repo)
 results = backtest_service.run(start_date, end_date, ["AAPL", "MSFT", "NVDA"])
 
 # Results contain FutureTrade objects with entry/exit details and performance metrics
@@ -278,7 +275,7 @@ signals = signal_service.get_signals("AAPL", start_date, end_date)
 **Complete Strategy Backtesting:**
 ```python
 # Test strategy with exits and benchmarks
-backtest_service = BacktestService(signal_service, signal_processor)
+backtest_service = BacktestService(signal_service, signal_processor, symbol_repo)
 results = backtest_service.run(start_date, end_date, symbol_list)
 ```
 
