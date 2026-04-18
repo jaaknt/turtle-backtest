@@ -2,6 +2,63 @@
 
 Python-based financial trading strategy backtesting library for US stocks. Supports multiple strategies (Darvas Box, Mars, Momentum), portfolio management, and market data via EODHD API. Data stored in PostgreSQL.
 
+## 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+## 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+
 ## Quick Start & Common Commands
 
 ### Most Common Operations
@@ -37,7 +94,7 @@ Configured in `.mcp.json`. Prefer these over CLI equivalents when the operation 
 | Server | Purpose |
 |--------|---------|
 | `postgres` | Direct read-only SQL queries against `trading` db as `claude` user (`hetzner:5432`). Requires `DB_CLAUDE_PASSWORD` env var. |
-| `github` | GitHub API — issues, PRs, commits, actions (prefer over `gh` CLI when supported) |
+| `github` | GitHub API — issues, PRs, commits, actions (prefer over `gh` CLI when supported). Requires `GITHUB_PERSONAL_ACCESS_TOKEN` env var. |
 | `context7` | Fetch current library/framework docs |
 | `filesystem` | File operations — prefer built-in Read/Edit/Grep/Glob instead |
 | `playwright` | Browser automation and UI testing |
@@ -134,12 +191,18 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
    from turtle.signal.models import Signal
 
    class MyStrategy(TradingStrategy):
-       def generate_signals(self, ticker: str, bars_data: pd.DataFrame, **kwargs) -> list[Signal]:
+       def collect_data(self, ticker: str, start_date: date, end_date: date) -> bool:
+           ...
+
+       def calculate_indicators(self) -> None:
+           ...
+
+       def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
            # Your logic here
            return signals
    ```
 3. **Add tests**: `tests/test_my_strategy.py`
-4. **Wire via dependency injection**: Instantiate your strategy and pass it to the service constructor — see `scripts/signal_runner.py` (`get_trading_strategy_instance`) for the canonical wiring pattern
+4. **Wire via dependency injection**: Instantiate your strategy and pass it to the service constructor — see `scripts/signal_runner.py` (`get_trading_strategy`) for the canonical wiring pattern
 5. **Test**: `uv run python scripts/signal_runner.py --strategy my_strategy --mode analyze`
 
 ## Examples Directory
@@ -165,7 +228,7 @@ All database operations live in `turtle/repositories/`. No SQL outside this dire
 All dependencies are passed explicitly through constructors — no globals, no service locators. The connection pool flows from `Settings` → `Service` → `Repo`. See `turtle/services/signal_service.py`.
 
 ### Domain Models (Dataclasses vs Pydantic)
-- **Dataclasses** for all internal domain objects (`Signal`, `Trade`, `Position`, `Bar`). Use `@property` for computed fields — no setters. See `turtle/signal/models.py`, `turtle/data/models.py`.
+- **Dataclasses** for all internal domain objects (`Signal`, `Trade`, `Position`). Use `@property` for computed fields — no setters. See `turtle/signal/models.py`, `turtle/backtest/models.py`, `turtle/portfolio/models.py`.
 - **Pydantic `BaseModel`** only for external API responses where field aliasing (`alias=`) is needed. See `Exchange`, `Ticker`, `Company` in `turtle/schemas/`.
 
 ### Configuration (Factory Method)
@@ -198,7 +261,6 @@ Use `@staticmethod` for pure utility functions that belong logically to a class 
 ## Testing
 
 Tests organised by component in `tests/`:
-- `test_models.py`: Data model validation
 - `test_darvas_box.py`: Darvas Box strategy logic
 - `test_signal_processor.py`: Signal processing pipeline
 - `test_portfolio.py`: Portfolio management and analytics
@@ -214,6 +276,7 @@ Tests organised by component in `tests/`:
 - `test_repositories_eodhd.py`: EODHD repository classes (exchange, ticker, daily bars, company)
 - `test_pandas_ta_ema.py`: pandas-ta EMA indicator
 - `test_settings.py`: Configuration loading
+- `test_api_token_filter.py`: API token filter logic
 
 Shared fixtures live in `tests/conftest.py`. File-specific fixtures stay in the individual test file.
 
