@@ -20,10 +20,10 @@ class MomentumStrategy(TradingStrategy):
         self,
         bars_history: OhlcvAnalyticsRepository,
         ranking_strategy: RankingStrategy,
-        time_frame_unit: TimeFrameUnit = TimeFrameUnit.WEEK,
+        time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         warmup_period: int = 720,  # 2 years for daily EMA200 + weekly data
         min_bars: int = 100,
-        use_polars: bool = False,
+        use_polars: bool = True,
     ):
         super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars, use_polars)
 
