@@ -1,11 +1,9 @@
 """Tests for portfolio backtesting functionality."""
 
 from datetime import datetime
-from turtle.model import Benchmark, FutureTrade, Trade
+from turtle.model import Benchmark, FutureTrade, PortfolioState, Position, Signal, Trade
 from turtle.portfolio.manager import PortfolioManager
-from turtle.model import PortfolioState, Position
 from turtle.portfolio.selector import PortfolioSignalSelector
-from turtle.model import Signal
 
 import pytest
 
@@ -17,13 +15,7 @@ def create_mock_future_trade(ticker: str, entry_date: datetime, entry_price: flo
     exit = Trade(ticker=ticker, date=entry_date, price=entry_price * 1.1, reason="profit_target")  # 10% profit
     benchmarks = [Benchmark(ticker="SPY", return_pct=5.0, entry_date=entry_date, exit_date=entry_date)]
 
-    return FutureTrade(
-        signal=signal,
-        entry=entry,
-        exit=exit,
-        benchmark_list=benchmarks,
-        slippage_pct=0.3
-    )
+    return FutureTrade(signal=signal, entry=entry, exit=exit, benchmark_list=benchmarks, slippage_pct=0.3)
 
 
 class TestPortfolioModels:
@@ -34,6 +26,7 @@ class TestPortfolioModels:
         entry_date = datetime(2024, 1, 1)
 
         from turtle.model import Trade
+
         entry_trade = Trade(ticker="AAPL", date=entry_date, price=100.0, reason="signal")
         open_exit_trade = Trade(ticker="AAPL", date=entry_date, price=100.0, reason="open")
 
@@ -140,6 +133,7 @@ class TestPortfolioManager:
 
         # Create trade entry
         from turtle.model import Trade
+
         trade = Trade(ticker="AAPL", date=datetime(2024, 1, 1), price=100.0, reason="signal")
         shares = manager.calculate_position_size(trade)
 
@@ -160,6 +154,7 @@ class TestPortfolioManager:
         manager.record_daily_snapshot(start_date)
 
         from turtle.model import Trade
+
         entry = Trade(ticker="AAPL", date=datetime(2024, 1, 2), price=100.0, reason="signal")
         exit_trade = Trade(ticker="AAPL", date=datetime(2024, 1, 10), price=110.0, reason="profit_target")
         position_size = manager.calculate_position_size(entry)
@@ -186,6 +181,7 @@ class TestPortfolioManager:
         manager.record_daily_snapshot(start_date)
 
         from turtle.model import Trade
+
         entry = Trade(ticker="AAPL", date=datetime(2024, 1, 2), price=100.0, reason="signal")
         exit_trade = Trade(ticker="AAPL", date=datetime(2024, 1, 10), price=110.0, reason="profit_target")
         position_size = manager.calculate_position_size(entry)
@@ -249,9 +245,7 @@ class TestPortfolioSignalSelector:
         current_positions = {"NVDA"}  # Already holding
         available_positions = 3
 
-        selected = selector.select_entry_signals(
-            signals, current_positions, available_positions, datetime(2024, 1, 1)
-        )
+        selected = selector.select_entry_signals(signals, current_positions, available_positions, datetime(2024, 1, 1))
 
         assert len(selected) == 3
         assert selected[0].ticker == "AAPL"  # Highest ranking

@@ -33,9 +33,36 @@ def calculate_ema_sma_seeded(prices: list[float], period: int) -> list[float]:
 def test_ema_10_matches_pandas_ewm() -> None:
     """Test that pandas-ta EMA-10 matches the SMA-seeded EMA calculation."""
     test_prices = [
-        100.0, 101.5, 99.8, 102.3, 104.1, 103.7, 105.2, 106.8, 105.9, 107.1,
-        108.3, 107.5, 109.2, 110.8, 109.4, 111.2, 112.6, 111.8, 113.4, 114.9,
-        113.7, 115.3, 116.8, 115.2, 117.1, 118.4, 117.6, 119.2, 120.5, 119.8,
+        100.0,
+        101.5,
+        99.8,
+        102.3,
+        104.1,
+        103.7,
+        105.2,
+        106.8,
+        105.9,
+        107.1,
+        108.3,
+        107.5,
+        109.2,
+        110.8,
+        109.4,
+        111.2,
+        112.6,
+        111.8,
+        113.4,
+        114.9,
+        113.7,
+        115.3,
+        116.8,
+        115.2,
+        117.1,
+        118.4,
+        117.6,
+        119.2,
+        120.5,
+        119.8,
     ]
 
     pandas_ta_ema = pandas_ta.ema(pd.Series(test_prices), length=10)
@@ -46,8 +73,7 @@ def test_ema_10_matches_pandas_ewm() -> None:
         if not np.isnan(expected_val):
             assert not np.isnan(ta_val), f"pandas-ta returned NaN at index {i}"
             assert abs(ta_val - expected_val) < tolerance, (
-                f"EMA mismatch at index {i}: pandas-ta={ta_val:.10f}, "
-                f"expected={expected_val:.10f}, diff={abs(ta_val - expected_val):.2e}"
+                f"EMA mismatch at index {i}: pandas-ta={ta_val:.10f}, expected={expected_val:.10f}, diff={abs(ta_val - expected_val):.2e}"
             )
 
 
@@ -98,8 +124,26 @@ def test_ema_10_edge_cases() -> None:
 def test_ema_10_integration_with_pandas() -> None:
     """Test EMA-10 calculation within a pandas DataFrame context similar to strategy usage."""
     close_prices = [
-        100.0, 101.5, 99.8, 102.3, 104.1, 103.7, 105.2, 106.8, 105.9, 107.1,
-        108.3, 107.5, 109.2, 110.8, 109.4, 111.2, 112.6, 111.8, 113.4, 114.9,
+        100.0,
+        101.5,
+        99.8,
+        102.3,
+        104.1,
+        103.7,
+        105.2,
+        106.8,
+        105.9,
+        107.1,
+        108.3,
+        107.5,
+        109.2,
+        110.8,
+        109.4,
+        111.2,
+        112.6,
+        111.8,
+        113.4,
+        114.9,
     ]
     df = pd.DataFrame({"close": close_prices, "volume": [1000] * 20})
 

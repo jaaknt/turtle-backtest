@@ -1,16 +1,14 @@
 import warnings
 from datetime import date, datetime
-from turtle.strategy.ranking.momentum import MomentumRanking
 from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.strategy.ranking.momentum import MomentumRanking
 from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
 from unittest.mock import MagicMock
 
 import pandas as pd
 
 with warnings.catch_warnings():
-    warnings.filterwarnings(
-        "ignore", category=DeprecationWarning, module="pkg_resources"
-    )
+    warnings.filterwarnings("ignore", category=DeprecationWarning, module="pkg_resources")
 
 
 def test_check_local_max() -> None:
@@ -145,21 +143,21 @@ def test_price_to_ranking() -> None:
     ranking_strategy = MomentumRanking()
 
     # Test each price range
-    assert ranking_strategy._price_to_ranking(5.0) == 20    # $0-10 range
-    assert ranking_strategy._price_to_ranking(10.0) == 20   # Boundary: exactly $10
-    assert ranking_strategy._price_to_ranking(15.0) == 16   # $10-20 range
-    assert ranking_strategy._price_to_ranking(20.0) == 16   # Boundary: exactly $20
-    assert ranking_strategy._price_to_ranking(40.0) == 12   # $20-60 range
-    assert ranking_strategy._price_to_ranking(60.0) == 12   # Boundary: exactly $60
-    assert ranking_strategy._price_to_ranking(150.0) == 8   # $60-240 range
-    assert ranking_strategy._price_to_ranking(240.0) == 8   # Boundary: exactly $240
-    assert ranking_strategy._price_to_ranking(500.0) == 4   # $240-1000 range
+    assert ranking_strategy._price_to_ranking(5.0) == 20  # $0-10 range
+    assert ranking_strategy._price_to_ranking(10.0) == 20  # Boundary: exactly $10
+    assert ranking_strategy._price_to_ranking(15.0) == 16  # $10-20 range
+    assert ranking_strategy._price_to_ranking(20.0) == 16  # Boundary: exactly $20
+    assert ranking_strategy._price_to_ranking(40.0) == 12  # $20-60 range
+    assert ranking_strategy._price_to_ranking(60.0) == 12  # Boundary: exactly $60
+    assert ranking_strategy._price_to_ranking(150.0) == 8  # $60-240 range
+    assert ranking_strategy._price_to_ranking(240.0) == 8  # Boundary: exactly $240
+    assert ranking_strategy._price_to_ranking(500.0) == 4  # $240-1000 range
     assert ranking_strategy._price_to_ranking(1000.0) == 4  # Boundary: exactly $1000
     assert ranking_strategy._price_to_ranking(1500.0) == 1  # >$1000 range
 
     # Test edge cases
-    assert ranking_strategy._price_to_ranking(0.0) == 1     # Zero price
-    assert ranking_strategy._price_to_ranking(-10.0) == 1   # Negative price
+    assert ranking_strategy._price_to_ranking(0.0) == 1  # Zero price
+    assert ranking_strategy._price_to_ranking(-10.0) == 1  # Negative price
 
 
 def test_ranking() -> None:
@@ -167,54 +165,60 @@ def test_ranking() -> None:
     test_date = datetime(2024, 1, 15)
 
     # Test case 1: Stock with $50 price (should return rank 12 for price component only)
-    mock_df = pd.DataFrame({
-        "date": [test_date],
-        'close': [50.0],
-        'open': [49.0],
-        'high': [51.0],
-        'low': [48.0],
-        'volume': [1000000],
-        'ema_10': [50.0],
-        'ema_20': [50.0],
-        'ema_50': [50.0],
-        'ema_200': [50.0]
-    })
+    mock_df = pd.DataFrame(
+        {
+            "date": [test_date],
+            "close": [50.0],
+            "open": [49.0],
+            "high": [51.0],
+            "low": [48.0],
+            "volume": [1000000],
+            "ema_10": [50.0],
+            "ema_20": [50.0],
+            "ema_50": [50.0],
+            "ema_200": [50.0],
+        }
+    )
 
     ranking_strategy = MomentumRanking()
     ranking = ranking_strategy.ranking(mock_df, test_date)
     assert ranking == 12  # Only price ranking since no historical data for EMA trends
 
     # Test case 2: High-priced stock (should return rank 1)
-    mock_df_expensive = pd.DataFrame({
-        "date": [test_date],
-        'close': [1500.0],
-        'open': [1480.0],
-        'high': [1520.0],
-        'low': [1470.0],
-        'volume': [500000],
-        'ema_10': [1500.0],
-        'ema_20': [1500.0],
-        'ema_50': [1500.0],
-        'ema_200': [1500.0]
-    })
+    mock_df_expensive = pd.DataFrame(
+        {
+            "date": [test_date],
+            "close": [1500.0],
+            "open": [1480.0],
+            "high": [1520.0],
+            "low": [1470.0],
+            "volume": [500000],
+            "ema_10": [1500.0],
+            "ema_20": [1500.0],
+            "ema_50": [1500.0],
+            "ema_200": [1500.0],
+        }
+    )
 
     ranking_strategy = MomentumRanking()
     ranking = ranking_strategy.ranking(mock_df_expensive, test_date)
     assert ranking == 1
 
     # Test case 3: Low-priced stock (should return rank 20 for price component)
-    mock_df_cheap = pd.DataFrame({
-        "date": [test_date],
-        'close': [8.50],
-        'open': [8.20],
-        'high': [8.80],
-        'low': [8.10],
-        'volume': [2000000],
-        'ema_10': [8.50],
-        'ema_20': [8.50],
-        'ema_50': [8.50],
-        'ema_200': [8.50]
-    })
+    mock_df_cheap = pd.DataFrame(
+        {
+            "date": [test_date],
+            "close": [8.50],
+            "open": [8.20],
+            "high": [8.80],
+            "low": [8.10],
+            "volume": [2000000],
+            "ema_10": [8.50],
+            "ema_20": [8.50],
+            "ema_50": [8.50],
+            "ema_200": [8.50],
+        }
+    )
 
     ranking_strategy = MomentumRanking()
     ranking = ranking_strategy.ranking(mock_df_cheap, test_date)

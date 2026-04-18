@@ -13,14 +13,14 @@ def _base_row(**overrides) -> dict:
         "low": 99.0,
         "close": 107.0,
         "volume": 2_000_000,
-        "ema_volume_10": 1_000_000,   # volume ratio = 2.0 → 20 pts
-        "max_close_20": 105.0,        # extension = (107-105)/105*100 ≈ 1.9% → 10 pts
+        "ema_volume_10": 1_000_000,  # volume ratio = 2.0 → 20 pts
+        "max_close_20": 105.0,  # extension = (107-105)/105*100 ≈ 1.9% → 10 pts
         "ema_10": 104.0,
         "ema_20": 102.0,
         "ema_50": 100.0,
-        "ema_200": 95.0,              # pct_above ≈ 12.6% → in sweet spot
+        "ema_200": 95.0,  # pct_above ≈ 12.6% → in sweet spot
         "macd": 0.50,
-        "macd_signal": 0.20,          # gap = 0.30/107*100 ≈ 0.28% → 15 pts
+        "macd_signal": 0.20,  # gap = 0.30/107*100 ≈ 0.28% → 15 pts
     }
     row.update(overrides)
     return row
@@ -212,10 +212,16 @@ def test_ranking_strong_signal_scores_high() -> None:
     """A signal with max values for all components should score near 100."""
     ranking = BreakoutQualityRanking()
     row = _base_row(
-        volume=4_000_000, ema_volume_10=1_000_000,   # ratio=4 → 30 pts
-        close=117.5, max_close_20=110.0,              # extension ≈ 6.8% → 25 pts
-        ema_10=115.0, ema_20=112.0, ema_50=108.0, ema_200=100.0,  # full align + sweet spot → 25 pts
-        macd=1.0, macd_signal=0.0,                   # gap=0.85% → 20 pts
+        volume=4_000_000,
+        ema_volume_10=1_000_000,  # ratio=4 → 30 pts
+        close=117.5,
+        max_close_20=110.0,  # extension ≈ 6.8% → 25 pts
+        ema_10=115.0,
+        ema_20=112.0,
+        ema_50=108.0,
+        ema_200=100.0,  # full align + sweet spot → 25 pts
+        macd=1.0,
+        macd_signal=0.0,  # gap=0.85% → 20 pts
     )
     df = pd.DataFrame([row])
     score = ranking.ranking(df, datetime(2024, 6, 1))
@@ -226,10 +232,16 @@ def test_ranking_weak_signal_scores_low() -> None:
     """A borderline signal (just meeting thresholds) should score low."""
     ranking = BreakoutQualityRanking()
     row = _base_row(
-        volume=1_100_000, ema_volume_10=1_000_000,   # ratio=1.1 → 0 pts
-        close=100.1, max_close_20=100.0,              # extension=0.1% → 0 pts
-        ema_10=99.0, ema_20=100.0, ema_50=100.0, ema_200=100.0,  # misaligned → 0 pts
-        macd=0.05, macd_signal=0.03,                 # tiny gap → 0 pts
+        volume=1_100_000,
+        ema_volume_10=1_000_000,  # ratio=1.1 → 0 pts
+        close=100.1,
+        max_close_20=100.0,  # extension=0.1% → 0 pts
+        ema_10=99.0,
+        ema_20=100.0,
+        ema_50=100.0,
+        ema_200=100.0,  # misaligned → 0 pts
+        macd=0.05,
+        macd_signal=0.03,  # tiny gap → 0 pts
     )
     df = pd.DataFrame([row])
     score = ranking.ranking(df, datetime(2024, 6, 1))

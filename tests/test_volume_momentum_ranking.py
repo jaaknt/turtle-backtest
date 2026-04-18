@@ -6,14 +6,12 @@ import numpy as np
 import pandas as pd
 
 with warnings.catch_warnings():
-    warnings.filterwarnings(
-        "ignore", category=DeprecationWarning, module="pkg_resources"
-    )
+    warnings.filterwarnings("ignore", category=DeprecationWarning, module="pkg_resources")
 
 
 def create_test_data(length: int = 100) -> pd.DataFrame:
     """Create test OHLCV data for ranking tests."""
-    dates = pd.date_range(start='2024-01-01', periods=length, freq='D')
+    dates = pd.date_range(start="2024-01-01", periods=length, freq="D")
 
     # Create realistic price movement
     np.random.seed(42)  # For reproducible tests
@@ -37,14 +35,7 @@ def create_test_data(length: int = 100) -> pd.DataFrame:
     volume_multiplier = 1 + np.abs(price_changes) * 2  # Higher volume on bigger moves
     volumes = volumes * volume_multiplier
 
-    return pd.DataFrame({
-        "date": dates,
-        'open': opens,
-        'high': highs,
-        'low': lows,
-        'close': closes,
-        'volume': volumes
-    })
+    return pd.DataFrame({"date": dates, "open": opens, "high": highs, "low": lows, "close": closes, "volume": volumes})
 
 
 def test_ranking_initialization() -> None:
@@ -85,25 +76,20 @@ def test_volume_weighted_momentum_component() -> None:
     ranking = VolumeMomentumRanking()
 
     # Create trending data with volume confirmation
-    dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
+    dates = pd.date_range(start="2024-01-01", periods=100, freq="D")
 
     # Strong uptrending prices to meet new selectivity requirements
     prices = np.linspace(80, 120, 100)  # 50% gain over period for stronger momentum
 
     # Higher volume on recent days (volume confirmation) - meet new 1.2x threshold
-    volumes = np.concatenate([
-        np.full(50, 1000000),    # Lower volume early
-        np.full(50, 2500000)     # Higher volume later (2.5x increase)
-    ])
+    volumes = np.concatenate(
+        [
+            np.full(50, 1000000),  # Lower volume early
+            np.full(50, 2500000),  # Higher volume later (2.5x increase)
+        ]
+    )
 
-    data = pd.DataFrame({
-        "date": dates,
-        'open': prices,
-        'high': prices * 1.01,
-        'low': prices * 0.99,
-        'close': prices,
-        'volume': volumes
-    })
+    data = pd.DataFrame({"date": dates, "open": prices, "high": prices * 1.01, "low": prices * 0.99, "close": prices, "volume": volumes})
 
     ranking.filtered_df = data
     momentum_score = ranking._volume_weighted_momentum()
@@ -117,21 +103,16 @@ def test_volatility_adjusted_strength_component() -> None:
     ranking = VolumeMomentumRanking()
 
     # Create stable uptrending data (good risk-adjusted return)
-    dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
+    dates = pd.date_range(start="2024-01-01", periods=100, freq="D")
 
     # Steady uptrend with low volatility
     prices = np.linspace(90, 110, 100)
     small_noise = np.random.normal(0, 0.005, 100)  # Very low volatility
     prices = prices + small_noise
 
-    data = pd.DataFrame({
-        "date": dates,
-        'open': prices,
-        'high': prices * 1.005,
-        'low': prices * 0.995,
-        'close': prices,
-        'volume': np.full(100, 1000000)
-    })
+    data = pd.DataFrame(
+        {"date": dates, "open": prices, "high": prices * 1.005, "low": prices * 0.995, "close": prices, "volume": np.full(100, 1000000)}
+    )
 
     ranking.filtered_df = data
     strength_score = ranking._volatility_adjusted_strength()
@@ -145,21 +126,14 @@ def test_liquidity_quality_component() -> None:
     ranking = VolumeMomentumRanking()
 
     # Create data with good liquidity
-    dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
+    dates = pd.date_range(start="2024-01-01", periods=100, freq="D")
     prices = np.full(100, 100.0)  # Stable price
 
     # Consistent high volume (good liquidity) - meet new $5M+ requirement
     volumes = np.random.normal(6000000, 500000, 100)  # $600M daily volume
     volumes = np.abs(volumes)  # Ensure positive
 
-    data = pd.DataFrame({
-        "date": dates,
-        'open': prices,
-        'high': prices,
-        'low': prices,
-        'close': prices,
-        'volume': volumes
-    })
+    data = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": volumes})
 
     ranking.filtered_df = data
     liquidity_score = ranking._liquidity_quality()
@@ -173,21 +147,16 @@ def test_technical_confluence_component() -> None:
     ranking = VolumeMomentumRanking()
 
     # Create data suitable for technical analysis
-    dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
+    dates = pd.date_range(start="2024-01-01", periods=100, freq="D")
 
     # Gradual uptrend for positive technical signals
     base_prices = np.linspace(90, 110, 100)
     noise = np.random.normal(0, 0.01, 100)
     prices = base_prices + noise
 
-    data = pd.DataFrame({
-        "date": dates,
-        'open': prices,
-        'high': prices * 1.01,
-        'low': prices * 0.99,
-        'close': prices,
-        'volume': np.full(100, 1000000)
-    })
+    data = pd.DataFrame(
+        {"date": dates, "open": prices, "high": prices * 1.01, "low": prices * 0.99, "close": prices, "volume": np.full(100, 1000000)}
+    )
 
     ranking.filtered_df = data
     confluence_score = ranking._technical_confluence()
@@ -201,19 +170,12 @@ def test_rsi_calculation() -> None:
     ranking = VolumeMomentumRanking()
 
     # Create oscillating data for RSI test
-    dates = pd.date_range(start='2024-01-01', periods=50, freq='D')
+    dates = pd.date_range(start="2024-01-01", periods=50, freq="D")
 
     # Create data that should result in RSI around 50 (neutral)
-    prices = 100 + np.sin(np.linspace(0, 4*np.pi, 50)) * 5
+    prices = 100 + np.sin(np.linspace(0, 4 * np.pi, 50)) * 5
 
-    data = pd.DataFrame({
-        "date": dates,
-        'open': prices,
-        'high': prices,
-        'low': prices,
-        'close': prices,
-        'volume': np.full(50, 1000000)
-    })
+    data = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": np.full(50, 1000000)})
 
     ranking.filtered_df = data
     rsi_score = ranking._calculate_rsi_score()
@@ -226,17 +188,10 @@ def test_moving_average_calculation() -> None:
     ranking = VolumeMomentumRanking()
 
     # Create uptrending data for positive MA signals
-    dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
+    dates = pd.date_range(start="2024-01-01", periods=100, freq="D")
     prices = np.linspace(80, 120, 100)  # Clear uptrend
 
-    data = pd.DataFrame({
-        "date": dates,
-        'open': prices,
-        'high': prices,
-        'low': prices,
-        'close': prices,
-        'volume': np.full(100, 1000000)
-    })
+    data = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": np.full(100, 1000000)})
 
     ranking.filtered_df = data
     ma_score = ranking._calculate_ma_score()
@@ -250,21 +205,14 @@ def test_momentum_calculation() -> None:
     ranking = VolumeMomentumRanking()
 
     # Create recent uptrend for positive momentum
-    dates = pd.date_range(start='2024-01-01', periods=30, freq='D')
+    dates = pd.date_range(start="2024-01-01", periods=30, freq="D")
 
     # Strong recent momentum
     early_prices = np.full(15, 100)
     late_prices = np.linspace(100, 110, 15)  # 10% gain in last 15 days
     prices = np.concatenate([early_prices, late_prices])
 
-    data = pd.DataFrame({
-        "date": dates,
-        'open': prices,
-        'high': prices,
-        'low': prices,
-        'close': prices,
-        'volume': np.full(30, 1000000)
-    })
+    data = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": np.full(30, 1000000)})
 
     ranking.filtered_df = data
     momentum_score = ranking._calculate_momentum_score()
@@ -292,8 +240,8 @@ def test_ranking_with_missing_data() -> None:
 
     # Create data with some NaN values
     data = create_test_data(100)
-    data.loc[50:60, 'close'] = np.nan  # Insert missing data
-    data.loc[70:80, 'volume'] = np.nan
+    data.loc[50:60, "close"] = np.nan  # Insert missing data
+    data.loc[70:80, "volume"] = np.nan
 
     target_date = datetime(2024, 3, 1)
 

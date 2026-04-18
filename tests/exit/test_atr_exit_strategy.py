@@ -2,8 +2,8 @@
 
 from datetime import datetime
 from turtle.model import Trade
-from turtle.strategy.exit import ATRExitStrategy
 from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.strategy.exit import ATRExitStrategy
 from unittest.mock import Mock
 
 import pandas as pd

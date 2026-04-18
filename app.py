@@ -1,9 +1,9 @@
 from datetime import date
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.settings import Settings
-from turtle.strategy.ranking.momentum import MomentumRanking
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.service.signal_service import SignalService
+from turtle.strategy.ranking.momentum import MomentumRanking
 from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
 
 import pandas as pd

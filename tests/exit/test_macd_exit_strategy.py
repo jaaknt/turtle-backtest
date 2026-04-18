@@ -2,8 +2,8 @@
 
 from datetime import datetime
 from turtle.model import Trade
-from turtle.strategy.exit import MACDExitStrategy
 from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.strategy.exit import MACDExitStrategy
 from unittest.mock import Mock
 
 import pandas as pd
@@ -24,7 +24,7 @@ class TestMACDExitStrategy:
         strategy = MACDExitStrategy(mock_bars_history)
 
         # Test that it has the required attributes from parent
-        assert hasattr(strategy, 'bars_history')
+        assert hasattr(strategy, "bars_history")
         assert strategy.bars_history == mock_bars_history
 
     def test_empty_data(self) -> None:
@@ -61,13 +61,16 @@ class TestMACDExitStrategy:
 
         # Set up mock data
         dates = pd.date_range(start="2024-01-01", periods=60, freq="D")
-        mock_data = pd.DataFrame({
-            "close": [100.0 + i * 0.5 for i in range(60)],
-            "high": [101.0 + i * 0.5 for i in range(60)],
-            "low": [99.0 + i * 0.5 for i in range(60)],
-            "open": [100.0 + i * 0.5 for i in range(60)],
-            "volume": [1000000] * 60
-        }, index=dates)
+        mock_data = pd.DataFrame(
+            {
+                "close": [100.0 + i * 0.5 for i in range(60)],
+                "high": [101.0 + i * 0.5 for i in range(60)],
+                "low": [99.0 + i * 0.5 for i in range(60)],
+                "open": [100.0 + i * 0.5 for i in range(60)],
+                "volume": [1000000] * 60,
+            },
+            index=dates,
+        )
 
         mock_bars_history.get_ticker_history.return_value = mock_data
 
@@ -90,11 +93,14 @@ class TestMACDExitStrategy:
 
         # Create test data with MACD indicators where macd_line drops below signal
         dates = pd.date_range(start="2024-01-01", periods=10, freq="D")
-        data = pd.DataFrame({
-            "close": [100.0, 101.0, 102.0, 101.5, 100.5, 99.0, 98.0, 97.0, 96.0, 95.0],
-            "macd_line": [100.0, 101.0, 102.0, 101.0, 100.0, 98.0, 97.0, 96.0, 95.0, 94.0],
-            "macd_signal": [99.0, 100.0, 101.0, 101.0, 101.0, 100.0, 99.0, 98.0, 97.0, 96.0],
-        }, index=dates)
+        data = pd.DataFrame(
+            {
+                "close": [100.0, 101.0, 102.0, 101.5, 100.5, 99.0, 98.0, 97.0, 96.0, 95.0],
+                "macd_line": [100.0, 101.0, 102.0, 101.0, 100.0, 98.0, 97.0, 96.0, 95.0, 94.0],
+                "macd_signal": [99.0, 100.0, 101.0, 101.0, 101.0, 100.0, 99.0, 98.0, 97.0, 96.0],
+            },
+            index=dates,
+        )
 
         result = strategy.calculate_exit(data)
 
@@ -112,11 +118,14 @@ class TestMACDExitStrategy:
 
         # Create test data where macd_line stays above signal
         dates = pd.date_range(start="2024-01-01", periods=5, freq="D")
-        data = pd.DataFrame({
-            "close": [100.0, 101.0, 102.0, 103.0, 104.0],
-            "macd_line": [100.0, 101.0, 102.0, 103.0, 104.0],
-            "macd_signal": [99.0, 100.0, 101.0, 102.0, 103.0],
-        }, index=dates)
+        data = pd.DataFrame(
+            {
+                "close": [100.0, 101.0, 102.0, 103.0, 104.0],
+                "macd_line": [100.0, 101.0, 102.0, 103.0, 104.0],
+                "macd_signal": [99.0, 100.0, 101.0, 102.0, 103.0],
+            },
+            index=dates,
+        )
 
         result = strategy.calculate_exit(data)
 
