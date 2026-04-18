@@ -24,6 +24,9 @@ class BreakoutQualityRanking(RankingStrategy):
     Total: 0-100
     """
 
+    def __init__(self, use_polars: bool = False) -> None:
+        super().__init__(use_polars=use_polars)
+
     def _volume_conviction(self, row: pd.Series) -> int:
         """
         Score breakout volume relative to the 10-day EMA of volume (0-30 pts).
