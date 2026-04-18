@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import date
 
 import pandas as pd
 import polars as pl
@@ -17,7 +17,7 @@ class RankingStrategy(ABC):
         self.use_polars = use_polars
 
     @abstractmethod
-    def ranking(self, df: pd.DataFrame | pl.DataFrame, date: datetime) -> int:
+    def ranking(self, df: pd.DataFrame | pl.DataFrame, date: date) -> int:
         """
         Calculate a ranking score for the given signal.
 
@@ -31,4 +31,9 @@ class RankingStrategy(ABC):
 
     @staticmethod
     def _to_pandas(df: pd.DataFrame | pl.DataFrame) -> pd.DataFrame:
-        return df.to_pandas() if isinstance(df, pl.DataFrame) else df
+        if isinstance(df, pl.DataFrame):
+            pd_df = df.to_pandas()
+            if "date" in pd_df.columns and pd.api.types.is_datetime64_any_dtype(pd_df["date"]):
+                pd_df["date"] = pd_df["date"].dt.date
+            return pd_df
+        return df

@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import date
 from turtle.common.pandas_utils import safe_float_conversion
 from turtle.strategy.ranking.base import RankingStrategy
 
@@ -200,7 +200,7 @@ class MomentumRanking(RankingStrategy):
         # Ensure minimum score of 1 if current close is at least a 1-day high
         return max(1, score) if days_as_high > 0 else 0
 
-    def ranking(self, df: pd.DataFrame | pl.DataFrame, date: datetime) -> int:
+    def ranking(self, df: pd.DataFrame | pl.DataFrame, date: date) -> int:
         """
         Calculate a combined ranking score for a signal based on price and EMA200 performance.
 

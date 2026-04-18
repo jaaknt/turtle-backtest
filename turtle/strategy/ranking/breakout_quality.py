@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import date
 from turtle.strategy.ranking.base import RankingStrategy
 
 import pandas as pd
@@ -140,7 +140,7 @@ class BreakoutQualityRanking(RankingStrategy):
             return 5
         return 0
 
-    def ranking(self, df: pd.DataFrame | pl.DataFrame, date: datetime) -> int:
+    def ranking(self, df: pd.DataFrame | pl.DataFrame, date: date) -> int:
         """
         Calculate breakout quality ranking score (0-100).
 
