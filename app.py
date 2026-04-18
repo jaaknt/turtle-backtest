@@ -4,7 +4,7 @@ from turtle.config.settings import Settings
 from turtle.ranking.momentum import MomentumRanking
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
 from turtle.services.signal_service import SignalService
-from turtle.signal.darvas_box import DarvasBoxStrategy
+from turtle.trading.darvas_box import DarvasBoxStrategy
 
 import pandas as pd
 import streamlit as st

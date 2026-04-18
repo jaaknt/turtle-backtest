@@ -5,12 +5,12 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
 from turtle.repositories.eodhd import TickerQueryRepository
 
-# from turtle.signal.momentum import MomentumStrategy
-# from turtle.signal.darvas_box import DarvasBoxStrategy
-# from turtle.signal.mars import MarsStrategy
-from turtle.signal.base import TradingStrategy
-from turtle.signal.market import MarketData
-from turtle.signal.models import Signal
+# from turtle.trading.momentum import MomentumStrategy
+# from turtle.trading.darvas_box import DarvasBoxStrategy
+# from turtle.trading.mars import MarsStrategy
+from turtle.trading.base import TradingStrategy
+from turtle.trading.market import MarketData
+from turtle.trading.models import Signal
 
 from sqlalchemy import Engine
 

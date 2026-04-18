@@ -8,7 +8,7 @@ from turtle.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitL
 from turtle.exit.atr import ATRExitStrategy
 from turtle.portfolio.models import Position
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
-from turtle.signal.models import Signal
+from turtle.trading.models import Signal
 
 import pandas as pd
 

@@ -1,7 +1,7 @@
 # Amend TradingStrategy class and create runner class
 
 > **Note**: This document references the original package structure. As of recent refactoring:
-> - `turtle/strategy/` has been renamed to `turtle/signal/`
+> - `turtle/strategy/` has been renamed to `turtle/trading/`
 > - `trading_strategy.py` has been renamed to `base.py`
 > - Exit strategies have been moved from `turtle/backtest/exit_strategy.py` to separate files in `turtle/exit/`
 

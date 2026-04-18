@@ -5,7 +5,7 @@ from turtle.backtest.models import Benchmark, FutureTrade, Trade
 from turtle.portfolio.manager import PortfolioManager
 from turtle.portfolio.models import PortfolioState, Position
 from turtle.portfolio.selector import PortfolioSignalSelector
-from turtle.signal.models import Signal
+from turtle.trading.models import Signal
 
 import pytest
 

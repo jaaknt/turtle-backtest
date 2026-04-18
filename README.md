@@ -98,7 +98,7 @@ For a guide on deploying to a Hetzner VPS (server sizing, PostgreSQL setup, syst
 ```
 scripts/               ← CLI entry points (argparse, asyncio.run)
 turtle/services/       ← Business logic orchestration
-turtle/signal/         ← Trading signal strategies
+turtle/trading/         ← Trading signal strategies
 turtle/exit/           ← Exit strategies
 turtle/ranking/        ← Signal ranking strategies
 turtle/portfolio/      ← Multi-position portfolio management
@@ -113,7 +113,7 @@ turtle/factories.py    ← Strategy factory functions (string → class mapping 
 
 ### Key Design Patterns
 
-**Strategy Pattern** — All pluggable behaviours (signals, exits, rankings) implement a shared abstract base class. Services depend on the abstract type; concrete implementations are swapped at runtime. See `turtle/signal/base.py` and `turtle/signal/darvas_box.py`.
+**Strategy Pattern** — All pluggable behaviours (signals, exits, rankings) implement a shared abstract base class. Services depend on the abstract type; concrete implementations are swapped at runtime. See `turtle/trading/base.py` and `turtle/trading/darvas_box.py`.
 
 **Repository Pattern** — All database access is isolated in `turtle/repositories/`. No SQL outside this layer. Sync `Engine`-based repos handle reads; async `AsyncSession`-based repos handle writes.
 
@@ -136,7 +136,7 @@ PostgreSQL via SQLAlchemy — sync `Engine` for read-heavy analytical queries, a
 
 ### Adding a New Strategy
 
-1. Create `turtle/signal/my_strategy.py` extending `TradingStrategy`
+1. Create `turtle/trading/my_strategy.py` extending `TradingStrategy`
 2. Implement `generate_signals(ticker, bars_data, **kwargs) -> list[Signal]`
 3. Register in `turtle/factories.py` (`get_trading_strategy` dict)
 4. Add tests in `tests/test_my_strategy.py`

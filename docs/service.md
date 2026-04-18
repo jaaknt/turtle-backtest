@@ -51,7 +51,7 @@ The `SignalService` provides a clean interface for executing trading strategies 
 
 **Usage:**
 ```python
-from turtle.signal.darvas_box import DarvasBoxStrategy
+from turtle.trading.darvas_box import DarvasBoxStrategy
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
 
 bars_history = OhlcvAnalyticsRepository(engine)
@@ -94,7 +94,7 @@ The `BacktestService` orchestrates complete signal-to-exit backtesting by combin
 
 **Usage:**
 ```python
-from turtle.signal.darvas_box import DarvasBoxStrategy
+from turtle.trading.darvas_box import DarvasBoxStrategy
 from turtle.exit.atr import ATRExitStrategy
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
 
@@ -163,7 +163,7 @@ The `PortfolioService` is the most sophisticated backtesting engine that simulat
 
 **Usage:**
 ```python
-from turtle.signal.darvas_box import DarvasBoxStrategy
+from turtle.trading.darvas_box import DarvasBoxStrategy
 from turtle.exit.atr import ATRExitStrategy
 
 # Initialize strategy components

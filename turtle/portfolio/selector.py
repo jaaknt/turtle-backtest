@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from turtle.signal.models import Signal
+from turtle.trading.models import Signal
 
 logger = logging.getLogger(__name__)
 
