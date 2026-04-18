@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from turtle.signal.models import Signal
+from turtle.trading.models import Signal
 
 
 @dataclass

@@ -55,11 +55,11 @@ All strategy names used by CLI scripts (`--trading-strategy`, `--ranking-strateg
 
 ## Trading Strategies
 
-Trading strategies implement `TradingStrategy` (ABC in `turtle/signal/base.py`). They scan historical OHLCV data and emit `Signal` objects at breakout or momentum events.
+Trading strategies implement `TradingStrategy` (ABC in `turtle/trading/base.py`). They scan historical OHLCV data and emit `Signal` objects at breakout or momentum events.
 
 ### Darvas Box (`darvas_box`)
 
-**File**: `turtle/signal/darvas_box.py`
+**File**: `turtle/trading/darvas_box.py`
 
 Identifies breakouts from price consolidation boxes, inspired by Nicolas Darvas's method.
 
@@ -85,7 +85,7 @@ Identifies breakouts from price consolidation boxes, inspired by Nicolas Darvas'
 
 ### Mars (`mars`)
 
-**File**: `turtle/signal/mars.py`
+**File**: `turtle/trading/mars.py`
 
 Focuses on breakouts from tight price consolidation, attributed to the @marsrides approach.
 
@@ -110,7 +110,7 @@ Focuses on breakouts from tight price consolidation, attributed to the @marsride
 
 ### Momentum (`momentum`)
 
-**File**: `turtle/signal/momentum.py`
+**File**: `turtle/trading/momentum.py`
 
 Identifies weekly momentum breakouts with EMA trend confirmation.
 

@@ -22,10 +22,10 @@ from turtle.ranking.breakout_quality import BreakoutQualityRanking
 from turtle.ranking.momentum import MomentumRanking
 from turtle.ranking.volume_momentum import VolumeMomentumRanking
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
-from turtle.signal.base import TradingStrategy
-from turtle.signal.darvas_box import DarvasBoxStrategy
-from turtle.signal.mars import MarsStrategy
-from turtle.signal.momentum import MomentumStrategy
+from turtle.trading.base import TradingStrategy
+from turtle.trading.darvas_box import DarvasBoxStrategy
+from turtle.trading.mars import MarsStrategy
+from turtle.trading.momentum import MomentumStrategy
 
 
 def get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, bars_history: OhlcvAnalyticsRepository) -> TradingStrategy:

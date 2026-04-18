@@ -72,7 +72,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ### Critical File Paths
 - **Configuration**: `/config/settings.toml` + `.env` for API keys
-- **Strategies**: `/turtle/signal/*.py` - Trading signal implementations
+- **Strategies**: `/turtle/trading/*.py` - Trading signal implementations
 - **Exit Strategies**: `/turtle/exit/*.py` - Position exit logic
 - **Portfolio**: `/turtle/portfolio/*.py` - Multi-position management
 - **Services**: `/turtle/services/*.py` - Business logic orchestration
@@ -128,7 +128,7 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
   - `analytics.py`: `OhlcvAnalyticsRepository` — bulk OHLCV reads returning DataFrames (pandas/polars)
   - `symbol_group.py`: `SymbolGroupRepository` — symbol group reads/writes
   - `eodhd/`: `ExchangeRepository`, `TickerRepository`, `TickerQueryRepository`, `DailyBarsRepository`, `CompanyRepository`
-- **turtle/signal/**: Trading signal implementations
+- **turtle/trading/**: Trading signal implementations
   - `base.py`: TradingStrategy abstract base
   - `darvas_box.py`, `mars.py`, `momentum.py`, `market.py`
 - **turtle/exit/**: Exit strategy implementations
@@ -184,11 +184,11 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 
 ### Adding a New Trading Strategy
 
-1. **Create strategy file**: `turtle/signal/my_strategy.py`
+1. **Create strategy file**: `turtle/trading/my_strategy.py`
 2. **Extend TradingStrategy base class**:
    ```python
-   from turtle.signal.base import TradingStrategy
-   from turtle.signal.models import Signal
+   from turtle.trading.base import TradingStrategy
+   from turtle.trading.models import Signal
 
    class MyStrategy(TradingStrategy):
        def collect_data(self, ticker: str, start_date: date, end_date: date) -> bool:
@@ -219,7 +219,7 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 ## Design Patterns & Principles
 
 ### Strategy Pattern (Abstract Base Classes)
-All pluggable behaviours — signals, exits, rankings — share a common ABC interface. Services depend on the abstract type; concrete implementations are swapped at runtime without changing any service code. See `turtle/signal/base.py` (base) and `turtle/signal/darvas_box.py` (concrete). Same pattern in `turtle/exit/` and `turtle/ranking/`.
+All pluggable behaviours — signals, exits, rankings — share a common ABC interface. Services depend on the abstract type; concrete implementations are swapped at runtime without changing any service code. See `turtle/trading/base.py` (base) and `turtle/trading/darvas_box.py` (concrete). Same pattern in `turtle/exit/` and `turtle/ranking/`.
 
 ### Repository Pattern (Data Access)
 All database operations live in `turtle/repositories/`. No SQL outside this directory. Sync `Engine`-based repos handle reads; async `AsyncSession`-based repos handle writes. See `turtle/repositories/analytics.py` (sync reads) and `turtle/repositories/eodhd/` (async writes).
@@ -228,7 +228,7 @@ All database operations live in `turtle/repositories/`. No SQL outside this dire
 All dependencies are passed explicitly through constructors — no globals, no service locators. The connection pool flows from `Settings` → `Service` → `Repo`. See `turtle/services/signal_service.py`.
 
 ### Domain Models (Dataclasses vs Pydantic)
-- **Dataclasses** for all internal domain objects (`Signal`, `Trade`, `Position`). Use `@property` for computed fields — no setters. See `turtle/signal/models.py`, `turtle/backtest/models.py`, `turtle/portfolio/models.py`.
+- **Dataclasses** for all internal domain objects (`Signal`, `Trade`, `Position`). Use `@property` for computed fields — no setters. See `turtle/trading/models.py`, `turtle/backtest/models.py`, `turtle/portfolio/models.py`.
 - **Pydantic `BaseModel`** only for external API responses where field aliasing (`alias=`) is needed. See `Exchange`, `Ticker`, `Company` in `turtle/schemas/`.
 
 ### Configuration (Factory Method)
@@ -256,7 +256,7 @@ One module-level logger per file via `logging.getLogger(__name__)`. Use `DEBUG` 
 Validate preconditions early and return `bool` (for data-collection methods) or raise `ValueError` with a descriptive message. No bare `except` clauses. No swallowed exceptions. Properties validate their preconditions before computing.
 
 ### Static Methods
-Use `@staticmethod` for pure utility functions that belong logically to a class but require no instance state. See `DarvasBoxStrategy.check_local_max()` in `turtle/signal/darvas_box.py`.
+Use `@staticmethod` for pure utility functions that belong logically to a class but require no instance state. See `DarvasBoxStrategy.check_local_max()` in `turtle/trading/darvas_box.py`.
 
 ## Testing
 

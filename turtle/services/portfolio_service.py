@@ -13,8 +13,8 @@ from turtle.portfolio.analytics import PortfolioAnalytics
 from turtle.portfolio.manager import PortfolioManager
 from turtle.portfolio.selector import PortfolioSignalSelector
 from turtle.repositories.analytics import OhlcvAnalyticsRepository
-from turtle.signal.base import TradingStrategy
-from turtle.signal.models import Signal
+from turtle.trading.base import TradingStrategy
+from turtle.trading.models import Signal
 
 logger = logging.getLogger(__name__)
 
