@@ -6,6 +6,7 @@ from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.strategy.ranking.base import RankingStrategy
 
 import pandas as pd
+import polars as pl
 
 
 class TradingStrategy(ABC):
@@ -23,6 +24,7 @@ class TradingStrategy(ABC):
         time_frame_unit: TimeFrameUnit,
         warmup_period: int,
         min_bars: int,
+        use_polars: bool = False,
     ):
         """
         Initialize the trading strategy with common parameters.
@@ -32,6 +34,7 @@ class TradingStrategy(ABC):
             time_frame_unit: Time frame for analysis (DAY, WEEK, etc.)
             warmup_period: Number of days of historical data needed for indicators
             min_bars: Minimum number of bars required for analysis
+            use_polars: Use polars DataFrame (self.pl_df) instead of pandas (self.df)
         """
 
         self.bars_history = bars_history
@@ -39,7 +42,9 @@ class TradingStrategy(ABC):
         self.time_frame_unit = time_frame_unit
         self.warmup_period = warmup_period
         self.min_bars = min_bars
+        self.use_polars = use_polars
         self.df = pd.DataFrame()
+        self.pl_df = pl.DataFrame()
 
     @abstractmethod
     def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
@@ -71,12 +76,11 @@ class TradingStrategy(ABC):
         Returns:
             bool: True if sufficient data was collected, False otherwise
         """
-        self.df = self.bars_history.get_ticker_history(
-            ticker,
-            start_date - timedelta(days=self.warmup_period),
-            end_date,
-            self.time_frame_unit,
-        )
+        fetch_start = start_date - timedelta(days=self.warmup_period)
+        if self.use_polars:
+            self.pl_df = self.bars_history.get_bars_pl(ticker, fetch_start, end_date)
+            return not (self.pl_df.is_empty() or self.pl_df.shape[0] < self.min_bars)
+        self.df = self.bars_history.get_ticker_history(ticker, fetch_start, end_date, self.time_frame_unit)
         return not (self.df.empty or self.df.shape[0] < self.min_bars)
 
     @abstractmethod
