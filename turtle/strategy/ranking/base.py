@@ -12,6 +12,9 @@ class RankingStrategy(ABC):
     that evaluate stocks based on various technical and fundamental criteria.
     """
 
+    def __init__(self, use_polars: bool = False) -> None:
+        self.use_polars = use_polars
+
     @abstractmethod
     def ranking(self, df: pd.DataFrame, date: datetime) -> int:
         """

@@ -18,13 +18,8 @@ class VolumeMomentumRanking(RankingStrategy):
     - Technical indicator confluence (RSI, MACD, moving averages)
     """
 
-    def __init__(self, market_benchmark: str = "SPY") -> None:
-        """
-        Initialize VolumeMomentumRanking strategy.
-
-        Args:
-            market_benchmark: Symbol to use for relative strength comparison
-        """
+    def __init__(self, market_benchmark: str = "SPY", use_polars: bool = False) -> None:
+        super().__init__(use_polars=use_polars)
         self.market_benchmark = market_benchmark
 
     def _volume_weighted_momentum(self) -> int:

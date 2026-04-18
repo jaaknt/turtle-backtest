@@ -18,11 +18,8 @@ class MomentumRanking(RankingStrategy):
     - Period high performance (how long the stock has been at its highest close)
     """
 
-    def __init__(self) -> None:
-        """
-        Initialize MomentumRanking strategy.
-
-        """
+    def __init__(self, use_polars: bool = False) -> None:
+        super().__init__(use_polars=use_polars)
 
     def _price_to_ranking(self, price: float) -> int:
         """
