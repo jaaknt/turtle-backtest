@@ -104,7 +104,7 @@ turtle/strategy/ranking/        ← Signal ranking strategies
 turtle/portfolio/      ← Multi-position portfolio management
 turtle/backtest/       ← Backtesting engine
 turtle/repository/   ← Repository pattern (all SQL lives here)
-turtle/data/           ← Domain model dataclasses
+turtle/model.py        ← Domain model dataclasses
 turtle/client/        ← External API clients (async)
 turtle/config/         ← Configuration loading
 turtle/common/         ← Shared utilities (iso_date_type, safe_float_conversion)
