@@ -75,7 +75,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - **Strategies**: `/turtle/trading/*.py` - Trading signal implementations
 - **Exit Strategies**: `/turtle/exit/*.py` - Position exit logic
 - **Portfolio**: `/turtle/portfolio/*.py` - Multi-position management
-- **Services**: `/turtle/services/*.py` - Business logic orchestration
+- **Services**: `/turtle/service/*.py` - Business logic orchestration
 
 ### Development Decision Tree
 
@@ -122,8 +122,8 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
   - `enums.py`: `TimeFrameUnit` enum (DAY, WEEK)
   - `cli.py`: `iso_date_type` — argparse type helper for ISO date strings (YYYY-MM-DD)
   - `pandas_utils.py`: `safe_float_conversion` — safe pandas scalar → float coercion
-- **turtle/factories.py**: Strategy factories for CLI scripts — canonical string → class mapping for trading, exit, and ranking strategies (`get_trading_strategy`, `get_exit_strategy`, `get_ranking_strategy`)
-- **turtle/repositories/**: All database access (sync Engine reads + async Session writes)
+- **turtle/factory.py**: Strategy factories for CLI scripts — canonical string → class mapping for trading, exit, and ranking strategies (`get_trading_strategy`, `get_exit_strategy`, `get_ranking_strategy`)
+- **turtle/repository/**: All database access (sync Engine reads + async Session writes)
   - `tables.py`: SQLAlchemy Core table definitions
   - `analytics.py`: `OhlcvAnalyticsRepository` — bulk OHLCV reads returning DataFrames (pandas/polars)
   - `symbol_group.py`: `SymbolGroupRepository` — symbol group reads/writes
@@ -139,16 +139,16 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 - **turtle/portfolio/**: Multi-position portfolio management
   - `manager.py`, `selector.py`, `analytics.py`
 - **turtle/ranking/**: Signal ranking strategies — `momentum.py`, `volume_momentum.py`, `breakout_quality.py` (see [docs/strategy.md](docs/strategy.md))
-- **turtle/clients/**: External API clients
+- **turtle/client/**: External API clients
   - `eodhd.py`: EODHD API wrapper
 - **turtle/config/**: Configuration management
   - `settings.py`: TOML + environment variable loader
   - `model.py`: Config dataclasses (`DatabaseConfig`, `AppConfig`, `DatabasePoolConfig`)
   - `logging.py`: Logging configuration
 - **turtle/logger/**: JSON structured logging handler
-- **turtle/schemas/**: Pydantic models for external API responses
+- **turtle/schema/**: Pydantic models for external API responses
   - `eodhd/`: `exchange.py` → `Exchange`, `ticker.py` → `Ticker`, `company.py` → `Company`, `daily_bars.py` → `DailyBars`
-- **turtle/services/**: Business logic orchestration layer
+- **turtle/service/**: Business logic orchestration layer
 
 ### Database
 - **Schema**: `turtle` (PostgreSQL)
@@ -222,20 +222,20 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 All pluggable behaviours — signals, exits, rankings — share a common ABC interface. Services depend on the abstract type; concrete implementations are swapped at runtime without changing any service code. See `turtle/trading/base.py` (base) and `turtle/trading/darvas_box.py` (concrete). Same pattern in `turtle/exit/` and `turtle/ranking/`.
 
 ### Repository Pattern (Data Access)
-All database operations live in `turtle/repositories/`. No SQL outside this directory. Sync `Engine`-based repos handle reads; async `AsyncSession`-based repos handle writes. See `turtle/repositories/analytics.py` (sync reads) and `turtle/repositories/eodhd/` (async writes).
+All database operations live in `turtle/repository/`. No SQL outside this directory. Sync `Engine`-based repos handle reads; async `AsyncSession`-based repos handle writes. See `turtle/repository/analytics.py` (sync reads) and `turtle/repository/eodhd/` (async writes).
 
 ### Dependency Injection (Constructor Injection)
-All dependencies are passed explicitly through constructors — no globals, no service locators. The connection pool flows from `Settings` → `Service` → `Repo`. See `turtle/services/signal_service.py`.
+All dependencies are passed explicitly through constructors — no globals, no service locators. The connection pool flows from `Settings` → `Service` → `Repo`. See `turtle/service/signal_service.py`.
 
 ### Domain Models (Dataclasses vs Pydantic)
 - **Dataclasses** for all internal domain objects (`Signal`, `Trade`, `Position`). Use `@property` for computed fields — no setters. See `turtle/trading/models.py`, `turtle/backtest/models.py`, `turtle/portfolio/models.py`.
-- **Pydantic `BaseModel`** only for external API responses where field aliasing (`alias=`) is needed. See `Exchange`, `Ticker`, `Company` in `turtle/schemas/`.
+- **Pydantic `BaseModel`** only for external API responses where field aliasing (`alias=`) is needed. See `Exchange`, `Ticker`, `Company` in `turtle/schema/`.
 
 ### Configuration (Factory Method)
 `Settings.from_toml()` is the single entry point for all config. It loads TOML, validates required env vars (raises `ValueError` if missing — never falls back to TOML values for secrets), builds nested config objects, and creates the connection pool. See `turtle/config/settings.py`.
 
 ### Async Boundary
-External API clients (`turtle/clients/eodhd.py`) are `async`/`await` using `httpx.AsyncClient`. Services that orchestrate bulk API downloads (e.g. `turtle/services/eodhd_service.py`) may also be async when they need concurrent requests via `asyncio.gather`. Repos and backtesting logic must remain synchronous. Scripts may use `asyncio.run()` as the async entry point. Do not make repo methods async.
+External API clients (`turtle/client/eodhd.py`) are `async`/`await` using `httpx.AsyncClient`. Services that orchestrate bulk API downloads (e.g. `turtle/service/eodhd_service.py`) may also be async when they need concurrent requests via `asyncio.gather`. Repos and backtesting logic must remain synchronous. Scripts may use `asyncio.run()` as the async entry point. Do not make repo methods async.
 
 ### Naming Conventions
 | Construct | Convention | Example |
@@ -245,6 +245,7 @@ External API clients (`turtle/clients/eodhd.py`) are `async`/`await` using `http
 | Private methods | leading underscore | `_get_bars_history_db()` |
 | Constants / enums | UPPER_SNAKE_CASE | `TimeFrameUnit.DAY` |
 | Files | snake_case | `bars_history.py`, `darvas_box.py` |
+| Folders / packages | singular snake_case | `turtle/service/`, `turtle/repository/` |
 
 ### Type Hints
 All function signatures carry full type hints — parameters and return types. Use `X | None` (not `Optional[X]`), `list[X]` (not `List[X]`). No `Any` except at external API boundaries.

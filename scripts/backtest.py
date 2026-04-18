@@ -36,10 +36,10 @@ from turtle.common.cli import iso_date_type
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
-from turtle.factories import get_exit_strategy, get_ranking_strategy, get_trading_strategy
-from turtle.repositories.analytics import OhlcvAnalyticsRepository
-from turtle.services.backtest_service import BacktestService
-from turtle.services.signal_service import SignalService
+from turtle.factory import get_exit_strategy, get_ranking_strategy, get_trading_strategy
+from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.service.backtest_service import BacktestService
+from turtle.service.signal_service import SignalService
 
 logger = logging.getLogger(__name__)
 

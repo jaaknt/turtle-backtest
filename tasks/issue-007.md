@@ -69,11 +69,11 @@ Current `StrategyRunnerService` class methods and dependencies:
 ### Summary of Changes Made:
 
 1. **StrategyRunnerService Method Refactoring**:
-   - Renamed `momentum_stocks()` → `get_tickers_list()` in `turtle/services/strategy_runner.py:56`
-   - Renamed `get_buy_signals()` → `get_tickers_count()` in `turtle/services/strategy_runner.py:74`
+   - Renamed `momentum_stocks()` → `get_tickers_list()` in `turtle/service/strategy_runner.py:56`
+   - Renamed `get_buy_signals()` → `get_tickers_count()` in `turtle/service/strategy_runner.py:74`
    - Added wrapper functions:
-     - `is_trading_signal()` in `turtle/services/strategy_runner.py:66`
-     - `trading_signals_count()` in `turtle/services/strategy_runner.py:70`
+     - `is_trading_signal()` in `turtle/service/strategy_runner.py:66`
+     - `trading_signals_count()` in `turtle/service/strategy_runner.py:70`
 
 2. **Dependencies Updated**:
    - Updated `app.py:16` to use `get_tickers_list()`

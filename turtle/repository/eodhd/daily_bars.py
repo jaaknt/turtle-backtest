@@ -1,6 +1,6 @@
 import logging
-from turtle.repositories.tables import daily_bars_table
-from turtle.schemas import DailyBars
+from turtle.repository.tables import daily_bars_table
+from turtle.schema import DailyBars
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession

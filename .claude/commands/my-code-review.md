@@ -33,8 +33,8 @@ description: Review staged and unstaged changes before committing, or review a s
 - Dataclasses for internal domain objects; Pydantic only for external API responses needing `alias=`
 - Private methods prefixed with `_`; constants in `UPPER_SNAKE_CASE`
 - One module-level logger per file via `logging.getLogger(__name__)` — never log secrets
-- No SQL outside `turtle/repositories/` (repository pattern)
-- Services and repos must stay synchronous — only `turtle/clients/` is async
+- No SQL outside `turtle/repository/` (repository pattern)
+- Services and repos must stay synchronous — only `turtle/client/` is async
 
 ### Design Patterns
 - Strategy pattern: new signal/exit/ranking strategies must extend the correct ABC

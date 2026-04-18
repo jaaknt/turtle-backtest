@@ -69,7 +69,7 @@ and code layer.
 
 ### Files Modified
 
-#### `turtle/services/alpaca_service.py`
+#### `turtle/service/alpaca_service.py`
 Replaced repo imports and instantiations:
 ```python
 # Before

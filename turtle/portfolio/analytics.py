@@ -3,7 +3,7 @@
 import logging
 import warnings
 from datetime import date, datetime
-from turtle.repositories.analytics import OhlcvAnalyticsRepository
+from turtle.repository.analytics import OhlcvAnalyticsRepository
 
 import matplotlib
 import numpy as np

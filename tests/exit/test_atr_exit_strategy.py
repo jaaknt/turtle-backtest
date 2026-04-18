@@ -3,7 +3,7 @@
 from datetime import datetime
 from turtle.backtest.models import Trade
 from turtle.exit import ATRExitStrategy
-from turtle.repositories.analytics import OhlcvAnalyticsRepository
+from turtle.repository.analytics import OhlcvAnalyticsRepository
 from unittest.mock import Mock
 
 import pandas as pd

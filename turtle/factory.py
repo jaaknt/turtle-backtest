@@ -21,7 +21,7 @@ from turtle.ranking.base import RankingStrategy
 from turtle.ranking.breakout_quality import BreakoutQualityRanking
 from turtle.ranking.momentum import MomentumRanking
 from turtle.ranking.volume_momentum import VolumeMomentumRanking
-from turtle.repositories.analytics import OhlcvAnalyticsRepository
+from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.trading.base import TradingStrategy
 from turtle.trading.darvas_box import DarvasBoxStrategy
 from turtle.trading.mars import MarsStrategy

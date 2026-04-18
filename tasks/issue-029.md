@@ -28,7 +28,7 @@ Make code base smaller by removing all
  ├────────────────────────────────────┼───────────────────────────────────────────────────────────────────┤
  │ turtle/data/alpaca_tables.py       │ Table defs for non-existent alpaca schema                         │
  ├────────────────────────────────────┼───────────────────────────────────────────────────────────────────┤
- │ turtle/services/alpaca_service.py   │ DataUpdateService wrapping all alpaca repos                       │
+ │ turtle/service/alpaca_service.py   │ DataUpdateService wrapping all alpaca repos                       │
  ├────────────────────────────────────┼───────────────────────────────────────────────────────────────────┤
  │ scripts/daily_eod_update.py        │ Only entry point for Alpaca/YFinance updates                      │
  ├────────────────────────────────────┼───────────────────────────────────────────────────────────────────┤

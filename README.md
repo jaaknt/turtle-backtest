@@ -97,25 +97,25 @@ For a guide on deploying to a Hetzner VPS (server sizing, PostgreSQL setup, syst
 
 ```
 scripts/               ← CLI entry points (argparse, asyncio.run)
-turtle/services/       ← Business logic orchestration
+turtle/service/       ← Business logic orchestration
 turtle/trading/         ← Trading signal strategies
 turtle/exit/           ← Exit strategies
 turtle/ranking/        ← Signal ranking strategies
 turtle/portfolio/      ← Multi-position portfolio management
 turtle/backtest/       ← Backtesting engine
-turtle/repositories/   ← Repository pattern (all SQL lives here)
+turtle/repository/   ← Repository pattern (all SQL lives here)
 turtle/data/           ← Domain model dataclasses
-turtle/clients/        ← External API clients (async)
+turtle/client/        ← External API clients (async)
 turtle/config/         ← Configuration loading
 turtle/common/         ← Shared utilities (iso_date_type, safe_float_conversion)
-turtle/factories.py    ← Strategy factory functions (string → class mapping for CLI)
+turtle/factory.py    ← Strategy factory functions (string → class mapping for CLI)
 ```
 
 ### Key Design Patterns
 
 **Strategy Pattern** — All pluggable behaviours (signals, exits, rankings) implement a shared abstract base class. Services depend on the abstract type; concrete implementations are swapped at runtime. See `turtle/trading/base.py` and `turtle/trading/darvas_box.py`.
 
-**Repository Pattern** — All database access is isolated in `turtle/repositories/`. No SQL outside this layer. Sync `Engine`-based repos handle reads; async `AsyncSession`-based repos handle writes.
+**Repository Pattern** — All database access is isolated in `turtle/repository/`. No SQL outside this layer. Sync `Engine`-based repos handle reads; async `AsyncSession`-based repos handle writes.
 
 **Dependency Injection** — All dependencies flow through constructors. The connection pool is built once in `Settings.from_toml()` and passed explicitly through `Service → Repo`. No globals or service locators.
 
@@ -123,20 +123,20 @@ turtle/factories.py    ← Strategy factory functions (string → class mapping 
 
 ### Async Boundary
 
-External API clients (`turtle/clients/`) are `async`/`await` using `httpx.AsyncClient`. Services that need concurrent API requests use `asyncio.gather`. **Repositories and backtesting logic are strictly synchronous.** Scripts use `asyncio.run()` as the async entry point.
+External API clients (`turtle/client/`) are `async`/`await` using `httpx.AsyncClient`. Services that need concurrent API requests use `asyncio.gather`. **Repositories and backtesting logic are strictly synchronous.** Scripts use `asyncio.run()` as the async entry point.
 
 ### Domain Models
 
 - **Dataclasses** for all internal domain objects (`Signal`, `Trade`, `Position`, `Bar`). Computed fields use `@property`; no setters.
-- **Pydantic `BaseModel`** only for external API responses where field aliasing is needed (e.g. `Exchange`, `Ticker` in `turtle/schemas/`).
+- **Pydantic `BaseModel`** only for external API responses where field aliasing is needed (e.g. `Exchange`, `Ticker` in `turtle/schema/`).
 
 ### Database
 
-PostgreSQL via SQLAlchemy — sync `Engine` for read-heavy analytical queries, async `AsyncSession` for bulk writes. All tables live in the `turtle` schema. Table definitions in `turtle/repositories/tables.py`. Migrations managed by Alembic in standalone mode with raw SQL (`db/migrations/versions/`).
+PostgreSQL via SQLAlchemy — sync `Engine` for read-heavy analytical queries, async `AsyncSession` for bulk writes. All tables live in the `turtle` schema. Table definitions in `turtle/repository/tables.py`. Migrations managed by Alembic in standalone mode with raw SQL (`db/migrations/versions/`).
 
 ### Adding a New Strategy
 
 1. Create `turtle/trading/my_strategy.py` extending `TradingStrategy`
 2. Implement `generate_signals(ticker, bars_data, **kwargs) -> list[Signal]`
-3. Register in `turtle/factories.py` (`get_trading_strategy` dict)
+3. Register in `turtle/factory.py` (`get_trading_strategy` dict)
 4. Add tests in `tests/test_my_strategy.py`

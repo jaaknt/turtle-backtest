@@ -12,7 +12,7 @@ from turtle.exit.base import ExitStrategy
 from turtle.portfolio.analytics import PortfolioAnalytics
 from turtle.portfolio.manager import PortfolioManager
 from turtle.portfolio.selector import PortfolioSignalSelector
-from turtle.repositories.analytics import OhlcvAnalyticsRepository
+from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.trading.base import TradingStrategy
 from turtle.trading.models import Signal
 

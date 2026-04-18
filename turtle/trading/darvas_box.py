@@ -2,7 +2,7 @@ import logging
 from datetime import date, timedelta
 from turtle.common.enums import TimeFrameUnit
 from turtle.ranking.base import RankingStrategy
-from turtle.repositories.analytics import OhlcvAnalyticsRepository
+from turtle.repository.analytics import OhlcvAnalyticsRepository
 
 import numpy as np
 import pandas as pd

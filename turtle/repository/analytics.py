@@ -1,7 +1,7 @@
 import logging
 from datetime import date, datetime
 from turtle.common.enums import TimeFrameUnit
-from turtle.repositories.tables import daily_bars_table
+from turtle.repository.tables import daily_bars_table
 
 import pandas as pd
 import polars as pl

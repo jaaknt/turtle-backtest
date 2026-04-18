@@ -1,10 +1,10 @@
 import asyncio
 import logging
 from datetime import datetime
-from turtle.clients.eodhd import EodhdApiClient
+from turtle.client.eodhd import EodhdApiClient
 from turtle.config.settings import Settings
-from turtle.repositories.eodhd import CompanyRepository, DailyBarsRepository, ExchangeRepository, TickerRepository
-from turtle.schemas import Company, DailyBars
+from turtle.repository.eodhd import CompanyRepository, DailyBarsRepository, ExchangeRepository, TickerRepository
+from turtle.schema import Company, DailyBars
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
