@@ -142,24 +142,6 @@ class MomentumStrategy(TradingStrategy):
                 (filtered_df["close"] >= filtered_df["ema_200"]) & (filtered_df["ema_50"] >= filtered_df["ema_200"])
             )
 
-        for _, row in filtered_df[~buy_signals].iterrows():
-            logger.debug(f"{ticker} - no buy signal on {row['date']}")
-            logger.debug(f"  close: {row['close']} max_close_20: {row['max_close_20']} ema_10: {row['ema_10']} ema_20: {row['ema_20']}")
-            logger.debug(
-                f"  ema_50: {row['ema_50']} ema_200: {row['ema_200']} "
-                f"volume: {row['volume']} ema_volume_10 * 1.10: {row['ema_volume_10'] * 1.10}"
-            )
-            logger.debug(f"  macd: {row['macd']} macd_signal: {row['macd_signal']}")
-            logger.debug(f"  (close - open) / close: {(row['close'] - row['open']) / row['close']}")
-            logger.debug(
-                f"  100d price change: {(row['close'] - row['close_100_days_ago']) / row['close_100_days_ago']:.2%} "
-                f"(close: {row['close']} close_100d: {row['close_100_days_ago']})"
-            )
-            logger.debug(
-                f"  10d consolidation: {(row['max_close_10'] - row['min_close_10']) / row['close']:.2%} "
-                f"(max_close_10: {row['max_close_10']} min_close_10: {row['min_close_10']})"
-            )
-
         signal_dates = filtered_df[buy_signals]["date"].tolist()
         return [
             Signal(ticker=ticker, date=signal_date, ranking=self.ranking_strategy.ranking(self.df, date=signal_date))
@@ -180,8 +162,9 @@ class MomentumStrategy(TradingStrategy):
         """
         if not self.collect_data(ticker, start_date, end_date):
             rows = self.pl_df.shape[0] if self.use_polars else self.df.shape[0]
-            logger.debug(f"{ticker} - not enough data, rows: {rows}")
+            logger.warning(f"{ticker} - not enough data, rows: {rows}")
             return []
+
         if self.use_polars:
             return self._get_polars_signals(ticker, start_date)
         return self._get_pandas_signals(ticker, start_date)

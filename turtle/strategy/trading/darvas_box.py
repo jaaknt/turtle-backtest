@@ -263,7 +263,7 @@ class DarvasBoxStrategy(TradingStrategy):
         """
         # collect data for the ticker and end_date
         if not self.collect_data(ticker, start_date, end_date):
-            logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
+            logger.warning(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
             return []
 
         self.calculate_indicators()

@@ -5,12 +5,12 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.model import Signal
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.repository.eodhd import TickerQueryRepository
+from turtle.service.market import MarketData
 
 # from turtle.strategy.trading.momentum import MomentumStrategy
 # from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
 # from turtle.strategy.trading.mars import MarsStrategy
 from turtle.strategy.trading.base import TradingStrategy
-from turtle.strategy.trading.market import MarketData
 
 from sqlalchemy import Engine
 
@@ -22,6 +22,7 @@ class SignalService:
         self,
         engine: Engine,
         trading_strategy: TradingStrategy,
+        market_ticker: str,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         warmup_period: int = 730,
     ) -> None:
@@ -32,7 +33,7 @@ class SignalService:
         self.engine = engine
         self.symbol_repo = TickerQueryRepository(self.engine)
         self.bars_history = OhlcvAnalyticsRepository(self.engine)
-        self.market_data = MarketData(self.bars_history)
+        self.market_data = MarketData(self.bars_history, market_ticker)
 
     def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
         """Wrapper function for TradingStrategy.get_signals."""

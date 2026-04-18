@@ -56,7 +56,7 @@ from turtle.repository.analytics import OhlcvAnalyticsRepository
 
 bars_history = OhlcvAnalyticsRepository(engine)
 strategy = DarvasBoxStrategy(bars_history, time_frame_unit=TimeFrameUnit.DAY)
-signal_service = SignalService(engine, strategy)
+signal_service = SignalService(engine, strategy, market_ticker="SPY")
 
 # Get signals for specific ticker
 signals = signal_service.get_signals("AAPL", start_date, end_date)
@@ -100,7 +100,7 @@ from turtle.repository.analytics import OhlcvAnalyticsRepository
 
 bars_history = OhlcvAnalyticsRepository(engine)
 strategy = DarvasBoxStrategy(bars_history)
-signal_service = SignalService(engine, strategy)
+signal_service = SignalService(engine, strategy, market_ticker="SPY")
 exit_strategy = ATRExitStrategy(bars_history, atr_multiplier=2.0)
 signal_processor = SignalProcessor(30, bars_history, exit_strategy, ["QQQ", "SPY"])
 
@@ -271,7 +271,7 @@ For programmatic use where the concrete class is already known, instantiate the 
 **Simple Signal Analysis:**
 ```python
 # Test signals for specific stocks
-signal_service = SignalService(engine, darvas_strategy)
+signal_service = SignalService(engine, darvas_strategy, market_ticker="SPY")
 signals = signal_service.get_signals("AAPL", start_date, end_date)
 ```
 

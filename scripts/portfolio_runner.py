@@ -222,6 +222,7 @@ def main() -> int:
             signal_service = SignalService(
                 engine=settings.engine,
                 trading_strategy=trading_strategy,
+                market_ticker="SPY",
                 time_frame_unit=TimeFrameUnit.DAY,
             )
             universe = signal_service.get_symbol_list(max_symbols=args.max_tickers)

@@ -115,7 +115,7 @@ class MarsStrategy(TradingStrategy):
     def calculate_entries(self, ticker: str, start_date: date, end_date: date) -> None:
         # collect data for the ticker and end_date
         if not self.collect_data(ticker, start_date, end_date):
-            logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
+            logger.warning(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
             return
 
         self.calculate_indicators()
