@@ -6,6 +6,7 @@ from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.strategy.ranking.base import RankingStrategy
 
 import pandas as pd
+import polars as pl
 from pandas_ta.momentum import macd as ta_macd
 from pandas_ta.overlap import ema as ta_ema
 
@@ -22,8 +23,9 @@ class MomentumStrategy(TradingStrategy):
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.WEEK,
         warmup_period: int = 720,  # 2 years for daily EMA200 + weekly data
         min_bars: int = 240,
+        use_polars: bool = False,
     ):
-        super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars)
+        super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars, use_polars)
 
     def calculate_indicators(self) -> None:
         """Calculate technical indicators for the strategy.
@@ -61,6 +63,23 @@ class MomentumStrategy(TradingStrategy):
         if "date" in self.df.columns:
             self.df["date"] = pd.to_datetime(self.df["date"]).dt.date
 
+    def calculate_indicators_pl(self) -> None:
+        self.pl_df = self.pl_df.with_columns(
+            pl.col("close").rolling_max(20).alias("max_close_20"),
+            pl.col("high").rolling_max(20).alias("max_high_20"),
+            pl.col("close").shift(1).rolling_max(10).alias("max_close_10"),
+            pl.col("close").shift(1).rolling_min(10).alias("min_close_10"),
+            pl.col("close").ewm_mean(span=10, adjust=False).alias("ema_10"),
+            pl.col("close").ewm_mean(span=20, adjust=False).alias("ema_20"),
+            pl.col("close").ewm_mean(span=50, adjust=False).alias("ema_50"),
+            pl.col("close").ewm_mean(span=200, adjust=False).alias("ema_200"),
+            pl.col("volume").ewm_mean(span=10, adjust=False).alias("ema_volume_10"),
+            pl.col("close").shift(70).alias("close_100_days_ago"),
+            (pl.col("close").ewm_mean(span=12, adjust=False) - pl.col("close").ewm_mean(span=26, adjust=False)).alias("macd"),
+        ).with_columns(
+            pl.col("macd").ewm_mean(span=9, adjust=False).alias("macd_signal"),
+        )
+
     def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
         """
         Get trading signals for a ticker within a date range.
@@ -73,11 +92,37 @@ class MomentumStrategy(TradingStrategy):
         Returns:
             List[Signal]: List of Signal objects for each trading signal
         """
-        # collect data for the ticker and end_date
         if not self.collect_data(ticker, start_date, end_date):
-            logger.debug(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
+            rows = self.pl_df.shape[0] if self.use_polars else self.df.shape[0]
+            logger.debug(f"{ticker} - not enough data, rows: {rows}")
             return []
 
+        if self.use_polars:
+            self.calculate_indicators_pl()
+            filtered = self.pl_df.filter(pl.col("date") >= start_date)
+            if filtered.is_empty():
+                logger.debug(f"{ticker} - no data after date filtering")
+                return []
+
+            buy_mask = (
+                (pl.col("close") >= pl.col("max_close_20"))
+                & (pl.col("close") >= pl.col("ema_10"))
+                & (pl.col("close") >= pl.col("ema_20"))
+                & (pl.col("ema_10") >= pl.col("ema_20"))
+                & (pl.col("close") >= pl.col("ema_50"))
+                & (pl.col("volume") >= pl.col("ema_volume_10") * 1.10)
+                & (pl.col("macd") > pl.col("macd_signal"))
+                & ((pl.col("close") - pl.col("open")) / pl.col("close") >= 0.008)
+                & ((pl.col("close") - pl.col("close_100_days_ago")) / pl.col("close_100_days_ago") >= 0.30)
+                & ((pl.col("max_close_10") - pl.col("min_close_10")) / pl.col("close") <= 0.10)
+            )
+            if self.time_frame_unit == TimeFrameUnit.DAY:
+                buy_mask = buy_mask & (pl.col("close") >= pl.col("ema_200")) & (pl.col("ema_50") >= pl.col("ema_200"))
+
+            signal_dates = filtered.filter(buy_mask)["date"].to_list()
+            return [Signal(ticker=ticker, date=d, ranking=self.ranking_strategy.ranking(self.pl_df, date=d)) for d in signal_dates]
+
+        # pandas path
         self.calculate_indicators()
 
         # Filter data to target date range
