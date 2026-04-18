@@ -1,15 +1,21 @@
 # Use environment variable or .env file to store sensitive information
+# Switch environments with DB_ENV=local (default) or DB_ENV=hetzner
 [app]
 name = "turtle-backtest"
 debug = true
 eodhd.api_key = "YOUR_EODHD_API_KEY"
 
-[database]
+[database.local]
 host = "localhost"
 port = 5432
 dbname = "trading"
 user = "app_user"
-password = "YOUR_APP_PASSWORD"
+
+[database.hetzner]
+host = "hetzner"
+port = 5432
+dbname = "trading"
+user = "app_user"
 
 [database.pool]
 min_size = 10

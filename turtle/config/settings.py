@@ -38,8 +38,16 @@ class Settings:
         if missing:
             raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
 
-        data["database"]["password"] = os.environ["DB_APP_PASSWORD"]
-        db_config = DatabaseConfig(**data.get("database", {}))
+        db_env = os.getenv("DB_ENV") or "local"
+        db_section = data["database"].get(db_env)
+        if db_section is None:
+            valid = [k for k in data["database"] if k != "pool"]
+            raise ValueError(f"Unknown DB_ENV={db_env!r}. Valid options: {valid}")
+        db_config = DatabaseConfig(
+            **db_section,
+            pool=data["database"].get("pool", {}),
+            password=os.environ["DB_APP_PASSWORD"],
+        )
 
         data["app"]["eodhd"]["api_key"] = os.environ["EODHD_API_KEY"]
 
