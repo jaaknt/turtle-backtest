@@ -20,9 +20,9 @@ class TradingStrategy(ABC):
         self,
         bars_history: OhlcvAnalyticsRepository,
         ranking_strategy: RankingStrategy,
-        time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
-        warmup_period: int = 730,
-        min_bars: int = 420,
+        time_frame_unit: TimeFrameUnit,
+        warmup_period: int,
+        min_bars: int,
     ):
         """
         Initialize the trading strategy with common parameters.
