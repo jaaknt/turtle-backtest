@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from turtle.common.cli import iso_date_type
 from turtle.config.settings import Settings
-from turtle.services.eodhd_service import EodhdService
+from turtle.service.eodhd_service import EodhdService
 
 logger = logging.getLogger(__name__)
 

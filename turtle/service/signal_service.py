@@ -2,8 +2,8 @@
 import logging
 from datetime import date
 from turtle.common.enums import TimeFrameUnit
-from turtle.repositories.analytics import OhlcvAnalyticsRepository
-from turtle.repositories.eodhd import TickerQueryRepository
+from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.eodhd import TickerQueryRepository
 
 # from turtle.trading.momentum import MomentumStrategy
 # from turtle.trading.darvas_box import DarvasBoxStrategy

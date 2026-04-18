@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from turtle.common.enums import TimeFrameUnit
-from turtle.repositories.analytics import OhlcvAnalyticsRepository
+from turtle.repository.analytics import OhlcvAnalyticsRepository
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -48,7 +48,7 @@ def _sample_pl_df() -> pl.DataFrame:
 # --- get_bars_pd ---
 
 def test_get_bars_pd_returns_dataframe(mock_engine: MagicMock) -> None:
-    with patch("turtle.repositories.analytics.pd.read_sql", return_value=_sample_pd_df()):
+    with patch("turtle.repository.analytics.pd.read_sql", return_value=_sample_pd_df()):
         result = _make_repo(mock_engine).get_bars_pd("AAPL", date(2024, 1, 2), date(2024, 1, 3))
 
     assert isinstance(result, pd.DataFrame)
@@ -60,7 +60,7 @@ def test_get_bars_pd_returns_dataframe(mock_engine: MagicMock) -> None:
 def test_get_bars_pd_returns_empty_dataframe_when_no_data(mock_engine: MagicMock) -> None:
     empty_df = pd.DataFrame(columns=["open", "high", "low", "close", "adjusted_close", "volume"])
 
-    with patch("turtle.repositories.analytics.pd.read_sql", return_value=empty_df):
+    with patch("turtle.repository.analytics.pd.read_sql", return_value=empty_df):
         result = _make_repo(mock_engine).get_bars_pd("AAPL", date(2024, 1, 2), date(2024, 1, 3))
 
     assert isinstance(result, pd.DataFrame)
@@ -74,7 +74,7 @@ def test_get_bars_pd_passes_correct_date_range(mock_engine: MagicMock) -> None:
         captured.append(stmt)
         return pd.DataFrame(columns=["open", "high", "low", "close", "adjusted_close", "volume"])
 
-    with patch("turtle.repositories.analytics.pd.read_sql", side_effect=capture):
+    with patch("turtle.repository.analytics.pd.read_sql", side_effect=capture):
         _make_repo(mock_engine).get_bars_pd("AAPL", date(2024, 1, 1), date(2024, 12, 31))
 
     assert len(captured) == 1
@@ -85,7 +85,7 @@ def test_get_bars_pd_passes_correct_date_range(mock_engine: MagicMock) -> None:
 
 
 def test_get_bars_pd_uses_engine_connection(mock_engine: MagicMock) -> None:
-    with patch("turtle.repositories.analytics.pd.read_sql", return_value=pd.DataFrame()):
+    with patch("turtle.repository.analytics.pd.read_sql", return_value=pd.DataFrame()):
         _make_repo(mock_engine).get_bars_pd("AAPL", date(2024, 1, 1), date(2024, 1, 31))
 
     mock_engine.connect.assert_called_once()
@@ -94,7 +94,7 @@ def test_get_bars_pd_uses_engine_connection(mock_engine: MagicMock) -> None:
 # --- get_bars_pl ---
 
 def test_get_bars_pl_returns_polars_dataframe(mock_engine: MagicMock) -> None:
-    with patch("turtle.repositories.analytics.pl.read_database", return_value=_sample_pl_df()):
+    with patch("turtle.repository.analytics.pl.read_database", return_value=_sample_pl_df()):
         result = _make_repo(mock_engine).get_bars_pl("AAPL", date(2024, 1, 2), date(2024, 1, 3))
 
     assert isinstance(result, pl.DataFrame)
@@ -106,7 +106,7 @@ def test_get_bars_pl_returns_polars_dataframe(mock_engine: MagicMock) -> None:
 def test_get_bars_pl_returns_empty_dataframe_when_no_data(mock_engine: MagicMock) -> None:
     empty_df = pl.DataFrame({"date": [], "open": [], "high": [], "low": [], "close": [], "adjusted_close": [], "volume": []})
 
-    with patch("turtle.repositories.analytics.pl.read_database", return_value=empty_df):
+    with patch("turtle.repository.analytics.pl.read_database", return_value=empty_df):
         result = _make_repo(mock_engine).get_bars_pl("AAPL", date(2024, 1, 2), date(2024, 1, 3))
 
     assert isinstance(result, pl.DataFrame)
@@ -121,7 +121,7 @@ def test_get_bars_pl_passes_correct_date_range(mock_engine: MagicMock) -> None:
         captured.append(query)
         return pl.DataFrame()
 
-    with patch("turtle.repositories.analytics.pl.read_database", side_effect=capture):
+    with patch("turtle.repository.analytics.pl.read_database", side_effect=capture):
         _make_repo(mock_engine).get_bars_pl("AAPL", date(2024, 1, 1), date(2024, 12, 31))
 
     assert len(captured) == 1
@@ -132,7 +132,7 @@ def test_get_bars_pl_passes_correct_date_range(mock_engine: MagicMock) -> None:
 
 
 def test_get_bars_pl_uses_engine_connection(mock_engine: MagicMock) -> None:
-    with patch("turtle.repositories.analytics.pl.read_database", return_value=pl.DataFrame()):
+    with patch("turtle.repository.analytics.pl.read_database", return_value=pl.DataFrame()):
         _make_repo(mock_engine).get_bars_pl("AAPL", date(2024, 1, 1), date(2024, 1, 31))
 
     mock_engine.connect.assert_called_once()
@@ -141,7 +141,7 @@ def test_get_bars_pl_uses_engine_connection(mock_engine: MagicMock) -> None:
 # --- get_ticker_history ---
 
 def test_get_ticker_history_day_returns_dataframe(mock_engine: MagicMock) -> None:
-    with patch("turtle.repositories.analytics.pd.read_sql", return_value=_sample_pd_df()):
+    with patch("turtle.repository.analytics.pd.read_sql", return_value=_sample_pd_df()):
         result = _make_repo(mock_engine).get_ticker_history("AAPL", date(2024, 1, 2), date(2024, 1, 3))
 
     assert isinstance(result, pd.DataFrame)
@@ -157,7 +157,7 @@ def test_get_ticker_history_accepts_datetime_inputs(mock_engine: MagicMock) -> N
         captured.append(stmt)
         return _sample_pd_df()
 
-    with patch("turtle.repositories.analytics.pd.read_sql", side_effect=capture):
+    with patch("turtle.repository.analytics.pd.read_sql", side_effect=capture):
         _make_repo(mock_engine).get_ticker_history(
             "AAPL",
             datetime(2024, 1, 2, 0, 0, 0),
@@ -181,7 +181,7 @@ def test_get_ticker_history_week_resamples(mock_engine: MagicMock) -> None:
         },
         index=pd.to_datetime(["2024-01-08", "2024-01-09", "2024-01-10", "2024-01-15", "2024-01-16"]),
     )
-    with patch("turtle.repositories.analytics.pd.read_sql", return_value=df):
+    with patch("turtle.repository.analytics.pd.read_sql", return_value=df):
         result = _make_repo(mock_engine).get_ticker_history(
             "AAPL", date(2024, 1, 8), date(2024, 1, 16), TimeFrameUnit.WEEK
         )
@@ -196,7 +196,7 @@ def test_get_ticker_history_week_resamples(mock_engine: MagicMock) -> None:
 
 def test_get_ticker_history_returns_empty_when_no_data(mock_engine: MagicMock) -> None:
     empty_df = pd.DataFrame(columns=["open", "high", "low", "close", "adjusted_close", "volume"])
-    with patch("turtle.repositories.analytics.pd.read_sql", return_value=empty_df):
+    with patch("turtle.repository.analytics.pd.read_sql", return_value=empty_df):
         result = _make_repo(mock_engine).get_ticker_history("AAPL", date(2024, 1, 1), date(2024, 1, 31))
 
     assert result.empty
@@ -204,6 +204,6 @@ def test_get_ticker_history_returns_empty_when_no_data(mock_engine: MagicMock) -
 
 def test_get_ticker_history_raises_for_unsupported_time_frame_unit(mock_engine: MagicMock) -> None:
     unknown_unit = MagicMock(spec=TimeFrameUnit)  # simulates a future enum member
-    with patch("turtle.repositories.analytics.pd.read_sql", return_value=_sample_pd_df()):
+    with patch("turtle.repository.analytics.pd.read_sql", return_value=_sample_pd_df()):
         with pytest.raises(ValueError, match="Unsupported time_frame_unit"):
             _make_repo(mock_engine).get_ticker_history("AAPL", date(2024, 1, 1), date(2024, 1, 31), unknown_unit)  # type: ignore[arg-type]

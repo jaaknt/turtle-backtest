@@ -7,7 +7,7 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
 from turtle.exit.atr import ATRExitStrategy
 from turtle.portfolio.models import Position
-from turtle.repositories.analytics import OhlcvAnalyticsRepository
+from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.trading.models import Signal
 
 import pandas as pd

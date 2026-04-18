@@ -20,7 +20,7 @@ in StrategyRunnerService and use instance variable instead.
 - **Benefits**: Cleaner API, single strategy per service instance, better encapsulation
 
 ### Files Requiring Changes:
-- `turtle/services/strategy_runner_service.py` (main refactor)
+- `turtle/service/strategy_runner_service.py` (main refactor)
 - `scripts/strategy_runner.py` (parameter rename and initialization)
 - `app.py` (fix existing bug and update usage)
 - `main.py` (update if needed)

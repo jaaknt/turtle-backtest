@@ -1,6 +1,6 @@
 import logging
-from turtle.repositories.tables import company_table
-from turtle.schemas import Company
+from turtle.repository.tables import company_table
+from turtle.schema import Company
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession

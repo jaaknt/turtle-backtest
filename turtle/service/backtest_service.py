@@ -3,7 +3,7 @@ from datetime import date, datetime
 from turtle.backtest.benchmark_utils import calculate_benchmark_list
 from turtle.backtest.models import FutureTrade
 from turtle.backtest.processor import SignalProcessor
-from turtle.services.signal_service import SignalService
+from turtle.service.signal_service import SignalService
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timedelta
 from turtle.common.enums import TimeFrameUnit
-from turtle.repositories.analytics import OhlcvAnalyticsRepository
+from turtle.repository.analytics import OhlcvAnalyticsRepository
 
 import pandas as pd
 from pandas_ta.overlap import ema as ta_ema

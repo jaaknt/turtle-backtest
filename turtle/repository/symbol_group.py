@@ -1,6 +1,6 @@
 import logging
-from turtle.repositories.models import SymbolGroup
-from turtle.repositories.tables import ticker_group_table
+from turtle.repository.models import SymbolGroup
+from turtle.repository.tables import ticker_group_table
 
 from sqlalchemy import Engine, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert

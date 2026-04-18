@@ -77,7 +77,7 @@ def get_buy_signals(self, start_date: datetime, end_date: datetime, trading_stra
 ```
 
 ### Updated Files:
-- **`/turtle/services/strategy_runner.py`**: Refactored both methods to accept TradingStrategy parameter
+- **`/turtle/service/strategy_runner.py`**: Refactored both methods to accept TradingStrategy parameter
 - **`/app.py`**: Updated to pass `strategy_runner.darvas_box_strategy` as parameter
 - **`/main.py`**: Updated commented method calls for future compatibility 
 - **`/examples/symbol_group.ipynb`**: Updated to use `StrategyRunnerService` instead of `DataUpdateService` and new API

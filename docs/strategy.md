@@ -49,7 +49,7 @@ The framework composes three independent strategy types into a complete trading 
 | Tight breakout | `mars` | `breakout_quality` | `profit_loss` |
 | Baseline / benchmark | any | any | `buy_and_hold` |
 
-All strategy names used by CLI scripts (`--trading-strategy`, `--ranking-strategy`, `--exit-strategy`) are registered in `turtle/factories.py`.
+All strategy names used by CLI scripts (`--trading-strategy`, `--ranking-strategy`, `--exit-strategy`) are registered in `turtle/factory.py`.
 
 ---
 

@@ -52,7 +52,7 @@ The `SignalService` provides a clean interface for executing trading strategies 
 **Usage:**
 ```python
 from turtle.trading.darvas_box import DarvasBoxStrategy
-from turtle.repositories.analytics import OhlcvAnalyticsRepository
+from turtle.repository.analytics import OhlcvAnalyticsRepository
 
 bars_history = OhlcvAnalyticsRepository(engine)
 strategy = DarvasBoxStrategy(bars_history, time_frame_unit=TimeFrameUnit.DAY)
@@ -96,7 +96,7 @@ The `BacktestService` orchestrates complete signal-to-exit backtesting by combin
 ```python
 from turtle.trading.darvas_box import DarvasBoxStrategy
 from turtle.exit.atr import ATRExitStrategy
-from turtle.repositories.analytics import OhlcvAnalyticsRepository
+from turtle.repository.analytics import OhlcvAnalyticsRepository
 
 bars_history = OhlcvAnalyticsRepository(engine)
 strategy = DarvasBoxStrategy(bars_history)
@@ -254,10 +254,10 @@ Choose the appropriate service based on your analysis needs:
 
 ## Strategy Instantiation
 
-When instantiating strategies from CLI string names (e.g. `--trading-strategy darvas_box`), use the factory functions in `turtle/factories.py` — they own the canonical name → class mapping:
+When instantiating strategies from CLI string names (e.g. `--trading-strategy darvas_box`), use the factory functions in `turtle/factory.py` — they own the canonical name → class mapping:
 
 ```python
-from turtle.factories import get_trading_strategy, get_exit_strategy, get_ranking_strategy
+from turtle.factory import get_trading_strategy, get_exit_strategy, get_ranking_strategy
 
 ranking_strategy = get_ranking_strategy("momentum")
 exit_strategy = get_exit_strategy("atr", bars_history)

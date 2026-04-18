@@ -1,14 +1,14 @@
-"""Tests for turtle/repositories/eodhd.py async repository classes."""
+"""Tests for turtle/repository/eodhd.py async repository classes."""
 
 from datetime import date
-from turtle.repositories.eodhd import (
+from turtle.repository.eodhd import (
     CompanyRepository,
     DailyBarsRepository,
     ExchangeRepository,
     TickerQueryRepository,
     TickerRepository,
 )
-from turtle.schemas import Company, DailyBars, Exchange, Ticker
+from turtle.schema import Company, DailyBars, Exchange, Ticker
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

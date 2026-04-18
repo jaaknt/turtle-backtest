@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Sequence
-from turtle.repositories.tables import ticker_group_table, ticker_table
-from turtle.schemas import Ticker
+from turtle.repository.tables import ticker_group_table, ticker_table
+from turtle.schema import Ticker
 
 from sqlalchemy import Engine, and_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert

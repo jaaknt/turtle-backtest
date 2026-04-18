@@ -1,6 +1,6 @@
 import logging
-from turtle.repositories.tables import exchange_table
-from turtle.schemas import Exchange
+from turtle.repository.tables import exchange_table
+from turtle.schema import Exchange
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession

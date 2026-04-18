@@ -56,7 +56,7 @@ After analyzing the existing codebase, I understand the following structure:
    - ~~`TestSummary`: Aggregate results across all signals~~ (removed)
 
 #### Phase 2: Create Service Layer
-4. **Create `/turtle/services/strategy_performance_service.py`** - Service orchestrating strategy testing
+4. **Create `/turtle/service/strategy_performance_service.py`** - Service orchestrating strategy testing
    - Class: `StrategyPerformanceService`
    - Parameters:
      - `strategy_class`: Strategy class to test
