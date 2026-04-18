@@ -93,58 +93,38 @@ class MomentumStrategy(TradingStrategy):
             pl.col("macd").ewm_mean(span=9, adjust=False).alias("macd_signal"),
         )
 
-    def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
-        """
-        Get trading signals for a ticker within a date range.
-
-        Args:
-            ticker: The stock symbol to analyze
-            start_date: The start date of the analysis period
-            end_date: The end date of the analysis period
-
-        Returns:
-            List[Signal]: List of Signal objects for each trading signal
-        """
-        if not self.collect_data(ticker, start_date, end_date):
-            rows = self.pl_df.shape[0] if self.use_polars else self.df.shape[0]
-            logger.debug(f"{ticker} - not enough data, rows: {rows}")
+    def _get_polars_signals(self, ticker: str, start_date: date) -> list[Signal]:
+        self.calculate_indicators_pl()
+        filtered = self.pl_df.filter(pl.col("date") >= start_date)
+        if filtered.is_empty():
+            logger.debug(f"{ticker} - no data after date filtering")
             return []
 
-        if self.use_polars:
-            self.calculate_indicators_pl()
-            filtered = self.pl_df.filter(pl.col("date") >= start_date)
-            if filtered.is_empty():
-                logger.debug(f"{ticker} - no data after date filtering")
-                return []
+        buy_mask = (
+            (pl.col("close") >= pl.col("max_close_20"))
+            & (pl.col("close") >= pl.col("ema_10"))
+            & (pl.col("close") >= pl.col("ema_20"))
+            & (pl.col("ema_10") >= pl.col("ema_20"))
+            & (pl.col("close") >= pl.col("ema_50"))
+            & (pl.col("volume") >= pl.col("ema_volume_10") * 1.10)
+            & (pl.col("macd") > pl.col("macd_signal"))
+            & ((pl.col("close") - pl.col("open")) / pl.col("close") >= 0.008)
+            & ((pl.col("close") - pl.col("close_100_days_ago")) / pl.col("close_100_days_ago") >= 0.30)
+            & ((pl.col("max_close_10") - pl.col("min_close_10")) / pl.col("close") <= 0.10)
+        )
+        if self.time_frame_unit == TimeFrameUnit.DAY:
+            buy_mask = buy_mask & (pl.col("close") >= pl.col("ema_200")) & (pl.col("ema_50") >= pl.col("ema_200"))
 
-            buy_mask = (
-                (pl.col("close") >= pl.col("max_close_20"))
-                & (pl.col("close") >= pl.col("ema_10"))
-                & (pl.col("close") >= pl.col("ema_20"))
-                & (pl.col("ema_10") >= pl.col("ema_20"))
-                & (pl.col("close") >= pl.col("ema_50"))
-                & (pl.col("volume") >= pl.col("ema_volume_10") * 1.10)
-                & (pl.col("macd") > pl.col("macd_signal"))
-                & ((pl.col("close") - pl.col("open")) / pl.col("close") >= 0.008)
-                & ((pl.col("close") - pl.col("close_100_days_ago")) / pl.col("close_100_days_ago") >= 0.30)
-                & ((pl.col("max_close_10") - pl.col("min_close_10")) / pl.col("close") <= 0.10)
-            )
-            if self.time_frame_unit == TimeFrameUnit.DAY:
-                buy_mask = buy_mask & (pl.col("close") >= pl.col("ema_200")) & (pl.col("ema_50") >= pl.col("ema_200"))
+        signal_dates = filtered.filter(buy_mask)["date"].to_list()
+        return [Signal(ticker=ticker, date=d, ranking=self.ranking_strategy.ranking(self.pl_df, date=d)) for d in signal_dates]
 
-            signal_dates = filtered.filter(buy_mask)["date"].to_list()
-            return [Signal(ticker=ticker, date=d, ranking=self.ranking_strategy.ranking(self.pl_df, date=d)) for d in signal_dates]
-
-        # pandas path
+    def _get_pandas_signals(self, ticker: str, start_date: date) -> list[Signal]:
         self.calculate_indicators()
-
-        # Filter data to target date range
         filtered_df = self.df[self.df["date"] >= start_date].copy()
         if filtered_df.empty:
             logger.debug(f"{ticker} - no data after date filtering")
             return []
 
-        # Vectorized buy signal calculation - much faster than iterrows()
         buy_signals = (
             (filtered_df["close"] >= filtered_df["max_close_20"])
             & (filtered_df["close"] >= filtered_df["ema_10"])
@@ -157,14 +137,11 @@ class MomentumStrategy(TradingStrategy):
             & ((filtered_df["close"] - filtered_df["close_100_days_ago"]) / filtered_df["close_100_days_ago"] >= 0.30)
             & ((filtered_df["max_close_10"] - filtered_df["min_close_10"]) / filtered_df["close"] <= 0.10)
         )
-
-        # Add EMA200 conditions only for daily timeframe
         if self.time_frame_unit == TimeFrameUnit.DAY:
             buy_signals = buy_signals & (
                 (filtered_df["close"] >= filtered_df["ema_200"]) & (filtered_df["ema_50"] >= filtered_df["ema_200"])
             )
 
-        # print all values from start_date to end_date where buy_signals is False
         for _, row in filtered_df[~buy_signals].iterrows():
             logger.debug(f"{ticker} - no buy signal on {row['date']}")
             logger.debug(f"  close: {row['close']} max_close_20: {row['max_close_20']} ema_10: {row['ema_10']} ema_20: {row['ema_20']}")
@@ -183,11 +160,28 @@ class MomentumStrategy(TradingStrategy):
                 f"(max_close_10: {row['max_close_10']} min_close_10: {row['min_close_10']})"
             )
 
-        # Get the dates where buy signals occur
         signal_dates = filtered_df[buy_signals]["date"].tolist()
-
-        # Return list of Signal objects
         return [
             Signal(ticker=ticker, date=signal_date, ranking=self.ranking_strategy.ranking(self.df, date=signal_date))
             for signal_date in signal_dates
         ]
+
+    def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
+        """
+        Get trading signals for a ticker within a date range.
+
+        Args:
+            ticker: The stock symbol to analyze
+            start_date: The start date of the analysis period
+            end_date: The end date of the analysis period
+
+        Returns:
+            List[Signal]: List of Signal objects for each trading signal
+        """
+        if not self.collect_data(ticker, start_date, end_date):
+            rows = self.pl_df.shape[0] if self.use_polars else self.df.shape[0]
+            logger.debug(f"{ticker} - not enough data, rows: {rows}")
+            return []
+        if self.use_polars:
+            return self._get_polars_signals(ticker, start_date)
+        return self._get_pandas_signals(ticker, start_date)
