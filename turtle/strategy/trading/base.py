@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from datetime import date
+from datetime import date, timedelta
 from turtle.common.enums import TimeFrameUnit
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.strategy.ranking.base import RankingStrategy
@@ -57,7 +57,6 @@ class TradingStrategy(ABC):
         """
         pass
 
-    @abstractmethod
     def collect_data(self, ticker: str, start_date: date, end_date: date) -> bool:
         """
         Collect historical market data for analysis.
@@ -73,7 +72,13 @@ class TradingStrategy(ABC):
         Returns:
             bool: True if sufficient data was collected, False otherwise
         """
-        pass
+        self.df = self.bars_history.get_ticker_history(
+            ticker,
+            start_date - timedelta(days=self.warmup_period),
+            end_date,
+            self.time_frame_unit,
+        )
+        return not (self.df.empty or self.df.shape[0] < self.min_bars)
 
     @abstractmethod
     def calculate_indicators(self) -> None:
