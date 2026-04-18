@@ -1,8 +1,8 @@
 """EMA-based exit strategy."""
 
 from datetime import datetime, timedelta
-from turtle.backtest.models import Trade
 from turtle.common.enums import TimeFrameUnit
+from turtle.model import Trade
 
 import pandas as pd
 from pandas_ta.overlap import ema as ta_ema

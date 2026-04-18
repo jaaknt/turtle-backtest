@@ -1,7 +1,7 @@
 """Tests for MACDExitStrategy."""
 
 from datetime import datetime
-from turtle.backtest.models import Trade
+from turtle.model import Trade
 from turtle.strategy.exit import MACDExitStrategy
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from unittest.mock import Mock

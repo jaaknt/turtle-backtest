@@ -3,14 +3,13 @@
 import logging
 import warnings
 from datetime import date, datetime
+from turtle.model import PortfolioState
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 
 import matplotlib
 import numpy as np
 import pandas as pd
 import quantstats as qs  # type: ignore[import-untyped]
-
-from .models import PortfolioState
 
 # Suppress font warnings
 warnings.filterwarnings("ignore", message=".*findfont.*")

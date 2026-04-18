@@ -1,11 +1,11 @@
 """Tests for portfolio backtesting functionality."""
 
 from datetime import datetime
-from turtle.backtest.models import Benchmark, FutureTrade, Trade
+from turtle.model import Benchmark, FutureTrade, Trade
 from turtle.portfolio.manager import PortfolioManager
-from turtle.portfolio.models import PortfolioState, Position
+from turtle.model import PortfolioState, Position
 from turtle.portfolio.selector import PortfolioSignalSelector
-from turtle.strategy.trading.models import Signal
+from turtle.model import Signal
 
 import pytest
 
@@ -33,7 +33,7 @@ class TestPortfolioModels:
         """Test position price update calculations."""
         entry_date = datetime(2024, 1, 1)
 
-        from turtle.backtest.models import Trade
+        from turtle.model import Trade
         entry_trade = Trade(ticker="AAPL", date=entry_date, price=100.0, reason="signal")
         open_exit_trade = Trade(ticker="AAPL", date=entry_date, price=100.0, reason="open")
 
@@ -139,7 +139,7 @@ class TestPortfolioManager:
         manager.record_daily_snapshot(start_date)
 
         # Create trade entry
-        from turtle.backtest.models import Trade
+        from turtle.model import Trade
         trade = Trade(ticker="AAPL", date=datetime(2024, 1, 1), price=100.0, reason="signal")
         shares = manager.calculate_position_size(trade)
 
@@ -159,7 +159,7 @@ class TestPortfolioManager:
         # Create initial snapshot
         manager.record_daily_snapshot(start_date)
 
-        from turtle.backtest.models import Trade
+        from turtle.model import Trade
         entry = Trade(ticker="AAPL", date=datetime(2024, 1, 2), price=100.0, reason="signal")
         exit_trade = Trade(ticker="AAPL", date=datetime(2024, 1, 10), price=110.0, reason="profit_target")
         position_size = manager.calculate_position_size(entry)
@@ -185,7 +185,7 @@ class TestPortfolioManager:
         # Create initial snapshot and open position
         manager.record_daily_snapshot(start_date)
 
-        from turtle.backtest.models import Trade
+        from turtle.model import Trade
         entry = Trade(ticker="AAPL", date=datetime(2024, 1, 2), price=100.0, reason="signal")
         exit_trade = Trade(ticker="AAPL", date=datetime(2024, 1, 10), price=110.0, reason="profit_target")
         position_size = manager.calculate_position_size(entry)

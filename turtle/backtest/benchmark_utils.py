@@ -2,8 +2,8 @@
 
 import logging
 from datetime import datetime
-from turtle.backtest.models import Benchmark
 from turtle.common.enums import TimeFrameUnit
+from turtle.model import Benchmark
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 
 import pandas as pd

@@ -1,8 +1,8 @@
 """Profit/Loss target exit strategy."""
 
 from datetime import datetime
-from turtle.backtest.models import Trade
 from turtle.common.enums import TimeFrameUnit
+from turtle.model import Trade
 
 import pandas as pd
 

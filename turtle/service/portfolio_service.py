@@ -4,9 +4,9 @@ import csv
 import logging
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from turtle.backtest.models import FutureTrade
 from turtle.backtest.processor import SignalProcessor
 from turtle.common.enums import TimeFrameUnit
+from turtle.model import FutureTrade, Signal
 from turtle.portfolio.analytics import PortfolioAnalytics
 from turtle.portfolio.manager import PortfolioManager
 from turtle.portfolio.selector import PortfolioSignalSelector
@@ -14,7 +14,6 @@ from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.strategy.exit.atr import safe_float_conversion
 from turtle.strategy.exit.base import ExitStrategy
 from turtle.strategy.trading.base import TradingStrategy
-from turtle.strategy.trading.models import Signal
 
 logger = logging.getLogger(__name__)
 

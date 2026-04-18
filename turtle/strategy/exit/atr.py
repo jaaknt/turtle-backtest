@@ -2,9 +2,9 @@
 
 import logging
 from datetime import datetime, timedelta
-from turtle.backtest.models import Trade
 from turtle.common.enums import TimeFrameUnit
 from turtle.common.pandas_utils import safe_float_conversion
+from turtle.model import Trade
 
 import pandas as pd
 from pandas_ta.volatility import atr as ta_atr

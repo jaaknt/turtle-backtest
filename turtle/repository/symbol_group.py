@@ -1,5 +1,5 @@
 import logging
-from turtle.repository.models import SymbolGroup
+from turtle.model import SymbolGroup
 from turtle.repository.tables import ticker_group_table
 
 from sqlalchemy import Engine, select

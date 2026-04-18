@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from turtle.backtest.models import Trade
+from turtle.model import Trade
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 
 import pandas as pd
