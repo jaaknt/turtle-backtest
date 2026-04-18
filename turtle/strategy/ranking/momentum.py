@@ -4,6 +4,7 @@ from turtle.common.pandas_utils import safe_float_conversion
 from turtle.strategy.ranking.base import RankingStrategy
 
 import pandas as pd
+import polars as pl
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +200,7 @@ class MomentumRanking(RankingStrategy):
         # Ensure minimum score of 1 if current close is at least a 1-day high
         return max(1, score) if days_as_high > 0 else 0
 
-    def ranking(self, df: pd.DataFrame, date: datetime) -> int:
+    def ranking(self, df: pd.DataFrame | pl.DataFrame, date: datetime) -> int:
         """
         Calculate a combined ranking score for a signal based on price and EMA200 performance.
 
@@ -215,6 +216,7 @@ class MomentumRanking(RankingStrategy):
                  - Period high component: 0-20 (higher scores for longer period as highest close)
         """
 
+        df = self._to_pandas(df)
         self.filtered_df = df[df["date"] <= date].copy()
 
         # Get the closing price from the target date

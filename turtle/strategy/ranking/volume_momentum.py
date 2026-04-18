@@ -3,6 +3,7 @@ from datetime import datetime
 from turtle.strategy.ranking.base import RankingStrategy
 
 import pandas as pd
+import polars as pl
 
 logger = logging.getLogger(__name__)
 
@@ -314,7 +315,7 @@ class VolumeMomentumRanking(RankingStrategy):
 
         return min(100, score)
 
-    def ranking(self, df: pd.DataFrame, date: datetime) -> int:
+    def ranking(self, df: pd.DataFrame | pl.DataFrame, date: datetime) -> int:
         """
         Calculate a combined ranking score based on volume-weighted technical analysis.
 
@@ -331,6 +332,7 @@ class VolumeMomentumRanking(RankingStrategy):
 
         Quality gates applied for selectivity improvement.
         """
+        df = self._to_pandas(df)
         self.filtered_df = df[df["date"] <= date].copy()
 
         if len(self.filtered_df) < 130:  # Require more data for quality analysis
