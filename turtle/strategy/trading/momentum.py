@@ -64,6 +64,19 @@ class MomentumStrategy(TradingStrategy):
             self.df["date"] = pd.to_datetime(self.df["date"]).dt.date
 
     def calculate_indicators_pl(self) -> None:
+        """Calculate technical indicators using the polars DataFrame (self.pl_df).
+
+        Adds the following columns:
+        - max_close_20: 20-bar rolling maximum of close (breakout level)
+        - max_high_20: 20-bar rolling maximum of high
+        - max_close_10 / min_close_10: 10-bar rolling max/min of close.shift(1)
+          (excludes current bar; used for consolidation-range check)
+        - ema_10 / ema_20 / ema_50 / ema_200: exponential moving averages of close
+        - ema_volume_10: 10-bar EMA of volume (average volume baseline)
+        - close_100_days_ago: close price 70 bars back (~100 calendar days)
+        - macd: difference between 12-bar and 26-bar EMA of close
+        - macd_signal: 9-bar EMA of macd (signal line)
+        """
         self.pl_df = self.pl_df.with_columns(
             pl.col("close").rolling_max(20).alias("max_close_20"),
             pl.col("high").rolling_max(20).alias("max_high_20"),
