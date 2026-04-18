@@ -3,6 +3,7 @@ from datetime import datetime
 from turtle.strategy.ranking.base import RankingStrategy
 
 import pandas as pd
+import polars as pl
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +140,7 @@ class BreakoutQualityRanking(RankingStrategy):
             return 5
         return 0
 
-    def ranking(self, df: pd.DataFrame, date: datetime) -> int:
+    def ranking(self, df: pd.DataFrame | pl.DataFrame, date: datetime) -> int:
         """
         Calculate breakout quality ranking score (0-100).
 
@@ -153,6 +154,7 @@ class BreakoutQualityRanking(RankingStrategy):
         Returns:
             int: Score in range 0-100.
         """
+        df = self._to_pandas(df)
         filtered = df[df["date"] <= date]
         if filtered.empty:
             return 0

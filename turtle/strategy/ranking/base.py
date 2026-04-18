@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 
 import pandas as pd
+import polars as pl
 
 
 class RankingStrategy(ABC):
@@ -16,7 +17,7 @@ class RankingStrategy(ABC):
         self.use_polars = use_polars
 
     @abstractmethod
-    def ranking(self, df: pd.DataFrame, date: datetime) -> int:
+    def ranking(self, df: pd.DataFrame | pl.DataFrame, date: datetime) -> int:
         """
         Calculate a ranking score for the given signal.
 
@@ -27,3 +28,7 @@ class RankingStrategy(ABC):
             int: Ranking score where higher values indicate better-ranked stocks 1-100
         """
         pass
+
+    @staticmethod
+    def _to_pandas(df: pd.DataFrame | pl.DataFrame) -> pd.DataFrame:
+        return df.to_pandas() if isinstance(df, pl.DataFrame) else df
