@@ -98,9 +98,9 @@ For a guide on deploying to a Hetzner VPS (server sizing, PostgreSQL setup, syst
 ```
 scripts/               ← CLI entry points (argparse, asyncio.run)
 turtle/service/       ← Business logic orchestration
-turtle/trading/         ← Trading signal strategies
-turtle/exit/           ← Exit strategies
-turtle/ranking/        ← Signal ranking strategies
+turtle/strategy/trading/         ← Trading signal strategies
+turtle/strategy/exit/           ← Exit strategies
+turtle/strategy/ranking/        ← Signal ranking strategies
 turtle/portfolio/      ← Multi-position portfolio management
 turtle/backtest/       ← Backtesting engine
 turtle/repository/   ← Repository pattern (all SQL lives here)
@@ -108,12 +108,12 @@ turtle/data/           ← Domain model dataclasses
 turtle/client/        ← External API clients (async)
 turtle/config/         ← Configuration loading
 turtle/common/         ← Shared utilities (iso_date_type, safe_float_conversion)
-turtle/factory.py    ← Strategy factory functions (string → class mapping for CLI)
+turtle/strategy/factory.py    ← Strategy factory functions (string → class mapping for CLI)
 ```
 
 ### Key Design Patterns
 
-**Strategy Pattern** — All pluggable behaviours (signals, exits, rankings) implement a shared abstract base class. Services depend on the abstract type; concrete implementations are swapped at runtime. See `turtle/trading/base.py` and `turtle/trading/darvas_box.py`.
+**Strategy Pattern** — All pluggable behaviours (signals, exits, rankings) implement a shared abstract base class. Services depend on the abstract type; concrete implementations are swapped at runtime. See `turtle/strategy/trading/base.py` and `turtle/strategy/trading/darvas_box.py`.
 
 **Repository Pattern** — All database access is isolated in `turtle/repository/`. No SQL outside this layer. Sync `Engine`-based repos handle reads; async `AsyncSession`-based repos handle writes.
 
@@ -136,7 +136,7 @@ PostgreSQL via SQLAlchemy — sync `Engine` for read-heavy analytical queries, a
 
 ### Adding a New Strategy
 
-1. Create `turtle/trading/my_strategy.py` extending `TradingStrategy`
+1. Create `turtle/strategy/trading/my_strategy.py` extending `TradingStrategy`
 2. Implement `generate_signals(ticker, bars_data, **kwargs) -> list[Signal]`
-3. Register in `turtle/factory.py` (`get_trading_strategy` dict)
+3. Register in `turtle/strategy/factory.py` (`get_trading_strategy` dict)
 4. Add tests in `tests/test_my_strategy.py`

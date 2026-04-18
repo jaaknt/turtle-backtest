@@ -4,8 +4,8 @@ import logging
 from datetime import date, timedelta
 from turtle.common.enums import TimeFrameUnit
 from turtle.repository.analytics import OhlcvAnalyticsRepository
-from turtle.trading.base import TradingStrategy
-from turtle.trading.models import Signal
+from turtle.strategy.trading.base import TradingStrategy
+from turtle.strategy.trading.models import Signal
 
 logger = logging.getLogger(__name__)
 

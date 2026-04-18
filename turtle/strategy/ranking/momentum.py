@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from turtle.common.pandas_utils import safe_float_conversion
-from turtle.ranking.base import RankingStrategy
+from turtle.strategy.ranking.base import RankingStrategy
 
 import pandas as pd
 

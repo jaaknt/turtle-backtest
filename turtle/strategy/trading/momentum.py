@@ -1,8 +1,8 @@
 import logging
 from datetime import date, timedelta
 from turtle.common.enums import TimeFrameUnit
-from turtle.ranking.base import RankingStrategy
 from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.strategy.ranking.base import RankingStrategy
 
 import pandas as pd
 from pandas_ta.momentum import macd as ta_macd

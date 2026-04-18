@@ -1,5 +1,5 @@
 from datetime import datetime
-from turtle.ranking.breakout_quality import BreakoutQualityRanking
+from turtle.strategy.ranking.breakout_quality import BreakoutQualityRanking
 
 import pandas as pd
 
