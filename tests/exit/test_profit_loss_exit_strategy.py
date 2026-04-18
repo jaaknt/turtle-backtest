@@ -2,8 +2,8 @@
 
 from datetime import datetime
 from turtle.model import Trade
-from turtle.strategy.exit import ProfitLossExitStrategy
 from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.strategy.exit import ProfitLossExitStrategy
 from unittest.mock import Mock
 
 import pandas as pd
@@ -85,8 +85,8 @@ class TestProfitLossExitStrategy:
             {
                 "open": [100.0, 101.0, 102.0, 103.0, 104.0],
                 "close": [101.0, 102.0, 103.0, 104.0, 105.0],
-                "high":  [102.0, 103.0, 111.0, 112.0, 113.0],  # hits 110 on day 2
-                "low":   [99.0, 100.0, 101.0, 102.0, 103.0],
+                "high": [102.0, 103.0, 111.0, 112.0, 113.0],  # hits 110 on day 2
+                "low": [99.0, 100.0, 101.0, 102.0, 103.0],
             },
             index=dates,
         )
@@ -110,8 +110,8 @@ class TestProfitLossExitStrategy:
             {
                 "open": [100.0, 99.0, 98.0, 97.0, 96.0],
                 "close": [99.0, 98.0, 97.0, 96.0, 95.0],
-                "high":  [101.0, 100.0, 99.0, 98.0, 97.0],
-                "low":   [98.0, 97.0, 94.0, 93.0, 92.0],  # hits 95 on day 2
+                "high": [101.0, 100.0, 99.0, 98.0, 97.0],
+                "low": [98.0, 97.0, 94.0, 93.0, 92.0],  # hits 95 on day 2
             },
             index=dates,
         )
@@ -135,8 +135,8 @@ class TestProfitLossExitStrategy:
             {
                 "open": [100.0, 100.0, 100.0],
                 "close": [100.0, 100.0, 100.0],
-                "high":  [105.0, 111.0, 105.0],  # profit hit on day 1
-                "low":   [99.0, 94.0, 99.0],      # loss hit on day 1 too
+                "high": [105.0, 111.0, 105.0],  # profit hit on day 1
+                "low": [99.0, 94.0, 99.0],  # loss hit on day 1 too
             },
             index=dates,
         )
@@ -158,8 +158,8 @@ class TestProfitLossExitStrategy:
             {
                 "open": [100.0, 99.0, 98.0, 97.0, 96.0],
                 "close": [99.0, 98.0, 97.0, 112.0, 95.0],
-                "high":  [101.0, 100.0, 99.0, 115.0, 97.0],  # profit hit on day 3
-                "low":   [98.0, 97.0, 94.0, 96.0, 92.0],     # stop hit on day 2
+                "high": [101.0, 100.0, 99.0, 115.0, 97.0],  # profit hit on day 3
+                "low": [98.0, 97.0, 94.0, 96.0, 92.0],  # stop hit on day 2
             },
             index=dates,
         )
@@ -181,8 +181,8 @@ class TestProfitLossExitStrategy:
             {
                 "open": [100.0, 101.0, 102.0, 101.0, 100.0],
                 "close": [101.0, 102.0, 103.0, 102.0, 101.0],
-                "high":  [103.0, 104.0, 105.0, 104.0, 103.0],
-                "low":   [99.0, 100.0, 101.0, 100.0, 99.0],
+                "high": [103.0, 104.0, 105.0, 104.0, 103.0],
+                "low": [99.0, 100.0, 101.0, 100.0, 99.0],
             },
             index=dates,
         )

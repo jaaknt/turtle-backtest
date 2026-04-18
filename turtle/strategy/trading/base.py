@@ -78,7 +78,7 @@ class TradingStrategy(ABC):
         """
         fetch_start = start_date - timedelta(days=self.warmup_period)
         if self.use_polars:
-            self.pl_df = self.bars_history.get_bars_pl(ticker, fetch_start, end_date)
+            self.pl_df = self.bars_history.get_bars_pl(ticker, fetch_start, end_date, self.time_frame_unit)
             return not (self.pl_df.is_empty() or self.pl_df.shape[0] < self.min_bars)
         self.df = self.bars_history.get_ticker_history(ticker, fetch_start, end_date, self.time_frame_unit)
         return not (self.df.empty or self.df.shape[0] < self.min_bars)

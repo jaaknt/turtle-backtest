@@ -1,10 +1,9 @@
 from datetime import datetime
 from turtle.backtest.benchmark_utils import calculate_benchmark
-from turtle.model import FutureTrade, Trade
 from turtle.backtest.processor import SignalProcessor
 from turtle.common.enums import TimeFrameUnit
+from turtle.model import FutureTrade, Signal, Trade
 from turtle.strategy.exit import BuyAndHoldExitStrategy
-from turtle.model import Signal
 from typing import Any
 from unittest.mock import Mock
 
@@ -88,7 +87,6 @@ class TestSignalProcessor:
         assert processor.exit_strategy == exit_strategy
         assert processor.benchmark_tickers == ["SPY", "QQQ"]
         assert processor.time_frame_unit == TimeFrameUnit.DAY
-
 
     def test_run_without_ticker_data(self, mock_bars_history: Mock, exit_strategy: Mock, sample_signal: Signal) -> None:
         """Test that run() returns None when no ticker data is available."""

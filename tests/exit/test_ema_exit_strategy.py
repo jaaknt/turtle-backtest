@@ -2,8 +2,8 @@
 
 from datetime import datetime
 from turtle.model import Trade
-from turtle.strategy.exit import EMAExitStrategy
 from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.strategy.exit import EMAExitStrategy
 from unittest.mock import Mock
 
 import pandas as pd
@@ -83,7 +83,7 @@ class TestEMAExitStrategy:
         data = pd.DataFrame(
             {
                 "close": [105.0, 104.0, 98.0, 97.0, 96.0],
-                "ema":   [100.0, 101.0, 102.0, 103.0, 104.0],
+                "ema": [100.0, 101.0, 102.0, 103.0, 104.0],
             },
             index=dates,
         )
@@ -105,7 +105,7 @@ class TestEMAExitStrategy:
         data = pd.DataFrame(
             {
                 "close": [105.0, 106.0, 107.0, 108.0, 109.0],
-                "ema":   [100.0, 101.0, 102.0, 103.0, 104.0],
+                "ema": [100.0, 101.0, 102.0, 103.0, 104.0],
             },
             index=dates,
         )
@@ -127,7 +127,7 @@ class TestEMAExitStrategy:
         data = pd.DataFrame(
             {
                 "close": [95.0, 96.0, 97.0, 98.0, 99.0],
-                "ema":   [100.0, 101.0, 102.0, 103.0, 104.0],
+                "ema": [100.0, 101.0, 102.0, 103.0, 104.0],
             },
             index=dates,
         )

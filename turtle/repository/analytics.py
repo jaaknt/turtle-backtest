@@ -74,12 +74,36 @@ class OhlcvAnalyticsRepository:
             }
         )
 
-    def get_bars_pl(self, ticker: str, start_date: date, end_date: date) -> pl.DataFrame:
+    def get_bars_pl(
+        self,
+        ticker: str,
+        start_date: date,
+        end_date: date,
+        time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
+    ) -> pl.DataFrame:
         """Return OHLCV bars as a Polars DataFrame.
 
         Columns: date, open, high, low, close, adjusted_close, volume.
+        Supports DAY and WEEK resampling via time_frame_unit.
         Returns empty DataFrame if no data found.
         """
         stmt = self._build_stmt(ticker, start_date, end_date)
         with self._engine.connect() as conn:
-            return pl.read_database(query=stmt, connection=conn)
+            df = pl.read_database(query=stmt, connection=conn)
+        if df.is_empty() or time_frame_unit == TimeFrameUnit.DAY:
+            return df
+        if time_frame_unit != TimeFrameUnit.WEEK:
+            raise ValueError(f"Unsupported time_frame_unit: {time_frame_unit!r}")
+        return (
+            df.sort("date")
+            .group_by_dynamic("date", every="1w")
+            .agg(
+                pl.col("open").first(),
+                pl.col("high").max(),
+                pl.col("low").min(),
+                pl.col("close").last(),
+                pl.col("adjusted_close").last(),
+                pl.col("volume").sum(),
+            )
+            .sort("date")
+        )
