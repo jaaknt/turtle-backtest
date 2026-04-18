@@ -1,7 +1,7 @@
 """Tests for ATRExitStrategy."""
 
 from datetime import datetime
-from turtle.backtest.models import Trade
+from turtle.model import Trade
 from turtle.strategy.exit import ATRExitStrategy
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from unittest.mock import Mock

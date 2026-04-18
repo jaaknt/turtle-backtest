@@ -1,12 +1,11 @@
 from abc import ABC, abstractmethod
 from datetime import date, timedelta
 from turtle.common.enums import TimeFrameUnit
+from turtle.model import Signal
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.strategy.ranking.base import RankingStrategy
 
 import pandas as pd
-
-from .models import Signal
 
 
 class TradingStrategy(ABC):

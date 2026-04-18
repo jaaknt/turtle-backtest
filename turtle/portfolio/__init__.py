@@ -1,8 +1,9 @@
 """Portfolio backtesting module for turtle trading system."""
 
+from turtle.model import PortfolioState, Position
+
 from .analytics import PortfolioAnalytics
 from .manager import PortfolioManager
-from .models import PortfolioState, Position
 from .selector import PortfolioSignalSelector
 
 __all__ = [

@@ -1,6 +1,7 @@
 import logging
 from datetime import date
 from turtle.common.enums import TimeFrameUnit
+from turtle.model import Signal
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.strategy.ranking.base import RankingStrategy
 
@@ -10,7 +11,6 @@ from pandas_ta.momentum import macd as ta_macd
 from pandas_ta.overlap import ema as ta_ema
 
 from .base import TradingStrategy
-from .models import Signal
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +87,6 @@ class DarvasBoxStrategy(TradingStrategy):
             if following == following_count:
                 return True
         return True
-
-
 
     def calculate_indicators(self) -> None:
         """Calculate technical indicators for the strategy.

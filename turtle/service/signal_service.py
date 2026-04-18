@@ -2,6 +2,7 @@
 import logging
 from datetime import date
 from turtle.common.enums import TimeFrameUnit
+from turtle.model import Signal
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.repository.eodhd import TickerQueryRepository
 
@@ -10,7 +11,6 @@ from turtle.repository.eodhd import TickerQueryRepository
 # from turtle.strategy.trading.mars import MarsStrategy
 from turtle.strategy.trading.base import TradingStrategy
 from turtle.strategy.trading.market import MarketData
-from turtle.strategy.trading.models import Signal
 
 from sqlalchemy import Engine
 

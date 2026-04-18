@@ -1,6 +1,7 @@
 import logging
 from datetime import date
 from turtle.common.enums import TimeFrameUnit
+from turtle.model import Signal
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.strategy.ranking.base import RankingStrategy
 
@@ -10,7 +11,6 @@ from pandas_ta.overlap import ema as ta_ema
 from pandas_ta.overlap import sma as ta_sma
 
 from .base import TradingStrategy
-from .models import Signal
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +29,6 @@ class MarsStrategy(TradingStrategy):
         super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars)
 
         self.df_orig = pd.DataFrame()
-
-
 
     def calculate_indicators(self) -> None:
         # calculate min and max over last 4 period open and close (excluding current period)
