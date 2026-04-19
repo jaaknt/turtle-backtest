@@ -1,7 +1,7 @@
 from datetime import datetime
 from turtle.strategy.ranking.breakout_quality import BreakoutQualityRanking
 
-import pandas as pd
+import polars as pl
 
 
 def _base_row(**overrides) -> dict:
@@ -26,8 +26,8 @@ def _base_row(**overrides) -> dict:
     return row
 
 
-def _df_with_row(**overrides) -> pd.DataFrame:
-    return pd.DataFrame([_base_row(**overrides)])
+def _df_with_row(**overrides) -> pl.DataFrame:
+    return pl.DataFrame([_base_row(**overrides)])
 
 
 # ---------------------------------------------------------------------------
@@ -47,25 +47,25 @@ def test_instantiation() -> None:
 
 def test_volume_conviction_max() -> None:
     ranking = BreakoutQualityRanking()
-    row = pd.Series(_base_row(volume=3_100_000, ema_volume_10=1_000_000))
+    row = _base_row(volume=3_100_000, ema_volume_10=1_000_000)
     assert ranking._volume_conviction(row) == 30
 
 
 def test_volume_conviction_mid() -> None:
     ranking = BreakoutQualityRanking()
-    row = pd.Series(_base_row(volume=1_600_000, ema_volume_10=1_000_000))
+    row = _base_row(volume=1_600_000, ema_volume_10=1_000_000)
     assert ranking._volume_conviction(row) == 10
 
 
 def test_volume_conviction_zero_below_threshold() -> None:
     ranking = BreakoutQualityRanking()
-    row = pd.Series(_base_row(volume=1_100_000, ema_volume_10=1_000_000))
+    row = _base_row(volume=1_100_000, ema_volume_10=1_000_000)
     assert ranking._volume_conviction(row) == 0
 
 
 def test_volume_conviction_missing_data() -> None:
     ranking = BreakoutQualityRanking()
-    row = pd.Series(_base_row(volume=float("nan"), ema_volume_10=1_000_000))
+    row = _base_row(volume=None, ema_volume_10=1_000_000)
     assert ranking._volume_conviction(row) == 0
 
 
@@ -76,25 +76,25 @@ def test_volume_conviction_missing_data() -> None:
 
 def test_breakout_extension_max() -> None:
     ranking = BreakoutQualityRanking()
-    row = pd.Series(_base_row(close=115.0, max_close_20=100.0))  # 15% extension
+    row = _base_row(close=115.0, max_close_20=100.0)  # 15% extension
     assert ranking._breakout_extension(row) == 25
 
 
 def test_breakout_extension_mid() -> None:
     ranking = BreakoutQualityRanking()
-    row = pd.Series(_base_row(close=101.5, max_close_20=100.0))  # 1.5% extension
+    row = _base_row(close=101.5, max_close_20=100.0)  # 1.5% extension
     assert ranking._breakout_extension(row) == 10
 
 
 def test_breakout_extension_zero_at_equal() -> None:
     ranking = BreakoutQualityRanking()
-    row = pd.Series(_base_row(close=100.0, max_close_20=100.0))  # 0% extension
+    row = _base_row(close=100.0, max_close_20=100.0)  # 0% extension
     assert ranking._breakout_extension(row) == 0
 
 
 def test_breakout_extension_missing_data() -> None:
     ranking = BreakoutQualityRanking()
-    row = pd.Series(_base_row(close=float("nan"), max_close_20=100.0))
+    row = _base_row(close=None, max_close_20=100.0)
     assert ranking._breakout_extension(row) == 0
 
 
@@ -106,7 +106,7 @@ def test_breakout_extension_missing_data() -> None:
 def test_trend_health_full_alignment_sweet_spot() -> None:
     ranking = BreakoutQualityRanking()
     # EMA stack fully aligned, close ~17.5% above EMA200 → max distance pts
-    row = pd.Series(_base_row(close=117.5, ema_10=115.0, ema_20=112.0, ema_50=108.0, ema_200=100.0))
+    row = _base_row(close=117.5, ema_10=115.0, ema_20=112.0, ema_50=108.0, ema_200=100.0)
     score = ranking._trend_health(row)
     assert score == 25  # 15 alignment + 10 distance
 
@@ -114,7 +114,7 @@ def test_trend_health_full_alignment_sweet_spot() -> None:
 def test_trend_health_partial_alignment() -> None:
     ranking = BreakoutQualityRanking()
     # Only ema50 > ema200, not full stack; close in sweet spot
-    row = pd.Series(_base_row(close=117.5, ema_10=108.0, ema_20=110.0, ema_50=108.0, ema_200=100.0))
+    row = _base_row(close=117.5, ema_10=108.0, ema_20=110.0, ema_50=108.0, ema_200=100.0)
     score = ranking._trend_health(row)
     assert score < 25
     assert score > 0
@@ -123,7 +123,7 @@ def test_trend_health_partial_alignment() -> None:
 def test_trend_health_overextended() -> None:
     ranking = BreakoutQualityRanking()
     # Close 40% above EMA200 → overextended, 0 distance pts
-    row = pd.Series(_base_row(close=140.0, ema_10=138.0, ema_20=135.0, ema_50=130.0, ema_200=100.0))
+    row = _base_row(close=140.0, ema_10=138.0, ema_20=135.0, ema_50=130.0, ema_200=100.0)
     score = ranking._trend_health(row)
     # Gets alignment pts but 0 distance pts
     assert score == 15  # 15 alignment + 0 distance
@@ -131,7 +131,7 @@ def test_trend_health_overextended() -> None:
 
 def test_trend_health_missing_ema200() -> None:
     ranking = BreakoutQualityRanking()
-    row = pd.Series(_base_row(ema_200=float("nan")))
+    row = _base_row(ema_200=None)
     assert ranking._trend_health(row) == 0
 
 
@@ -142,25 +142,25 @@ def test_trend_health_missing_ema200() -> None:
 
 def test_macd_conviction_max() -> None:
     ranking = BreakoutQualityRanking()
-    row = pd.Series(_base_row(close=100.0, macd=1.0, macd_signal=0.0))  # gap = 1.0%
+    row = _base_row(close=100.0, macd=1.0, macd_signal=0.0)  # gap = 1.0%
     assert ranking._macd_conviction(row) == 20
 
 
 def test_macd_conviction_mid() -> None:
     ranking = BreakoutQualityRanking()
-    row = pd.Series(_base_row(close=100.0, macd=0.25, macd_signal=0.0))  # gap = 0.25%
+    row = _base_row(close=100.0, macd=0.25, macd_signal=0.0)  # gap = 0.25%
     assert ranking._macd_conviction(row) == 10
 
 
 def test_macd_conviction_zero_negative_gap() -> None:
     ranking = BreakoutQualityRanking()
-    row = pd.Series(_base_row(close=100.0, macd=0.05, macd_signal=0.10))  # negative gap
+    row = _base_row(close=100.0, macd=0.05, macd_signal=0.10)  # negative gap
     assert ranking._macd_conviction(row) == 0
 
 
 def test_macd_conviction_missing_data() -> None:
     ranking = BreakoutQualityRanking()
-    row = pd.Series(_base_row(macd=float("nan")))
+    row = _base_row(macd=None)
     assert ranking._macd_conviction(row) == 0
 
 
@@ -185,7 +185,7 @@ def test_ranking_in_valid_range() -> None:
 
 def test_ranking_empty_df_returns_zero() -> None:
     ranking = BreakoutQualityRanking()
-    df = pd.DataFrame(columns=list(_base_row().keys()))
+    df = pl.DataFrame([_base_row()]).clear()
     score = ranking.ranking(df, datetime(2024, 6, 1))
     assert score == 0
 
@@ -195,7 +195,7 @@ def test_ranking_date_filter() -> None:
     ranking = BreakoutQualityRanking()
     # Build a single-row df anchored to 2024-06-01 and get its expected score
     signal_row = _base_row(date=datetime(2024, 6, 1))
-    expected_score = ranking.ranking(pd.DataFrame([signal_row]), datetime(2024, 6, 1))
+    expected_score = ranking.ranking(pl.DataFrame([signal_row]), datetime(2024, 6, 1))
 
     # Now add a future row with very different values that would change the score
     rows = [
@@ -203,7 +203,7 @@ def test_ranking_date_filter() -> None:
         signal_row,
         _base_row(date=datetime(2024, 6, 2), volume=9_999_999, ema_volume_10=1_000, close=500.0, max_close_20=1.0),
     ]
-    df = pd.DataFrame(rows)
+    df = pl.DataFrame(rows)
     # Score on 2024-06-01 must equal the score computed without the future row
     assert ranking.ranking(df, datetime(2024, 6, 1)) == expected_score
 
@@ -223,7 +223,7 @@ def test_ranking_strong_signal_scores_high() -> None:
         macd=1.0,
         macd_signal=0.0,  # gap=0.85% → 20 pts
     )
-    df = pd.DataFrame([row])
+    df = pl.DataFrame([row])
     score = ranking.ranking(df, datetime(2024, 6, 1))
     assert score >= 90
 
@@ -243,6 +243,6 @@ def test_ranking_weak_signal_scores_low() -> None:
         macd=0.05,
         macd_signal=0.03,  # tiny gap → 0 pts
     )
-    df = pd.DataFrame([row])
+    df = pl.DataFrame([row])
     score = ranking.ranking(df, datetime(2024, 6, 1))
     assert score <= 10
