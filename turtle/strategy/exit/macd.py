@@ -4,8 +4,7 @@ from datetime import datetime, timedelta
 from turtle.common.enums import TimeFrameUnit
 from turtle.model import Trade
 
-import pandas as pd
-from pandas_ta.momentum import macd as ta_macd
+import polars as pl
 
 from .base import ExitStrategy
 
@@ -25,34 +24,33 @@ class MACDExitStrategy(ExitStrategy):
         self.fastperiod = fastperiod
         self.slowperiod = slowperiod
         self.signalperiod = signalperiod
-        # print(f"MACDExitStrategy with fastperiod {fastperiod}, slowperiod {slowperiod}, signalperiod {signalperiod}")
 
-    def calculate_indicators(self) -> pd.DataFrame:
-        df = self.bars_history.get_ticker_history(
+    def calculate_indicators(self) -> pl.DataFrame:
+        df = self.bars_history.get_bars_pl(
             self.ticker, self.start_date - timedelta(days=40), self.end_date, time_frame_unit=TimeFrameUnit.DAY
         )
-        macd_df = ta_macd(df["close"], fast=self.fastperiod, slow=self.slowperiod, signal=self.signalperiod)
-        if macd_df is None:
-            df["macd_line"] = float("nan")
-            df["macd_signal"] = float("nan")
-        else:
-            df["macd_line"] = macd_df[f"MACD_{self.fastperiod}_{self.slowperiod}_{self.signalperiod}"]
-            df["macd_signal"] = macd_df[f"MACDs_{self.fastperiod}_{self.slowperiod}_{self.signalperiod}"]
-        # filter index >= start_date
-        self.df = df[df.index >= self.start_date].copy()
-        return self.df
+        return (
+            df.with_columns(
+                (
+                    pl.col("close").ewm_mean(span=self.fastperiod, adjust=False)
+                    - pl.col("close").ewm_mean(span=self.slowperiod, adjust=False)
+                ).alias("macd_line")
+            )
+            .with_columns(pl.col("macd_line").ewm_mean(span=self.signalperiod, adjust=False).alias("macd_signal"))
+            .filter(pl.col("date") >= self.start_date.date())
+        )
 
-    def calculate_exit(self, data: pd.DataFrame) -> Trade:
+    def calculate_exit(self, data: pl.DataFrame) -> Trade:
         """Calculate return with MACD exit logic."""
-        if data.empty:
+        if data.is_empty():
             raise ValueError("No valid data available for exit calculation.")
 
-        # Find first day where MACD is below signal line
-        below_signal = data[data["macd_line"] < data["macd_signal"]]
+        below_signal = data.filter(pl.col("macd_line") < pl.col("macd_signal"))
+        if not below_signal.is_empty():
+            row = below_signal.row(0, named=True)
+            d = row["date"]
+            return Trade(ticker=self.ticker, date=datetime(d.year, d.month, d.day), price=row["close"], reason="below_signal")
 
-        if not below_signal.empty:
-            # Exit on first MACD below signal line
-            return Trade(ticker=self.ticker, date=below_signal.index[0], price=below_signal.iloc[0]["close"], reason="below_signal")
-        else:
-            last_record = data.iloc[-1]
-            return Trade(ticker=self.ticker, date=data.index[-1], price=last_record["close"], reason="period_end")
+        row = data.row(-1, named=True)
+        d = row["date"]
+        return Trade(ticker=self.ticker, date=datetime(d.year, d.month, d.day), price=row["close"], reason="period_end")

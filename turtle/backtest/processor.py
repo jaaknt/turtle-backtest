@@ -9,6 +9,7 @@ from turtle.strategy.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy
 from turtle.strategy.exit.atr import ATRExitStrategy
 
 import pandas as pd
+import polars as pl
 
 from .benchmark_utils import calculate_benchmark_list
 
@@ -198,8 +199,8 @@ class SignalProcessor:
         else:
             self.exit_strategy.initialize(signal.ticker, entry_date, effective_end_date)
 
-        df = self.exit_strategy.calculate_indicators()
-        trade: Trade = self.exit_strategy.calculate_exit(data=df)
+        indicators = self.exit_strategy.calculate_indicators()
+        trade: Trade = self.exit_strategy.calculate_exit(data=indicators)
 
         if trade is None:
             raise ValueError(f"Exit strategy failed to calculate return for {signal.ticker}")
@@ -295,13 +296,13 @@ class SignalProcessor:
                 # Calculate indicators and check exit conditions
                 df_with_indicators = self.exit_strategy.calculate_indicators()
 
-                if df_with_indicators.empty:
+                if df_with_indicators.is_empty():
                     continue
 
                 # Check if we should exit on current date
-                current_row = df_with_indicators[df_with_indicators.index == pd.Timestamp(current_date)]
+                current_row = df_with_indicators.filter(pl.col("date") == current_date.date())
 
-                if not current_row.empty:
+                if not current_row.is_empty():
                     # Use exit strategy to determine if we should exit
                     exit_trade = self.exit_strategy.calculate_exit(df_with_indicators)
 

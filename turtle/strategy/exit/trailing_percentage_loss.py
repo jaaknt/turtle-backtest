@@ -3,10 +3,9 @@
 import logging
 from datetime import datetime
 from turtle.common.enums import TimeFrameUnit
-from turtle.common.pandas_utils import safe_float_conversion
 from turtle.model import Trade
 
-import pandas as pd
+import polars as pl
 
 from .base import ExitStrategy
 
@@ -29,42 +28,32 @@ class TrailingPercentageLossExitStrategy(ExitStrategy):
         super().initialize(ticker, start_date, end_date)
         self.percentage_loss = percentage_loss
 
-    def calculate_indicators(self) -> pd.DataFrame:
-        self.df = self.bars_history.get_ticker_history(self.ticker, self.start_date, self.end_date, time_frame_unit=TimeFrameUnit.DAY)
-        return self.df
+    def calculate_indicators(self) -> pl.DataFrame:
+        return self.bars_history.get_bars_pl(self.ticker, self.start_date, self.end_date, time_frame_unit=TimeFrameUnit.DAY)
 
-    def calculate_exit(self, data: pd.DataFrame) -> Trade:
+    def calculate_exit(self, data: pl.DataFrame) -> Trade:
         """Calculate exit using a trailing stop set as a percentage below the running max close."""
-        if data.empty:
+        if data.is_empty():
             raise ValueError("No valid data available for exit calculation.")
 
-        df = data.copy()
         multiplier = 1 - self.percentage_loss / 100
-
-        entry_price = safe_float_conversion(df.iloc[0]["open"])
+        entry_price: float = data["open"][0]
         initial_stop = entry_price * multiplier
 
-        # Trailing stop = running max close * multiplier, but never below initial stop
-        df["cummax_close"] = df["close"].cummax()
-        df["trailing_stop"] = (df["cummax_close"] * multiplier).clip(lower=initial_stop)
+        df = data.with_columns(pl.col("close").cum_max().alias("cummax_close")).with_columns(
+            (pl.col("cummax_close") * multiplier).clip(lower_bound=initial_stop).alias("trailing_stop")
+        )
 
-        exit_mask: pd.Series[bool] = df["close"] < df["trailing_stop"]
+        exit_rows = df.filter(pl.col("close") < pl.col("trailing_stop"))
+        if not exit_rows.is_empty():
+            row = exit_rows.row(0, named=True)
+            d = row["date"]
+            exit_date = datetime(d.year, d.month, d.day)
+            logger.debug(f"Trailing stop triggered on {exit_date}: Close {row['close']:.2f} < Stop {row['trailing_stop']:.2f}")
+            return Trade(ticker=self.ticker, date=exit_date, price=row["close"], reason="trailing_percentage_stop")
 
-        if exit_mask.any():
-            exit_idx = exit_mask.idxmax()
-            exit_position = df.index.get_loc(exit_idx)
-            close_price = safe_float_conversion(df.iloc[exit_position]["close"])
-            trailing_stop = safe_float_conversion(df.iloc[exit_position]["trailing_stop"])
-
-            logger.debug(f"Trailing stop triggered on {exit_idx}: Close {close_price:.2f} < Stop {trailing_stop:.2f}")
-
-            trade_date = pd.to_datetime(exit_idx).to_pydatetime() if not isinstance(exit_idx, datetime) else exit_idx
-            return Trade(ticker=self.ticker, date=trade_date, price=close_price, reason="trailing_percentage_stop")
-
-        last_date = df.index[-1]
-        final_close = safe_float_conversion(df.iloc[-1]["close"])
-
-        logger.debug(f"Period end: Final close {final_close:.2f}")
-
-        trade_date = pd.to_datetime(last_date).to_pydatetime() if not isinstance(last_date, datetime) else last_date
-        return Trade(ticker=self.ticker, date=trade_date, price=final_close, reason="period_end")
+        row = df.row(-1, named=True)
+        d = row["date"]
+        final_date = datetime(d.year, d.month, d.day)
+        logger.debug(f"Period end: Final close {row['close']:.2f}")
+        return Trade(ticker=self.ticker, date=final_date, price=row["close"], reason="period_end")

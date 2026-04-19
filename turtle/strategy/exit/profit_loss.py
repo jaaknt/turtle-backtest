@@ -1,10 +1,10 @@
 """Profit/Loss target exit strategy."""
 
-from datetime import datetime
+from datetime import date, datetime
 from turtle.common.enums import TimeFrameUnit
 from turtle.model import Trade
 
-import pandas as pd
+import polars as pl
 
 from .base import ExitStrategy
 
@@ -22,42 +22,37 @@ class ProfitLossExitStrategy(ExitStrategy):
         self.stop_loss = stop_loss
         print(f"Initialized ProfitLossExitStrategy with profit target {profit_target}% and stop loss {stop_loss}%")
 
-    def calculate_indicators(self) -> pd.DataFrame:
-        self.df = self.bars_history.get_ticker_history(self.ticker, self.start_date, self.end_date, time_frame_unit=TimeFrameUnit.DAY)
-        return self.df
+    def calculate_indicators(self) -> pl.DataFrame:
+        return self.bars_history.get_bars_pl(self.ticker, self.start_date, self.end_date, time_frame_unit=TimeFrameUnit.DAY)
 
-    def calculate_exit(self, data: pd.DataFrame) -> Trade:
+    def calculate_exit(self, data: pl.DataFrame) -> Trade:
         """Calculate return with profit/loss targets."""
 
-        if data.empty:
+        if data.is_empty():
             raise ValueError("No valid data available for exit calculation.")
 
-        # Assume entry at open price of first day
-        entry_price = data.iloc[0]["open"]
+        entry_price = data["open"][0]
         self.profit_price = entry_price * (1 + self.profit_target / 100)
         self.stop_price = entry_price * (1 - self.stop_loss / 100)
 
-        # Find first profit target hit
-        profit_hits = data[data["high"] >= self.profit_price]
-        first_profit_date = profit_hits.index[0] if not profit_hits.empty else None
+        profit_rows = data.filter(pl.col("high") >= self.profit_price)
+        loss_rows = data.filter(pl.col("low") <= self.stop_price)
 
-        # Find first stop loss hit
-        loss_hits = data[data["low"] <= self.stop_price]
-        first_loss_date = loss_hits.index[0] if not loss_hits.empty else None
+        first_profit_date = profit_rows["date"][0] if not profit_rows.is_empty() else None
+        first_loss_date = loss_rows["date"][0] if not loss_rows.is_empty() else None
 
-        # Determine which target was hit first (if any)
+        def to_dt(d: date) -> datetime:
+            return datetime(d.year, d.month, d.day)
+
         if first_profit_date is not None and first_loss_date is not None:
-            # Both targets hit - use whichever came first
             if first_profit_date <= first_loss_date:
-                return Trade(ticker=self.ticker, date=profit_hits.index[0], price=self.profit_price, reason="profit_target")
+                return Trade(ticker=self.ticker, date=to_dt(first_profit_date), price=self.profit_price, reason="profit_target")
             else:
-                return Trade(ticker=self.ticker, date=loss_hits.index[0], price=self.stop_price, reason="stop_loss")
+                return Trade(ticker=self.ticker, date=to_dt(first_loss_date), price=self.stop_price, reason="stop_loss")
         elif first_profit_date is not None:
-            # Only profit target hit
-            return Trade(ticker=self.ticker, date=profit_hits.index[0], price=self.profit_price, reason="profit_target")
+            return Trade(ticker=self.ticker, date=to_dt(first_profit_date), price=self.profit_price, reason="profit_target")
         elif first_loss_date is not None:
-            # Only stop loss hit
-            return Trade(ticker=self.ticker, date=loss_hits.index[0], price=self.stop_price, reason="stop_loss")
-        else:
-            last_record = data.iloc[-1]
-            return Trade(ticker=self.ticker, date=data.index[-1], price=last_record["close"], reason="period_end")
+            return Trade(ticker=self.ticker, date=to_dt(first_loss_date), price=self.stop_price, reason="stop_loss")
+
+        row = data.row(-1, named=True)
+        return Trade(ticker=self.ticker, date=to_dt(row["date"]), price=row["close"], reason="period_end")

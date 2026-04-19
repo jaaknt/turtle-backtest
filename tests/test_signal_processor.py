@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from turtle.backtest.benchmark_utils import calculate_benchmark
 from turtle.backtest.processor import SignalProcessor
 from turtle.common.enums import TimeFrameUnit
@@ -8,6 +8,7 @@ from typing import Any
 from unittest.mock import Mock
 
 import pandas as pd
+import polars as pl
 import pytest
 
 
@@ -325,6 +326,23 @@ class TestSignalProcessor:
             return pd.DataFrame()
 
         mock_bars_history.get_ticker_history.side_effect = mock_get_ticker_history
+
+        def mock_get_bars_pl(ticker: str, start: Any, end: Any, **kwargs: Any) -> pl.DataFrame:
+            if ticker == "TEST":
+                dates = [date(2024, 1, 16 + i) for i in range(10)]
+                return pl.DataFrame(
+                    {
+                        "date": dates,
+                        "open": [100.0 + i for i in range(10)],
+                        "high": [102.0 + i for i in range(10)],
+                        "low": [99.0 + i for i in range(10)],
+                        "close": [101.0 + i for i in range(10)],
+                        "volume": [1000000] * 10,
+                    }
+                )
+            return pl.DataFrame()
+
+        mock_bars_history.get_bars_pl.side_effect = mock_get_bars_pl
 
         # Run the processor (benchmarks will be initialized automatically)
         result = processor.run(sample_signal)

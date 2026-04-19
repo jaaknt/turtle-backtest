@@ -11,7 +11,7 @@ from turtle.portfolio.analytics import PortfolioAnalytics
 from turtle.portfolio.manager import PortfolioManager
 from turtle.portfolio.selector import PortfolioSignalSelector
 from turtle.repository.analytics import OhlcvAnalyticsRepository
-from turtle.strategy.exit.atr import safe_float_conversion
+from turtle.common.pandas_utils import safe_float_conversion
 from turtle.strategy.exit.base import ExitStrategy
 from turtle.strategy.trading.base import TradingStrategy
 
