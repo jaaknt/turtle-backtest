@@ -263,3 +263,111 @@ def test_ranking_deterministic() -> None:
     score2 = ranking2.ranking(data, target_date)
 
     assert score1 == score2  # Should be deterministic
+
+
+# ---------------------------------------------------------------------------
+# _linear_rank
+# ---------------------------------------------------------------------------
+
+
+def test_linear_rank_at_ceiling_returns_max_score() -> None:
+    assert VolumeMomentumRanking._linear_rank(0.20, 0.05, 0.20, 25) == 25
+
+
+def test_linear_rank_above_ceiling_returns_max_score() -> None:
+    assert VolumeMomentumRanking._linear_rank(0.50, 0.05, 0.20, 25) == 25
+
+
+def test_linear_rank_at_floor_returns_0() -> None:
+    assert VolumeMomentumRanking._linear_rank(0.05, 0.05, 0.20, 25) == 0
+
+
+def test_linear_rank_below_floor_returns_0() -> None:
+    assert VolumeMomentumRanking._linear_rank(0.04, 0.05, 0.20, 25) == 0
+
+
+def test_linear_rank_midpoint_momentum_params() -> None:
+    # midpoint of [0.05, 0.20] = 0.125 → int(25 * 0.5) = 12
+    assert VolumeMomentumRanking._linear_rank(0.125, 0.05, 0.20, 25) == 12
+
+
+def test_linear_rank_at_ceiling_volatility_params() -> None:
+    assert VolumeMomentumRanking._linear_rank(1.5, 0.5, 1.5, 25) == 25
+
+
+def test_linear_rank_at_floor_volatility_params() -> None:
+    assert VolumeMomentumRanking._linear_rank(0.5, 0.5, 1.5, 25) == 0
+
+
+def test_linear_rank_midpoint_volatility_params() -> None:
+    # midpoint of [0.5, 1.5] = 1.0 → int(25 * 0.5) = 12
+    assert VolumeMomentumRanking._linear_rank(1.0, 0.5, 1.5, 25) == 12
+
+
+# ---------------------------------------------------------------------------
+# _liquidity_quality band coverage
+# ---------------------------------------------------------------------------
+
+
+def _make_constant_df(n: int, price: float, volume: float) -> pl.DataFrame:
+    dates = pd.date_range("2024-01-01", periods=n, freq="D")
+    prices = np.full(n, price)
+    volumes = np.full(n, volume)
+    df = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": volumes})
+    return pl.from_pandas(df)
+
+
+def test_liquidity_quality_band_1m_to_5m() -> None:
+    # dollar_volume = 10.0 * 200_000 = 2_000_000 → volume_score = 0.8
+    # constant volumes → cv = 0 → consistency_score = 1.5
+    # final = min(25, int(25 * 1.5 * 0.8)) = min(25, 30) = 25
+    ranking = VolumeMomentumRanking()
+    ranking.filtered_pl_df = _make_constant_df(60, price=10.0, volume=200_000)
+    assert ranking._liquidity_quality() == 25
+
+
+def test_liquidity_quality_band_500k_to_1m() -> None:
+    # dollar_volume = 10.0 * 70_000 = 700_000 → volume_score = 0.5
+    # final = min(25, int(25 * 1.5 * 0.5)) = 18
+    ranking = VolumeMomentumRanking()
+    ranking.filtered_pl_df = _make_constant_df(60, price=10.0, volume=70_000)
+    assert ranking._liquidity_quality() == 18
+
+
+def test_liquidity_quality_below_all_bands() -> None:
+    # dollar_volume = 5.0 * 40_000 = 200_000 → volume_score = 0.0 → score = 0
+    ranking = VolumeMomentumRanking()
+    ranking.filtered_pl_df = _make_constant_df(60, price=5.0, volume=40_000)
+    assert ranking._liquidity_quality() == 0
+
+
+# ---------------------------------------------------------------------------
+# interpolation paths for refactored methods
+# ---------------------------------------------------------------------------
+
+
+def test_volume_weighted_momentum_interpolation_path() -> None:
+    # price_momentum = (110 - 100) / 100 = 0.10, in (0.05, 0.20)
+    # height=21 < 60 → volume_factor = 1.0 < 1.2 → score = int(base * 0.5)
+    # base = _linear_rank(0.10, 0.05, 0.20, 25) = int(25 * 0.05/0.15) = 8
+    # score = int(8 * 0.5) = 4
+    ranking = VolumeMomentumRanking()
+    prices = [100.0] * 20 + [110.0]
+    dates = pd.date_range("2024-01-01", periods=21, freq="D")
+    df = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": np.full(21, 1_000_000)})
+    ranking.filtered_pl_df = pl.from_pandas(df)
+    assert ranking._volume_weighted_momentum() == 4
+
+
+def test_volatility_adjusted_strength_interpolation_path() -> None:
+    # Alternating prices create ~2% daily vol; linear drift gives ~1.8% 60-day return.
+    # risk_adjusted_return ≈ 0.018 / 0.020 ≈ 0.9 → in (0.5, 1.5) → score in (0, 25)
+    ranking = VolumeMomentumRanking()
+    n = 65
+    i = np.arange(n)
+    prices = 100.0 + (i % 2) * 2.0 + i * 0.03  # alternating ±2 + small upward drift
+    dates = pd.date_range("2024-01-01", periods=n, freq="D")
+    df = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": np.full(n, 1_000_000)})
+    ranking.filtered_pl_df = pl.from_pandas(df)
+    score = ranking._volatility_adjusted_strength()
+    assert 0 < score < 25

@@ -42,14 +42,6 @@ class MomentumRanking(RankingStrategy):
             return 1
         return next((score for limit, score in _PRICE_BANDS if price <= limit), 1)
 
-    @staticmethod
-    def _linear_rank(pct: float, floor: float, ceiling: float) -> int:
-        if pct >= ceiling:
-            return 20
-        if pct < floor:
-            return 0
-        return int(20 * ((pct - floor) / (ceiling - floor)))
-
     def _ranking_ema200_1month(self) -> int:
         """
         Calculate ranking score based on EMA200 performance vs 20 trading days ago.
