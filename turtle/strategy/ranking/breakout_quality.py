@@ -5,6 +5,10 @@ from turtle.strategy.ranking.base import RankingStrategy
 import pandas as pd
 import polars as pl
 
+_VOLUME_BANDS = [(3.0, 30), (2.5, 25), (2.0, 20), (1.75, 15), (1.5, 10), (1.25, 5)]
+_EXTENSION_BANDS = [(5.0, 25), (3.0, 20), (2.0, 15), (1.0, 10), (0.5, 5)]
+_MACD_BANDS = [(0.5, 20), (0.3, 15), (0.2, 10), (0.1, 5)]
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,19 +48,7 @@ class BreakoutQualityRanking(RankingStrategy):
             return 0
 
         ratio = volume / avg_volume
-        if ratio >= 3.0:
-            return 30
-        elif ratio >= 2.5:
-            return 25
-        elif ratio >= 2.0:
-            return 20
-        elif ratio >= 1.75:
-            return 15
-        elif ratio >= 1.5:
-            return 10
-        elif ratio >= 1.25:
-            return 5
-        return 0
+        return next((score for threshold, score in _VOLUME_BANDS if ratio >= threshold), 0)
 
     def _breakout_extension(self, row: dict) -> int:
         """
@@ -74,17 +66,7 @@ class BreakoutQualityRanking(RankingStrategy):
             return 0
 
         extension_pct = (close - max_close_20) / max_close_20 * 100
-        if extension_pct >= 5.0:
-            return 25
-        elif extension_pct >= 3.0:
-            return 20
-        elif extension_pct >= 2.0:
-            return 15
-        elif extension_pct >= 1.0:
-            return 10
-        elif extension_pct >= 0.5:
-            return 5
-        return 0
+        return next((score for threshold, score in _EXTENSION_BANDS if extension_pct >= threshold), 0)
 
     def _trend_health(self, row: dict) -> int:
         """
@@ -142,15 +124,7 @@ class BreakoutQualityRanking(RankingStrategy):
             return 0
 
         gap_pct = (macd - macd_signal) / close * 100
-        if gap_pct >= 0.5:
-            return 20
-        elif gap_pct >= 0.3:
-            return 15
-        elif gap_pct >= 0.2:
-            return 10
-        elif gap_pct >= 0.1:
-            return 5
-        return 0
+        return next((score for threshold, score in _MACD_BANDS if gap_pct >= threshold), 0)
 
     def ranking(self, df: pd.DataFrame | pl.DataFrame, date: date) -> int:
         """
