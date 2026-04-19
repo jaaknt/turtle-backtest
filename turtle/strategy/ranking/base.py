@@ -30,6 +30,14 @@ class RankingStrategy(ABC):
         pass
 
     @staticmethod
+    def _linear_rank(value: float, floor: float, ceiling: float, max_score: int = 20) -> int:
+        if value >= ceiling:
+            return max_score
+        if value < floor:
+            return 0
+        return int(max_score * ((value - floor) / (ceiling - floor)))
+
+    @staticmethod
     def _to_pandas(df: pd.DataFrame | pl.DataFrame) -> pd.DataFrame:
         if isinstance(df, pl.DataFrame):
             pd_df = df.to_pandas()

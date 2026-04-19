@@ -5,6 +5,8 @@ from turtle.strategy.ranking.base import RankingStrategy
 import pandas as pd
 import polars as pl
 
+_LIQUIDITY_BANDS = [(5_000_000, 1.0), (1_000_000, 0.8), (500_000, 0.5)]
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,12 +56,7 @@ class VolumeMomentumRanking(RankingStrategy):
 
         logger.debug(f"Volume Momentum - Volume factor: {volume_factor}")
 
-        if price_momentum >= 0.20:
-            base_score = 25
-        elif price_momentum >= 0.05:
-            base_score = int(25 * (price_momentum - 0.05) / 0.15)
-        else:
-            base_score = 0
+        base_score = self._linear_rank(price_momentum, 0.05, 0.20, 25)
 
         if volume_factor < 1.2:
             score = int(base_score * 0.5)
@@ -101,12 +98,7 @@ class VolumeMomentumRanking(RankingStrategy):
 
         logger.debug(f"Volatility Strength - Stock return: {stock_return}, Volatility: {volatility}, Risk-adjusted: {risk_adjusted_return}")
 
-        if risk_adjusted_return >= 1.5:
-            return 25
-        elif risk_adjusted_return >= 0.5:
-            return int(25 * (risk_adjusted_return - 0.5) / 1.0)
-        else:
-            return 0
+        return self._linear_rank(risk_adjusted_return, 0.5, 1.5, 25)
 
     def _liquidity_quality(self) -> int:
         """
@@ -134,14 +126,7 @@ class VolumeMomentumRanking(RankingStrategy):
 
         dollar_volume = avg_volume * avg_price
 
-        if dollar_volume >= 5_000_000:
-            volume_score = 1.0
-        elif dollar_volume >= 1_000_000:
-            volume_score = 0.8
-        elif dollar_volume >= 500_000:
-            volume_score = 0.5
-        else:
-            volume_score = 0.0
+        volume_score = next((score for threshold, score in _LIQUIDITY_BANDS if dollar_volume >= threshold), 0.0)
 
         final_score = int(25 * consistency_score * volume_score)
         logger.debug(f"Liquidity Quality - Avg volume: {avg_volume}, CV: {volume_cv}, Dollar volume: {dollar_volume}, Score: {final_score}")
