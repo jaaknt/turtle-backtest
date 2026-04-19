@@ -37,3 +37,12 @@ class RankingStrategy(ABC):
                 pd_df["date"] = pd_df["date"].dt.date
             return pd_df
         return df
+
+    @staticmethod
+    def _to_polars(df: pd.DataFrame | pl.DataFrame) -> pl.DataFrame:
+        if isinstance(df, pd.DataFrame):
+            pl_df = pl.from_pandas(df)
+            if "date" in pl_df.columns and pl_df["date"].dtype == pl.Datetime:
+                pl_df = pl_df.with_columns(pl.col("date").cast(pl.Date))
+            return pl_df
+        return df

@@ -4,6 +4,7 @@ from turtle.strategy.ranking.volume_momentum import VolumeMomentumRanking
 
 import numpy as np
 import pandas as pd
+import polars as pl
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning, module="pkg_resources")
@@ -91,7 +92,7 @@ def test_volume_weighted_momentum_component() -> None:
 
     data = pd.DataFrame({"date": dates, "open": prices, "high": prices * 1.01, "low": prices * 0.99, "close": prices, "volume": volumes})
 
-    ranking.filtered_df = data
+    ranking.filtered_pl_df = pl.from_pandas(data)
     momentum_score = ranking._volume_weighted_momentum()
 
     assert momentum_score > 0  # Should be positive for uptrending + volume
@@ -114,7 +115,7 @@ def test_volatility_adjusted_strength_component() -> None:
         {"date": dates, "open": prices, "high": prices * 1.005, "low": prices * 0.995, "close": prices, "volume": np.full(100, 1000000)}
     )
 
-    ranking.filtered_df = data
+    ranking.filtered_pl_df = pl.from_pandas(data)
     strength_score = ranking._volatility_adjusted_strength()
 
     assert strength_score >= 0  # Should be non-negative
@@ -135,7 +136,7 @@ def test_liquidity_quality_component() -> None:
 
     data = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": volumes})
 
-    ranking.filtered_df = data
+    ranking.filtered_pl_df = pl.from_pandas(data)
     liquidity_score = ranking._liquidity_quality()
 
     assert liquidity_score > 0  # Should be positive for good liquidity
@@ -158,7 +159,7 @@ def test_technical_confluence_component() -> None:
         {"date": dates, "open": prices, "high": prices * 1.01, "low": prices * 0.99, "close": prices, "volume": np.full(100, 1000000)}
     )
 
-    ranking.filtered_df = data
+    ranking.filtered_pl_df = pl.from_pandas(data)
     confluence_score = ranking._technical_confluence()
 
     assert confluence_score >= 0  # Should be non-negative
@@ -177,7 +178,7 @@ def test_rsi_calculation() -> None:
 
     data = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": np.full(50, 1000000)})
 
-    ranking.filtered_df = data
+    ranking.filtered_pl_df = pl.from_pandas(data)
     rsi_score = ranking._calculate_rsi_score()
 
     assert 0 <= rsi_score <= 100  # RSI score should be in valid range
@@ -193,7 +194,7 @@ def test_moving_average_calculation() -> None:
 
     data = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": np.full(100, 1000000)})
 
-    ranking.filtered_df = data
+    ranking.filtered_pl_df = pl.from_pandas(data)
     ma_score = ranking._calculate_ma_score()
 
     assert 0 <= ma_score <= 100  # MA score should be in valid range
@@ -214,7 +215,7 @@ def test_momentum_calculation() -> None:
 
     data = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": np.full(30, 1000000)})
 
-    ranking.filtered_df = data
+    ranking.filtered_pl_df = pl.from_pandas(data)
     momentum_score = ranking._calculate_momentum_score()
 
     assert momentum_score > 0  # Should be positive for uptrending data

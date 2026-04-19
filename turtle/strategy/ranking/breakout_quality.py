@@ -28,16 +28,19 @@ class BreakoutQualityRanking(RankingStrategy):
     def __init__(self, use_polars: bool = False) -> None:
         super().__init__(use_polars=use_polars)
 
-    def _volume_conviction(self, row: pd.Series) -> int:
+    def _volume_conviction(self, row: dict) -> int:
         """
         Score breakout volume relative to the 10-day EMA of volume (0-30 pts).
+
+        Args:
+            row: Dict of indicator values for the signal bar.
 
         A larger multiple indicates more conviction behind the move.
         """
         volume = row["volume"]
         avg_volume = row["ema_volume_10"]
 
-        if pd.isna(volume) or pd.isna(avg_volume) or avg_volume <= 0:
+        if volume is None or avg_volume is None or avg_volume <= 0:
             return 0
 
         ratio = volume / avg_volume
@@ -55,16 +58,19 @@ class BreakoutQualityRanking(RankingStrategy):
             return 5
         return 0
 
-    def _breakout_extension(self, row: pd.Series) -> int:
+    def _breakout_extension(self, row: dict) -> int:
         """
         Score how far the close exceeds the 20-day high (0-25 pts).
+
+        Args:
+            row: Dict of indicator values for the signal bar.
 
         A more extended breakout shows stronger conviction.
         """
         close = row["close"]
         max_close_20 = row["max_close_20"]
 
-        if pd.isna(close) or pd.isna(max_close_20) or max_close_20 <= 0:
+        if close is None or max_close_20 is None or max_close_20 <= 0:
             return 0
 
         extension_pct = (close - max_close_20) / max_close_20 * 100
@@ -80,9 +86,12 @@ class BreakoutQualityRanking(RankingStrategy):
             return 5
         return 0
 
-    def _trend_health(self, row: pd.Series) -> int:
+    def _trend_health(self, row: dict) -> int:
         """
         Score EMA stack alignment and distance above EMA200 (0-25 pts).
+
+        Args:
+            row: Dict of indicator values for the signal bar.
 
         Full alignment (EMA10 > EMA20 > EMA50 > EMA200) scores base points.
         Distance to EMA200 is optimal in the 5-30% band — overextension is
@@ -94,7 +103,7 @@ class BreakoutQualityRanking(RankingStrategy):
         ema_50 = row["ema_50"]
         ema_200 = row["ema_200"]
 
-        if any(pd.isna(v) for v in [close, ema_10, ema_20, ema_50, ema_200]) or ema_200 <= 0:
+        if any(v is None for v in [close, ema_10, ema_20, ema_50, ema_200]) or ema_200 <= 0:
             return 0
 
         # Alignment base points
@@ -115,9 +124,12 @@ class BreakoutQualityRanking(RankingStrategy):
 
         return alignment_pts + distance_pts
 
-    def _macd_conviction(self, row: pd.Series) -> int:
+    def _macd_conviction(self, row: dict) -> int:
         """
         Score MACD-signal gap as a percentage of price (0-20 pts).
+
+        Args:
+            row: Dict of indicator values for the signal bar.
 
         Normalising by price makes the score comparable across different
         price ranges.
@@ -126,7 +138,7 @@ class BreakoutQualityRanking(RankingStrategy):
         macd = row["macd"]
         macd_signal = row["macd_signal"]
 
-        if any(pd.isna(v) for v in [close, macd, macd_signal]) or close <= 0:
+        if any(v is None for v in [close, macd, macd_signal]) or close <= 0:
             return 0
 
         gap_pct = (macd - macd_signal) / close * 100
@@ -154,12 +166,12 @@ class BreakoutQualityRanking(RankingStrategy):
         Returns:
             int: Score in range 0-100.
         """
-        df = self._to_pandas(df)
-        filtered = df[df["date"] <= date]
-        if filtered.empty:
+        pl_df = self._to_polars(df)
+        filtered_pl_df = pl_df.filter(pl.col("date") <= date)
+        if filtered_pl_df.is_empty():
             return 0
 
-        row = filtered.iloc[-1]
+        row = filtered_pl_df.row(-1, named=True)
 
         vol_pts = self._volume_conviction(row)
         ext_pts = self._breakout_extension(row)
