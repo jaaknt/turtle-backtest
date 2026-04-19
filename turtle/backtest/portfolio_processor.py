@@ -131,6 +131,8 @@ class PortfolioSignalProcessor:
 
             return target_signals
 
+        except NotImplementedError:
+            raise
         except Exception as e:
             logger.debug(f"Error generating signals for {ticker} on {date}: {e}")
             return []

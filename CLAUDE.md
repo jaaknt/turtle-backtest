@@ -247,6 +247,9 @@ External API clients (`turtle/client/eodhd.py`) are `async`/`await` using `httpx
 | Files | snake_case | `bars_history.py`, `darvas_box.py` |
 | Folders / packages | singular snake_case | `turtle/service/`, `turtle/repository/` |
 
+### Docstrings
+All public methods (no leading underscore) must have a docstring explaining the purpose of the method and each parameter. Private methods (`_name`) do not require docstrings unless the logic is non-obvious.
+
 ### Type Hints
 All function signatures carry full type hints — parameters and return types. Use `X | None` (not `Optional[X]`), `list[X]` (not `List[X]`). No `Any` except at external API boundaries.
 

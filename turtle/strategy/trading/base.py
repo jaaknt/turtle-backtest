@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from datetime import date, timedelta
 from turtle.common.enums import TimeFrameUnit
@@ -7,6 +8,8 @@ from turtle.strategy.ranking.base import RankingStrategy
 
 import pandas as pd
 import polars as pl
+
+logger = logging.getLogger(__name__)
 
 
 class TradingStrategy(ABC):
@@ -46,7 +49,14 @@ class TradingStrategy(ABC):
         self.df = pd.DataFrame()
         self.pl_df = pl.DataFrame()
 
+    def _get_polars_signals(self, ticker: str, start_date: date) -> list[Signal]:  # noqa: ARG002
+        raise ValueError(
+            f"{self.__class__.__name__} does not support use_polars=True. Implement _get_polars_signals or construct with use_polars=False."
+        )
+
     @abstractmethod
+    def _get_pandas_signals(self, ticker: str, start_date: date) -> list[Signal]: ...
+
     def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
         """
         Get trading signals for a ticker within a date range.
@@ -59,7 +69,13 @@ class TradingStrategy(ABC):
         Returns:
             List[Signal]: List of Signal objects for each trading signal
         """
-        pass
+        if not self.collect_data(ticker, start_date, end_date):
+            rows = self.pl_df.shape[0] if self.use_polars else self.df.shape[0]
+            logger.warning(f"{ticker} - not enough data, rows: {rows}")
+            return []
+        if self.use_polars:
+            return self._get_polars_signals(ticker, start_date)
+        return self._get_pandas_signals(ticker, start_date)
 
     def collect_data(self, ticker: str, start_date: date, end_date: date) -> bool:
         """
