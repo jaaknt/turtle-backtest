@@ -6,12 +6,12 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from turtle.backtest.processor import SignalProcessor
 from turtle.common.enums import TimeFrameUnit
+from turtle.common.pandas_utils import safe_float_conversion
 from turtle.model import FutureTrade, Signal
 from turtle.portfolio.analytics import PortfolioAnalytics
 from turtle.portfolio.manager import PortfolioManager
 from turtle.portfolio.selector import PortfolioSignalSelector
 from turtle.repository.analytics import OhlcvAnalyticsRepository
-from turtle.common.pandas_utils import safe_float_conversion
 from turtle.strategy.exit.base import ExitStrategy
 from turtle.strategy.trading.base import TradingStrategy
 

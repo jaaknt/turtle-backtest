@@ -5,6 +5,13 @@ from turtle.strategy.ranking.base import RankingStrategy
 import pandas as pd
 import polars as pl
 
+_PRICE_BANDS = [(10.0, 20), (20.0, 16), (60.0, 12), (240.0, 8), (1000.0, 4)]
+_EMA_PARAMS = {
+    "1month": (21, 0.00, 0.10),
+    "3month": (66, -0.05, 0.20),
+    "6month": (131, -0.10, 0.30),
+}
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,18 +40,15 @@ class MomentumRanking(RankingStrategy):
         """
         if price <= 0.0:
             return 1
-        elif price <= 10.0:
+        return next((score for limit, score in _PRICE_BANDS if price <= limit), 1)
+
+    @staticmethod
+    def _linear_rank(pct: float, floor: float, ceiling: float) -> int:
+        if pct >= ceiling:
             return 20
-        elif price <= 20.0:
-            return 16
-        elif price <= 60.0:
-            return 12
-        elif price <= 240.0:
-            return 8
-        elif price <= 1000.0:
-            return 4
-        else:
-            return 1
+        if pct < floor:
+            return 0
+        return int(20 * ((pct - floor) / (ceiling - floor)))
 
     def _ranking_ema200_1month(self) -> int:
         """
@@ -53,24 +57,16 @@ class MomentumRanking(RankingStrategy):
         Returns:
             int: Ranking score (0-20) where 20 = EMA200 is 10% higher than 20 days ago
         """
-        if self.filtered_pl_df.height < 21:
+        neg_idx, floor, ceiling = _EMA_PARAMS["1month"]
+        if self.filtered_pl_df.height < neg_idx:
             return 0
-
         current_ema200 = self.filtered_pl_df["ema_200"][-1]
-        past_ema200 = self.filtered_pl_df["ema_200"][-21]
-
+        past_ema200 = self.filtered_pl_df["ema_200"][-neg_idx]
         if current_ema200 is None or past_ema200 is None or past_ema200 <= 0:
             return 0
-
         pct_change = (current_ema200 - past_ema200) / past_ema200
         logger.debug(f"EMA200 1M - Current: {current_ema200}, Past: {past_ema200}, Pct Change: {pct_change}")
-
-        if pct_change >= 0.10:
-            return 20
-        elif pct_change >= 0.0:
-            return int(20 * (pct_change / 0.10))
-        else:
-            return 0
+        return self._linear_rank(pct_change, floor, ceiling)
 
     def _ranking_ema200_3month(self) -> int:
         """
@@ -79,23 +75,15 @@ class MomentumRanking(RankingStrategy):
         Returns:
             int: Ranking score (0-20) where 20 = EMA200 is 20% higher than 3 months ago
         """
-        if self.filtered_pl_df.height < 66:
+        neg_idx, floor, ceiling = _EMA_PARAMS["3month"]
+        if self.filtered_pl_df.height < neg_idx:
             return 0
-
         current_ema200 = self.filtered_pl_df["ema_200"][-1]
-        past_ema200 = self.filtered_pl_df["ema_200"][-66]
-
+        past_ema200 = self.filtered_pl_df["ema_200"][-neg_idx]
         if current_ema200 is None or past_ema200 is None or past_ema200 <= 0:
             return 0
-
         pct_change = (current_ema200 - past_ema200) / past_ema200
-
-        if pct_change >= 0.20:
-            return 20
-        elif pct_change >= -0.05:
-            return int(20 * (pct_change + 0.05) / 0.25)
-        else:
-            return 0
+        return self._linear_rank(pct_change, floor, ceiling)
 
     def _ranking_ema200_6month(self) -> int:
         """
@@ -104,23 +92,15 @@ class MomentumRanking(RankingStrategy):
         Returns:
             int: Ranking score (0-20) where 20 = EMA200 is 30% higher than 6 months ago
         """
-        if self.filtered_pl_df.height < 131:
+        neg_idx, floor, ceiling = _EMA_PARAMS["6month"]
+        if self.filtered_pl_df.height < neg_idx:
             return 0
-
         current_ema200 = self.filtered_pl_df["ema_200"][-1]
-        past_ema200 = self.filtered_pl_df["ema_200"][-131]
-
+        past_ema200 = self.filtered_pl_df["ema_200"][-neg_idx]
         if current_ema200 is None or past_ema200 is None or past_ema200 <= 0:
             return 0
-
         pct_change = (current_ema200 - past_ema200) / past_ema200
-
-        if pct_change >= 0.30:
-            return 20
-        elif pct_change >= -0.10:
-            return int(20 * (pct_change + 0.10) / 0.40)
-        else:
-            return 0
+        return self._linear_rank(pct_change, floor, ceiling)
 
     def _ranking_period_high(self) -> int:
         """
