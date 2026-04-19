@@ -249,23 +249,7 @@ class DarvasBoxStrategy(TradingStrategy):
 
         return True
 
-    def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
-        """
-        Get trading signals for a ticker within a date range.
-
-        Args:
-            ticker: The stock symbol to analyze
-            start_date: The start date of the analysis period
-            end_date: The end date of the analysis period
-
-        Returns:
-            List[Signal]: List of Signal objects for each trading signal
-        """
-        # collect data for the ticker and end_date
-        if not self.collect_data(ticker, start_date, end_date):
-            logger.warning(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
-            return []
-
+    def _get_pandas_signals(self, ticker: str, start_date: date) -> list[Signal]:
         self.calculate_indicators()
 
         # Filter data to target date range

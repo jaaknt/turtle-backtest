@@ -127,27 +127,10 @@ class MarsStrategy(TradingStrategy):
         for i, row in self.df.iterrows():
             self.df.at[i, "buy_signal"] = self.is_buy_signal(ticker, row)
 
-    def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
-        """
-        Get trading signals for a ticker within a date range.
-
-        Args:
-            ticker: The stock symbol to analyze
-            start_date: The start date of the analysis period
-            end_date: The end date of the analysis period
-
-        Returns:
-            List[Signal]: List of Signal objects for each trading signal
-        """
-        # Collect data for the date range
-        if not self.collect_data(ticker, start_date, end_date):
-            logger.debug(f"{ticker} - not enough data for range {start_date} to {end_date}")
-            return []
-
+    def _get_pandas_signals(self, ticker: str, start_date: date) -> list[Signal]:
         self.calculate_indicators()
 
-        # Filter to the date range
-        filtered_df = self.df[(self.df["date"] >= start_date) & (self.df["date"] <= end_date)]
+        filtered_df = self.df[self.df["date"] >= start_date]
 
         signals = []
         for _, row in filtered_df.iterrows():

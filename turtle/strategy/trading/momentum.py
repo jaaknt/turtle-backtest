@@ -147,24 +147,3 @@ class MomentumStrategy(TradingStrategy):
             Signal(ticker=ticker, date=signal_date, ranking=self.ranking_strategy.ranking(self.df, date=signal_date))
             for signal_date in signal_dates
         ]
-
-    def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
-        """
-        Get trading signals for a ticker within a date range.
-
-        Args:
-            ticker: The stock symbol to analyze
-            start_date: The start date of the analysis period
-            end_date: The end date of the analysis period
-
-        Returns:
-            List[Signal]: List of Signal objects for each trading signal
-        """
-        if not self.collect_data(ticker, start_date, end_date):
-            rows = self.pl_df.shape[0] if self.use_polars else self.df.shape[0]
-            logger.warning(f"{ticker} - not enough data, rows: {rows}")
-            return []
-
-        if self.use_polars:
-            return self._get_polars_signals(ticker, start_date)
-        return self._get_pandas_signals(ticker, start_date)
