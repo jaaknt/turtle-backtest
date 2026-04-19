@@ -3,11 +3,9 @@
 import logging
 from datetime import datetime, timedelta
 from turtle.common.enums import TimeFrameUnit
-from turtle.common.pandas_utils import safe_float_conversion
 from turtle.model import Trade
 
-import pandas as pd
-from pandas_ta.volatility import atr as ta_atr
+import polars as pl
 
 from .base import ExitStrategy
 
@@ -32,90 +30,58 @@ class ATRExitStrategy(ExitStrategy):
         super().initialize(ticker, start_date, end_date)
         self.atr_period = atr_period
         self.atr_multiplier = atr_multiplier
-        # print(f"ATRExitStrategy ATR period {atr_period} and multiplier {atr_multiplier}")
 
-    def calculate_indicators(self) -> pd.DataFrame:
-        # Get extra days for ATR calculation
-        df = self.bars_history.get_ticker_history(
+    def calculate_indicators(self) -> pl.DataFrame:
+        df = self.bars_history.get_bars_pl(
             self.ticker, self.start_date - timedelta(days=60), self.end_date, time_frame_unit=TimeFrameUnit.DAY
         )
+        return (
+            df.with_columns(
+                pl.max_horizontal(
+                    pl.col("high") - pl.col("low"),
+                    (pl.col("high") - pl.col("close").shift(1)).abs(),
+                    (pl.col("low") - pl.col("close").shift(1)).abs(),
+                ).alias("tr")
+            )
+            .with_columns(pl.col("tr").ewm_mean(alpha=1.0 / self.atr_period, adjust=False).alias("atr"))
+            .filter(pl.col("date") >= self.start_date.date())
+        )
 
-        df["atr"] = ta_atr(df["high"], df["low"], df["close"], length=self.atr_period)
-
-        # Filter to requested date range
-        self.df = df[df.index >= self.start_date].copy()
-        return self.df
-
-    def calculate_exit(self, data: pd.DataFrame) -> Trade:
+    def calculate_exit(self, data: pl.DataFrame) -> Trade:
         """Calculate return with ATR trailing stop loss using vectorized operations."""
-        if data.empty:
+        if data.is_empty():
             raise ValueError("No valid data available for exit calculation.")
 
-        # Check if ATR column exists
         if "atr" not in data.columns:
             raise ValueError("ATR column not found in data. Ensure calculate_indicators() was called first.")
 
-        # Create working copy to avoid modifying original data
-        df = data.copy()
+        first_row = data.row(0, named=True)
+        entry_price: float = first_row["open"]
+        entry_atr: float | None = first_row["atr"]
 
-        # Entry price and ATR validation
-        entry_price = safe_float_conversion(df.iloc[0]["open"])
-        entry_atr = safe_float_conversion(df.iloc[0]["atr"])
-
-        if pd.isna(entry_atr) or entry_atr == 0:
+        if entry_atr is None or entry_atr == 0:
             raise ValueError("ATR value is NaN or zero for entry date. Cannot calculate stop loss.")
 
-        # Calculate initial stop loss
         initial_stop = entry_price - (self.atr_multiplier * entry_atr)
-
         logger.debug(f"Entry price: {entry_price:.2f}, Entry ATR: {entry_atr:.2f}, Initial stop: {initial_stop:.2f}")
 
-        # Vectorized calculations for trailing stop
-        # Step 1: Calculate cumulative maximum high (running highest price)
-        df["cummax_high"] = df["high"].cummax()
+        df = (
+            data.with_columns(pl.col("high").cum_max().alias("cummax_high"))
+            .with_columns((pl.col("cummax_high") - self.atr_multiplier * pl.col("atr")).alias("potential_stop"))
+            .with_columns(pl.col("potential_stop").cum_max().clip(lower_bound=initial_stop).alias("trailing_stop"))
+            .with_columns(pl.col("trailing_stop").forward_fill().alias("trailing_stop"))
+        )
 
-        # Step 2: Calculate potential trailing stops based on running max and current ATR
-        df["potential_stop"] = df["cummax_high"] - (self.atr_multiplier * df["atr"])
+        exit_rows = df.filter(pl.col("close") < pl.col("trailing_stop"))
+        if not exit_rows.is_empty():
+            row = exit_rows.row(0, named=True)
+            d = row["date"]
+            exit_date = datetime(d.year, d.month, d.day)
+            logger.debug(f"Stop loss triggered on {exit_date}: Close {row['close']:.2f} < Stop {row['trailing_stop']:.2f}")
+            return Trade(ticker=self.ticker, date=exit_date, price=row["close"], reason="atr_trailing_stop")
 
-        # Step 3: Ensure stops can only move up (trailing), never down
-        # Use cummax to ensure stop levels only increase, and clip to initial stop minimum
-        df["trailing_stop"] = df["potential_stop"].cummax().clip(lower=initial_stop)
-
-        # Step 4: Handle NaN ATR values by forward-filling the last valid stop
-        df["trailing_stop"] = df["trailing_stop"].ffill()
-
-        # Step 5: Find first exit condition (close < trailing_stop)
-        # exit_mask: pd.Series[bool] = df["close"] < df["trailing_stop"]
-        exit_mask: pd.Series[bool] = df["close"] < df["trailing_stop"]
-
-        if exit_mask.any():
-            # Get first exit index
-            exit_idx = exit_mask.idxmax()  # Returns index of first True value
-
-            # Get the row index position for safe iloc access
-            exit_position = df.index.get_loc(exit_idx)
-
-            # Extract scalar values using safe conversion to handle type ambiguity
-            exit_price = safe_float_conversion(df.iloc[exit_position]["trailing_stop"])
-            close_price = safe_float_conversion(df.iloc[exit_position]["close"])
-
-            logger.debug(f"Stop loss triggered on {exit_idx}: Close {close_price:.2f} < Stop {exit_price:.2f}")
-
-            # Convert index to datetime
-            trade_date = pd.to_datetime(exit_idx).to_pydatetime() if not isinstance(exit_idx, datetime) else exit_idx
-
-            return Trade(ticker=self.ticker, date=trade_date, price=close_price, reason="atr_trailing_stop")
-
-        # No exit condition met - hold until period end
-        last_date = df.index[-1]
-
-        # Extract scalar values using safe conversion to handle type ambiguity
-        final_close = safe_float_conversion(df.iloc[-1]["close"])
-        final_stop = safe_float_conversion(df.iloc[-1]["trailing_stop"])
-
-        logger.debug(f"Period end: Final close {final_close:.2f}, Final stop {final_stop:.2f}")
-
-        # Convert date to datetime
-        trade_date = pd.to_datetime(last_date).to_pydatetime() if not isinstance(last_date, datetime) else last_date
-
-        return Trade(ticker=self.ticker, date=trade_date, price=final_close, reason="period_end")
+        row = df.row(-1, named=True)
+        d = row["date"]
+        final_date = datetime(d.year, d.month, d.day)
+        logger.debug(f"Period end: Final close {row['close']:.2f}, Final stop {row['trailing_stop']:.2f}")
+        return Trade(ticker=self.ticker, date=final_date, price=row["close"], reason="period_end")

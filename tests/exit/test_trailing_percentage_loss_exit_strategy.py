@@ -1,12 +1,12 @@
 """Tests for TrailingPercentageLossExitStrategy."""
 
-from datetime import datetime
+from datetime import date, datetime
 from turtle.model import Trade
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.strategy.exit import TrailingPercentageLossExitStrategy
 from unittest.mock import Mock
 
-import pandas as pd
+import polars as pl
 import pytest
 
 
@@ -46,30 +46,29 @@ class TestTrailingPercentageLossExitStrategy:
         strategy = TrailingPercentageLossExitStrategy(mock_bars_history)
 
         with pytest.raises(ValueError, match="No valid data available"):
-            strategy.calculate_exit(pd.DataFrame())
+            strategy.calculate_exit(pl.DataFrame())
 
     def test_calculate_indicators(self) -> None:
         mock_bars_history = self.create_mock_bars_history()
         strategy = TrailingPercentageLossExitStrategy(mock_bars_history)
 
-        dates = pd.date_range(start="2024-01-01", periods=10, freq="D")
-        mock_data = pd.DataFrame(
+        mock_data = pl.DataFrame(
             {
+                "date": [date(2024, 1, i + 1) for i in range(10)],
                 "close": [100.0 + i for i in range(10)],
                 "open": [100.0 + i for i in range(10)],
                 "high": [101.0 + i for i in range(10)],
                 "low": [99.0 + i for i in range(10)],
                 "volume": [1000000] * 10,
-            },
-            index=dates,
+            }
         )
-        mock_bars_history.get_ticker_history.return_value = mock_data
+        mock_bars_history.get_bars_pl.return_value = mock_data
 
         strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 10))
         result = strategy.calculate_indicators()
 
-        assert isinstance(result, pd.DataFrame)
-        assert not result.empty
+        assert isinstance(result, pl.DataFrame)
+        assert not result.is_empty()
 
     def test_calculate_exit_stop_triggered(self) -> None:
         """Stop triggered when close drops more than percentage_loss% from max close."""
@@ -78,21 +77,20 @@ class TestTrailingPercentageLossExitStrategy:
         # Entry open=100, percentage_loss=10% → initial stop=90
         strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5), percentage_loss=10.0)
 
-        dates = pd.date_range(start="2024-01-01", periods=5, freq="D")
-        data = pd.DataFrame(
+        data = pl.DataFrame(
             {
+                "date": [date(2024, 1, i + 1) for i in range(5)],
                 "open": [100.0, 110.0, 120.0, 115.0, 100.0],
                 # Max close rises to 120, stop becomes 120*0.9=108; day 4 close=100 < 108
                 "close": [105.0, 112.0, 120.0, 115.0, 100.0],
-            },
-            index=dates,
+            }
         )
 
         result = strategy.calculate_exit(data)
 
         assert isinstance(result, Trade)
         assert result.reason == "trailing_percentage_stop"
-        assert result.date == dates[4]
+        assert result.date == datetime(2024, 1, 5)
         assert result.price == pytest.approx(100.0)
 
     def test_calculate_exit_period_end(self) -> None:
@@ -101,21 +99,20 @@ class TestTrailingPercentageLossExitStrategy:
         strategy = TrailingPercentageLossExitStrategy(mock_bars_history)
         strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5), percentage_loss=10.0)
 
-        dates = pd.date_range(start="2024-01-01", periods=5, freq="D")
         # Steadily rising — close never drops 10% from its running max
-        data = pd.DataFrame(
+        data = pl.DataFrame(
             {
+                "date": [date(2024, 1, i + 1) for i in range(5)],
                 "open": [100.0, 101.0, 102.0, 103.0, 104.0],
                 "close": [101.0, 102.0, 103.0, 104.0, 105.0],
-            },
-            index=dates,
+            }
         )
 
         result = strategy.calculate_exit(data)
 
         assert isinstance(result, Trade)
         assert result.reason == "period_end"
-        assert result.date == dates[-1]
+        assert result.date == datetime(2024, 1, 5)
         assert result.price == pytest.approx(105.0)
 
     def test_initial_stop_acts_as_floor(self) -> None:
@@ -127,19 +124,18 @@ class TestTrailingPercentageLossExitStrategy:
         # close[0]=85 < 90 → stop triggered on day 0
         strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 3), percentage_loss=10.0)
 
-        dates = pd.date_range(start="2024-01-01", periods=3, freq="D")
-        data = pd.DataFrame(
+        data = pl.DataFrame(
             {
+                "date": [date(2024, 1, i + 1) for i in range(3)],
                 "open": [100.0, 90.0, 88.0],
                 "close": [85.0, 90.0, 88.0],  # day 0 close < initial stop of 90
-            },
-            index=dates,
+            }
         )
 
         result = strategy.calculate_exit(data)
 
         assert result.reason == "trailing_percentage_stop"
-        assert result.date == dates[0]
+        assert result.date == datetime(2024, 1, 1)
 
     def test_trailing_stop_only_moves_up(self) -> None:
         """After a price peak, the stop stays at the peak-derived level even as price falls."""
@@ -149,34 +145,32 @@ class TestTrailingPercentageLossExitStrategy:
         # After close of 150, stop rises to 150*0.8=120 and stays there
         strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5), percentage_loss=20.0)
 
-        dates = pd.date_range(start="2024-01-01", periods=5, freq="D")
-        data = pd.DataFrame(
+        data = pl.DataFrame(
             {
+                "date": [date(2024, 1, i + 1) for i in range(5)],
                 "open": [100.0, 140.0, 130.0, 125.0, 119.0],
                 "close": [140.0, 150.0, 130.0, 125.0, 119.0],
                 # stop after day 1: max_close=150, stop=120
                 # day 4 close=119 < 120 → exit
-            },
-            index=dates,
+            }
         )
 
         result = strategy.calculate_exit(data)
 
         assert result.reason == "trailing_percentage_stop"
-        assert result.date == dates[4]
+        assert result.date == datetime(2024, 1, 5)
         assert result.price == pytest.approx(119.0)
 
     def test_tighter_percentage_exits_sooner(self) -> None:
         """A tighter percentage exits earlier than a looser one on the same data."""
         mock_bars_history = self.create_mock_bars_history()
 
-        dates = pd.date_range(start="2024-01-01", periods=5, freq="D")
-        data = pd.DataFrame(
+        data = pl.DataFrame(
             {
+                "date": [date(2024, 1, i + 1) for i in range(5)],
                 "open": [100.0, 110.0, 120.0, 115.0, 108.0],
                 "close": [110.0, 120.0, 118.0, 112.0, 108.0],
-            },
-            index=dates,
+            }
         )
 
         strategy_tight = TrailingPercentageLossExitStrategy(mock_bars_history)

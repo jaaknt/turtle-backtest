@@ -5,7 +5,7 @@ from datetime import datetime
 from turtle.model import Trade
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 
-import pandas as pd
+import polars as pl
 
 
 class ExitStrategy(ABC):
@@ -20,7 +20,7 @@ class ExitStrategy(ABC):
         self.end_date = end_date
 
     @abstractmethod
-    def calculate_indicators(self) -> pd.DataFrame:
+    def calculate_indicators(self) -> pl.DataFrame:
         """
         Calculate technical indicators for the given ticker and date range.
 
@@ -30,12 +30,12 @@ class ExitStrategy(ABC):
         pass
 
     @abstractmethod
-    def calculate_exit(self, data: pd.DataFrame) -> Trade:
+    def calculate_exit(self, data: pl.DataFrame) -> Trade:
         """
         Calculate exit trade based on strategy-specific logic.
 
         Args:
-            data: DataFrame with OHLCV data (index should be datetime)
+            data: Polars DataFrame with OHLCV data and a `date` column.
 
         Returns:
             Trade object representing the exit trade with ticker populated

@@ -4,8 +4,7 @@ from datetime import datetime, timedelta
 from turtle.common.enums import TimeFrameUnit
 from turtle.model import Trade
 
-import pandas as pd
-from pandas_ta.overlap import ema as ta_ema
+import polars as pl
 
 from .base import ExitStrategy
 
@@ -20,29 +19,27 @@ class EMAExitStrategy(ExitStrategy):
     def initialize(self, ticker: str, start_date: datetime, end_date: datetime, ema_period: int = 20) -> None:
         super().initialize(ticker, start_date, end_date)
         self.ema_period = ema_period
-        # print(f"EMAExitStrategy EMA period {ema_period}")
 
-    def calculate_indicators(self) -> pd.DataFrame:
-        df = self.bars_history.get_ticker_history(
+    def calculate_indicators(self) -> pl.DataFrame:
+        df = self.bars_history.get_bars_pl(
             self.ticker, self.start_date - timedelta(days=40), self.end_date, time_frame_unit=TimeFrameUnit.DAY
         )
-        df["ema"] = ta_ema(df["close"], length=self.ema_period)
+        return df.with_columns(pl.col("close").ewm_mean(span=self.ema_period, adjust=False).alias("ema")).filter(
+            pl.col("date") >= self.start_date.date()
+        )
 
-        self.df = df[df.index >= self.start_date].copy()
-        return self.df
-
-    def calculate_exit(self, data: pd.DataFrame) -> Trade:
+    def calculate_exit(self, data: pl.DataFrame) -> Trade:
         """Calculate return with EMA exit logic."""
 
-        if data.empty:
+        if data.is_empty():
             raise ValueError("No valid data available for exit calculation.")
 
-        # Find first day where close is below EMA
-        below_ema = data[data["close"] < data["ema"]]
+        below_ema = data.filter(pl.col("close") < pl.col("ema"))
+        if not below_ema.is_empty():
+            row = below_ema.row(0, named=True)
+            d = row["date"]
+            return Trade(ticker=self.ticker, date=datetime(d.year, d.month, d.day), price=row["close"], reason="stop_loss")
 
-        if not below_ema.empty:
-            # Exit on first close below EMA
-            return Trade(ticker=self.ticker, date=below_ema.index[0], price=below_ema.iloc[0]["close"], reason="stop_loss")
-        else:
-            last_record = data.iloc[-1]
-            return Trade(ticker=self.ticker, date=data.index[-1], price=last_record["close"], reason="period_end")
+        row = data.row(-1, named=True)
+        d = row["date"]
+        return Trade(ticker=self.ticker, date=datetime(d.year, d.month, d.day), price=row["close"], reason="period_end")
