@@ -2,7 +2,6 @@ import logging
 from datetime import date
 from turtle.strategy.ranking.base import RankingStrategy
 
-import pandas as pd
 import polars as pl
 
 _LIQUIDITY_BANDS = [(5_000_000, 1.0), (1_000_000, 0.8), (500_000, 0.5)]
@@ -21,22 +20,24 @@ class VolumeMomentumRanking(RankingStrategy):
     - Technical indicator confluence (RSI, MACD, moving averages)
     """
 
-    def __init__(self, market_benchmark: str = "SPY", use_polars: bool = False) -> None:
-        super().__init__(use_polars=use_polars)
+    def __init__(self, market_benchmark: str = "SPY") -> None:
         self.market_benchmark = market_benchmark
 
-    def _volume_weighted_momentum(self) -> int:
+    def _volume_weighted_momentum(self, filtered_df: pl.DataFrame) -> int:
         """
         Calculate momentum score weighted by volume confirmation.
+
+        Args:
+            filtered_df: Date-filtered OHLCV DataFrame.
 
         Returns:
             int: Ranking score (0-25)
         """
-        if self.filtered_pl_df.height < 21:
+        if filtered_df.height < 21:
             return 0
 
-        current_close = self.filtered_pl_df["close"][-1]
-        past_close = self.filtered_pl_df["close"][-21]
+        current_close = filtered_df["close"][-1]
+        past_close = filtered_df["close"][-21]
 
         if current_close is None or past_close is None or past_close <= 0:
             return 0
@@ -44,10 +45,11 @@ class VolumeMomentumRanking(RankingStrategy):
         price_momentum = (current_close - past_close) / past_close
         logger.debug(f"Volume Momentum - Price momentum: {price_momentum}")
 
-        if self.filtered_pl_df.height >= 60:
-            recent_volume: float | None = self.filtered_pl_df["volume"][-10:].mean()  # type: ignore[assignment]
-            avg_volume: float | None = self.filtered_pl_df["volume"][-60:].mean()  # type: ignore[assignment]
+        if filtered_df.height >= 60:
+            recent_volume: float | None = filtered_df["volume"][-10:].mean()  # type: ignore[assignment]
+            avg_volume: float | None = filtered_df["volume"][-60:].mean()  # type: ignore[assignment]
             if recent_volume is None or avg_volume is None or avg_volume <= 0:
+                logger.debug("Volume Momentum - missing/zero avg_volume, using neutral volume_factor=1.0")
                 volume_factor = 1.0
             else:
                 volume_factor = min(recent_volume / avg_volume, 2.0)
@@ -65,27 +67,31 @@ class VolumeMomentumRanking(RankingStrategy):
 
         return min(25, max(0, score))
 
-    def _volatility_adjusted_strength(self) -> int:
+    def _volatility_adjusted_strength(self, filtered_df: pl.DataFrame) -> int:
         """
         Calculate relative strength adjusted for volatility.
+
+        Args:
+            filtered_df: Date-filtered OHLCV DataFrame.
 
         Returns:
             int: Ranking score (0-25)
         """
-        if self.filtered_pl_df.height < 61:
+        if filtered_df.height < 61:
             return 0
 
-        current_close = self.filtered_pl_df["close"][-1]
-        past_close = self.filtered_pl_df["close"][-61]
+        current_close = filtered_df["close"][-1]
+        past_close = filtered_df["close"][-61]
 
         if current_close is None or past_close is None or past_close <= 0:
             return 0
 
         stock_return = (current_close - past_close) / past_close
 
-        close_series = self.filtered_pl_df["close"]
+        close_series = filtered_df["close"]
         prev_close = close_series.shift(1)
         daily_returns = ((close_series - prev_close) / prev_close).drop_nulls()
+        daily_returns = daily_returns.filter(daily_returns.is_finite())
 
         if daily_returns.len() < 20:
             return 0
@@ -100,17 +106,20 @@ class VolumeMomentumRanking(RankingStrategy):
 
         return self._linear_rank(risk_adjusted_return, 0.5, 1.5, 25)
 
-    def _liquidity_quality(self) -> int:
+    def _liquidity_quality(self, filtered_df: pl.DataFrame) -> int:
         """
         Evaluate trading liquidity and market depth.
+
+        Args:
+            filtered_df: Date-filtered OHLCV DataFrame.
 
         Returns:
             int: Ranking score (0-25)
         """
-        if self.filtered_pl_df.height < 60:
+        if filtered_df.height < 60:
             return 0
 
-        volumes = self.filtered_pl_df["volume"][-60:]
+        volumes = filtered_df["volume"][-60:]
         avg_volume: float | None = volumes.mean()  # type: ignore[assignment]
         volume_std: float | None = volumes.std()  # type: ignore[assignment]
 
@@ -120,7 +129,7 @@ class VolumeMomentumRanking(RankingStrategy):
         volume_cv = volume_std / avg_volume
         consistency_score = max(0, 1 - (volume_cv - 0.5))
 
-        avg_price: float | None = self.filtered_pl_df["close"][-60:].mean()  # type: ignore[assignment]
+        avg_price: float | None = filtered_df["close"][-60:].mean()  # type: ignore[assignment]
         if avg_price is None or avg_price <= 0:
             return 0
 
@@ -133,19 +142,22 @@ class VolumeMomentumRanking(RankingStrategy):
 
         return min(25, max(0, final_score))
 
-    def _technical_confluence(self) -> int:
+    def _technical_confluence(self, filtered_df: pl.DataFrame) -> int:
         """
         Multi-indicator technical analysis confluence.
+
+        Args:
+            filtered_df: Date-filtered OHLCV DataFrame.
 
         Returns:
             int: Ranking score (0-25)
         """
-        if self.filtered_pl_df.height < 50:
+        if filtered_df.height < 50:
             return 0
 
-        rsi_score = self._calculate_rsi_score()
-        ma_score = self._calculate_ma_score()
-        momentum_score = self._calculate_momentum_score()
+        rsi_score = self._calculate_rsi_score(filtered_df)
+        ma_score = self._calculate_ma_score(filtered_df)
+        momentum_score = self._calculate_momentum_score(filtered_df)
 
         total_score = (rsi_score + ma_score + momentum_score) / 3
         final_score = int(total_score * 25 / 100)
@@ -154,12 +166,12 @@ class VolumeMomentumRanking(RankingStrategy):
 
         return min(25, max(0, final_score))
 
-    def _calculate_rsi_score(self) -> int:
+    def _calculate_rsi_score(self, filtered_df: pl.DataFrame) -> int:
         """Calculate RSI-based score (0-100)."""
-        if self.filtered_pl_df.height < 15:
+        if filtered_df.height < 15:
             return 0
 
-        closes = self.filtered_pl_df["close"][-15:].cast(pl.Float64)
+        closes = filtered_df["close"][-15:].cast(pl.Float64)
         deltas = closes.diff().fill_null(0.0)
         gains = deltas.clip(lower_bound=0.0)
         losses = (-deltas).clip(lower_bound=0.0)
@@ -167,8 +179,11 @@ class VolumeMomentumRanking(RankingStrategy):
         avg_gain: float | None = gains[-14:].mean()  # type: ignore[assignment]
         avg_loss: float | None = losses[-14:].mean()  # type: ignore[assignment]
 
-        if avg_gain is None or avg_loss is None or avg_loss == 0:
+        if avg_gain is None or avg_loss is None:
             return 0
+
+        if avg_loss == 0:
+            return 100
 
         rs = avg_gain / avg_loss
         rsi_value = 100.0 - (100.0 / (1.0 + rs))
@@ -182,17 +197,17 @@ class VolumeMomentumRanking(RankingStrategy):
         else:
             return max(0, 40 - int((30 - rsi_value) * 2))
 
-    def _calculate_ma_score(self) -> int:
+    def _calculate_ma_score(self, filtered_df: pl.DataFrame) -> int:
         """Calculate moving average relationship score (0-100)."""
-        if self.filtered_pl_df.height < 50:
+        if filtered_df.height < 50:
             return 0
 
-        closes = self.filtered_pl_df["close"]
+        closes = filtered_df["close"]
         ema_20 = closes.ewm_mean(span=20, adjust=False)[-1]
         ema_50 = closes.ewm_mean(span=50, adjust=False)[-1]
         current_price = closes[-1]
 
-        if ema_20 is None or ema_50 is None or current_price is None:
+        if ema_20 is None or ema_50 is None or current_price is None or ema_50 <= 0 or ema_20 <= 0:
             return 0
 
         score = 0
@@ -214,16 +229,16 @@ class VolumeMomentumRanking(RankingStrategy):
 
         return min(100, score)
 
-    def _calculate_momentum_score(self) -> int:
+    def _calculate_momentum_score(self, filtered_df: pl.DataFrame) -> int:
         """Calculate short-term momentum score (0-100)."""
-        if self.filtered_pl_df.height < 11:
+        if filtered_df.height < 11:
             return 0
 
-        current_close = self.filtered_pl_df["close"][-1]
-        close_5d = self.filtered_pl_df["close"][-6]
-        close_10d = self.filtered_pl_df["close"][-11]
+        current_close = filtered_df["close"][-1]
+        close_5d = filtered_df["close"][-6]
+        close_10d = filtered_df["close"][-11]
 
-        if current_close is None or close_5d is None or close_10d is None:
+        if current_close is None or close_5d is None or close_10d is None or close_5d <= 0 or close_10d <= 0:
             return 0
 
         momentum_5d = (current_close - close_5d) / close_5d
@@ -246,12 +261,12 @@ class VolumeMomentumRanking(RankingStrategy):
 
         return min(100, score)
 
-    def ranking(self, df: pd.DataFrame | pl.DataFrame, date: date) -> int:
+    def ranking(self, df: pl.DataFrame, date: date) -> int:
         """
         Calculate a combined ranking score based on volume-weighted technical analysis.
 
         Args:
-            df: DataFrame with OHLCV data
+            df: Polars DataFrame with OHLCV data
             date: The date for which to calculate the ranking
 
         Returns:
@@ -263,22 +278,25 @@ class VolumeMomentumRanking(RankingStrategy):
 
         Quality gates applied for selectivity improvement.
         """
-        pl_df = self._to_polars(df)
-        self.filtered_pl_df = pl_df.filter(pl.col("date") <= date)
+        filtered_df = df.filter(pl.col("date") <= date)
 
-        if self.filtered_pl_df.height < 130:
+        if filtered_df.height < 130:
+            logger.debug("VolumeMomentumRanking: insufficient data (%d rows < 130)", filtered_df.height)
             return 1
 
-        volume_momentum = self._volume_weighted_momentum()
-        volatility_strength = self._volatility_adjusted_strength()
-        liquidity_quality = self._liquidity_quality()
-        technical_confluence = self._technical_confluence()
+        volume_momentum = self._volume_weighted_momentum(filtered_df)
+        volatility_strength = self._volatility_adjusted_strength(filtered_df)
+        liquidity_quality = self._liquidity_quality(filtered_df)
+        technical_confluence = self._technical_confluence(filtered_df)
 
         if volume_momentum < 5:
+            logger.debug("VolumeMomentumRanking: volume_momentum gate failed (%d < 5)", volume_momentum)
             return 1
         if volatility_strength < 5:
+            logger.debug("VolumeMomentumRanking: volatility_strength gate failed (%d < 5)", volatility_strength)
             return 1
         if liquidity_quality < 8:
+            logger.debug("VolumeMomentumRanking: liquidity_quality gate failed (%d < 8)", liquidity_quality)
             return 1
 
         weighted_volume_momentum = int(volume_momentum * 1.2)
@@ -297,6 +315,7 @@ class VolumeMomentumRanking(RankingStrategy):
 
         final_score = min(100, max(1, total_score))
         if final_score < 40:
+            logger.debug("VolumeMomentumRanking: final_score gate failed (%d < 40)", final_score)
             return 1
 
         return final_score

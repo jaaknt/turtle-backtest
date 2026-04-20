@@ -144,6 +144,6 @@ class MomentumStrategy(TradingStrategy):
 
         signal_dates = filtered_df[buy_signals]["date"].tolist()
         return [
-            Signal(ticker=ticker, date=signal_date, ranking=self.ranking_strategy.ranking(self.df, date=signal_date))
+            Signal(ticker=ticker, date=signal_date, ranking=self.ranking_strategy.ranking(pl.from_pandas(self.df), date=signal_date))
             for signal_date in signal_dates
         ]

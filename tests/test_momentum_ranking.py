@@ -146,41 +146,35 @@ def test_linear_rank_6month_at_floor() -> None:
 
 def test_ranking_ema200_1month_insufficient_data_returns_0() -> None:
     r = MomentumRanking()
-    r.filtered_pl_df = _make_df(20)
-    assert r._ranking_ema200_1month() == 0
+    assert r._ranking_ema200_1month(_make_df(20)) == 0
 
 
 def test_ranking_ema200_1month_exact_min_height_proceeds() -> None:
     r = MomentumRanking()
     # 21 rows, last ema_200 == first ema_200 → 0% change → score 0 (not guard 0)
-    r.filtered_pl_df = _make_df(21, ema_200=48.0)
-    result = r._ranking_ema200_1month()
+    result = r._ranking_ema200_1month(_make_df(21, ema_200=48.0))
     assert isinstance(result, int)
 
 
 def test_ranking_ema200_3month_insufficient_data_returns_0() -> None:
     r = MomentumRanking()
-    r.filtered_pl_df = _make_df(65)
-    assert r._ranking_ema200_3month() == 0
+    assert r._ranking_ema200_3month(_make_df(65)) == 0
 
 
 def test_ranking_ema200_3month_exact_min_height_proceeds() -> None:
     r = MomentumRanking()
-    r.filtered_pl_df = _make_df(66, ema_200=48.0)
-    result = r._ranking_ema200_3month()
+    result = r._ranking_ema200_3month(_make_df(66, ema_200=48.0))
     assert isinstance(result, int)
 
 
 def test_ranking_ema200_6month_insufficient_data_returns_0() -> None:
     r = MomentumRanking()
-    r.filtered_pl_df = _make_df(130)
-    assert r._ranking_ema200_6month() == 0
+    assert r._ranking_ema200_6month(_make_df(130)) == 0
 
 
 def test_ranking_ema200_6month_exact_min_height_proceeds() -> None:
     r = MomentumRanking()
-    r.filtered_pl_df = _make_df(131, ema_200=48.0)
-    result = r._ranking_ema200_6month()
+    result = r._ranking_ema200_6month(_make_df(131, ema_200=48.0))
     assert isinstance(result, int)
 
 
@@ -194,15 +188,13 @@ def test_ranking_ema200_1month_max_score() -> None:
     r = MomentumRanking()
     ema_vals = [40.0] * 20 + [50.0]  # 50/40 - 1 = 25% → clearly above 10% ceiling
     rows = [_base_row(date=date.fromordinal(date(2024, 1, 1).toordinal() + i), ema_200=v) for i, v in enumerate(ema_vals)]
-    r.filtered_pl_df = _df(rows)
-    assert r._ranking_ema200_1month() == 20
+    assert r._ranking_ema200_1month(_df(rows)) == 20
 
 
 def test_ranking_ema200_1month_zero_growth() -> None:
     """Flat EMA200 → 0 pts."""
     r = MomentumRanking()
-    r.filtered_pl_df = _make_df(21, ema_200=48.0)
-    assert r._ranking_ema200_1month() == 0
+    assert r._ranking_ema200_1month(_make_df(21, ema_200=48.0)) == 0
 
 
 def test_ranking_ema200_1month_negative_growth() -> None:
@@ -210,8 +202,7 @@ def test_ranking_ema200_1month_negative_growth() -> None:
     r = MomentumRanking()
     ema_vals = [52.0] * 20 + [48.0]
     rows = [_base_row(date=date.fromordinal(date(2024, 1, 1).toordinal() + i), ema_200=v) for i, v in enumerate(ema_vals)]
-    r.filtered_pl_df = _df(rows)
-    assert r._ranking_ema200_1month() == 0
+    assert r._ranking_ema200_1month(_df(rows)) == 0
 
 
 def test_ranking_ema200_3month_max_score() -> None:
@@ -219,8 +210,7 @@ def test_ranking_ema200_3month_max_score() -> None:
     r = MomentumRanking()
     ema_vals = [40.0] * 65 + [48.0]  # 48/40 - 1 = 20%
     rows = [_base_row(date=date.fromordinal(date(2024, 1, 1).toordinal() + i), ema_200=v) for i, v in enumerate(ema_vals)]
-    r.filtered_pl_df = _df(rows)
-    assert r._ranking_ema200_3month() == 20
+    assert r._ranking_ema200_3month(_df(rows)) == 20
 
 
 def test_ranking_ema200_6month_max_score() -> None:
@@ -228,8 +218,48 @@ def test_ranking_ema200_6month_max_score() -> None:
     r = MomentumRanking()
     ema_vals = [40.0] * 130 + [52.0]  # 52/40 - 1 = 30%
     rows = [_base_row(date=date.fromordinal(date(2024, 1, 1).toordinal() + i), ema_200=v) for i, v in enumerate(ema_vals)]
-    r.filtered_pl_df = _df(rows)
-    assert r._ranking_ema200_6month() == 20
+    assert r._ranking_ema200_6month(_df(rows)) == 20
+
+
+# ---------------------------------------------------------------------------
+# _ranking_period_high
+# ---------------------------------------------------------------------------
+
+
+def test_ranking_period_high_insufficient_data_returns_0() -> None:
+    r = MomentumRanking()
+    assert r._ranking_period_high(_make_df(1)) == 0
+
+
+def test_ranking_period_high_not_period_max_returns_0() -> None:
+    """Current close below a prior close → 0."""
+    r = MomentumRanking()
+    rows = (
+        [_base_row(date=date(2024, 1, 1), close=60.0)]
+        + [_base_row(date=date.fromordinal(date(2024, 1, 1).toordinal() + i + 1), close=50.0) for i in range(10)]
+    )
+    assert r._ranking_period_high(_df(rows)) == 0
+
+
+def test_ranking_period_high_null_close_returns_0() -> None:
+    """All-null close column returns 0."""
+    r = MomentumRanking()
+    df = _make_df(5).with_columns(pl.lit(None).cast(pl.Float64).alias("close"))
+    assert r._ranking_period_high(df) == 0
+
+
+def test_ranking_period_high_full_365_days_returns_20() -> None:
+    """Current close is the max over a full 365-day lookback → score 20."""
+    r = MomentumRanking()
+    assert r._ranking_period_high(_make_df(365)) == 20
+
+
+def test_ranking_period_high_short_history_returns_low_score() -> None:
+    """Current close is max but only 50 days of history → low score."""
+    r = MomentumRanking()
+    # 50 rows all at same close → days_as_high = 50 → int(20 * 50/365) = 2
+    score = r._ranking_period_high(_make_df(50))
+    assert 1 <= score < 20
 
 
 # ---------------------------------------------------------------------------

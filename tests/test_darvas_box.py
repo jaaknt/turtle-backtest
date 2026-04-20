@@ -6,6 +6,7 @@ from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
 from unittest.mock import MagicMock
 
 import pandas as pd
+import polars as pl
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning, module="pkg_resources")
@@ -165,9 +166,9 @@ def test_ranking() -> None:
     test_date = datetime(2024, 1, 15)
 
     # Test case 1: Stock with $50 price (should return rank 12 for price component only)
-    mock_df = pd.DataFrame(
+    mock_df = pl.DataFrame(
         {
-            "date": [test_date],
+            "date": [test_date.date()],
             "close": [50.0],
             "open": [49.0],
             "high": [51.0],
@@ -185,9 +186,9 @@ def test_ranking() -> None:
     assert ranking == 12  # Only price ranking since no historical data for EMA trends
 
     # Test case 2: High-priced stock (should return rank 1)
-    mock_df_expensive = pd.DataFrame(
+    mock_df_expensive = pl.DataFrame(
         {
-            "date": [test_date],
+            "date": [test_date.date()],
             "close": [1500.0],
             "open": [1480.0],
             "high": [1520.0],
@@ -205,9 +206,9 @@ def test_ranking() -> None:
     assert ranking == 1
 
     # Test case 3: Low-priced stock (should return rank 20 for price component)
-    mock_df_cheap = pd.DataFrame(
+    mock_df_cheap = pl.DataFrame(
         {
-            "date": [test_date],
+            "date": [test_date.date()],
             "close": [8.50],
             "open": [8.20],
             "high": [8.80],

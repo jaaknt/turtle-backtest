@@ -1,19 +1,19 @@
 import warnings
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from turtle.strategy.ranking.base import RankingStrategy
 from turtle.strategy.ranking.volume_momentum import VolumeMomentumRanking
 
 import numpy as np
-import pandas as pd
 import polars as pl
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning, module="pkg_resources")
 
 
-def create_test_data(length: int = 100) -> pd.DataFrame:
+def create_test_data(length: int = 100) -> pl.DataFrame:
     """Create test OHLCV data for ranking tests."""
-    dates = pd.date_range(start="2024-01-01", periods=length, freq="D")
+    start = date(2024, 1, 1)
+    dates = [start + timedelta(days=i) for i in range(length)]
 
     # Create realistic price movement
     np.random.seed(42)  # For reproducible tests
@@ -37,7 +37,10 @@ def create_test_data(length: int = 100) -> pd.DataFrame:
     volume_multiplier = 1 + np.abs(price_changes) * 2  # Higher volume on bigger moves
     volumes = volumes * volume_multiplier
 
-    return pd.DataFrame({"date": dates, "open": opens, "high": highs, "low": lows, "close": closes, "volume": volumes})
+    return pl.DataFrame({
+        "date": dates, "open": opens.tolist(), "high": highs.tolist(),
+        "low": lows.tolist(), "close": closes.tolist(), "volume": volumes.tolist(),
+    })
 
 
 def test_ranking_initialization() -> None:
@@ -78,7 +81,7 @@ def test_volume_weighted_momentum_component() -> None:
     ranking = VolumeMomentumRanking()
 
     # Create trending data with volume confirmation
-    dates = pd.date_range(start="2024-01-01", periods=100, freq="D")
+    dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(100)]
 
     # Strong uptrending prices to meet new selectivity requirements
     prices = np.linspace(80, 120, 100)  # 50% gain over period for stronger momentum
@@ -91,10 +94,11 @@ def test_volume_weighted_momentum_component() -> None:
         ]
     )
 
-    data = pd.DataFrame({"date": dates, "open": prices, "high": prices * 1.01, "low": prices * 0.99, "close": prices, "volume": volumes})
-
-    ranking.filtered_pl_df = pl.from_pandas(data)
-    momentum_score = ranking._volume_weighted_momentum()
+    df = pl.DataFrame({
+        "date": dates, "open": prices.tolist(), "high": (prices * 1.01).tolist(),
+        "low": (prices * 0.99).tolist(), "close": prices.tolist(), "volume": volumes.tolist(),
+    })
+    momentum_score = ranking._volume_weighted_momentum(df)
 
     assert momentum_score > 0  # Should be positive for uptrending + volume
     assert momentum_score <= 25  # Max score is 25
@@ -105,21 +109,20 @@ def test_volatility_adjusted_strength_component() -> None:
     ranking = VolumeMomentumRanking()
 
     # Create stable uptrending data (good risk-adjusted return)
-    dates = pd.date_range(start="2024-01-01", periods=100, freq="D")
+    dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(100)]
 
     # Steady uptrend with low volatility
     prices = np.linspace(90, 110, 100)
     small_noise = np.random.normal(0, 0.005, 100)  # Very low volatility
     prices = prices + small_noise
 
-    data = pd.DataFrame(
-        {"date": dates, "open": prices, "high": prices * 1.005, "low": prices * 0.995, "close": prices, "volume": np.full(100, 1000000)}
-    )
+    df = pl.DataFrame({
+        "date": dates, "open": prices.tolist(), "high": (prices * 1.005).tolist(),
+        "low": (prices * 0.995).tolist(), "close": prices.tolist(), "volume": [1000000] * 100,
+    })
+    strength_score = ranking._volatility_adjusted_strength(df)
 
-    ranking.filtered_pl_df = pl.from_pandas(data)
-    strength_score = ranking._volatility_adjusted_strength()
-
-    assert strength_score >= 0  # Should be non-negative
+    assert strength_score > 0  # Steady uptrend should score positively
     assert strength_score <= 25  # Max score is 25
 
 
@@ -128,17 +131,14 @@ def test_liquidity_quality_component() -> None:
     ranking = VolumeMomentumRanking()
 
     # Create data with good liquidity
-    dates = pd.date_range(start="2024-01-01", periods=100, freq="D")
-    prices = np.full(100, 100.0)  # Stable price
+    dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(100)]
+    prices = [100.0] * 100
 
     # Consistent high volume (good liquidity) - meet new $5M+ requirement
-    volumes = np.random.normal(6000000, 500000, 100)  # $600M daily volume
-    volumes = np.abs(volumes)  # Ensure positive
+    volumes = np.abs(np.random.normal(6000000, 500000, 100)).tolist()  # $600M daily volume
 
-    data = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": volumes})
-
-    ranking.filtered_pl_df = pl.from_pandas(data)
-    liquidity_score = ranking._liquidity_quality()
+    df = pl.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": volumes})
+    liquidity_score = ranking._liquidity_quality(df)
 
     assert liquidity_score > 0  # Should be positive for good liquidity
     assert liquidity_score <= 25  # Max score is 25
@@ -149,19 +149,18 @@ def test_technical_confluence_component() -> None:
     ranking = VolumeMomentumRanking()
 
     # Create data suitable for technical analysis
-    dates = pd.date_range(start="2024-01-01", periods=100, freq="D")
+    dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(100)]
 
     # Gradual uptrend for positive technical signals
     base_prices = np.linspace(90, 110, 100)
     noise = np.random.normal(0, 0.01, 100)
     prices = base_prices + noise
 
-    data = pd.DataFrame(
-        {"date": dates, "open": prices, "high": prices * 1.01, "low": prices * 0.99, "close": prices, "volume": np.full(100, 1000000)}
-    )
-
-    ranking.filtered_pl_df = pl.from_pandas(data)
-    confluence_score = ranking._technical_confluence()
+    df = pl.DataFrame({
+        "date": dates, "open": prices.tolist(), "high": (prices * 1.01).tolist(),
+        "low": (prices * 0.99).tolist(), "close": prices.tolist(), "volume": [1000000] * 100,
+    })
+    confluence_score = ranking._technical_confluence(df)
 
     assert confluence_score >= 0  # Should be non-negative
     assert confluence_score <= 25  # Max score is 25
@@ -172,17 +171,46 @@ def test_rsi_calculation() -> None:
     ranking = VolumeMomentumRanking()
 
     # Create oscillating data for RSI test
-    dates = pd.date_range(start="2024-01-01", periods=50, freq="D")
+    dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(50)]
 
     # Create data that should result in RSI around 50 (neutral)
-    prices = 100 + np.sin(np.linspace(0, 4 * np.pi, 50)) * 5
+    prices = (100 + np.sin(np.linspace(0, 4 * np.pi, 50)) * 5).tolist()
 
-    data = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": np.full(50, 1000000)})
-
-    ranking.filtered_pl_df = pl.from_pandas(data)
-    rsi_score = ranking._calculate_rsi_score()
+    df = pl.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": [1000000] * 50})
+    rsi_score = ranking._calculate_rsi_score(df)
 
     assert 0 <= rsi_score <= 100  # RSI score should be in valid range
+
+
+def test_rsi_no_losses_returns_100() -> None:
+    """Monotonically rising prices → avg_loss == 0 → RSI=100 → score 100."""
+    ranking = VolumeMomentumRanking()
+    dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(20)]
+    prices = [100.0 + i for i in range(20)]
+    df = pl.DataFrame({"date": dates, "close": prices, "open": prices, "high": prices, "low": prices, "volume": [1_000_000] * 20})
+    assert ranking._calculate_rsi_score(df) == 100
+
+
+def test_rsi_overbought_score_below_60() -> None:
+    """Series with many gains but some losses → RSI > 75 → overbought penalty → score < 60."""
+    ranking = VolumeMomentumRanking()
+    dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(20)]
+    # 10+ up-days of +2, 3 down-days of -1 in last 14 bars → RSI ~85
+    prices = [100.0, 102.0, 101.0, 103.0, 105.0, 104.0, 106.0, 108.0, 110.0,
+              109.0, 111.0, 113.0, 115.0, 114.0, 116.0, 118.0, 120.0, 119.0, 121.0, 123.0]
+    df = pl.DataFrame({"date": dates, "close": prices, "open": prices, "high": prices, "low": prices, "volume": [1_000_000] * 20})
+    score = ranking._calculate_rsi_score(df)
+    assert 0 <= score < 60
+
+
+def test_rsi_oversold_score_below_60() -> None:
+    """Monotonically falling prices → RSI very low → oversold penalty → score < 60."""
+    ranking = VolumeMomentumRanking()
+    dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(20)]
+    prices = [max(100.0 - i * 2.0, 1.0) for i in range(20)]
+    df = pl.DataFrame({"date": dates, "close": prices, "open": prices, "high": prices, "low": prices, "volume": [1_000_000] * 20})
+    score = ranking._calculate_rsi_score(df)
+    assert 0 <= score < 60
 
 
 def test_moving_average_calculation() -> None:
@@ -190,16 +218,23 @@ def test_moving_average_calculation() -> None:
     ranking = VolumeMomentumRanking()
 
     # Create uptrending data for positive MA signals
-    dates = pd.date_range(start="2024-01-01", periods=100, freq="D")
-    prices = np.linspace(80, 120, 100)  # Clear uptrend
+    dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(100)]
+    prices = np.linspace(80, 120, 100).tolist()  # Clear uptrend
 
-    data = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": np.full(100, 1000000)})
-
-    ranking.filtered_pl_df = pl.from_pandas(data)
-    ma_score = ranking._calculate_ma_score()
+    df = pl.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": [1000000] * 100})
+    ma_score = ranking._calculate_ma_score(df)
 
     assert 0 <= ma_score <= 100  # MA score should be in valid range
     assert ma_score > 50  # Should be positive for uptrending data
+
+
+def test_ma_score_price_below_ema_returns_0() -> None:
+    """Price below EMA20 (downtrend) → returns 0."""
+    ranking = VolumeMomentumRanking()
+    dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(100)]
+    prices = np.linspace(120, 80, 100).tolist()  # clear downtrend
+    df = pl.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": [1_000_000] * 100})
+    assert ranking._calculate_ma_score(df) == 0
 
 
 def test_momentum_calculation() -> None:
@@ -207,17 +242,15 @@ def test_momentum_calculation() -> None:
     ranking = VolumeMomentumRanking()
 
     # Create recent uptrend for positive momentum
-    dates = pd.date_range(start="2024-01-01", periods=30, freq="D")
+    dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(30)]
 
     # Strong recent momentum
     early_prices = np.full(15, 100)
     late_prices = np.linspace(100, 110, 15)  # 10% gain in last 15 days
-    prices = np.concatenate([early_prices, late_prices])
+    prices = np.concatenate([early_prices, late_prices]).tolist()
 
-    data = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": np.full(30, 1000000)})
-
-    ranking.filtered_pl_df = pl.from_pandas(data)
-    momentum_score = ranking._calculate_momentum_score()
+    df = pl.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": [1000000] * 30})
+    momentum_score = ranking._calculate_momentum_score(df)
 
     assert momentum_score > 0  # Should be positive for uptrending data
     assert momentum_score <= 100  # Should be within valid range
@@ -237,19 +270,18 @@ def test_ranking_score_bounds() -> None:
 
 
 def test_ranking_with_missing_data() -> None:
-    """Test ranking behavior with missing/invalid data."""
+    """Test ranking behavior with missing/invalid data — uses 200 rows to exercise null-handling code."""
     ranking = VolumeMomentumRanking()
 
-    # Create data with some NaN values
-    data = create_test_data(100)
-    data.loc[50:60, "close"] = np.nan  # Insert missing data
-    data.loc[70:80, "volume"] = np.nan
+    data = create_test_data(200).with_row_index("_idx").with_columns(
+        pl.when(pl.col("_idx").is_between(100, 110)).then(None).otherwise(pl.col("close")).alias("close"),
+        pl.when(pl.col("_idx").is_between(150, 160)).then(None).otherwise(pl.col("volume")).alias("volume"),
+    ).drop("_idx")
 
-    target_date = datetime(2024, 3, 1)
+    target_date = datetime(2024, 8, 1)  # After all 200 rows
 
-    # Should handle missing data gracefully
     score = ranking.ranking(data, target_date)
-    assert 0 <= score <= 100  # Should still return valid score
+    assert 0 <= score <= 100
 
 
 def test_ranking_deterministic() -> None:
@@ -264,6 +296,21 @@ def test_ranking_deterministic() -> None:
     score2 = ranking2.ranking(data, target_date)
 
     assert score1 == score2  # Should be deterministic
+
+
+def test_ranking_volume_momentum_quality_gate() -> None:
+    """Flat prices produce volume_momentum=0 which fails the <5 gate → returns 1."""
+    ranking = VolumeMomentumRanking()
+    start = date(2024, 1, 1)
+    dates = [start + timedelta(days=i) for i in range(150)]
+    prices = [100.0] * 150
+    data = pl.DataFrame({
+        "date": dates,
+        "open": prices, "high": prices, "low": prices, "close": prices,
+        "volume": [1_000_000.0] * 150,
+    })
+    score = ranking.ranking(data, datetime(2024, 5, 1))
+    assert score == 1
 
 
 # ---------------------------------------------------------------------------
@@ -314,17 +361,21 @@ def test_linear_rank_floor_equals_ceiling_below_value_returns_0() -> None:
     assert RankingStrategy._linear_rank(0.4, 0.5, 0.5) == 0
 
 
+def test_linear_rank_nan_returns_0() -> None:
+    assert RankingStrategy._linear_rank(float("nan"), 0.0, 1.0) == 0
+
+
 # ---------------------------------------------------------------------------
 # _liquidity_quality band coverage
 # ---------------------------------------------------------------------------
 
 
 def _make_constant_df(n: int, price: float, volume: float) -> pl.DataFrame:
-    dates = pd.date_range("2024-01-01", periods=n, freq="D")
-    prices = np.full(n, price)
-    volumes = np.full(n, volume)
-    df = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": volumes})
-    return pl.from_pandas(df)
+    start = date(2024, 1, 1)
+    dates = [start + timedelta(days=i) for i in range(n)]
+    prices = [price] * n
+    volumes = [volume] * n
+    return pl.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": volumes})
 
 
 def test_liquidity_quality_band_1m_to_5m() -> None:
@@ -332,31 +383,31 @@ def test_liquidity_quality_band_1m_to_5m() -> None:
     # constant volumes → cv = 0 → consistency_score = 1.5
     # final = min(25, int(25 * 1.5 * 0.8)) = min(25, 30) = 25
     ranking = VolumeMomentumRanking()
-    ranking.filtered_pl_df = _make_constant_df(60, price=10.0, volume=200_000)
-    assert ranking._liquidity_quality() == 25
+    df = _make_constant_df(60, price=10.0, volume=200_000)
+    assert ranking._liquidity_quality(df) == 25
 
 
 def test_liquidity_quality_band_500k_to_1m() -> None:
     # dollar_volume = 10.0 * 70_000 = 700_000 → volume_score = 0.5
     # final = min(25, int(25 * 1.5 * 0.5)) = 18
     ranking = VolumeMomentumRanking()
-    ranking.filtered_pl_df = _make_constant_df(60, price=10.0, volume=70_000)
-    assert ranking._liquidity_quality() == 18
+    df = _make_constant_df(60, price=10.0, volume=70_000)
+    assert ranking._liquidity_quality(df) == 18
 
 
 def test_liquidity_quality_below_all_bands() -> None:
     # dollar_volume = 5.0 * 40_000 = 200_000 → volume_score = 0.0 → score = 0
     ranking = VolumeMomentumRanking()
-    ranking.filtered_pl_df = _make_constant_df(60, price=5.0, volume=40_000)
-    assert ranking._liquidity_quality() == 0
+    df = _make_constant_df(60, price=5.0, volume=40_000)
+    assert ranking._liquidity_quality(df) == 0
 
 
 def _make_alternating_df(n: int, price: float, vol_low: float, vol_high: float) -> pl.DataFrame:
-    dates = pd.date_range("2024-01-01", periods=n, freq="D")
-    prices = np.full(n, price)
-    volumes = np.tile([vol_low, vol_high], n // 2 + 1)[:n].astype(float)
-    df = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": volumes})
-    return pl.from_pandas(df)
+    start = date(2024, 1, 1)
+    dates = [start + timedelta(days=i) for i in range(n)]
+    prices = [price] * n
+    volumes = np.tile([vol_low, vol_high], n // 2 + 1)[:n].tolist()
+    return pl.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": volumes})
 
 
 def test_liquidity_quality_band_above_5m_exceeds_1m_band() -> None:
@@ -364,12 +415,10 @@ def test_liquidity_quality_band_above_5m_exceeds_1m_band() -> None:
     # price=100 → dollar_volume=10M → vol_score=1.0 → int(25*0.693*1.0) = 17
     # price=20  → dollar_volume=2M  → vol_score=0.8 → int(25*0.693*0.8) = 13
     ranking_5m = VolumeMomentumRanking()
-    ranking_5m.filtered_pl_df = _make_alternating_df(60, price=100.0, vol_low=20_000, vol_high=180_000)
-    score_5m = ranking_5m._liquidity_quality()
+    score_5m = ranking_5m._liquidity_quality(_make_alternating_df(60, price=100.0, vol_low=20_000, vol_high=180_000))
 
     ranking_1m = VolumeMomentumRanking()
-    ranking_1m.filtered_pl_df = _make_alternating_df(60, price=20.0, vol_low=20_000, vol_high=180_000)
-    score_1m = ranking_1m._liquidity_quality()
+    score_1m = ranking_1m._liquidity_quality(_make_alternating_df(60, price=20.0, vol_low=20_000, vol_high=180_000))
 
     assert score_5m == 17
     assert score_1m == 13
@@ -388,10 +437,9 @@ def test_volume_weighted_momentum_interpolation_path() -> None:
     # score = int(8 * 0.5) = 4
     ranking = VolumeMomentumRanking()
     prices = [100.0] * 20 + [110.0]
-    dates = pd.date_range("2024-01-01", periods=21, freq="D")
-    df = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": np.full(21, 1_000_000)})
-    ranking.filtered_pl_df = pl.from_pandas(df)
-    assert ranking._volume_weighted_momentum() == 4
+    dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(21)]
+    df = pl.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": [1_000_000] * 21})
+    assert ranking._volume_weighted_momentum(df) == 4
 
 
 def test_volatility_adjusted_strength_interpolation_path() -> None:
@@ -400,9 +448,8 @@ def test_volatility_adjusted_strength_interpolation_path() -> None:
     ranking = VolumeMomentumRanking()
     n = 65
     i = np.arange(n)
-    prices = 100.0 + (i % 2) * 2.0 + i * 0.03  # alternating ±2 + small upward drift
-    dates = pd.date_range("2024-01-01", periods=n, freq="D")
-    df = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": np.full(n, 1_000_000)})
-    ranking.filtered_pl_df = pl.from_pandas(df)
-    score = ranking._volatility_adjusted_strength()
+    prices = (100.0 + (i % 2) * 2.0 + i * 0.03).tolist()  # alternating ±2 + small upward drift
+    dates = [date(2024, 1, 1) + timedelta(days=j) for j in range(n)]
+    df = pl.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": [1_000_000] * n})
+    score = ranking._volatility_adjusted_strength(df)
     assert 0 < score < 25

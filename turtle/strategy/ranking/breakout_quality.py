@@ -2,7 +2,6 @@ import logging
 from datetime import date
 from turtle.strategy.ranking.base import RankingStrategy
 
-import pandas as pd
 import polars as pl
 
 _VOLUME_BANDS = [(3.0, 30), (2.5, 25), (2.0, 20), (1.75, 15), (1.5, 10), (1.25, 5)]
@@ -28,9 +27,6 @@ class BreakoutQualityRanking(RankingStrategy):
 
     Total: 0-100
     """
-
-    def __init__(self, use_polars: bool = False) -> None:
-        super().__init__(use_polars=use_polars)
 
     def _volume_conviction(self, row: dict) -> int:
         """
@@ -126,7 +122,7 @@ class BreakoutQualityRanking(RankingStrategy):
         gap_pct = (macd - macd_signal) / close * 100
         return next((score for threshold, score in _MACD_BANDS if gap_pct >= threshold), 0)
 
-    def ranking(self, df: pd.DataFrame | pl.DataFrame, date: date) -> int:
+    def ranking(self, df: pl.DataFrame, date: date) -> int:
         """
         Calculate breakout quality ranking score (0-100).
 
@@ -140,8 +136,7 @@ class BreakoutQualityRanking(RankingStrategy):
         Returns:
             int: Score in range 0-100.
         """
-        pl_df = self._to_polars(df)
-        filtered_pl_df = pl_df.filter(pl.col("date") <= date)
+        filtered_pl_df = df.filter(pl.col("date") <= date)
         if filtered_pl_df.is_empty():
             return 0
 
