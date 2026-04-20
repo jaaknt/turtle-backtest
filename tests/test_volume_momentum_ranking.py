@@ -1,5 +1,6 @@
 import warnings
 from datetime import datetime
+from turtle.strategy.ranking.base import RankingStrategy
 from turtle.strategy.ranking.volume_momentum import VolumeMomentumRanking
 
 import numpy as np
@@ -57,7 +58,7 @@ def test_ranking_with_insufficient_data() -> None:
     target_date = datetime(2024, 2, 19)
 
     score = ranking.ranking(short_data, target_date)
-    assert score <= 10  # Should return low score for insufficient data
+    assert score == 1
 
 
 def test_ranking_with_valid_data() -> None:
@@ -271,37 +272,46 @@ def test_ranking_deterministic() -> None:
 
 
 def test_linear_rank_at_ceiling_returns_max_score() -> None:
-    assert VolumeMomentumRanking._linear_rank(0.20, 0.05, 0.20, 25) == 25
+    assert RankingStrategy._linear_rank(0.20, 0.05, 0.20, 25) == 25
 
 
 def test_linear_rank_above_ceiling_returns_max_score() -> None:
-    assert VolumeMomentumRanking._linear_rank(0.50, 0.05, 0.20, 25) == 25
+    assert RankingStrategy._linear_rank(0.50, 0.05, 0.20, 25) == 25
 
 
 def test_linear_rank_at_floor_returns_0() -> None:
-    assert VolumeMomentumRanking._linear_rank(0.05, 0.05, 0.20, 25) == 0
+    assert RankingStrategy._linear_rank(0.05, 0.05, 0.20, 25) == 0
 
 
 def test_linear_rank_below_floor_returns_0() -> None:
-    assert VolumeMomentumRanking._linear_rank(0.04, 0.05, 0.20, 25) == 0
+    assert RankingStrategy._linear_rank(0.04, 0.05, 0.20, 25) == 0
 
 
 def test_linear_rank_midpoint_momentum_params() -> None:
     # midpoint of [0.05, 0.20] = 0.125 → int(25 * 0.5) = 12
-    assert VolumeMomentumRanking._linear_rank(0.125, 0.05, 0.20, 25) == 12
+    assert RankingStrategy._linear_rank(0.125, 0.05, 0.20, 25) == 12
 
 
 def test_linear_rank_at_ceiling_volatility_params() -> None:
-    assert VolumeMomentumRanking._linear_rank(1.5, 0.5, 1.5, 25) == 25
+    assert RankingStrategy._linear_rank(1.5, 0.5, 1.5, 25) == 25
 
 
 def test_linear_rank_at_floor_volatility_params() -> None:
-    assert VolumeMomentumRanking._linear_rank(0.5, 0.5, 1.5, 25) == 0
+    assert RankingStrategy._linear_rank(0.5, 0.5, 1.5, 25) == 0
 
 
 def test_linear_rank_midpoint_volatility_params() -> None:
     # midpoint of [0.5, 1.5] = 1.0 → int(25 * 0.5) = 12
-    assert VolumeMomentumRanking._linear_rank(1.0, 0.5, 1.5, 25) == 12
+    assert RankingStrategy._linear_rank(1.0, 0.5, 1.5, 25) == 12
+
+
+def test_linear_rank_floor_equals_ceiling_at_value_returns_max_score() -> None:
+    # value >= ceiling short-circuits before the division, so no ZeroDivisionError
+    assert RankingStrategy._linear_rank(0.5, 0.5, 0.5) == 20
+
+
+def test_linear_rank_floor_equals_ceiling_below_value_returns_0() -> None:
+    assert RankingStrategy._linear_rank(0.4, 0.5, 0.5) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -339,6 +349,31 @@ def test_liquidity_quality_below_all_bands() -> None:
     ranking = VolumeMomentumRanking()
     ranking.filtered_pl_df = _make_constant_df(60, price=5.0, volume=40_000)
     assert ranking._liquidity_quality() == 0
+
+
+def _make_alternating_df(n: int, price: float, vol_low: float, vol_high: float) -> pl.DataFrame:
+    dates = pd.date_range("2024-01-01", periods=n, freq="D")
+    prices = np.full(n, price)
+    volumes = np.tile([vol_low, vol_high], n // 2 + 1)[:n].astype(float)
+    df = pd.DataFrame({"date": dates, "open": prices, "high": prices, "low": prices, "close": prices, "volume": volumes})
+    return pl.from_pandas(df)
+
+
+def test_liquidity_quality_band_above_5m_exceeds_1m_band() -> None:
+    # Both use alternating [20_000, 180_000] → avg_volume=100_000, CV≈0.807, consistency≈0.693
+    # price=100 → dollar_volume=10M → vol_score=1.0 → int(25*0.693*1.0) = 17
+    # price=20  → dollar_volume=2M  → vol_score=0.8 → int(25*0.693*0.8) = 13
+    ranking_5m = VolumeMomentumRanking()
+    ranking_5m.filtered_pl_df = _make_alternating_df(60, price=100.0, vol_low=20_000, vol_high=180_000)
+    score_5m = ranking_5m._liquidity_quality()
+
+    ranking_1m = VolumeMomentumRanking()
+    ranking_1m.filtered_pl_df = _make_alternating_df(60, price=20.0, vol_low=20_000, vol_high=180_000)
+    score_1m = ranking_1m._liquidity_quality()
+
+    assert score_5m == 17
+    assert score_1m == 13
+    assert score_5m > score_1m
 
 
 # ---------------------------------------------------------------------------

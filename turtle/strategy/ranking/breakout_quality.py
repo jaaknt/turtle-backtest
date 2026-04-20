@@ -154,7 +154,6 @@ class BreakoutQualityRanking(RankingStrategy):
 
         score = vol_pts + ext_pts + trend_pts + macd_pts
         logger.debug(
-            f"BreakoutQualityRanking date={date.date() if hasattr(date, 'date') else date} "
-            f"volume={vol_pts} extension={ext_pts} trend={trend_pts} macd={macd_pts} total={score}"
+            f"BreakoutQualityRanking date={date} volume={vol_pts} extension={ext_pts} trend={trend_pts} macd={macd_pts} total={score}"
         )
         return score
