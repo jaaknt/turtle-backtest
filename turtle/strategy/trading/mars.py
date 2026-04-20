@@ -6,6 +6,7 @@ from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.strategy.ranking.base import RankingStrategy
 
 import pandas as pd
+import polars as pl
 from pandas_ta.momentum import macd as ta_macd
 from pandas_ta.overlap import ema as ta_ema
 from pandas_ta.overlap import sma as ta_sma
@@ -135,7 +136,8 @@ class MarsStrategy(TradingStrategy):
         signals = []
         for _, row in filtered_df.iterrows():
             if self.is_buy_signal(ticker, row):
-                signals.append(Signal(ticker=ticker, date=row["date"], ranking=self.ranking_strategy.ranking(self.df, date=row["date"])))
+                ranking = self.ranking_strategy.ranking(pl.from_pandas(self.df), date=row["date"])
+                signals.append(Signal(ticker=ticker, date=row["date"], ranking=ranking))
 
         return signals
 

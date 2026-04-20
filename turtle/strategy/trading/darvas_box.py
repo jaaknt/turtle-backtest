@@ -7,6 +7,7 @@ from turtle.strategy.ranking.base import RankingStrategy
 
 import numpy as np
 import pandas as pd
+import polars as pl
 from pandas_ta.momentum import macd as ta_macd
 from pandas_ta.overlap import ema as ta_ema
 
@@ -292,7 +293,7 @@ class DarvasBoxStrategy(TradingStrategy):
 
         # Return list of Signal objects
         return [
-            Signal(ticker=ticker, date=signal_date, ranking=self.ranking_strategy.ranking(self.df, date=signal_date))
+            Signal(ticker=ticker, date=signal_date, ranking=self.ranking_strategy.ranking(pl.from_pandas(self.df), date=signal_date))
             for signal_date in signal_dates
         ]
 
