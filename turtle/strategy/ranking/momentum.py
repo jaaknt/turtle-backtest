@@ -1,17 +1,17 @@
-import logging
 from datetime import date
 from turtle.strategy.ranking.base import RankingStrategy
 
 import polars as pl
 
+# (price_ceiling, score) — stocks priced above 1000 default to score 1
 _PRICE_BANDS = [(10.0, 20), (20.0, 16), (60.0, 12), (240.0, 8), (1000.0, 4)]
+
+# (lookback_bars, pct_change_floor, pct_change_ceiling) passed to _ranking_col_change
 _EMA_PARAMS = {
     "1month": (21, 0.00, 0.10),
     "3month": (66, -0.05, 0.20),
     "6month": (131, -0.10, 0.30),
 }
-
-logger = logging.getLogger(__name__)
 
 
 class MomentumRanking(RankingStrategy):
@@ -37,67 +37,6 @@ class MomentumRanking(RankingStrategy):
         if price <= 0.0:
             return 1
         return next((score for limit, score in _PRICE_BANDS if price <= limit), 1)
-
-    def _ranking_ema200_1month(self, filtered_df: pl.DataFrame) -> int:
-        """
-        Calculate ranking score based on EMA200 performance vs 20 trading days ago.
-
-        Args:
-            filtered_df: Date-filtered OHLCV DataFrame with ema_200 column.
-
-        Returns:
-            int: Ranking score (0-20) where 20 = EMA200 is 10% higher than 20 days ago
-        """
-        neg_idx, floor, ceiling = _EMA_PARAMS["1month"]
-        if filtered_df.height < neg_idx:
-            return 0
-        current_ema200 = filtered_df["ema_200"][-1]
-        past_ema200 = filtered_df["ema_200"][-neg_idx]
-        if current_ema200 is None or past_ema200 is None or past_ema200 <= 0:
-            return 0
-        pct_change = (current_ema200 - past_ema200) / past_ema200
-        logger.debug(f"EMA200 1M - Current: {current_ema200}, Past: {past_ema200}, Pct Change: {pct_change}")
-        return self._linear_rank(pct_change, floor, ceiling)
-
-    def _ranking_ema200_3month(self, filtered_df: pl.DataFrame) -> int:
-        """
-        Calculate ranking score based on EMA200 performance vs 3 months ago.
-
-        Args:
-            filtered_df: Date-filtered OHLCV DataFrame with ema_200 column.
-
-        Returns:
-            int: Ranking score (0-20) where 20 = EMA200 is 20% higher than 3 months ago
-        """
-        neg_idx, floor, ceiling = _EMA_PARAMS["3month"]
-        if filtered_df.height < neg_idx:
-            return 0
-        current_ema200 = filtered_df["ema_200"][-1]
-        past_ema200 = filtered_df["ema_200"][-neg_idx]
-        if current_ema200 is None or past_ema200 is None or past_ema200 <= 0:
-            return 0
-        pct_change = (current_ema200 - past_ema200) / past_ema200
-        return self._linear_rank(pct_change, floor, ceiling)
-
-    def _ranking_ema200_6month(self, filtered_df: pl.DataFrame) -> int:
-        """
-        Calculate ranking score based on EMA200 performance vs 6 months ago.
-
-        Args:
-            filtered_df: Date-filtered OHLCV DataFrame with ema_200 column.
-
-        Returns:
-            int: Ranking score (0-20) where 20 = EMA200 is 30% higher than 6 months ago
-        """
-        neg_idx, floor, ceiling = _EMA_PARAMS["6month"]
-        if filtered_df.height < neg_idx:
-            return 0
-        current_ema200 = filtered_df["ema_200"][-1]
-        past_ema200 = filtered_df["ema_200"][-neg_idx]
-        if current_ema200 is None or past_ema200 is None or past_ema200 <= 0:
-            return 0
-        pct_change = (current_ema200 - past_ema200) / past_ema200
-        return self._linear_rank(pct_change, floor, ceiling)
 
     def _ranking_period_high(self, filtered_df: pl.DataFrame) -> int:
         """
@@ -155,16 +94,6 @@ class MomentumRanking(RankingStrategy):
             return 0
 
         price_ranking = self._price_to_ranking(closing_price)
-        ema200_1month_ranking = self._ranking_ema200_1month(filtered_df)
-        ema200_3month_ranking = self._ranking_ema200_3month(filtered_df)
-        ema200_6month_ranking = self._ranking_ema200_6month(filtered_df)
+        ema200_ranking = sum(self._ranking_col_change(filtered_df, "ema_200", *p) for p in _EMA_PARAMS.values())
         period_high_ranking = self._ranking_period_high(filtered_df)
-
-        logger.debug(
-            f"Price Ranking: {price_ranking}, "
-            f"EMA200 1M: {ema200_1month_ranking}, "
-            f"EMA200 3M: {ema200_3month_ranking}, "
-            f"EMA200 6M: {ema200_6month_ranking}, "
-            f"Period High: {period_high_ranking}"
-        )
-        return price_ranking + ema200_1month_ranking + ema200_3month_ranking + ema200_6month_ranking + period_high_ranking
+        return price_ranking + ema200_ranking + period_high_ranking
