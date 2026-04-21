@@ -6,7 +6,6 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from turtle.backtest.processor import SignalProcessor
 from turtle.common.enums import TimeFrameUnit
-from turtle.common.pandas_utils import safe_float_conversion
 from turtle.model import FutureTrade, Signal
 from turtle.portfolio.analytics import PortfolioAnalytics
 from turtle.portfolio.manager import PortfolioManager
@@ -251,10 +250,10 @@ class PortfolioService:
         """
         for position in self.portfolio_manager.current_snapshot.positions:
             try:
-                df = self.bars_history.get_ticker_history(position.ticker, current_date, current_date, self.time_frame_unit)
+                df = self.bars_history.get_bars_pl(position.ticker, current_date, current_date, self.time_frame_unit)
 
-                if not df.empty:
-                    close_price = safe_float_conversion(df.iloc[0]["close"])
+                if not df.is_empty():
+                    close_price = float(df["close"][0])
                     self.portfolio_manager.current_snapshot.update_position_price(position.ticker, close_price)
 
             except Exception as e:

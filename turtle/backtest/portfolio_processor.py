@@ -197,14 +197,15 @@ class PortfolioSignalProcessor:
                 end_date = signal.date + timedelta(days=1)
                 start_date = signal.date - timedelta(days=5)
 
-                df = self.bars_history.get_ticker_history(signal.ticker, start_date, end_date, self.time_frame_unit)
+                df = self.bars_history.get_bars_pl(signal.ticker, start_date, end_date, self.time_frame_unit)
 
-                if df.empty:
+                if df.is_empty():
                     continue
 
                 # Check volume and price criteria
-                avg_volume = df["volume"].mean()
-                current_price = float(df.iloc[-1]["close"])
+                vol_mean = df["volume"].mean()
+                avg_volume: float = float(vol_mean) if vol_mean is not None else 0.0  # type: ignore[arg-type]
+                current_price = float(df["close"][-1])
 
                 if avg_volume >= min_volume and current_price >= min_price:
                     filtered_signals.append(signal)
@@ -292,10 +293,10 @@ class PortfolioSignalProcessor:
             try:
                 end_date = signal.date + timedelta(days=required_days_ahead)
 
-                df = self.bars_history.get_ticker_history(signal.ticker, signal.date, end_date, self.time_frame_unit)
+                df = self.bars_history.get_bars_pl(signal.ticker, signal.date, end_date, self.time_frame_unit)
 
                 # Check if we have sufficient future data
-                if not df.empty and len(df) >= required_days_ahead:
+                if not df.is_empty() and len(df) >= required_days_ahead:
                     validated_signals.append(signal)
 
             except Exception as e:
