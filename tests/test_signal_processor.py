@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from turtle.backtest.benchmark_utils import calculate_benchmark
 from turtle.backtest.processor import SignalProcessor
 from turtle.common.enums import TimeFrameUnit
@@ -7,7 +7,6 @@ from turtle.strategy.exit import BuyAndHoldExitStrategy
 from typing import Any
 from unittest.mock import Mock
 
-import pandas as pd
 import polars as pl
 import pytest
 
@@ -26,44 +25,49 @@ class TestSignalProcessor:
         return Signal(ticker="TEST", date=datetime(2024, 1, 15), ranking=75)
 
     @pytest.fixture
-    def sample_ticker_data(self) -> pd.DataFrame:
+    def sample_ticker_data(self) -> pl.DataFrame:
         """Create sample OHLCV data for ticker."""
-        dates = pd.date_range("2024-01-16", periods=10, freq="D")
-        data = {
-            "date": dates,
-            "open": [100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0],
-            "high": [102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0, 111.0],
-            "low": [99.0, 100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0],
-            "close": [101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0],
-            "volume": [1000000] * 10,
-        }
-        return pd.DataFrame(data, index=dates)
+        dates = [date(2024, 1, 16) + timedelta(days=i) for i in range(10)]
+        return pl.DataFrame(
+            {
+                "date": dates,
+                "open": [100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0],
+                "high": [102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0, 111.0],
+                "low": [99.0, 100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0],
+                "close": [101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0],
+                "volume": [1000000] * 10,
+            }
+        )
 
     @pytest.fixture
-    def sample_spy_data(self) -> pd.DataFrame:
+    def sample_spy_data(self) -> pl.DataFrame:
         """Create sample SPY benchmark data."""
-        dates = pd.date_range("2024-01-01", periods=30, freq="D")
-        data = {
-            "open": [400.0 + i for i in range(30)],
-            "high": [402.0 + i for i in range(30)],
-            "low": [399.0 + i for i in range(30)],
-            "close": [401.0 + i for i in range(30)],
-            "volume": [1000000] * 30,
-        }
-        return pd.DataFrame(data, index=dates)
+        dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(30)]
+        return pl.DataFrame(
+            {
+                "date": dates,
+                "open": [400.0 + i for i in range(30)],
+                "high": [402.0 + i for i in range(30)],
+                "low": [399.0 + i for i in range(30)],
+                "close": [401.0 + i for i in range(30)],
+                "volume": [1000000] * 30,
+            }
+        )
 
     @pytest.fixture
-    def sample_qqq_data(self) -> pd.DataFrame:
+    def sample_qqq_data(self) -> pl.DataFrame:
         """Create sample QQQ benchmark data."""
-        dates = pd.date_range("2024-01-01", periods=30, freq="D")
-        data = {
-            "open": [300.0 + i * 0.5 for i in range(30)],
-            "high": [302.0 + i * 0.5 for i in range(30)],
-            "low": [299.0 + i * 0.5 for i in range(30)],
-            "close": [301.0 + i * 0.5 for i in range(30)],
-            "volume": [1000000] * 30,
-        }
-        return pd.DataFrame(data, index=dates)
+        dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(30)]
+        return pl.DataFrame(
+            {
+                "date": dates,
+                "open": [300.0 + i * 0.5 for i in range(30)],
+                "high": [302.0 + i * 0.5 for i in range(30)],
+                "low": [299.0 + i * 0.5 for i in range(30)],
+                "close": [301.0 + i * 0.5 for i in range(30)],
+                "volume": [1000000] * 30,
+            }
+        )
 
     @pytest.fixture
     def exit_strategy(self) -> Mock:
@@ -95,8 +99,7 @@ class TestSignalProcessor:
             max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
-        # Mock get_ticker_history to return empty DataFrame for ticker data
-        mock_bars_history.get_ticker_history.return_value = pd.DataFrame()
+        mock_bars_history.get_bars_pl.return_value = pl.DataFrame()
 
         result = processor.run(sample_signal)
         assert result is None
@@ -106,20 +109,19 @@ class TestSignalProcessor:
         mock_bars_history: Mock,
         exit_strategy: Mock,
         sample_signal: Signal,
-        sample_ticker_data: pd.DataFrame,
+        sample_ticker_data: pl.DataFrame,
     ) -> None:
         """Test successful entry data calculation."""
         processor = SignalProcessor(
             max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
-        # Mock get_ticker_history to return sample data
-        mock_bars_history.get_ticker_history.return_value = sample_ticker_data
+        mock_bars_history.get_bars_pl.return_value = sample_ticker_data
 
         entry = processor.calculate_entry_data(sample_signal)
 
         assert entry is not None
-        assert entry.date == pd.Timestamp(datetime(2024, 1, 16))
+        assert entry.date == datetime(2024, 1, 16)
         assert entry.price == 100.0
         assert entry.reason == "next_day_open"
 
@@ -129,8 +131,7 @@ class TestSignalProcessor:
             max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
-        # Mock get_ticker_history to return empty DataFrame
-        mock_bars_history.get_ticker_history.return_value = pd.DataFrame()
+        mock_bars_history.get_bars_pl.return_value = pl.DataFrame()
 
         result = processor.calculate_entry_data(sample_signal)
         assert result is None
@@ -141,20 +142,18 @@ class TestSignalProcessor:
             max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
-        # Create data with invalid opening price
-        dates = pd.date_range("2024-01-16", periods=1, freq="D")
-        invalid_data = pd.DataFrame(
+        invalid_data = pl.DataFrame(
             {
-                "open": [0.0],  # Invalid price
+                "date": [date(2024, 1, 16)],
+                "open": [0.0],
                 "high": [102.0],
                 "low": [99.0],
                 "close": [101.0],
                 "volume": [1000000],
-            },
-            index=dates,
+            }
         )
 
-        mock_bars_history.get_ticker_history.return_value = invalid_data
+        mock_bars_history.get_bars_pl.return_value = invalid_data
 
         with pytest.raises(ValueError, match="Invalid entry price"):
             processor.calculate_entry_data(sample_signal)
@@ -164,17 +163,16 @@ class TestSignalProcessor:
         mock_bars_history: Mock,
         exit_strategy: Mock,
         sample_signal: Signal,
-        sample_ticker_data: pd.DataFrame,
+        sample_ticker_data: pl.DataFrame,
     ) -> None:
         """Test successful exit data calculation."""
         processor = SignalProcessor(
             max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
-        # Mock the exit strategy to return a result
         mock_result = Trade(ticker="AAPL", date=datetime(2024, 1, 20), price=105.0, reason="period_end")
         exit_strategy.calculate_exit.return_value = mock_result
-        mock_bars_history.get_ticker_history.return_value = sample_ticker_data
+        mock_bars_history.get_bars_pl.return_value = sample_ticker_data
 
         entry_date = datetime(2024, 1, 16)
         entry_price = 100.0
@@ -190,16 +188,15 @@ class TestSignalProcessor:
         mock_bars_history: Mock,
         exit_strategy: Mock,
         sample_signal: Signal,
-        sample_ticker_data: pd.DataFrame,
+        sample_ticker_data: pl.DataFrame,
     ) -> None:
         """Test exit data calculation when strategy fails."""
         processor = SignalProcessor(
             max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
-        # Mock strategy to return None
         exit_strategy.calculate_exit.return_value = None
-        mock_bars_history.get_ticker_history.return_value = sample_ticker_data
+        mock_bars_history.get_bars_pl.return_value = sample_ticker_data
 
         entry_date = datetime(2024, 1, 16)
         entry_price = 100.0
@@ -213,17 +210,9 @@ class TestSignalProcessor:
             max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
-        # Test positive return
-        return_pct = processor._calculate_return_pct(100.0, 105.0)
-        assert return_pct == 5.0
-
-        # Test negative return
-        return_pct = processor._calculate_return_pct(100.0, 95.0)
-        assert return_pct == -5.0
-
-        # Test zero return
-        return_pct = processor._calculate_return_pct(100.0, 100.0)
-        assert return_pct == 0.0
+        assert processor._calculate_return_pct(100.0, 105.0) == 5.0
+        assert processor._calculate_return_pct(100.0, 95.0) == -5.0
+        assert processor._calculate_return_pct(100.0, 100.0) == 0.0
 
     def test_calculate_return_pct_invalid_entry_price(self, mock_bars_history: Mock, exit_strategy: Mock) -> None:
         """Test return percentage calculation with invalid entry price."""
@@ -236,7 +225,7 @@ class TestSignalProcessor:
 
     def test_calculate_single_benchmark_return_success(
         self,
-        sample_spy_data: pd.DataFrame,
+        sample_spy_data: pl.DataFrame,
     ) -> None:
         """Test single benchmark return calculation."""
         entry_date = datetime(2024, 1, 16)
@@ -244,8 +233,8 @@ class TestSignalProcessor:
 
         benchmark = calculate_benchmark(sample_spy_data, "SPY", entry_date, exit_date)
 
-        # Entry price should be open on 2024-01-16 (index 15): 415.0
-        # Exit price should be close on 2024-01-20 (index 19): 420.0
+        # Entry price: open on 2024-01-16 (index 15): 415.0
+        # Exit price: close on 2024-01-20 (index 19): 420.0
         # Return: ((420 - 415) / 415) * 100 = ~1.20%
         assert benchmark is not None
         assert benchmark.ticker == "SPY"
@@ -253,8 +242,7 @@ class TestSignalProcessor:
 
     def test_calculate_single_benchmark_return_empty_data(self) -> None:
         """Test benchmark return calculation with empty data."""
-        empty_df = pd.DataFrame()
-        benchmark = calculate_benchmark(empty_df, "SPY", datetime(2024, 1, 16), datetime(2024, 1, 20))
+        benchmark = calculate_benchmark(pl.DataFrame(), "SPY", datetime(2024, 1, 16), datetime(2024, 1, 20))
 
         assert benchmark is None
 
@@ -262,23 +250,22 @@ class TestSignalProcessor:
         self,
         mock_bars_history: Mock,
         exit_strategy: Mock,
-        sample_spy_data: pd.DataFrame,
-        sample_qqq_data: pd.DataFrame,
+        sample_spy_data: pl.DataFrame,
+        sample_qqq_data: pl.DataFrame,
     ) -> None:
         """Test calculation of both benchmark returns."""
         processor = SignalProcessor(
             max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
-        # Mock the get_ticker_history calls for benchmark data
-        def mock_get_ticker_history(ticker: str, start: datetime, end: datetime, timeframe: TimeFrameUnit) -> pd.DataFrame:
+        def mock_get_bars_pl(ticker: str, start: Any, end: Any, timeframe: Any = None) -> pl.DataFrame:
             if ticker == "SPY":
                 return sample_spy_data
             elif ticker == "QQQ":
                 return sample_qqq_data
-            return pd.DataFrame()
+            return pl.DataFrame()
 
-        mock_bars_history.get_ticker_history.side_effect = mock_get_ticker_history
+        mock_bars_history.get_bars_pl.side_effect = mock_get_bars_pl
 
         entry_date = datetime(2024, 1, 16)
         exit_date = datetime(2024, 1, 20)
@@ -288,23 +275,20 @@ class TestSignalProcessor:
         assert isinstance(benchmarks, list)
         assert len(benchmarks) == 2
 
-        # Check QQQ benchmark
         qqq_benchmark = next(b for b in benchmarks if b.ticker == "QQQ")
         assert isinstance(qqq_benchmark.return_pct, float)
-        assert qqq_benchmark.return_pct > 0  # Should be positive given our sample data trend
+        assert qqq_benchmark.return_pct > 0
 
-        # Check SPY benchmark
         spy_benchmark = next(b for b in benchmarks if b.ticker == "SPY")
         assert isinstance(spy_benchmark.return_pct, float)
-        assert spy_benchmark.return_pct > 0  # Should be positive given our sample data trend
+        assert spy_benchmark.return_pct > 0
 
     def test_run_full_integration(
         self,
         mock_bars_history: Mock,
         sample_signal: Signal,
-        sample_ticker_data: pd.DataFrame,
-        sample_spy_data: pd.DataFrame,
-        sample_qqq_data: pd.DataFrame,
+        sample_spy_data: pl.DataFrame,
+        sample_qqq_data: pl.DataFrame,
     ) -> None:
         """Test full run() method integration."""
         exit_strategy = BuyAndHoldExitStrategy(mock_bars_history)
@@ -313,41 +297,30 @@ class TestSignalProcessor:
             max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
-        # Setup mock data
-        def mock_get_ticker_history(
-            ticker: str, start: datetime, end: datetime, timeframe: TimeFrameUnit | None = None, **kwargs: Any
-        ) -> pd.DataFrame:
+        ticker_data = pl.DataFrame(
+            {
+                "date": [date(2024, 1, 16) + timedelta(days=i) for i in range(10)],
+                "open": [100.0 + i for i in range(10)],
+                "high": [102.0 + i for i in range(10)],
+                "low": [99.0 + i for i in range(10)],
+                "close": [101.0 + i for i in range(10)],
+                "volume": [1000000] * 10,
+            }
+        )
+
+        def mock_get_bars_pl(ticker: str, start: Any, end: Any, timeframe: Any = None, **kwargs: Any) -> pl.DataFrame:
             if ticker == "TEST":
-                return sample_ticker_data
+                return ticker_data
             elif ticker == "SPY":
                 return sample_spy_data
             elif ticker == "QQQ":
                 return sample_qqq_data
-            return pd.DataFrame()
-
-        mock_bars_history.get_ticker_history.side_effect = mock_get_ticker_history
-
-        def mock_get_bars_pl(ticker: str, start: Any, end: Any, **kwargs: Any) -> pl.DataFrame:
-            if ticker == "TEST":
-                dates = [date(2024, 1, 16 + i) for i in range(10)]
-                return pl.DataFrame(
-                    {
-                        "date": dates,
-                        "open": [100.0 + i for i in range(10)],
-                        "high": [102.0 + i for i in range(10)],
-                        "low": [99.0 + i for i in range(10)],
-                        "close": [101.0 + i for i in range(10)],
-                        "volume": [1000000] * 10,
-                    }
-                )
             return pl.DataFrame()
 
         mock_bars_history.get_bars_pl.side_effect = mock_get_bars_pl
 
-        # Run the processor (benchmarks will be initialized automatically)
         result = processor.run(sample_signal)
 
-        # Verify result structure
         assert isinstance(result, FutureTrade)
         assert result.signal == sample_signal
         assert isinstance(result.entry, Trade)
@@ -356,18 +329,15 @@ class TestSignalProcessor:
         assert isinstance(result.benchmark_list, list)
         assert len(result.benchmark_list) == 2
 
-        # Verify benchmark structure
         tickers = {b.ticker for b in result.benchmark_list}
         assert tickers == {"QQQ", "SPY"}
         for benchmark in result.benchmark_list:
             assert isinstance(benchmark.return_pct, float)
 
-        # Verify some basic constraints
         assert result.entry.price > 0
         assert result.exit.price > 0
-        assert result.entry.date >= pd.Timestamp(sample_signal.date)
+        assert result.entry.date >= sample_signal.date
 
-        # Verify holding_days property
         expected_holding_days = (result.exit.date - result.entry.date).days
         assert result.holding_days == expected_holding_days
         assert isinstance(result.holding_days, int)
@@ -379,22 +349,16 @@ class TestSignalProcessorEdgeCases:
 
     def test_weekend_entry_date(self) -> None:
         """Test signal processing when signal date is on weekend."""
-        # This would test that we correctly find next trading day
-        # Implementation would depend on how your data handles weekends
         pass
 
     def test_holiday_entry_date(self) -> None:
         """Test signal processing around market holidays."""
-        # This would test handling of market holidays
-        # Implementation would depend on your data source
         pass
 
     def test_missing_benchmark_data_partial(self) -> None:
         """Test when only one benchmark has data."""
-        # This would test graceful handling when SPY or QQQ data is missing
         pass
 
     def test_extreme_date_ranges(self) -> None:
         """Test with edge case date ranges."""
-        # Test very short date ranges, future dates, etc.
         pass

@@ -8,7 +8,6 @@ from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.strategy.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
 from turtle.strategy.exit.atr import ATRExitStrategy
 
-import pandas as pd
 import polars as pl
 
 from .benchmark_utils import calculate_benchmark_list
@@ -131,19 +130,19 @@ class SignalProcessor:
         search_start = signal.date + timedelta(days=1)
         search_end = signal.date + timedelta(days=7)  # Search up to 7 days for next trading day
 
-        df = self.bars_history.get_ticker_history(signal.ticker, search_start, search_end, self.time_frame_unit)
+        df = self.bars_history.get_bars_pl(signal.ticker, search_start, search_end, self.time_frame_unit)
 
-        if df.empty:
+        if df.is_empty():
             logger.warning(f"No trading data available for {signal.ticker} after {signal.date}")
             return None
 
         # Get first available trading day
-        first_row = df.iloc[0]
-        entry_date = pd.to_datetime(df.index[0])
-        entry_price = float(first_row["open"])
+        row = df.row(0, named=True)
+        entry_date = datetime.combine(row["date"], datetime.min.time())
 
-        if pd.isna(entry_price) or entry_price <= 0:
-            raise ValueError(f"Invalid entry price for {signal.ticker}: {entry_price}")
+        if row["open"] is None or float(row["open"]) <= 0:
+            raise ValueError(f"Invalid entry price for {signal.ticker}: {row['open']}")
+        entry_price = float(row["open"])
 
         return Trade(ticker=signal.ticker, date=entry_date, price=entry_price, reason="next_day_open")
 
@@ -170,14 +169,14 @@ class SignalProcessor:
         effective_end_date = min(end_date, max_holding_end_date) if end_date is not None else max_holding_end_date
 
         # Get historical data for the ticker from entry date onwards
-        df = self.bars_history.get_ticker_history(
+        df = self.bars_history.get_bars_pl(
             signal.ticker,
-            entry_date,
-            effective_end_date,  # Use calculated effective end date
+            entry_date.date() if isinstance(entry_date, datetime) else entry_date,
+            effective_end_date.date() if isinstance(effective_end_date, datetime) else effective_end_date,
             self.time_frame_unit,
         )
 
-        if df.empty:
+        if df.is_empty():
             raise ValueError(f"No historical data available for {signal.ticker} from {entry_date}")
 
         # Use exit strategy to calculate return
@@ -284,9 +283,11 @@ class SignalProcessor:
             try:
                 # Get current price data for exit evaluation
                 search_end = current_date + timedelta(days=1)
-                df = self.bars_history.get_ticker_history(ticker, position.entry.date, search_end, self.time_frame_unit)
+                entry_d = position.entry.date.date() if isinstance(position.entry.date, datetime) else position.entry.date
+                search_end_d = search_end.date() if isinstance(search_end, datetime) else search_end
+                df = self.bars_history.get_bars_pl(ticker, entry_d, search_end_d, self.time_frame_unit)
 
-                if df.empty:
+                if df.is_empty():
                     logger.warning(f"No price data for exit evaluation: {ticker} on {current_date}")
                     continue
 

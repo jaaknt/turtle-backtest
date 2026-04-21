@@ -6,7 +6,7 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.model import Benchmark
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 
-import pandas as pd
+import polars as pl
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +33,14 @@ def calculate_benchmark_list(
     """
     benchmarks = []
 
+    start_d = start_date.date() if isinstance(start_date, datetime) else start_date
+    end_d = end_date.date() if isinstance(end_date, datetime) else end_date
+
     for ticker in benchmark_tickers:
         try:
-            df = bars_history.get_ticker_history(ticker, start_date, end_date, time_frame_unit)
+            df = bars_history.get_bars_pl(ticker, start_d, end_d, time_frame_unit)
 
-            if not df.empty:
+            if not df.is_empty():
                 benchmark = calculate_benchmark(df, ticker, start_date, end_date)
                 if benchmark is not None:
                     benchmarks.append(benchmark)
@@ -50,7 +53,7 @@ def calculate_benchmark_list(
 
 
 def calculate_benchmark(
-    df: pd.DataFrame,
+    df: pl.DataFrame,
     ticker: str,
     entry_date: datetime,
     exit_date: datetime,
@@ -68,27 +71,25 @@ def calculate_benchmark(
         Benchmark with ticker and percentage return, or None if calculation fails
     """
     try:
-        if df.empty:
+        if df.is_empty():
             logger.warning(f"No {ticker} data available for benchmark calculation")
             return None
 
-        # Find entry price: open on first available trading day on or after entry_date
-        entry_data = df[df.index >= pd.Timestamp(entry_date)]
+        entry_d = entry_date.date() if isinstance(entry_date, datetime) else entry_date
+        exit_d = exit_date.date() if isinstance(exit_date, datetime) else exit_date
 
-        if entry_data.empty:
+        entry_data = df.filter(pl.col("date") >= entry_d)
+        if entry_data.is_empty():
             logger.warning(f"No {ticker} entry data available on or after {entry_date}")
             return None
 
-        entry_price = float(entry_data.iloc[0]["open"])
-
-        # Find exit price: close on last available trading day on or before exit_date
-        exit_data = df[df.index <= pd.Timestamp(exit_date)]
-
-        if exit_data.empty:
+        exit_data = df.filter(pl.col("date") <= exit_d)
+        if exit_data.is_empty():
             logger.warning(f"No {ticker} exit data available on or before {exit_date}")
             return None
 
-        exit_price = float(exit_data.iloc[-1]["close"])
+        entry_price = float(entry_data["open"][0])
+        exit_price = float(exit_data["close"][-1])
 
         if entry_price <= 0:
             logger.warning(f"Invalid {ticker} entry price: {entry_price}")
