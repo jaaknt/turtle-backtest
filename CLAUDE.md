@@ -263,27 +263,30 @@ Use `@staticmethod` for pure utility functions that belong logically to a class 
 
 ## Testing
 
-Tests organised by component in `tests/`:
-- `test_darvas_box.py`: Darvas Box strategy logic
-- `test_signal_processor.py`: Signal processing pipeline
-- `test_portfolio.py`: Portfolio management and analytics
-- `exit/test_macd_exit_strategy.py`: MACD exit strategy logic
-- `exit/test_atr_exit_strategy.py`: ATR exit strategy logic
-- `exit/test_ema_exit_strategy.py`: EMA exit strategy logic
-- `exit/test_buy_and_hold_exit_strategy.py`: Buy and hold exit strategy logic
-- `exit/test_profit_loss_exit_strategy.py`: Profit/loss exit strategy logic
-- `exit/test_trailing_percentage_loss_exit_strategy.py`: Trailing percentage loss exit strategy logic
-- `test_volume_momentum_ranking.py`: Volume momentum ranking strategy
-- `test_breakout_quality_ranking.py`: Breakout quality ranking strategy
-- `test_ohlcv_analytics_repository.py`: OhlcvAnalyticsRepository (pandas/polars reads)
-- `test_repositories_eodhd.py`: EODHD repository classes (exchange, ticker, daily bars, company)
-- `test_pandas_ta_ema.py`: pandas-ta EMA indicator
-- `test_settings.py`: Configuration loading
-- `test_api_token_filter.py`: API token filter logic
+Tests mirror the source tree under `tests/`:
+- `strategy/trading/test_darvas_box.py`: Darvas Box strategy logic
+- `strategy/trading/test_mars_strategy.py`: Mars strategy logic
+- `strategy/trading/test_momentum_strategy_parity.py`: Momentum strategy (polars path)
+- `strategy/ranking/test_breakout_quality_ranking.py`: Breakout quality ranking strategy
+- `strategy/ranking/test_momentum_ranking.py`: Momentum ranking strategy
+- `strategy/ranking/test_volume_momentum_ranking.py`: Volume momentum ranking strategy
+- `strategy/exit/test_macd_exit_strategy.py`: MACD exit strategy logic
+- `strategy/exit/test_atr_exit_strategy.py`: ATR exit strategy logic
+- `strategy/exit/test_ema_exit_strategy.py`: EMA exit strategy logic
+- `strategy/exit/test_buy_and_hold_exit_strategy.py`: Buy and hold exit strategy logic
+- `strategy/exit/test_profit_loss_exit_strategy.py`: Profit/loss exit strategy logic
+- `strategy/exit/test_trailing_percentage_loss_exit_strategy.py`: Trailing percentage loss exit strategy logic
+- `strategy/test_factory.py`: Strategy factory
+- `repository/test_ohlcv_analytics_repository.py`: OhlcvAnalyticsRepository (pandas/polars reads)
+- `repository/test_repositories_eodhd.py`: EODHD repository classes (exchange, ticker, daily bars, company)
+- `portfolio/test_portfolio.py`: Portfolio management and analytics
+- `backtest/test_signal_processor.py`: Signal processing pipeline
+- `config/test_settings.py`: Configuration loading
+- `config/test_api_token_filter.py`: API token filter logic
 
 Shared fixtures live in `tests/conftest.py`. File-specific fixtures stay in the individual test file.
 
-Run with `uv run pytest` or `uv run pytest tests/test_specific.py`.
+Run with `uv run pytest` or `uv run pytest tests/strategy/trading/test_darvas_box.py`.
 
 ## Dependencies & Resources
 
