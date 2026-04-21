@@ -4,7 +4,13 @@ from turtle.strategy.ranking.base import RankingStrategy
 
 import polars as pl
 
+# (dollar_volume min threshold, score weight 0.0-1.0) — first match wins, highest threshold first
 _LIQUIDITY_BANDS = [(5_000_000, 1.0), (1_000_000, 0.8), (500_000, 0.5)]
+# (min return as decimal, additive score) — first match wins, e.g. 0.03 = 3%
+_MOMENTUM_5D_BANDS = [(0.03, 60), (0.01, 30)]
+_MOMENTUM_10D_BANDS = [(0.08, 40), (0.03, 20)]
+# (min ema_separation, additive score) for _calculate_ma_score
+_MA_SEPARATION_BANDS = [(0.02, 40), (0.00, 20)]
 
 logger = logging.getLogger(__name__)
 
@@ -218,10 +224,7 @@ class VolumeMomentumRanking(RankingStrategy):
             return 0
 
         ema_separation = (ema_20 - ema_50) / ema_50
-        if ema_separation > 0.02:
-            score += 40
-        elif ema_separation > 0:
-            score += 20
+        score += next((s for t, s in _MA_SEPARATION_BANDS if ema_separation > t), 0)
 
         price_ema20_momentum = (current_price - ema_20) / ema_20
         if price_ema20_momentum > 0.01:
@@ -249,15 +252,8 @@ class VolumeMomentumRanking(RankingStrategy):
         if momentum_5d <= 0 or momentum_10d <= 0:
             return 0
 
-        if momentum_5d > 0.03:
-            score += 60
-        elif momentum_5d > 0.01:
-            score += 30
-
-        if momentum_10d > 0.08:
-            score += 40
-        elif momentum_10d > 0.03:
-            score += 20
+        score += next((s for t, s in _MOMENTUM_5D_BANDS if momentum_5d > t), 0)
+        score += next((s for t, s in _MOMENTUM_10D_BANDS if momentum_10d > t), 0)
 
         return min(100, score)
 
