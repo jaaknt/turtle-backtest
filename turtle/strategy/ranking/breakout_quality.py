@@ -4,8 +4,11 @@ from turtle.strategy.ranking.base import RankingStrategy
 
 import polars as pl
 
+# (volume/ema_volume_10 min ratio, score) — first match wins, highest threshold first
 _VOLUME_BANDS = [(3.0, 30), (2.5, 25), (2.0, 20), (1.75, 15), (1.5, 10), (1.25, 5)]
+# ((close - max_close_20) / max_close_20 * 100 min %, score) — first match wins, highest threshold first
 _EXTENSION_BANDS = [(5.0, 25), (3.0, 20), (2.0, 15), (1.0, 10), (0.5, 5)]
+# ((macd - macd_signal) / close * 100 min %, score) — first match wins, highest threshold first
 _MACD_BANDS = [(0.5, 20), (0.3, 15), (0.2, 10), (0.1, 5)]
 
 logger = logging.getLogger(__name__)
