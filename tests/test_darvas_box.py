@@ -1,5 +1,6 @@
 import warnings
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from turtle.common.enums import TimeFrameUnit
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.strategy.ranking.momentum import MomentumRanking
 from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
@@ -41,48 +42,44 @@ def test_collect() -> None:
     ranking_strategy_mock = MagicMock(spec=MomentumRanking)
     strategy = DarvasBoxStrategy(bars_history_mock, ranking_strategy_mock, warmup_period=3, min_bars=3)
 
-    # Mock the return value of get_ticker_history
-    bars_history_mock.get_ticker_history.return_value = pd.DataFrame(
+    bars_history_mock.get_bars_pl.return_value = pl.DataFrame(
         {
-            "close": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-            "open": [0, 0, 1, 2, 3, 4, 5, 6, 7, 8],
-            "volume": [0, 0, 1, 2, 3, 4, 5, 6, 7, 15],
+            "date": [date.today()] * 10,
+            "close": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
+            "open": [0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            "volume": [0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 15.0],
         }
     )
 
     assert strategy.collect_data("AAPL", date.today(), date.today()) is True
-    assert not strategy.df.empty
-    # assert "max_close_20" in strategy.df.columns
-    # assert "ema_10" in strategy.df.columns
-    # assert "ema_20" in strategy.df.columns
-    # assert "ema_50" in strategy.df.columns
-    # assert "ema_200" in strategy.df.columns
-    # assert "ema_volume_10" in strategy.df.columns
+    assert not strategy.pl_df.is_empty()
 
     # Test with insufficient data
-    bars_history_mock.get_ticker_history.return_value = pd.DataFrame({"close": [1, 2]})
+    bars_history_mock.get_bars_pl.return_value = pl.DataFrame(
+        {"date": [date.today(), date.today()], "close": [1.0, 2.0]}
+    )
     assert strategy.collect_data("GOOG", date.today(), date.today()) is False
 
 
 def test_calculate_indicators() -> None:
-    # Call the method
     bars_history_mock = MagicMock(spec=OhlcvAnalyticsRepository)
     ranking_strategy_mock = MagicMock(spec=MomentumRanking)
     strategy = DarvasBoxStrategy(bars_history_mock, ranking_strategy_mock, warmup_period=3, min_bars=3)
 
-    n = 35  # MACD(12,26,9) needs at least slow+signal-1=34 rows
-    strategy.df = pd.DataFrame(
+    n = 35
+    base_date = date(2024, 1, 1)
+    strategy.pl_df = pl.DataFrame(
         {
-            "close": list(range(1, n + 1)),
-            "open": [0] + list(range(1, n)),
-            "high": list(range(2, n + 2)),
-            "low": [0] + list(range(1, n)),
-            "volume": [1] * (n - 1) + [15],
+            "date": [base_date + timedelta(days=i) for i in range(n)],
+            "close": [float(i) for i in range(1, n + 1)],
+            "open": [0.0] + [float(i) for i in range(1, n)],
+            "high": [float(i) for i in range(2, n + 2)],
+            "low": [0.0] + [float(i) for i in range(1, n)],
+            "volume": [1.0] * (n - 1) + [15.0],
         }
     )
-    strategy.calculate_indicators()
+    strategy.calculate_indicators_pl()
 
-    # Check that the expected columns are added
     expected_columns = [
         "max_close_20",
         "ema_10",
@@ -90,14 +87,9 @@ def test_calculate_indicators() -> None:
         "ema_50",
         "ema_200",
         "ema_volume_10",
-        "buy_signal",
     ]
     for column in expected_columns:
-        assert column in strategy.df.columns
-
-    # Check that the columns contain values
-    # for column in expected_columns:
-    #     assert strategy.df[column].isnull().all()
+        assert column in strategy.pl_df.columns
 
 
 def test_is_local_max_valid() -> None:
@@ -224,3 +216,34 @@ def test_ranking() -> None:
     ranking_strategy = MomentumRanking()
     ranking = ranking_strategy.ranking(mock_df_cheap, test_date)
     assert ranking == 20
+
+
+def test_get_polars_signals_produces_signal() -> None:
+    """_get_polars_signals produces at least one signal on consistently uptrending data."""
+    n = 150
+    base, growth = 100.0, 1.006
+    closes = [base * (growth**i) for i in range(n)]
+    opens = [c * 0.99 for c in closes]    # 1% bullish body → (close-open)/close ≈ 1% > 0.8% ✓
+    highs = [c * 1.01 for c in closes]
+    lows = [c * 0.98 for c in closes]
+    volumes = [1_000_000.0] * n
+    volumes[-1] = 1_600_000.0             # last bar: 1.6× EMA ≥ 1.1× ✓
+    start = date(2020, 1, 2)
+    pl_df = pl.DataFrame({
+        "date": [start + timedelta(days=i) for i in range(n)],
+        "open": opens, "high": highs, "low": lows, "close": closes, "volume": volumes,
+    })
+
+    mock_repo = MagicMock(spec=OhlcvAnalyticsRepository)
+    mock_repo.get_bars_pl.return_value = pl_df
+    mock_ranking = MagicMock(spec=MomentumRanking)
+    mock_ranking.ranking.return_value = 8
+
+    strategy = DarvasBoxStrategy(
+        mock_repo, mock_ranking,
+        time_frame_unit=TimeFrameUnit.WEEK,  # skip EMA-200 condition
+        warmup_period=100, min_bars=100,
+    )
+    last_date = pl_df["date"][-1]
+    signals = strategy.get_signals("TEST", last_date, last_date)
+    assert len(signals) >= 1

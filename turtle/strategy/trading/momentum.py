@@ -5,10 +5,7 @@ from turtle.model import Signal
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.strategy.ranking.base import RankingStrategy
 
-import pandas as pd
 import polars as pl
-from pandas_ta.momentum import macd as ta_macd
-from pandas_ta.overlap import ema as ta_ema
 
 from .base import TradingStrategy
 
@@ -23,45 +20,8 @@ class MomentumStrategy(TradingStrategy):
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         warmup_period: int = 720,  # 2 years for daily EMA200 + weekly data
         min_bars: int = 100,
-        use_polars: bool = True,
     ):
-        super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars, use_polars)
-
-    def calculate_indicators(self) -> None:
-        """Calculate technical indicators for the strategy.
-
-        Adds the following columns to self.df:
-        - max_close_20: 20-period rolling maximum of close prices
-        - ema_10/20/50/200: Exponential moving averages of close prices
-        - ema_volume_10: 10-period EMA of volume
-        - buy_signal: Boolean column initialized to False
-        """
-        # Rolling window indicators
-        self.df["max_close_20"] = self.df["close"].rolling(window=20).max()
-        self.df["max_high_20"] = self.df["high"].rolling(window=20).max()
-        self.df["max_close_10"] = self.df["close"].shift(1).rolling(window=10).max()
-        self.df["min_close_10"] = self.df["close"].shift(1).rolling(window=10).min()
-
-        # MACD indicator
-        macd_df = ta_macd(self.df["close"], fast=12, slow=26, signal=9)
-        self.df["macd"] = macd_df["MACD_12_26_9"]
-        self.df["macd_signal"] = macd_df["MACDs_12_26_9"]
-
-        # Exponential Moving Averages for close prices
-        self.df["ema_10"] = ta_ema(self.df["close"], length=10)
-        self.df["ema_20"] = ta_ema(self.df["close"], length=20)
-        self.df["ema_50"] = ta_ema(self.df["close"], length=50)
-        self.df["ema_200"] = ta_ema(self.df["close"], length=200)
-
-        # Volume indicators
-        self.df["ema_volume_10"] = ta_ema(self.df["volume"], length=10)
-
-        # 100-day price change: current close vs close 70 bars ago (weekends are skipped, so 70 bars is roughly 100 calendar days)
-        self.df["close_100_days_ago"] = self.df["close"].shift(70)
-
-        self.df = self.df.reset_index()
-        if "date" in self.df.columns:
-            self.df["date"] = pd.to_datetime(self.df["date"]).dt.date
+        super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars)
 
     def calculate_indicators_pl(self) -> None:
         """Calculate technical indicators using the polars DataFrame (self.pl_df).
@@ -117,33 +77,3 @@ class MomentumStrategy(TradingStrategy):
 
         signal_dates = filtered.filter(buy_mask)["date"].to_list()
         return [Signal(ticker=ticker, date=d, ranking=self.ranking_strategy.ranking(self.pl_df, date=d)) for d in signal_dates]
-
-    def _get_pandas_signals(self, ticker: str, start_date: date) -> list[Signal]:
-        self.calculate_indicators()
-        filtered_df = self.df[self.df["date"] >= start_date].copy()
-        if filtered_df.empty:
-            logger.debug(f"{ticker} - no data after date filtering")
-            return []
-
-        buy_signals = (
-            (filtered_df["close"] >= filtered_df["max_close_20"])
-            & (filtered_df["close"] >= filtered_df["ema_10"])
-            & (filtered_df["close"] >= filtered_df["ema_20"])
-            & (filtered_df["ema_10"] >= filtered_df["ema_20"])
-            & (filtered_df["close"] >= filtered_df["ema_50"])
-            & (filtered_df["volume"] >= filtered_df["ema_volume_10"] * 1.10)
-            & (filtered_df["macd"] > filtered_df["macd_signal"])
-            & ((filtered_df["close"] - filtered_df["open"]) / filtered_df["close"] >= 0.008)
-            & ((filtered_df["close"] - filtered_df["close_100_days_ago"]) / filtered_df["close_100_days_ago"] >= 0.30)
-            & ((filtered_df["max_close_10"] - filtered_df["min_close_10"]) / filtered_df["close"] <= 0.10)
-        )
-        if self.time_frame_unit == TimeFrameUnit.DAY:
-            buy_signals = buy_signals & (
-                (filtered_df["close"] >= filtered_df["ema_200"]) & (filtered_df["ema_50"] >= filtered_df["ema_200"])
-            )
-
-        signal_dates = filtered_df[buy_signals]["date"].tolist()
-        return [
-            Signal(ticker=ticker, date=signal_date, ranking=self.ranking_strategy.ranking(pl.from_pandas(self.df), date=signal_date))
-            for signal_date in signal_dates
-        ]

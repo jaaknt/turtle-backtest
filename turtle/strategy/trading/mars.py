@@ -4,12 +4,9 @@ from turtle.common.enums import TimeFrameUnit
 from turtle.model import Signal
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.strategy.ranking.base import RankingStrategy
+from typing import Any
 
-import pandas as pd
 import polars as pl
-from pandas_ta.momentum import macd as ta_macd
-from pandas_ta.overlap import ema as ta_ema
-from pandas_ta.overlap import sma as ta_sma
 
 from .base import TradingStrategy
 
@@ -29,43 +26,56 @@ class MarsStrategy(TradingStrategy):
     ):
         super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars)
 
-        self.df_orig = pd.DataFrame()
+    def calculate_indicators_pl(self) -> None:
+        """Calculate technical indicators using the polars DataFrame (self.pl_df).
 
-    def calculate_indicators(self) -> None:
-        # calculate min and max over last 4 period open and close (excluding current period)
-        self.df["max_box_4"] = self.df[["open", "close"]].shift(1).rolling(window=4).max().max(axis=1)
-        self.df["min_box_4"] = self.df[["open", "close"]].shift(1).rolling(window=4).min().min(axis=1)
+        Adds the following columns:
+        - max_box_4 / min_box_4: 4-bar rolling max/min of prior open/close (box boundaries)
+        - max_close_10: 10-bar rolling maximum of close
+        - ema_10 / ema_20: exponential moving averages of close
+        - macd: difference between 12-bar and 26-bar EMA of close
+        - ema_volume_4: 4-bar rolling mean of prior volume
+        - macd_signal: 9-bar EMA of macd
+        - macd_histogram: macd - macd_signal
+        - consolidation_change: (max_box_4 - min_box_4) / close
+        - hard_stoploss: midpoint of box minus 0.02
+        - volume_change: current volume / 4-bar rolling mean of prior volume
+        """
+        self.pl_df = self.pl_df.with_columns(
+            pl.max_horizontal(
+                pl.col("open").shift(1).rolling_max(4),
+                pl.col("close").shift(1).rolling_max(4),
+            ).alias("max_box_4"),
+            pl.min_horizontal(
+                pl.col("open").shift(1).rolling_min(4),
+                pl.col("close").shift(1).rolling_min(4),
+            ).alias("min_box_4"),
+            pl.col("close").rolling_max(10).alias("max_close_10"),
+            pl.col("close").ewm_mean(span=10, adjust=False).alias("ema_10"),
+            pl.col("close").ewm_mean(span=20, adjust=False).alias("ema_20"),
+            (pl.col("close").ewm_mean(span=12, adjust=False) - pl.col("close").ewm_mean(span=26, adjust=False)).alias("macd"),
+            pl.col("volume").shift(1).rolling_mean(4).alias("ema_volume_4"),
+        ).with_columns(
+            pl.col("macd").ewm_mean(span=9, adjust=False).alias("macd_signal"),
+            (pl.col("macd") - pl.col("macd").ewm_mean(span=9, adjust=False)).alias("macd_histogram"),
+            ((pl.col("max_box_4") - pl.col("min_box_4")) / pl.col("close")).alias("consolidation_change"),
+            ((pl.col("max_box_4") + pl.col("min_box_4")) / 2 - 0.02).alias("hard_stoploss"),
+            (pl.col("volume") / pl.col("volume").shift(1).rolling_mean(4)).alias("volume_change"),
+        )
 
-        # consolidation_change (max_box_4 - min_box_4) / close
-        self.df["consolidation_change"] = (self.df["max_box_4"] - self.df["min_box_4"]) / self.df["close"]
-        self.df["hard_stoploss"] = (self.df["max_box_4"] + self.df["min_box_4"]) / 2 - 0.02
+    def is_buy_signal(self, ticker: str, row: dict[str, Any]) -> bool:
+        """Check whether a single row (from iter_rows) satisfies all buy conditions.
 
-        self.df["ema_10"] = ta_ema(self.df["close"], length=10)
-        self.df["ema_20"] = ta_ema(self.df["close"], length=20)
+        Args:
+            ticker: Stock symbol, used only for debug logging.
+            row: Named row dict from polars iter_rows(named=True).
 
-        macd_df = ta_macd(self.df["close"], fast=12, slow=26, signal=9)
-        if macd_df is None:
-            self.df["macd"] = float("nan")
-            self.df["macd_histogram"] = float("nan")
-            self.df["macd_signal"] = float("nan")
-        else:
-            self.df["macd"] = macd_df["MACD_12_26_9"]
-            self.df["macd_histogram"] = macd_df["MACDh_12_26_9"]
-            self.df["macd_signal"] = macd_df["MACDs_12_26_9"]
+        Returns:
+            bool: True if all buy conditions are met, False otherwise.
+        """
+        if row["max_close_10"] is None or row["max_box_4"] is None or row["min_box_4"] is None:
+            return False
 
-        self.df["max_close_10"] = self.df["close"].rolling(window=10).max()
-
-        # volume indicators
-        self.df["ema_volume_4"] = ta_sma(self.df["volume"].shift(1), length=4)
-        self.df["volume_change"] = self.df["volume"] / self.df["ema_volume_4"]
-
-        self.df["buy_signal"] = False
-
-        self.df = self.df.reset_index()
-        if "date" in self.df.columns:
-            self.df["date"] = pd.to_datetime(self.df["date"]).dt.date
-
-    def is_buy_signal(self, ticker: str, row: pd.Series) -> bool:
         # last close > max(close, 10)
         if row["close"] < row["max_close_10"]:
             logger.debug(
@@ -79,9 +89,9 @@ class MarsStrategy(TradingStrategy):
             logger.debug(f"{ticker} {row['date'].strftime('%Y-%m-%d')} EMA_10 < EMA_20, EMA10: {row['ema_10']} EMA20: {row['ema_20']}")
             return False
 
-        # MACD_signal is not NaN or MACD is not NaN
-        if pd.isna(row["macd"]) or pd.isna(row["macd_signal"]):
-            logger.debug(f"{ticker} {row['date'].strftime('%Y-%m-%d')} MACD_signal is NaN")
+        # MACD or MACD signal is null
+        if row["macd"] is None or row["macd_signal"] is None:
+            logger.debug(f"{ticker} {row['date'].strftime('%Y-%m-%d')} MACD or MACD_signal is null")
             return False
 
         # consolidation_change < 0.12
@@ -113,32 +123,16 @@ class MarsStrategy(TradingStrategy):
         logger.debug(f"{ticker} {row['date'].strftime('%Y-%m-%d')} buy signal")
         return True
 
-    def calculate_entries(self, ticker: str, start_date: date, end_date: date) -> None:
-        # collect data for the ticker and end_date
-        if not self.collect_data(ticker, start_date, end_date):
-            logger.warning(f"{ticker} - not enough data, rows: {self.df.shape[0]}")
-            return
-
-        self.calculate_indicators()
-
-        self.df_orig = self.df.copy()
-        self.df = self.df.query("date >= @start_date and date <= @end_date")
-
-        # skip rows before start_date and after end_date
-        for i, row in self.df.iterrows():
-            self.df.at[i, "buy_signal"] = self.is_buy_signal(ticker, row)
-
-    def _get_pandas_signals(self, ticker: str, start_date: date) -> list[Signal]:
-        self.calculate_indicators()
-
-        filtered_df = self.df[self.df["date"] >= start_date]
-
+    def _get_polars_signals(self, ticker: str, start_date: date) -> list[Signal]:
+        self.calculate_indicators_pl()
+        filtered = self.pl_df.filter(pl.col("date") >= start_date)
+        if filtered.is_empty():
+            logger.debug(f"{ticker} - no data after date filtering")
+            return []
         signals = []
-        for _, row in filtered_df.iterrows():
+        for row in filtered.iter_rows(named=True):
             if self.is_buy_signal(ticker, row):
-                ranking = self.ranking_strategy.ranking(pl.from_pandas(self.df), date=row["date"])
-                signals.append(Signal(ticker=ticker, date=row["date"], ranking=ranking))
-
+                signals.append(Signal(ticker=ticker, date=row["date"], ranking=self.ranking_strategy.ranking(self.pl_df, date=row["date"])))
         return signals
 
     def _price_to_ranking(self, price: float) -> int:
@@ -149,7 +143,7 @@ class MarsStrategy(TradingStrategy):
             price: The stock price to convert
 
         Returns:
-            int: Ranking score (0-20)
+            int: Ranking score; one of {0, 4, 8, 12, 16, 20}
         """
         if price <= 0:
             return 0
@@ -175,21 +169,13 @@ class MarsStrategy(TradingStrategy):
             date_to_check: The specific date to evaluate the stock price
 
         Returns:
-            int: Ranking score between 0-20, with higher scores for lower-priced stocks
+            int: Ranking score; one of {0, 4, 8, 12, 16, 20}
         """
-        # Collect data for the specific date
         if not self.collect_data(ticker, date_to_check, date_to_check):
             logger.debug(f"{ticker} - not enough data for ranking on date {date_to_check}")
             return 0
-
-        # Filter to the specific date
-        target_df = self.df[self.df["date"] == date_to_check]
-
-        if target_df.empty:
+        target = self.pl_df.filter(pl.col("date") == date_to_check)
+        if target.is_empty():
             logger.debug(f"{ticker} - no data for ranking on date {date_to_check}")
             return 0
-
-        # Get the closing price from the target date
-        closing_price = target_df.iloc[-1]["close"]
-
-        return self._price_to_ranking(closing_price)
+        return self._price_to_ranking(float(target["close"][-1]))
