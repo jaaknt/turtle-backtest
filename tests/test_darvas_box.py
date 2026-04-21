@@ -1,4 +1,3 @@
-import warnings
 from datetime import date, datetime, timedelta
 from turtle.common.enums import TimeFrameUnit
 from turtle.repository.analytics import OhlcvAnalyticsRepository
@@ -6,15 +5,11 @@ from turtle.strategy.ranking.momentum import MomentumRanking
 from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
 from unittest.mock import MagicMock
 
-import pandas as pd
 import polars as pl
-
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore", category=DeprecationWarning, module="pkg_resources")
 
 
 def test_check_local_max() -> None:
-    series = pd.Series([1, 2, 3, 10, 3, 2, 1])
+    series = [1.0, 2.0, 3.0, 10.0, 3.0, 2.0, 1.0]
     assert DarvasBoxStrategy.check_local_max(0, series, 3, 3) is False
     assert DarvasBoxStrategy.check_local_max(1, series, 3, 3) is False
     assert DarvasBoxStrategy.check_local_max(2, series, 3, 3) is False
@@ -25,7 +20,7 @@ def test_check_local_max() -> None:
 
 
 def test_check_local_min() -> None:
-    series = pd.Series([10, 9, 8, 7, 1, 7, 8, 9, 10])
+    series = [10.0, 9.0, 8.0, 7.0, 1.0, 7.0, 8.0, 9.0, 10.0]
     assert DarvasBoxStrategy.check_local_min(0, series, 2) is False
     assert DarvasBoxStrategy.check_local_min(1, series, 2) is False
     assert DarvasBoxStrategy.check_local_min(2, series, 2) is False
@@ -95,41 +90,18 @@ def test_calculate_indicators() -> None:
 
 
 def test_is_local_max_valid() -> None:
-    df = pd.DataFrame(
-        {
-            "high": [1, 2, 3, 10, 3, 2, 1, 5, 6, 7, 8, 9, 10],
-            "is_local_min": [
-                False,
-                False,
-                False,
-                False,
-                False,
-                False,
-                False,
-                True,
-                False,
-                False,
-                False,
-                False,
-                False,
-            ],
-        }
-    )
+    highs = [1, 2, 3, 10, 3, 2, 1, 5, 6, 7, 8, 9, 10]
+    is_local_min = [False, False, False, False, False, False, False, True, False, False, False, False, False]
+    df = pl.DataFrame({"high": highs, "is_local_min": is_local_min})
 
-    # Test when local max is valid
     assert DarvasBoxStrategy.is_local_max_valid(df, 10, 3) is True
 
-    # Test when local max is invalid due to a higher high in the following rows
-    df_invalid = df.copy()
-    df_invalid.loc[8, "high"] = 11
+    df_invalid = pl.DataFrame({"high": highs[:8] + [11] + highs[9:], "is_local_min": is_local_min})
     assert DarvasBoxStrategy.is_local_max_valid(df_invalid, 10, 3) is False
 
-    # Test when local max is valid due to no local min within the following count
-    df_no_min = df.copy()
-    df_no_min["is_local_min"] = False
+    df_no_min = pl.DataFrame({"high": highs, "is_local_min": [False] * len(highs)})
     assert DarvasBoxStrategy.is_local_max_valid(df_no_min, 10, 3) is True
 
-    # Test when local max is valid with different following count
     assert DarvasBoxStrategy.is_local_max_valid(df, 10, 5) is True
 
 
