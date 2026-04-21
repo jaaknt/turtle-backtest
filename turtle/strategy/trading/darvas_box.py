@@ -8,8 +8,6 @@ from turtle.strategy.ranking.base import RankingStrategy
 import numpy as np
 import pandas as pd
 import polars as pl
-from pandas_ta.momentum import macd as ta_macd
-from pandas_ta.overlap import ema as ta_ema
 
 from .base import TradingStrategy
 
@@ -28,6 +26,7 @@ class DarvasBoxStrategy(TradingStrategy):
         min_bars: int = 420,
     ):
         super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars)
+        self.df: pd.DataFrame = pd.DataFrame()  # kept for dead code in darvas_box_breakout(); removed in Phase 5
 
     @staticmethod
     def check_local_max(
@@ -89,41 +88,50 @@ class DarvasBoxStrategy(TradingStrategy):
                 return True
         return True
 
-    def calculate_indicators(self) -> None:
-        """Calculate technical indicators for the strategy.
+    def calculate_indicators_pl(self) -> None:
+        """Calculate technical indicators using the polars DataFrame (self.pl_df).
 
-        Adds the following columns to self.df:
-        - max_close_20: 20-period rolling maximum of close prices
-        - ema_10/20/50/200: Exponential moving averages of close prices
-        - ema_volume_10: 10-period EMA of volume
-        - buy_signal: Boolean column initialized to False
+                Adds the following columns:
+                - max_close_20: 20-bar rolling maximum of close
+                - max_high_20: 20-bar rolling maximum of high
+        - ema_10 / ema_20 / ema_50 / ema_200: exponential moving averages of close
+                - ema_volume_10: 10-bar EMA of volume
+                - macd: difference between 12-bar and 26-bar EMA of close
+                - macd_signal: 9-bar EMA of macd
         """
-        # Rolling window indicators
-        self.df["max_close_20"] = self.df["close"].rolling(window=20).max()
-        self.df["max_high_20"] = self.df["high"].rolling(window=20).max()
+        self.pl_df = self.pl_df.with_columns(
+            pl.col("close").rolling_max(20).alias("max_close_20"),
+            pl.col("high").rolling_max(20).alias("max_high_20"),
+            pl.col("close").ewm_mean(span=10, adjust=False).alias("ema_10"),
+            pl.col("close").ewm_mean(span=20, adjust=False).alias("ema_20"),
+            pl.col("close").ewm_mean(span=50, adjust=False).alias("ema_50"),
+            pl.col("close").ewm_mean(span=200, adjust=False).alias("ema_200"),
+            pl.col("volume").ewm_mean(span=10, adjust=False).alias("ema_volume_10"),
+            (pl.col("close").ewm_mean(span=12, adjust=False) - pl.col("close").ewm_mean(span=26, adjust=False)).alias("macd"),
+        ).with_columns(
+            pl.col("macd").ewm_mean(span=9, adjust=False).alias("macd_signal"),
+        )
 
-        # MACD indicator
-        macd_df = ta_macd(self.df["close"], fast=12, slow=26, signal=9)
-        self.df["macd"] = macd_df["MACD_12_26_9"]
-        self.df["macd_signal"] = macd_df["MACDs_12_26_9"]
-
-        # Exponential Moving Averages for close prices
-        self.df["ema_10"] = ta_ema(self.df["close"], length=10)
-        self.df["ema_20"] = ta_ema(self.df["close"], length=20)
-        self.df["ema_50"] = ta_ema(self.df["close"], length=50)
-        self.df["ema_200"] = ta_ema(self.df["close"], length=200)
-
-        # Volume indicators
-        self.df["ema_volume_10"] = ta_ema(self.df["volume"], length=10)
-
-        # Initialize buy signal column
-        self.df["buy_signal"] = False
-
-        self.df = self.df.reset_index()
-        if "date" in self.df.columns:
-            self.df["date"] = pd.to_datetime(self.df["date"]).dt.date
-
-        # self.darvas_box_breakout()
+    def _get_polars_signals(self, ticker: str, start_date: date) -> list[Signal]:
+        self.calculate_indicators_pl()
+        filtered = self.pl_df.filter(pl.col("date") >= start_date)
+        if filtered.is_empty():
+            logger.debug(f"{ticker} - no data after date filtering")
+            return []
+        buy_mask = (
+            (pl.col("close") >= pl.col("max_close_20"))
+            & (pl.col("close") >= pl.col("ema_10"))
+            & (pl.col("close") >= pl.col("ema_20"))
+            & (pl.col("ema_10") >= pl.col("ema_20"))
+            & (pl.col("close") >= pl.col("ema_50"))
+            & (pl.col("volume") >= pl.col("ema_volume_10") * 1.10)
+            & (pl.col("macd") > pl.col("macd_signal"))
+            & ((pl.col("close") - pl.col("open")) / pl.col("close") >= 0.008)
+        )
+        if self.time_frame_unit == TimeFrameUnit.DAY:
+            buy_mask = buy_mask & (pl.col("close") >= pl.col("ema_200")) & (pl.col("ema_50") >= pl.col("ema_200"))
+        signal_dates = filtered.filter(buy_mask)["date"].to_list()
+        return [Signal(ticker=ticker, date=d, ranking=self.ranking_strategy.ranking(self.pl_df, date=d)) for d in signal_dates]
 
     def darvas_box_breakout(self, lookback_period: int = 10, validation_period: int = 3) -> bool:
         # status values: unknown, box_top_set, box_bottom_set, box_formed, breakout_up, breakout_down
@@ -249,52 +257,5 @@ class DarvasBoxStrategy(TradingStrategy):
             return False
 
         return True
-
-    def _get_pandas_signals(self, ticker: str, start_date: date) -> list[Signal]:
-        self.calculate_indicators()
-
-        # Filter data to target date range
-        filtered_df = self.df[self.df["date"] >= start_date].copy()
-        if filtered_df.empty:
-            logger.debug(f"{ticker} - no data after date filtering")
-            return []
-
-        # Vectorized buy signal calculation - much faster than iterrows()
-        buy_signals = (
-            (filtered_df["close"] >= filtered_df["max_close_20"])
-            & (filtered_df["close"] >= filtered_df["ema_10"])
-            & (filtered_df["close"] >= filtered_df["ema_20"])
-            & (filtered_df["ema_10"] >= filtered_df["ema_20"])
-            & (filtered_df["close"] >= filtered_df["ema_50"])
-            & (filtered_df["volume"] >= filtered_df["ema_volume_10"] * 1.10)
-            & (filtered_df["macd"] > filtered_df["macd_signal"])
-            & ((filtered_df["close"] - filtered_df["open"]) / filtered_df["close"] >= 0.008)
-        )
-
-        # Add EMA200 conditions only for daily timeframe
-        if self.time_frame_unit == TimeFrameUnit.DAY:
-            buy_signals = buy_signals & (
-                (filtered_df["close"] >= filtered_df["ema_200"]) & (filtered_df["ema_50"] >= filtered_df["ema_200"])
-            )
-
-        # print all values from start_date to end_date where buy_signals is False
-        for _, row in filtered_df[~buy_signals].iterrows():
-            logger.debug(f"{ticker} - no buy signal on {row['date']}")
-            logger.debug(f"  close: {row['close']} max_close_20: {row['max_close_20']} ema_10: {row['ema_10']} ema_20: {row['ema_20']}")
-            logger.debug(
-                f"  ema_50: {row['ema_50']} ema_200: {row['ema_200']} "
-                f"volume: {row['volume']} ema_volume_10 * 1.10: {row['ema_volume_10'] * 1.10}"
-            )
-            logger.debug(f"  macd: {row['macd']} macd_signal: {row['macd_signal']}")
-            logger.debug(f"  (close - open) / close: {(row['close'] - row['open']) / row['close']}")
-
-        # Get the dates where buy signals occur
-        signal_dates = filtered_df[buy_signals]["date"].tolist()
-
-        # Return list of Signal objects
-        return [
-            Signal(ticker=ticker, date=signal_date, ranking=self.ranking_strategy.ranking(pl.from_pandas(self.df), date=signal_date))
-            for signal_date in signal_dates
-        ]
 
     # create similar procedure that will calculate trading signals for all dates in df DataFrame

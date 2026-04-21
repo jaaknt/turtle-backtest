@@ -33,7 +33,7 @@ def get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, 
     strategies: dict[str, Callable[[], TradingStrategy]] = {
         "darvas_box": lambda: DarvasBoxStrategy(bars_history, ranking_strategy),
         "mars": lambda: MarsStrategy(bars_history, ranking_strategy),
-        "momentum": lambda: MomentumStrategy(bars_history, ranking_strategy, use_polars=True),
+        "momentum": lambda: MomentumStrategy(bars_history, ranking_strategy),
     }
 
     factory = strategies.get(strategy_name.lower())
