@@ -107,7 +107,7 @@ turtle/repository/   ← Repository pattern (all SQL lives here)
 turtle/model.py        ← Domain model dataclasses
 turtle/client/        ← External API clients (async)
 turtle/config/         ← Configuration loading
-turtle/common/         ← Shared utilities (iso_date_type, safe_float_conversion)
+turtle/common/         ← Shared utilities (iso_date_type)
 turtle/strategy/factory.py    ← Strategy factory functions (string → class mapping for CLI)
 ```
 
