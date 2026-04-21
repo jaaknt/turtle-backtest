@@ -7,6 +7,8 @@ from turtle.model import Signal
 from turtle.repository.analytics import OhlcvAnalyticsRepository
 from turtle.strategy.trading.base import TradingStrategy
 
+import polars as pl
+
 logger = logging.getLogger(__name__)
 
 
@@ -101,8 +103,8 @@ class PortfolioSignalProcessor:
                 ticker_signals = self._generate_ticker_signals(ticker, date)
                 batch_signals.extend(ticker_signals)
 
-            except Exception as e:
-                logger.debug(f"Error processing {ticker}: {e}")
+            except (ValueError, pl.exceptions.PolarsError) as e:
+                logger.warning(f"Error processing {ticker}: {e}")
                 continue
 
         return batch_signals
@@ -133,8 +135,8 @@ class PortfolioSignalProcessor:
 
         except NotImplementedError:
             raise
-        except Exception as e:
-            logger.debug(f"Error generating signals for {ticker} on {date}: {e}")
+        except (ValueError, pl.exceptions.PolarsError) as e:
+            logger.warning(f"Error generating signals for {ticker} on {date}: {e}")
             return []
 
     def rank_signals_cross_sectional(
@@ -205,13 +207,17 @@ class PortfolioSignalProcessor:
                 # Check volume and price criteria
                 vol_mean = df["volume"].mean()
                 avg_volume: float = float(vol_mean) if vol_mean is not None else 0.0  # type: ignore[arg-type]
-                current_price = float(df["close"][-1])
+                close_val = df["close"][-1]
+                if close_val is None:
+                    logger.warning(f"Null close price for {signal.ticker}, skipping quality check")
+                    continue
+                current_price = float(close_val)
 
                 if avg_volume >= min_volume and current_price >= min_price:
                     filtered_signals.append(signal)
 
-            except Exception as e:
-                logger.debug(f"Error checking data quality for {signal.ticker}: {e}")
+            except (ValueError, pl.exceptions.PolarsError) as e:
+                logger.warning(f"Error checking data quality for {signal.ticker}: {e}")
                 continue
 
         logger.debug(

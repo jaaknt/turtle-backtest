@@ -90,6 +90,8 @@ def test_calculate_indicators() -> None:
     ]
     for column in expected_columns:
         assert column in strategy.pl_df.columns
+    assert strategy.pl_df["ema_10"][-1] is not None
+    assert strategy.pl_df["max_close_20"][-1] is not None
 
 
 def test_is_local_max_valid() -> None:
@@ -216,6 +218,34 @@ def test_ranking() -> None:
     ranking_strategy = MomentumRanking()
     ranking = ranking_strategy.ranking(mock_df_cheap, test_date)
     assert ranking == 20
+
+
+def test_get_polars_signals_returns_empty_on_downtrend() -> None:
+    """_get_polars_signals returns [] when prices are declining (no buy conditions met)."""
+    n = 100
+    base = 100.0
+    closes = [base - i * 0.5 for i in range(n)]
+    opens = [c * 1.01 for c in closes]  # bearish bodies
+    highs = [c * 1.02 for c in closes]
+    lows = [c * 0.98 for c in closes]
+    start = date(2020, 1, 2)
+    pl_df = pl.DataFrame({
+        "date": [start + timedelta(days=i) for i in range(n)],
+        "open": opens, "high": highs, "low": lows, "close": closes,
+        "volume": [1_000_000.0] * n,
+    })
+
+    mock_repo = MagicMock(spec=OhlcvAnalyticsRepository)
+    mock_repo.get_bars_pl.return_value = pl_df
+    mock_ranking = MagicMock(spec=MomentumRanking)
+
+    strategy = DarvasBoxStrategy(
+        mock_repo, mock_ranking,
+        time_frame_unit=TimeFrameUnit.WEEK,
+        warmup_period=10, min_bars=10,
+    )
+    last_date = pl_df["date"][-1]
+    assert strategy.get_signals("TEST", last_date, last_date) == []
 
 
 def test_get_polars_signals_produces_signal() -> None:
