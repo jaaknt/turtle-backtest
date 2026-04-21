@@ -183,6 +183,54 @@ class TestSignalProcessor:
         assert exit.price == 105.0
         assert exit.reason == "period_end"
 
+    def test_calculate_exit_data_no_historical_data(
+        self,
+        mock_bars_history: Mock,
+        exit_strategy: Mock,
+        sample_signal: Signal,
+    ) -> None:
+        """Test exit data calculation when get_bars_pl returns empty DataFrame."""
+        processor = SignalProcessor(
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
+        )
+
+        mock_bars_history.get_bars_pl.return_value = pl.DataFrame()
+
+        with pytest.raises(ValueError, match="No historical data available"):
+            processor.calculate_exit_data(sample_signal, datetime(2024, 1, 16), 100.0)
+
+    def test_calculate_benchmark_empty_after_entry_filter(self) -> None:
+        """Test benchmark returns None when all data precedes entry date."""
+        past_dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(10)]
+        past_df = pl.DataFrame(
+            {
+                "date": past_dates,
+                "open": [400.0 + i for i in range(10)],
+                "high": [402.0 + i for i in range(10)],
+                "low": [399.0 + i for i in range(10)],
+                "close": [401.0 + i for i in range(10)],
+                "volume": [1000000] * 10,
+            }
+        )
+        result = calculate_benchmark(past_df, "SPY", datetime(2024, 2, 1), datetime(2024, 2, 5))
+        assert result is None
+
+    def test_calculate_benchmark_empty_after_exit_filter(self) -> None:
+        """Test benchmark returns None when all data follows exit date."""
+        future_dates = [date(2024, 3, 1) + timedelta(days=i) for i in range(10)]
+        future_df = pl.DataFrame(
+            {
+                "date": future_dates,
+                "open": [400.0 + i for i in range(10)],
+                "high": [402.0 + i for i in range(10)],
+                "low": [399.0 + i for i in range(10)],
+                "close": [401.0 + i for i in range(10)],
+                "volume": [1000000] * 10,
+            }
+        )
+        result = calculate_benchmark(future_df, "SPY", datetime(2024, 1, 1), datetime(2024, 1, 10))
+        assert result is None
+
     def test_calculate_exit_data_strategy_fails(
         self,
         mock_bars_history: Mock,
@@ -344,21 +392,3 @@ class TestSignalProcessor:
         assert result.holding_days >= 0
 
 
-class TestSignalProcessorEdgeCases:
-    """Test edge cases and error scenarios."""
-
-    def test_weekend_entry_date(self) -> None:
-        """Test signal processing when signal date is on weekend."""
-        pass
-
-    def test_holiday_entry_date(self) -> None:
-        """Test signal processing around market holidays."""
-        pass
-
-    def test_missing_benchmark_data_partial(self) -> None:
-        """Test when only one benchmark has data."""
-        pass
-
-    def test_extreme_date_ranges(self) -> None:
-        """Test with edge case date ranges."""
-        pass

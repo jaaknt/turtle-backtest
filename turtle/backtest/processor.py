@@ -260,7 +260,7 @@ class SignalProcessor:
         for signal in signals:
             try:
                 entry_data[signal.ticker] = self.calculate_entry_data(signal)
-            except Exception as e:
+            except (ValueError, pl.exceptions.PolarsError) as e:
                 logger.error(f"Error calculating entry for {signal.ticker}: {e}")
                 entry_data[signal.ticker] = None
 
@@ -316,7 +316,7 @@ class SignalProcessor:
                             }
                         )
 
-            except Exception as e:
+            except (ValueError, pl.exceptions.PolarsError) as e:
                 logger.error(f"Error evaluating exit for {ticker}: {e}")
                 continue
 

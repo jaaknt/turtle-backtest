@@ -73,7 +73,15 @@ class MarsStrategy(TradingStrategy):
         Returns:
             bool: True if all buy conditions are met, False otherwise.
         """
-        if row["max_close_10"] is None or row["max_box_4"] is None or row["min_box_4"] is None:
+        if (
+            row["max_close_10"] is None
+            or row["max_box_4"] is None
+            or row["min_box_4"] is None
+            or row["consolidation_change"] is None
+            or row["hard_stoploss"] is None
+            or row["ema_10"] is None
+            or row["ema_20"] is None
+        ):
             return False
 
         # last close > max(close, 10)

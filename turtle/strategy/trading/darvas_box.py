@@ -91,13 +91,13 @@ class DarvasBoxStrategy(TradingStrategy):
     def calculate_indicators_pl(self) -> None:
         """Calculate technical indicators using the polars DataFrame (self.pl_df).
 
-                Adds the following columns:
-                - max_close_20: 20-bar rolling maximum of close
-                - max_high_20: 20-bar rolling maximum of high
+        Adds the following columns:
+        - max_close_20: 20-bar rolling maximum of close
+        - max_high_20: 20-bar rolling maximum of high
         - ema_10 / ema_20 / ema_50 / ema_200: exponential moving averages of close
-                - ema_volume_10: 10-bar EMA of volume
-                - macd: difference between 12-bar and 26-bar EMA of close
-                - macd_signal: 9-bar EMA of macd
+        - ema_volume_10: 10-bar EMA of volume
+        - macd: difference between 12-bar and 26-bar EMA of close
+        - macd_signal: 9-bar EMA of macd
         """
         self.pl_df = self.pl_df.with_columns(
             pl.col("close").rolling_max(20).alias("max_close_20"),
