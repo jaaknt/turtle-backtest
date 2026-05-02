@@ -89,16 +89,13 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## MCP Servers
 
-Configured in `.mcp.json`. Prefer these over CLI equivalents when the operation is supported (`github` over `gh`, `postgres` for direct queries). Use built-in Read/Edit/Grep/Glob tools instead of `filesystem` for code operations.
+Configured in `.mcp.json`. Prefer these over CLI equivalents when the operation is supported (`github` over `gh`, `postgres` for direct queries).
 
 | Server | Purpose |
 |--------|---------|
 | `postgres` | Direct read-only SQL queries against `trading` db as `claude` user (`hetzner:5432`). Requires `DB_CLAUDE_PASSWORD` env var. |
 | `github` | GitHub API — issues, PRs, commits, actions (prefer over `gh` CLI when supported). Requires `GITHUB_PERSONAL_ACCESS_TOKEN` env var. |
 | `context7` | Fetch current library/framework docs |
-| `filesystem` | File operations — prefer built-in Read/Edit/Grep/Glob instead |
-| `playwright` | Browser automation and UI testing |
-| `sequential-thinking` | Structured multi-step reasoning for complex multi-condition problems |
 | `fetch` | HTTP fetch for external URLs |
 
 ## Git Workflow

@@ -18,28 +18,6 @@
         "@upstash/context7-mcp@latest"
       ]
     },
-    "playwright": {
-      "command": "npx",
-      "args": [
-        "@playwright/mcp@latest",
-        "--user-data-dir=./.playwright-profile"
-      ]
-    },
-    "sequential-thinking": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-sequential-thinking"
-      ]
-    },
-    "filesystem": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "/home/jack/github/turtle-backtest"
-      ]
-    },
     "fetch": {
       "command": "uvx",
       "args": [
