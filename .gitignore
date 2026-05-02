@@ -45,9 +45,6 @@ MANIFEST
 # Pytest cache
 .pytest_cache/
 
-# Playwright profile
-.playwright-profile/
-
 # Ruff cache
 .ruff_cache/
 
