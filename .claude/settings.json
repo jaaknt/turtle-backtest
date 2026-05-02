@@ -2,5 +2,11 @@
   "enabledPlugins": {
     "context7@claude-plugins-official": true,
     "pr-review-toolkit@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(uv run pytest *)",
+      "Bash(uv run mypy *)"
+    ]
   }
 }
