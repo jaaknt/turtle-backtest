@@ -8,5 +8,11 @@
       "Bash(uv run pytest *)",
       "Bash(uv run mypy *)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "Edit|Write",
+      "hooks": [{"type": "command", "command": "if [[ $CLAUDE_FILE_PATH == *.py ]]; then ruff check --fix \"$CLAUDE_FILE_PATH\" && mypy \"$CLAUDE_FILE_PATH\"; fi"}]
+    }]
   }
 }
