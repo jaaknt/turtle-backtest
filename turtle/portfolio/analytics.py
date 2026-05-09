@@ -138,12 +138,7 @@ class PortfolioAnalytics:
             qqq_returns_df = (
                 qqq_df.sort("date")
                 .with_columns(pl.col("close").pct_change().alias("returns"))
-                .with_columns(
-                    pl.when(pl.col("returns").is_infinite())
-                    .then(pl.lit(0.0))
-                    .otherwise(pl.col("returns"))
-                    .alias("returns")
-                )
+                .with_columns(pl.when(pl.col("returns").is_infinite()).then(pl.lit(0.0)).otherwise(pl.col("returns")).alias("returns"))
                 .drop_nulls("returns")
             )
 
