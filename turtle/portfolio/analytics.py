@@ -9,6 +9,7 @@ from turtle.repository.analytics import OhlcvAnalyticsRepository
 import matplotlib
 import numpy as np
 import pandas as pd
+import polars as pl
 import quantstats as qs  # type: ignore[import-untyped]
 
 # Suppress font warnings
@@ -127,19 +128,31 @@ class PortfolioAnalytics:
         """Calculate QQQ benchmark returns for comparison."""
         try:
             # Fetch QQQ historical data
-            qqq_df = ohlcv_repo.get_bars_pd("QQQ", start_date, end_date)
+            qqq_df = ohlcv_repo.get_bars_pl("QQQ", start_date, end_date)
 
-            if qqq_df.empty or len(qqq_df) < 2:
+            if qqq_df.is_empty() or qqq_df.height < 2:
                 logger.warning("Insufficient QQQ data for benchmark calculation")
                 return pd.Series(dtype=float)
 
-            # Calculate daily returns (index is already datetime from date)
-            qqq_df = qqq_df.sort_index()  # Sort by date index
-            qqq_returns = qqq_df["close"].pct_change().dropna()
-            qqq_returns.name = "QQQ_returns"
+            # Calculate daily returns in polars; replace +/-inf with 0 and drop initial null
+            qqq_returns_df = (
+                qqq_df.sort("date")
+                .with_columns(pl.col("close").pct_change().alias("returns"))
+                .with_columns(
+                    pl.when(pl.col("returns").is_infinite())
+                    .then(pl.lit(0.0))
+                    .otherwise(pl.col("returns"))
+                    .alias("returns")
+                )
+                .drop_nulls("returns")
+            )
 
-            # Clean and validate returns data
-            qqq_returns = qqq_returns.replace([np.inf, -np.inf], 0).dropna()
+            # Convert to pandas Series with DatetimeIndex for quantstats
+            qqq_returns = pd.Series(
+                qqq_returns_df["returns"].to_list(),
+                index=pd.DatetimeIndex(qqq_returns_df["date"].to_list()),
+                name="QQQ_returns",
+            )
 
             logger.info(f"Calculated QQQ benchmark returns for {len(qqq_returns)} trading days")
             return qqq_returns

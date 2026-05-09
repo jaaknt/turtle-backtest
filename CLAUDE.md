@@ -67,7 +67,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 - After non-trivial changes, run pytest and mypy before proposing a commit.
 - Use the PR review subagent workflow (parallel agents) before commit/push on multi-file changes.
-- Polars for all new code. Pandas is intentionally retained in `turtle/repository/analytics.py`, `turtle/portfolio/analytics.py`, and the Streamlit `app.py`, plus indirectly via `pandas-ta` and `quantstats`. Don't introduce pandas elsewhere; flag any new pandas import in code review.
+- Polars for all new code. Pandas is intentionally retained in `turtle/repository/analytics.py`, `turtle/portfolio/analytics.py`, and the Streamlit `app.py`, plus indirectly via `quantstats` and `streamlit`. Don't introduce pandas elsewhere; flag any new pandas import in code review.
 
 ## Quick Start & Common Commands
 
@@ -312,6 +312,6 @@ Run with `uv run pytest` or `uv run pytest tests/strategy/trading/test_darvas_bo
 
 ## Dependencies & Resources
 
-**Core Libraries**: pandas/numpy (data), polars (fast DataFrames), pandas-ta (technical analysis), pydantic (schema validation), alpaca-py (market data API), yfinance (Yahoo Finance), psycopg (PostgreSQL), backtesting (backtest framework), quantstats (performance analytics), streamlit (web UI), plotly/bokeh (visualization)
+**Core Libraries**: polars (primary DataFrame library), pandas/numpy (retained for quantstats and Streamlit boundaries), pydantic (schema validation), httpx (async HTTP for EODHD client), psycopg (PostgreSQL), backtesting (backtest framework), quantstats (performance analytics), streamlit (web UI), plotly/bokeh (visualization)
 
 **Special Requirements**: Python 3.13+
