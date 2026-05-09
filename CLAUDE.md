@@ -58,6 +58,16 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. Refactor Etiquette
+
+- Do NOT remove docstrings or comments when refactoring unless explicitly asked.
+- Before large refactors, propose a brief plan (especially scope boundaries) and wait for confirmation.
+
+## 6. Standard Workflow
+
+- After non-trivial changes, run pytest and mypy before proposing a commit.
+- Use the PR review subagent workflow (parallel agents) before commit/push on multi-file changes.
+- Polars for all new code. Pandas is intentionally retained in `turtle/repository/analytics.py`, `turtle/portfolio/analytics.py`, and the Streamlit `app.py`, plus indirectly via `pandas-ta` and `quantstats`. Don't introduce pandas elsewhere; flag any new pandas import in code review.
 
 ## Quick Start & Common Commands
 
@@ -69,6 +79,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | **Single backtest** | `uv run python scripts/backtest.py --ticker AAPL --start-date 2024-01-01` | Test specific ticker |
 | **Run tests** | `uv run pytest` | Verify code changes |
 | **Start database** | `docker-compose up -d` | Before any data operations |
+| **Run Streamlit app** | `uv run streamlit run app.py` | Explore signals interactively |
 
 ### Critical File Paths
 - **Configuration**: `/config/settings.toml` + `.env` for API keys
@@ -76,6 +87,10 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - **Exit Strategies**: `/turtle/strategy/exit/*.py` - Position exit logic
 - **Portfolio**: `/turtle/portfolio/*.py` - Multi-position management
 - **Services**: `/turtle/service/*.py` - Business logic orchestration
+- **Domain models**: `/turtle/model.py` - `Signal`, `Trade`, `Benchmark` dataclasses
+- **Streamlit app**: `/app.py` - Interactive signal explorer (`uv run streamlit run app.py`)
+- **Project docs**: `/docs/*.md` - `implementation.md`, `scripts.md`, `service.md`, `strategy.md`, `troubleshooting.md`
+- **Database init & migrations**: `/db/init.sql`, `/db/init.sh`, `/db/migrations/`
 
 ### Development Decision Tree
 
@@ -89,7 +104,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## MCP Servers
 
-Configured in `.mcp.json`. Prefer these over CLI equivalents when the operation is supported (`github` over `gh`, `postgres` for direct queries).
+Configured in `.mcp.json`. Tool-selection rules are in [Tool Preferences](#tool-preferences) below.
 
 | Server | Purpose |
 |--------|---------|
@@ -97,6 +112,12 @@ Configured in `.mcp.json`. Prefer these over CLI equivalents when the operation 
 | `github` | GitHub API — issues, PRs, commits, actions (prefer over `gh` CLI when supported). Requires `GITHUB_PERSONAL_ACCESS_TOKEN` env var. |
 | `context7` | Fetch current library/framework docs |
 | `fetch` | HTTP fetch for external URLs |
+
+## Tool Preferences
+
+- For GitHub queries (PRs, issues, Actions, workflow runs), ALWAYS use the GitHub MCP server first. Only fall back to `gh` CLI or Bash if MCP lacks the needed tool.
+- For Postgres queries, use the `mcp__postgres__query` tool with parameter name `sql` (not `query`).
+- For library/framework documentation lookups, use context7 MCP rather than guessing or web search.
 
 ## Git Workflow
 
@@ -114,10 +135,14 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 
 ## Architecture Overview
 
+### Repo Layout
+Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `docs/` (project docs), `tasks/` (issue files used by `/new-task`), `examples/` (see [Examples Directory](#examples-directory)), `scripts/` (CLI entry points), `tests/` (mirrors source tree).
+
 ### Core Components
 - **turtle/common/**: Shared enums and utilities
   - `enums.py`: `TimeFrameUnit` enum (DAY, WEEK)
   - `cli.py`: `iso_date_type` — argparse type helper for ISO date strings (YYYY-MM-DD)
+- **turtle/model.py**: Core domain dataclasses (`Signal`, `Trade`, `Benchmark`, etc.) — single shared module; do not create per-package `models.py` files
 - **turtle/strategy/factory.py**: Strategy factories for CLI scripts — canonical string → lambda factory mapping for trading, exit, and ranking strategies (`get_trading_strategy`, `get_exit_strategy`, `get_ranking_strategy`). Each entry is a `Callable[[], StrategyBase]` lambda that closes over the required dependencies, so concrete constructors are called directly rather than through the abstract base type.
 - **turtle/repository/**: All database access (sync Engine reads + async Session writes)
   - `tables.py`: SQLAlchemy Core table definitions
@@ -126,7 +151,7 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
   - `eodhd/`: `ExchangeRepository`, `TickerRepository`, `TickerQueryRepository`, `DailyBarsRepository`, `CompanyRepository`
 - **turtle/strategy/trading/**: Trading signal implementations
   - `base.py`: TradingStrategy abstract base
-  - `darvas_box.py`, `mars.py`, `momentum.py`, `market.py`
+  - `darvas_box.py`, `mars.py`, `momentum.py`
 - **turtle/strategy/exit/**: Exit strategy implementations
   - `base.py`: ExitStrategy abstract base
   - `buy_and_hold.py`, `profit_loss.py`, `ema.py`, `macd.py`, `atr.py`, `trailing_percentage_loss.py`
@@ -197,7 +222,7 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
            # Your logic here
            return signals
    ```
-3. **Add tests**: `tests/test_my_strategy.py`
+3. **Add tests**: `tests/strategy/trading/test_my_strategy.py` (mirror the source tree)
 4. **Wire via dependency injection**: Instantiate your strategy and pass it to the service constructor — see `scripts/signal_runner.py` (`get_trading_strategy`) for the canonical wiring pattern
 5. **Test**: `uv run python scripts/signal_runner.py --strategy my_strategy --mode analyze`
 
@@ -224,7 +249,7 @@ All database operations live in `turtle/repository/`. No SQL outside this direct
 All dependencies are passed explicitly through constructors — no globals, no service locators. The connection pool flows from `Settings` → `Service` → `Repo`. See `turtle/service/signal_service.py`.
 
 ### Domain Models (Dataclasses vs Pydantic)
-- **Dataclasses** for all internal domain objects (`Signal`, `Trade`, `Position`). Use `@property` for computed fields — no setters. See `turtle/strategy/trading/models.py`, `turtle/backtest/models.py`, `turtle/portfolio/models.py`.
+- **Dataclasses** for all internal domain objects (`Signal`, `Trade`, `Benchmark`, etc.). Use `@property` for computed fields — no setters. All shared domain models live in a single module: `turtle/model.py` (no per-package `models.py`).
 - **Pydantic `BaseModel`** only for external API responses where field aliasing (`alias=`) is needed. See `Exchange`, `Ticker`, `Company` in `turtle/schema/`.
 
 ### Configuration (Factory Method)
