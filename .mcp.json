@@ -8,27 +8,7 @@
         "PGPASSWORD=$DB_CLAUDE_PASSWORD npx -y @modelcontextprotocol/server-postgres postgresql://claude@hetzner:5432/trading"
       ],
       "env": {
-        "DB_CLAUDE_PASSWORD": "${DB_CLAUDE_PASSWORD}"
-      }
-    },
-    "context7": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@upstash/context7-mcp@latest"
-      ]
-    },
-    "fetch": {
-      "command": "uvx",
-      "args": [
-        "mcp-server-fetch"
-      ]
-    },
-    "github": {
-      "type": "http",
-      "url": "https://api.githubcopilot.com/mcp/",
-      "headers": {
-        "Authorization": "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}"
+        "DB_CLAUDE_PASSWORD": "ZWZsCKDjYXgHDdvWomJ3"
       }
     }
   }
