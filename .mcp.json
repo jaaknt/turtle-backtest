@@ -2,13 +2,14 @@
   "mcpServers": {
     "postgres": {
       "type": "stdio",
-      "command": "/bin/sh",
+      "command": "npx",
       "args": [
-        "-c",
-        "PGPASSWORD=$DB_CLAUDE_PASSWORD npx -y @modelcontextprotocol/server-postgres postgresql://claude@hetzner:5432/trading"
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://claude@hetzner:5432/trading"
       ],
       "env": {
-        "DB_CLAUDE_PASSWORD": "ZWZsCKDjYXgHDdvWomJ3"
+        "PGPASSWORD": "${DB_CLAUDE_PASSWORD}"
       }
     }
   }
