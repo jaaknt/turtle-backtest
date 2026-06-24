@@ -1,0 +1,35 @@
+# Daily database backup timer — user-level systemd timer (no sudo required)
+#
+# DEPLOY
+#   mkdir -p ~/.config/systemd/user
+#   ln -s ~/turtle-backtest/deploy/turtle-backup.service ~/.config/systemd/user/turtle-backup.service
+#   ln -s ~/turtle-backtest/deploy/turtle-backup.timer   ~/.config/systemd/user/turtle-backup.timer
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now turtle-backup.timer
+#
+# PREREQUISITES
+#   rclone configured with a "hetzner" remote (S3-compatible Hetzner Object Storage)
+#     sudo apt install -y rclone
+#     rclone config   # provider: S3, endpoint: fsn1.your-objectstorage.com
+#   loginctl enable-linger <username>   # allows timer to fire without an active login session
+#
+# STATUS / LOGS
+#   systemctl --user status turtle-backup.timer
+#   systemctl --user list-timers turtle-backup.timer
+#   journalctl --user -u turtle-backup.service
+#
+# REMOVE
+#   systemctl --user disable --now turtle-backup.timer
+#   rm ~/.config/systemd/user/turtle-backup.{service,timer}
+#   systemctl --user daemon-reload
+
+[Unit]
+Description=Daily Database Backup
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+TimeZone=Europe/Tallinn
+Persistent=true
+
+[Install]
+WantedBy=timers.target

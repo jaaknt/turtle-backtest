@@ -8,7 +8,6 @@ turtle-backtest runs locally today. This guide covers moving it to a Hetzner VPS
 - PostgreSQL 17 (primary data store, ~1–2GB of OHLCV data)
 - Python 3.13 runtime with `uv`
 - Outbound HTTPS to `eodhd.com` for data downloads
-- Optional: Streamlit dashboard on port 8501
 - Scheduled daily data downloads
 
 ---
@@ -185,22 +184,22 @@ sudo systemctl restart postgresql
 ### Phase 3: Application Deployment
 
 ```bash
-# Create secrets file
-sudo mkdir /etc/turtle-backtest
-sudo tee /etc/turtle-backtest/secrets.env <<EOF
+# Create secrets file (user-owned, no sudo required)
+mkdir -p ~/.config/turtle-backtest
+tee ~/.config/turtle-backtest/secrets.env <<EOF
 DB_APP_PASSWORD=<app_password>
 DB_ALEMBIC_PASSWORD=<alembic_password>
 EODHD_API_KEY=<api_key>
 EOF
-sudo chmod 600 /etc/turtle-backtest/secrets.env
-sudo chown turtle:turtle /etc/turtle-backtest/secrets.env
-# add to current environment
-set -a && source /etc/turtle-backtest/secrets.env && set +a
+chmod 600 ~/.config/turtle-backtest/secrets.env
 
-# Install dependencies and apply migrations
-source /etc/turtle-backtest/secrets.env
+# Load into current shell and install dependencies
+set -a && source ~/.config/turtle-backtest/secrets.env && set +a
 uv sync
 uv run alembic upgrade head
+
+# Allow user services to run without an active login session
+loginctl enable-linger turtle
 ```
 
 No changes to `config/settings.toml` required — the app already reads `DB_PASSWORD` and `EODHD_API_KEY` from environment variables.
@@ -230,128 +229,45 @@ uv run python scripts/download_eodhd_data.py --data history
 
 ### Phase 5: Systemd Services
 
-**Daily data download — `/etc/systemd/system/turtle-download.service`:**
-```ini
-[Unit]
-Description=Turtle EODHD Data Download
-After=network.target postgresql.service
-
-[Service]
-Type=oneshot
-User=turtle
-WorkingDirectory=/home/turtle/turtle-backtest
-EnvironmentFile=/etc/turtle-backtest/secrets.env
-ExecStart=/home/turtle/.local/bin/uv run python scripts/download_eodhd_data.py --data history
-```
-
-**Timer — `/etc/systemd/system/turtle-download.timer`:**
-```ini
-[Unit]
-Description=Daily EODHD Download
-
-[Timer]
-OnCalendar=*-*-* 05:00:00
-TimeZone=Europe/Tallinn
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-Enable:
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now turtle-download.timer
-```
-
-**Monthly company snapshot — `/etc/systemd/system/turtle-snapshot.service`:**
-```ini
-[Unit]
-Description=Turtle Monthly Company Snapshot
-After=network.target postgresql.service
-
-[Service]
-Type=oneshot
-User=turtle
-WorkingDirectory=/home/turtle/turtle-backtest
-EnvironmentFile=/etc/turtle-backtest/secrets.env
-ExecStart=/home/turtle/.local/bin/uv run python scripts/snapshot_company.py
-```
-
-**Timer — `/etc/systemd/system/turtle-snapshot.timer`:**
-```ini
-[Unit]
-Description=Monthly Company Snapshot
-
-[Timer]
-OnCalendar=*-*-01 01:00:00
-TimeZone=Europe/Tallinn
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-Enable:
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now turtle-snapshot.timer
-```
-
-> `Persistent=true` ensures the snapshot runs on next boot if the server was off on the 1st. The script is idempotent — running it twice on the same day is safe.
-
-**Optional — Streamlit UI — `/etc/systemd/system/turtle-ui.service`:**
-```ini
-[Unit]
-Description=Turtle Backtest Streamlit UI
-After=postgresql.service
-
-[Service]
-User=turtle
-WorkingDirectory=/home/turtle/turtle-backtest
-EnvironmentFile=/etc/turtle-backtest/secrets.env
-ExecStart=/home/turtle/.local/bin/uv run streamlit run app.py --server.port 8501 --server.address 127.0.0.1
-Restart=always
-```
+Unit files live in `deploy/`. Symlink them so updates from `git pull` take effect automatically.
 
 ```bash
-sudo systemctl enable --now turtle-ui.service
+mkdir -p ~/.config/systemd/user
+
+# Daily EODHD data download
+ln -s ~/turtle-backtest/deploy/eodhd-download.service ~/.config/systemd/user/eodhd-download.service
+ln -s ~/turtle-backtest/deploy/eodhd-download.timer   ~/.config/systemd/user/eodhd-download.timer
+
+# Monthly company snapshot (fires at 01:00 on the 1st; idempotent if re-run)
+ln -s ~/turtle-backtest/deploy/snapshot_company.service ~/.config/systemd/user/snapshot_company.service
+ln -s ~/turtle-backtest/deploy/snapshot_company.timer   ~/.config/systemd/user/snapshot_company.timer
+
+systemctl --user daemon-reload
+systemctl --user enable --now eodhd-download.timer
+systemctl --user enable --now snapshot_company.timer
 ```
 
-Access via SSH tunnel: `ssh -L 8501:127.0.0.1:8501 turtle@<vps-ip>` then open `http://localhost:8501`.
+Full deploy steps including prerequisites and removal are in the comments at the top of each timer file.
+
+Access Streamlit via SSH tunnel: `ssh -L 8501:127.0.0.1:8501 turtle@<vps-ip>` then open `http://localhost:8501`.
+
+```bash
+# Start Streamlit manually when needed
+uv run streamlit run app.py --server.port 8501 --server.address 127.0.0.1
+```
 
 ### Phase 6: Backups
 
-```bash
-# Install rclone and configure Hetzner Object Storage (S3-compatible endpoint)
-sudo apt install -y rclone
-rclone config  # add "hetzner" remote using S3 provider + Hetzner credentials
+**Backup service** (`deploy/turtle-backup.service` + `deploy/turtle-backup.timer`):
 
-# Backup service — /etc/systemd/system/turtle-backup.service
-```
-```ini
-[Unit]
-Description=Turtle Database Backup
-
-[Service]
-Type=oneshot
-User=turtle
-ExecStart=/bin/bash -c 'pg_dump -U postgres trading | gzip | rclone rcat hetzner:turtle-backups/trading_$(date +%%Y%%m%%d).sql.gz'
-```
+Full deploy steps including rclone setup, prerequisites, and removal are in the comments at the top of `deploy/turtle-backup.timer`.
 
 ```bash
-# Daily at 02:00 — /etc/systemd/system/turtle-backup.timer
-```
-```ini
-[Unit]
-Description=Daily Database Backup
-
-[Timer]
-OnCalendar=*-*-* 02:00:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target
+mkdir -p ~/.config/systemd/user
+ln -s ~/turtle-backtest/deploy/turtle-backup.service ~/.config/systemd/user/turtle-backup.service
+ln -s ~/turtle-backtest/deploy/turtle-backup.timer   ~/.config/systemd/user/turtle-backup.timer
+systemctl --user daemon-reload
+systemctl --user enable --now turtle-backup.timer
 ```
 
 ### Phase 7: nginx + TLS (only if exposing Streamlit publicly)
@@ -381,11 +297,11 @@ uv run python scripts/signal_runner.py --start-date 2024-01-01 --end-date 2024-0
 uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-01-31 --output-file /tmp/test.html
 
 # 3. Check timers are registered
-systemctl list-timers turtle-download.timer turtle-snapshot.timer
+systemctl --user list-timers eodhd-download.timer snapshot_company.timer
 
 # 4. Review logs after first timer runs
-journalctl -u turtle-download.service
-journalctl -u turtle-snapshot.service
+journalctl --user -u eodhd-download.service
+journalctl --user -u snapshot_company.service
 
 # 5. Streamlit (via SSH tunnel)
 ssh -L 8501:127.0.0.1:8501 turtle@<vps-ip>

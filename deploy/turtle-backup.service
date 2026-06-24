@@ -1,0 +1,11 @@
+# User-level service — install to ~/.config/systemd/user/
+# Requires rclone configured with a "hetzner" remote pointing to Hetzner Object Storage.
+# See deploy/turtle-backup.timer for the schedule.
+[Unit]
+Description=Turtle Database Backup
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'pg_dump -U postgres trading | gzip | rclone rcat hetzner:turtle-backups/trading_$(date +%%Y%%m%%d).sql.gz'
+StandardOutput=journal
+StandardError=journal

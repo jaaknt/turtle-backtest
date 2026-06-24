@@ -1,24 +1,32 @@
-# Install (user-level systemd, no root required):
+# Monthly company snapshot timer — user-level systemd timer (no sudo required)
 #
+# DEPLOY
 #   mkdir -p ~/.config/systemd/user
-#   ln -s /home/jack/github/turtle-backtest/deploy/snapshot_company.service \
-#          ~/.config/systemd/user/snapshot_company.service
-#   ln -s /home/jack/github/turtle-backtest/deploy/snapshot_company.timer \
-#          ~/.config/systemd/user/snapshot_company.timer
+#   ln -s ~/turtle-backtest/deploy/snapshot_company.service ~/.config/systemd/user/snapshot_company.service
+#   ln -s ~/turtle-backtest/deploy/snapshot_company.timer   ~/.config/systemd/user/snapshot_company.timer
 #   systemctl --user daemon-reload
 #   systemctl --user enable --now snapshot_company.timer
 #
-# Check status:
+# PREREQUISITES
+#   secrets file must exist at ~/.config/turtle-backtest/secrets.env (see Phase 3 of docs/implementation.md)
+#   loginctl enable-linger <username>   # allows timer to fire without an active login session
+#
+# STATUS / LOGS
 #   systemctl --user status snapshot_company.timer
+#   systemctl --user list-timers snapshot_company.timer
 #   journalctl --user -u snapshot_company.service
+#
+# REMOVE
+#   systemctl --user disable --now snapshot_company.timer
+#   rm ~/.config/systemd/user/snapshot_company.{service,timer}
+#   systemctl --user daemon-reload
 
 [Unit]
-Description=Run turtle.company snapshot on the 1st of each month
+Description=Monthly turtle.company snapshot
 
 [Timer]
-# Fire at 01:00 on the first day of every month
 OnCalendar=*-*-01 01:00:00
-# If the machine was off on the 1st, run on next boot
+TimeZone=Europe/Tallinn
 Persistent=true
 
 [Install]
