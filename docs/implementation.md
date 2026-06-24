@@ -264,6 +264,42 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now turtle-download.timer
 ```
 
+**Monthly company snapshot — `/etc/systemd/system/turtle-snapshot.service`:**
+```ini
+[Unit]
+Description=Turtle Monthly Company Snapshot
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=turtle
+WorkingDirectory=/home/turtle/turtle-backtest
+EnvironmentFile=/etc/turtle-backtest/secrets.env
+ExecStart=/home/turtle/.local/bin/uv run python scripts/snapshot_company.py
+```
+
+**Timer — `/etc/systemd/system/turtle-snapshot.timer`:**
+```ini
+[Unit]
+Description=Monthly Company Snapshot
+
+[Timer]
+OnCalendar=*-*-01 01:00:00
+TimeZone=Europe/Tallinn
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Enable:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now turtle-snapshot.timer
+```
+
+> `Persistent=true` ensures the snapshot runs on next boot if the server was off on the 1st. The script is idempotent — running it twice on the same day is safe.
+
 **Optional — Streamlit UI — `/etc/systemd/system/turtle-ui.service`:**
 ```ini
 [Unit]
@@ -344,11 +380,12 @@ uv run python scripts/signal_runner.py --start-date 2024-01-01 --end-date 2024-0
 # 2. Confirm portfolio backtest runs end-to-end
 uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-01-31 --output-file /tmp/test.html
 
-# 3. Check timer is registered
-systemctl list-timers turtle-download.timer
+# 3. Check timers are registered
+systemctl list-timers turtle-download.timer turtle-snapshot.timer
 
-# 4. Review logs after first timer run
+# 4. Review logs after first timer runs
 journalctl -u turtle-download.service
+journalctl -u turtle-snapshot.service
 
 # 5. Streamlit (via SSH tunnel)
 ssh -L 8501:127.0.0.1:8501 turtle@<vps-ip>
