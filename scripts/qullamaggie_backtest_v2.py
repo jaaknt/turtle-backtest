@@ -38,7 +38,7 @@ COOLDOWN = 30
 MIN_OOS_TRADES = 30
 MIN_NEG_TRADES = 10
 
-BREAKOUT_WEEKS = [10, 20, 50]          # trading days: 50, 100, 250
+BREAKOUT_WEEKS = [10, 20, 50]  # trading days: 50, 100, 250
 SMA50_THRESHOLDS = [0.10, 0.15, 0.20]
 TIGHT_BASE_THRESHOLDS = [0.05, 0.10]
 VOL_SURGE_MULTIPLES = [1.2, 1.3, 1.4]
@@ -60,7 +60,8 @@ for _year in range(2021, 2027):
         _oos_end_year = _year + (_oos_end_month > 12)
         _oos_end_month = _oos_end_month if _oos_end_month <= 12 else _oos_end_month - 12
         _oos_end = date(
-            _oos_end_year, _oos_end_month,
+            _oos_end_year,
+            _oos_end_month,
             calendar.monthrange(_oos_end_year, _oos_end_month)[1],
         )
         if _oos_end > date(2026, 3, 31):
@@ -75,7 +76,7 @@ OOS_TOTAL_MONTHS = len(OOS_WINDOWS) * 3
 
 
 def sig_label(bw: int, sma: float, tb: float, vs: float) -> str:
-    return f"bk{bw}w_s{int(sma*100)}_tb{int(tb*100)}_v{vs}"
+    return f"bk{bw}w_s{int(sma * 100)}_tb{int(tb * 100)}_v{vs}"
 
 
 # ── Data loading ───────────────────────────────────────────────────────────────
@@ -101,13 +102,15 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
     log.info("Loading daily bars …")
     with engine.connect() as conn:
         rows = conn.execute(sa.text(sql)).fetchall()
-    df = pl.DataFrame({
-        "symbol": [r[0] for r in rows],
-        "date":   pl.Series([r[1] for r in rows], dtype=pl.Date),
-        "open":   [float(r[2]) for r in rows],
-        "close":  [float(r[3]) for r in rows],
-        "volume": [int(r[4]) for r in rows],
-    })
+    df = pl.DataFrame(
+        {
+            "symbol": [r[0] for r in rows],
+            "date": pl.Series([r[1] for r in rows], dtype=pl.Date),
+            "open": [float(r[2]) for r in rows],
+            "close": [float(r[3]) for r in rows],
+            "volume": [int(r[4]) for r in rows],
+        }
+    )
     log.info("Loaded %d rows, %d symbols", len(df), df["symbol"].n_unique())
     return df
 
@@ -115,58 +118,73 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
 # ── Indicators ─────────────────────────────────────────────────────────────────
 def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
     df = df.sort(["symbol", "date"])
-    df = df.with_columns([
-        pl.col("close").shift(1).over("symbol").alias("_c1"),
-        pl.col("volume").cast(pl.Float64).shift(1).over("symbol").alias("_v1"),
-    ])
-    df = df.with_columns([
-        # Trend filter (fixed condition)
-        pl.col("close").rolling_mean(window_size=10, min_samples=10).over("symbol").alias("sma10"),
-        pl.col("close").rolling_mean(window_size=20, min_samples=20).over("symbol").alias("sma20"),
-        pl.col("close").rolling_mean(window_size=50, min_samples=50).over("symbol").alias("sma50"),
-        # Volume baselines exclude today: [-50,-1] and [-20,-1]
-        pl.col("_v1").rolling_mean(window_size=50, min_samples=50).over("symbol").alias("avg_vol_50"),
-        pl.col("_v1").rolling_mean(window_size=20, min_samples=20).over("symbol").alias("avg_vol_20"),
-        # Breakout highs exclude today: 10w=50d, 20w=100d, 50w=250d
-        pl.col("_c1").rolling_max(window_size=50,  min_samples=50).over("symbol").alias("max_c_10w"),
-        pl.col("_c1").rolling_max(window_size=100, min_samples=100).over("symbol").alias("max_c_20w"),
-        pl.col("_c1").rolling_max(window_size=250, min_samples=250).over("symbol").alias("max_c_50w"),
-        # Tight base [-11,-1]: std/mean of last 10 closes excluding today
-        pl.col("_c1").rolling_std(window_size=10, min_samples=10).over("symbol").alias("_std10"),
-        pl.col("_c1").rolling_mean(window_size=10, min_samples=10).over("symbol").alias("_mean10"),
-    ])
-    df = df.with_columns([
-        ((pl.col("close") - pl.col("sma50")) / pl.col("sma50")).alias("pct_vs_sma50"),
-        (pl.col("_std10") / pl.col("_mean10")).alias("tight_base_cv"),
-        (pl.col("volume").cast(pl.Float64) / pl.col("avg_vol_50")).alias("vol_ratio"),
-    ])
+    df = df.with_columns(
+        [
+            pl.col("close").shift(1).over("symbol").alias("_c1"),
+            pl.col("volume").cast(pl.Float64).shift(1).over("symbol").alias("_v1"),
+        ]
+    )
+    df = df.with_columns(
+        [
+            # Trend filter (fixed condition)
+            pl.col("close").rolling_mean(window_size=10, min_samples=10).over("symbol").alias("sma10"),
+            pl.col("close").rolling_mean(window_size=20, min_samples=20).over("symbol").alias("sma20"),
+            pl.col("close").rolling_mean(window_size=50, min_samples=50).over("symbol").alias("sma50"),
+            # Volume baselines exclude today: [-50,-1] and [-20,-1]
+            pl.col("_v1").rolling_mean(window_size=50, min_samples=50).over("symbol").alias("avg_vol_50"),
+            pl.col("_v1").rolling_mean(window_size=20, min_samples=20).over("symbol").alias("avg_vol_20"),
+            # Breakout highs exclude today: 10w=50d, 20w=100d, 50w=250d
+            pl.col("_c1").rolling_max(window_size=50, min_samples=50).over("symbol").alias("max_c_10w"),
+            pl.col("_c1").rolling_max(window_size=100, min_samples=100).over("symbol").alias("max_c_20w"),
+            pl.col("_c1").rolling_max(window_size=250, min_samples=250).over("symbol").alias("max_c_50w"),
+            # Tight base [-11,-1]: std/mean of last 10 closes excluding today
+            pl.col("_c1").rolling_std(window_size=10, min_samples=10).over("symbol").alias("_std10"),
+            pl.col("_c1").rolling_mean(window_size=10, min_samples=10).over("symbol").alias("_mean10"),
+        ]
+    )
+    df = df.with_columns(
+        [
+            ((pl.col("close") - pl.col("sma50")) / pl.col("sma50")).alias("pct_vs_sma50"),
+            (pl.col("_std10") / pl.col("_mean10")).alias("tight_base_cv"),
+            (pl.col("volume").cast(pl.Float64) / pl.col("avg_vol_50")).alias("vol_ratio"),
+        ]
+    )
     return df.drop(["_c1", "_v1", "_std10", "_mean10"])
 
 
 # ── Signal generation ──────────────────────────────────────────────────────────
 def get_signals(
     df: pl.DataFrame,
-    bw: int, sma: float, tb: float, vs: float,
-    from_date: date, to_date: date,
+    bw: int,
+    sma: float,
+    tb: float,
+    vs: float,
+    from_date: date,
+    to_date: date,
 ) -> pl.DataFrame:
     """Return (symbol, date, close) entries passing all entry conditions with 30-day cooldown."""
     max_col = {10: "max_c_10w", 20: "max_c_20w", 50: "max_c_50w"}[bw]
-    cands = df.filter(
-        (pl.col("date") >= from_date) & (pl.col("date") <= to_date)
-        & pl.col("sma10").is_not_null()
-        & pl.col("sma20").is_not_null()
-        & pl.col("sma50").is_not_null()
-        & pl.col(max_col).is_not_null()
-        & pl.col("tight_base_cv").is_not_null()
-        & (pl.col("close") >= MIN_PRICE)
-        & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
-        & (pl.col("close") > pl.col("sma10"))       # rising_price
-        & (pl.col("close") > pl.col("sma20"))       # rising_price
-        & (pl.col("close") > pl.col(max_col))       # breakout
-        & (pl.col("pct_vs_sma50") >= sma)           # above SMA50
-        & (pl.col("tight_base_cv") <= tb)           # tight base
-        & (pl.col("vol_ratio") >= vs)               # volume surge
-    ).select(["symbol", "date", "close"]).sort(["symbol", "date"])
+    cands = (
+        df.filter(
+            (pl.col("date") >= from_date)
+            & (pl.col("date") <= to_date)
+            & pl.col("sma10").is_not_null()
+            & pl.col("sma20").is_not_null()
+            & pl.col("sma50").is_not_null()
+            & pl.col(max_col).is_not_null()
+            & pl.col("tight_base_cv").is_not_null()
+            & (pl.col("close") >= MIN_PRICE)
+            & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
+            & (pl.col("close") > pl.col("sma10"))  # rising_price
+            & (pl.col("close") > pl.col("sma20"))  # rising_price
+            & (pl.col("close") > pl.col(max_col))  # breakout
+            & (pl.col("pct_vs_sma50") >= sma)  # above SMA50
+            & (pl.col("tight_base_cv") <= tb)  # tight base
+            & (pl.col("vol_ratio") >= vs)  # volume surge
+        )
+        .select(["symbol", "date", "close"])
+        .sort(["symbol", "date"])
+    )
 
     if cands.is_empty():
         return cands
@@ -204,7 +222,7 @@ def compute_returns(
         idx = int(np.searchsorted(dates, entry_int))
         if idx + hold >= len(closes):
             continue
-        window = closes[idx:idx + hold + 1]
+        window = closes[idx : idx + hold + 1]
         rets.append((window[-1] - window[0]) / window[0])
         peak = np.maximum.accumulate(window)
         max_dds.append(float(((peak - window) / peak).max()))
@@ -230,14 +248,14 @@ def calc_metrics(rets: list[float], max_dds: list[float], holding_days: int) -> 
     mean_mdd = float(np.mean(max_dds)) if max_dds else 0.0
     calmar = cagr / mean_mdd if mean_mdd > 0 else 0.0
     return {
-        "n":        len(a),
+        "n": len(a),
         "win_rate": float(len(wins) / len(a)),
-        "median":   float(np.median(a)),
-        "q75":      float(np.percentile(a, 75)),
-        "sortino":  float(sortino),
-        "pf":       float(wins.sum() / abs(neg.sum())),
+        "median": float(np.median(a)),
+        "q75": float(np.percentile(a, 75)),
+        "sortino": float(sortino),
+        "pf": float(wins.sum() / abs(neg.sum())),
         "mean_mdd": mean_mdd,
-        "calmar":   float(calmar),
+        "calmar": float(calmar),
     }
 
 
@@ -262,14 +280,21 @@ def main() -> None:
         sym_dates[sym] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int32)
         sym_closes[sym] = g["close"].cast(pl.Float64).to_numpy(allow_copy=True)
 
-    param_combos = list(itertools.product(
-        BREAKOUT_WEEKS, SMA50_THRESHOLDS,
-        TIGHT_BASE_THRESHOLDS, VOL_SURGE_MULTIPLES,
-    ))
+    param_combos = list(
+        itertools.product(
+            BREAKOUT_WEEKS,
+            SMA50_THRESHOLDS,
+            TIGHT_BASE_THRESHOLDS,
+            VOL_SURGE_MULTIPLES,
+        )
+    )
     n_windows = len(OOS_WINDOWS)
     log.info(
         "%d walk-forward windows, %d signal combos, %d exit rules → %d total combinations",
-        n_windows, len(param_combos), len(EXIT_RULES), len(param_combos) * len(EXIT_RULES),
+        n_windows,
+        len(param_combos),
+        len(EXIT_RULES),
+        len(param_combos) * len(EXIT_RULES),
     )
 
     oos_rets: dict[str, list[float]] = {}
@@ -283,8 +308,7 @@ def main() -> None:
             is_sortinos[key] = []
 
     for w_idx, (is_start, is_end, oos_start, oos_end) in enumerate(OOS_WINDOWS):
-        log.info("Window %2d/%d  IS %s–%s  OOS %s–%s",
-                 w_idx + 1, n_windows, is_start, is_end, oos_start, oos_end)
+        log.info("Window %2d/%d  IS %s–%s  OOS %s–%s", w_idx + 1, n_windows, is_start, is_end, oos_start, oos_end)
 
         for bw, sma, tb, vs in param_combos:
             sl = sig_label(bw, sma, tb, vs)
@@ -319,28 +343,32 @@ def main() -> None:
         avg_is = float(np.mean(is_sortinos[key])) if is_sortinos[key] else 0.0
         degradation = (avg_is - m["sortino"]) / abs(avg_is) if avg_is != 0 else 999.0
         consistent = degradation < 0.30 and m["sortino"] > 0
-        rows.append({
-            "signal":     sl,
-            "exit":       exit_key,
-            "n":          m["n"],
-            "win%":       round(m["win_rate"] * 100, 1),
-            "median%":    round(m["median"] * 100, 2),
-            "q75%":       round(m["q75"] * 100, 2),
-            "oos_sr":     round(m["sortino"], 3),
-            "is_sr":      round(avg_is, 3),
-            "deg%":       round(degradation * 100, 1),
-            "pf":         round(m["pf"], 2),
-            "calmar":     round(m["calmar"], 3),
-            "freq_mo":    round(m["n"] / OOS_TOTAL_MONTHS, 1),
-            "consistent": "✓" if consistent else "",
-        })
+        rows.append(
+            {
+                "signal": sl,
+                "exit": exit_key,
+                "n": m["n"],
+                "win%": round(m["win_rate"] * 100, 1),
+                "median%": round(m["median"] * 100, 2),
+                "q75%": round(m["q75"] * 100, 2),
+                "oos_sr": round(m["sortino"], 3),
+                "is_sr": round(avg_is, 3),
+                "deg%": round(degradation * 100, 1),
+                "pf": round(m["pf"], 2),
+                "calmar": round(m["calmar"], 3),
+                "freq_mo": round(m["n"] / OOS_TOTAL_MONTHS, 1),
+                "consistent": "✓" if consistent else "",
+            }
+        )
 
     rows.sort(key=lambda r: r["oos_sr"], reverse=True)
 
     # ── Print output ───────────────────────────────────────────────────────────
-    H = (f"{'#':<4} {'Signal':<30} {'Exit':<12} {'N':>5} {'Win%':>5} "
-         f"{'Med%':>6} {'Q75%':>6} {'OOS-SR':>7} {'IS-SR':>6} "
-         f"{'Deg%':>6} {'PF':>5} {'Calmar':>7} {'F/mo':>5} {'C':>2}")
+    H = (
+        f"{'#':<4} {'Signal':<30} {'Exit':<12} {'N':>5} {'Win%':>5} "
+        f"{'Med%':>6} {'Q75%':>6} {'OOS-SR':>7} {'IS-SR':>6} "
+        f"{'Deg%':>6} {'PF':>5} {'Calmar':>7} {'F/mo':>5} {'C':>2}"
+    )
     print("\n" + H)
     print("-" * len(H))
     for i, r in enumerate(rows[:30], 1):
@@ -355,9 +383,11 @@ def main() -> None:
     if top10:
         print("\n=== Top 10 consistent combinations (OOS Sortino > 0, IS→OOS degradation < 30%) ===")
         for i, r in enumerate(top10, 1):
-            print(f"  {i}. {r['signal']} | {r['exit']}  "
-                  f"OOS-SR={r['oos_sr']}  Win%={r['win%']}  "
-                  f"Median={r['median%']}%  PF={r['pf']}  Calmar={r['calmar']}  N={r['n']}")
+            print(
+                f"  {i}. {r['signal']} | {r['exit']}  "
+                f"OOS-SR={r['oos_sr']}  Win%={r['win%']}  "
+                f"Median={r['median%']}%  PF={r['pf']}  Calmar={r['calmar']}  N={r['n']}"
+            )
 
     print(f"\nTotal combinations with ≥{MIN_OOS_TRADES} OOS trades: {len(rows)}")
 
@@ -367,9 +397,9 @@ def main() -> None:
         fh.write("# Qullamaggie Backtest v2 — Results\n\n")
         fh.write(f"Run date: {date.today()}\n\n")
         fh.write("## Parameters\n\n")
-        fh.write(f"- Breakout weeks: {BREAKOUT_WEEKS} (= {[bw*5 for bw in BREAKOUT_WEEKS]} trading days)\n")
-        fh.write(f"- SMA50 thresholds: {[f'{int(s*100)}%' for s in SMA50_THRESHOLDS]}\n")
-        fh.write(f"- Tight base CV: {[f'{int(t*100)}%' for t in TIGHT_BASE_THRESHOLDS]}\n")
+        fh.write(f"- Breakout weeks: {BREAKOUT_WEEKS} (= {[bw * 5 for bw in BREAKOUT_WEEKS]} trading days)\n")
+        fh.write(f"- SMA50 thresholds: {[f'{int(s * 100)}%' for s in SMA50_THRESHOLDS]}\n")
+        fh.write(f"- Tight base CV: {[f'{int(t * 100)}%' for t in TIGHT_BASE_THRESHOLDS]}\n")
         fh.write(f"- Vol surge: {VOL_SURGE_MULTIPLES}× 50-day avg vol (baseline [-50,-1])\n")
         fh.write("- Fixed conditions: rising_price (close > SMA10 AND SMA20)\n")
         fh.write(f"- Exit rules: {[e for e, _ in EXIT_RULES]}\n")
@@ -399,10 +429,7 @@ def main() -> None:
                 )
         else:
             fh.write("## Top 10 Consistent Combinations\n\n")
-            fh.write(
-                "No combinations met both criteria "
-                "(OOS Sortino > 0 AND IS→OOS degradation < 30%).\n"
-            )
+            fh.write("No combinations met both criteria (OOS Sortino > 0 AND IS→OOS degradation < 30%).\n")
     log.info("Results written to %s", RESULT_PATH)
 
 

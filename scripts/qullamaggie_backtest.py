@@ -40,19 +40,19 @@ TIGHT_BASE_THRESHOLDS = [0.05, 0.10]
 VOL_SURGE_MULTIPLES = [1.1, 1.3]
 
 EXIT_RULES: list[tuple[str, dict]] = [
-    ("time_21d",  {"kind": "time",      "hold": 21}),
-    ("time_63d",  {"kind": "time",      "hold": 63}),
-    ("trail_10",  {"kind": "trail",     "stop": 0.10}),
-    ("trail_15",  {"kind": "trail",     "stop": 0.15}),
-    ("trail_20",  {"kind": "trail",     "stop": 0.20}),
-    ("fixed_7",   {"kind": "fixed",     "stop": 0.07}),
-    ("fixed_12",  {"kind": "fixed",     "stop": 0.12}),
-    ("st_10_21",  {"kind": "stop_time", "stop": 0.10, "hold": 21}),
-    ("st_10_63",  {"kind": "stop_time", "stop": 0.10, "hold": 63}),
-    ("st_15_21",  {"kind": "stop_time", "stop": 0.15, "hold": 21}),
-    ("st_15_63",  {"kind": "stop_time", "stop": 0.15, "hold": 63}),
-    ("st_20_21",  {"kind": "stop_time", "stop": 0.20, "hold": 21}),
-    ("st_20_63",  {"kind": "stop_time", "stop": 0.20, "hold": 63}),
+    ("time_21d", {"kind": "time", "hold": 21}),
+    ("time_63d", {"kind": "time", "hold": 63}),
+    ("trail_10", {"kind": "trail", "stop": 0.10}),
+    ("trail_15", {"kind": "trail", "stop": 0.15}),
+    ("trail_20", {"kind": "trail", "stop": 0.20}),
+    ("fixed_7", {"kind": "fixed", "stop": 0.07}),
+    ("fixed_12", {"kind": "fixed", "stop": 0.12}),
+    ("st_10_21", {"kind": "stop_time", "stop": 0.10, "hold": 21}),
+    ("st_10_63", {"kind": "stop_time", "stop": 0.10, "hold": 63}),
+    ("st_15_21", {"kind": "stop_time", "stop": 0.15, "hold": 21}),
+    ("st_15_63", {"kind": "stop_time", "stop": 0.15, "hold": 63}),
+    ("st_20_21", {"kind": "stop_time", "stop": 0.20, "hold": 21}),
+    ("st_20_63", {"kind": "stop_time", "stop": 0.20, "hold": 63}),
 ]
 
 # Walk-forward: OOS windows (3-month quarters)
@@ -65,6 +65,7 @@ for _year in range(2021, 2027):
         _oos_end_year = _year + (_oos_end_month > 12)
         _oos_end_month = _oos_end_month if _oos_end_month <= 12 else _oos_end_month - 12
         import calendar as _cal
+
         _oos_end = date(_oos_end_year, _oos_end_month, _cal.monthrange(_oos_end_year, _oos_end_month)[1])
         if _oos_end > date(2026, 3, 31):  # need 63-day forward buffer
             break
@@ -73,15 +74,17 @@ for _year in range(2021, 2027):
             _is_start = date(2020, 1, 1)
         _is_end = date(_oos_start.year, _oos_start.month, 1)
         from datetime import timedelta as _td
+
         _is_end = _oos_start - _td(days=1)
         OOS_WINDOWS.append((_is_start, _is_end, _oos_start, _oos_end))
 
 
 def sig_label(bw: int, roc: float, sma: float, tb: float, vs: float) -> str:
-    return f"bk{bw}w_r{int(roc*100)}_s{int(sma*100)}_tb{int(tb*100)}_v{vs}"
+    return f"bk{bw}w_r{int(roc * 100)}_s{int(sma * 100)}_tb{int(tb * 100)}_v{vs}"
 
 
 # ── Data loading ───────────────────────────────────────────────────────────────
+
 
 def load_bars(engine: sa.Engine) -> pl.DataFrame:
     sql = """
@@ -107,9 +110,9 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
     df = pl.DataFrame(
         {
             "symbol": [r[0] for r in rows],
-            "date":   pl.Series([r[1] for r in rows], dtype=pl.Date),
-            "open":   [float(r[2]) for r in rows],
-            "close":  [float(r[3]) for r in rows],
+            "date": pl.Series([r[1] for r in rows], dtype=pl.Date),
+            "open": [float(r[2]) for r in rows],
+            "close": [float(r[3]) for r in rows],
             "volume": [int(r[4]) for r in rows],
         }
     )
@@ -119,78 +122,89 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
 
 # ── Indicators ─────────────────────────────────────────────────────────────────
 
+
 def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
     df = df.sort(["symbol", "date"])
 
     # Shift close/volume by 1 to exclude today from lookback windows
-    df = df.with_columns([
-        pl.col("close").shift(1).over("symbol").alias("_c1"),
-        pl.col("volume").cast(pl.Float64).shift(1).over("symbol").alias("_v1"),
-    ])
+    df = df.with_columns(
+        [
+            pl.col("close").shift(1).over("symbol").alias("_c1"),
+            pl.col("volume").cast(pl.Float64).shift(1).over("symbol").alias("_v1"),
+        ]
+    )
 
-    df = df.with_columns([
-        # SMA50 (includes today — standard)
-        pl.col("close").rolling_mean(window_size=50, min_samples=50)
-          .over("symbol").alias("sma50"),
-        # 50-day avg volume (excludes today)
-        pl.col("_v1").rolling_mean(window_size=50, min_samples=50)
-          .over("symbol").alias("avg_vol_50"),
-        # 20-day avg volume for liquidity filter (excludes today)
-        pl.col("_v1").rolling_mean(window_size=20, min_samples=20)
-          .over("symbol").alias("avg_vol_20"),
-        # Breakout: max close over last 3w=15d and 15w=75d (excludes today)
-        pl.col("_c1").rolling_max(window_size=15, min_samples=15)
-          .over("symbol").alias("max_c_3w"),
-        pl.col("_c1").rolling_max(window_size=75, min_samples=75)
-          .over("symbol").alias("max_c_15w"),
-        # Tight base over [-11,-1]: std/mean of last 10 closes (excludes today)
-        pl.col("_c1").rolling_std(window_size=10, min_samples=10)
-          .over("symbol").alias("_std10"),
-        pl.col("_c1").rolling_mean(window_size=10, min_samples=10)
-          .over("symbol").alias("_mean10"),
-        # ROC-21
-        (pl.col("close") / pl.col("close").shift(21).over("symbol") - 1).alias("roc21"),
-    ])
+    df = df.with_columns(
+        [
+            # SMA50 (includes today — standard)
+            pl.col("close").rolling_mean(window_size=50, min_samples=50).over("symbol").alias("sma50"),
+            # 50-day avg volume (excludes today)
+            pl.col("_v1").rolling_mean(window_size=50, min_samples=50).over("symbol").alias("avg_vol_50"),
+            # 20-day avg volume for liquidity filter (excludes today)
+            pl.col("_v1").rolling_mean(window_size=20, min_samples=20).over("symbol").alias("avg_vol_20"),
+            # Breakout: max close over last 3w=15d and 15w=75d (excludes today)
+            pl.col("_c1").rolling_max(window_size=15, min_samples=15).over("symbol").alias("max_c_3w"),
+            pl.col("_c1").rolling_max(window_size=75, min_samples=75).over("symbol").alias("max_c_15w"),
+            # Tight base over [-11,-1]: std/mean of last 10 closes (excludes today)
+            pl.col("_c1").rolling_std(window_size=10, min_samples=10).over("symbol").alias("_std10"),
+            pl.col("_c1").rolling_mean(window_size=10, min_samples=10).over("symbol").alias("_mean10"),
+            # ROC-21
+            (pl.col("close") / pl.col("close").shift(21).over("symbol") - 1).alias("roc21"),
+        ]
+    )
 
-    df = df.with_columns([
-        ((pl.col("close") - pl.col("sma50")) / pl.col("sma50")).alias("pct_vs_sma50"),
-        (pl.col("_std10") / pl.col("_mean10")).alias("tight_base_cv"),
-        (pl.col("volume").cast(pl.Float64) / pl.col("avg_vol_50")).alias("vol_ratio"),
-    ])
+    df = df.with_columns(
+        [
+            ((pl.col("close") - pl.col("sma50")) / pl.col("sma50")).alias("pct_vs_sma50"),
+            (pl.col("_std10") / pl.col("_mean10")).alias("tight_base_cv"),
+            (pl.col("volume").cast(pl.Float64) / pl.col("avg_vol_50")).alias("vol_ratio"),
+        ]
+    )
 
     return df.drop(["_c1", "_v1", "_std10", "_mean10"])
 
 
 # ── Signal generation ──────────────────────────────────────────────────────────
 
+
 def get_signals(
     df: pl.DataFrame,
-    bw: int, roc: float, sma: float, tb: float, vs: float,
-    from_date: date, to_date: date,
+    bw: int,
+    roc: float,
+    sma: float,
+    tb: float,
+    vs: float,
+    from_date: date,
+    to_date: date,
 ) -> pl.DataFrame:
     """Return (symbol, date, close) entries passing all conditions."""
     max_col = "max_c_3w" if bw == 3 else "max_c_15w"
 
-    cands = df.filter(
-        (pl.col("date") >= from_date) & (pl.col("date") <= to_date)
-        & pl.col("close").is_not_null()
-        & pl.col("sma50").is_not_null()
-        & pl.col(max_col).is_not_null()
-        & pl.col("tight_base_cv").is_not_null()
-        # Liquidity
-        & (pl.col("close") >= MIN_PRICE)
-        & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
-        # Breakout
-        & (pl.col("close") > pl.col(max_col))
-        # Momentum
-        & (pl.col("roc21") >= roc)
-        # Above SMA50
-        & (pl.col("pct_vs_sma50") >= sma)
-        # Tight base
-        & (pl.col("tight_base_cv") <= tb)
-        # Volume surge
-        & (pl.col("vol_ratio") >= vs)
-    ).select(["symbol", "date", "close"]).sort(["symbol", "date"])
+    cands = (
+        df.filter(
+            (pl.col("date") >= from_date)
+            & (pl.col("date") <= to_date)
+            & pl.col("close").is_not_null()
+            & pl.col("sma50").is_not_null()
+            & pl.col(max_col).is_not_null()
+            & pl.col("tight_base_cv").is_not_null()
+            # Liquidity
+            & (pl.col("close") >= MIN_PRICE)
+            & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
+            # Breakout
+            & (pl.col("close") > pl.col(max_col))
+            # Momentum
+            & (pl.col("roc21") >= roc)
+            # Above SMA50
+            & (pl.col("pct_vs_sma50") >= sma)
+            # Tight base
+            & (pl.col("tight_base_cv") <= tb)
+            # Volume surge
+            & (pl.col("vol_ratio") >= vs)
+        )
+        .select(["symbol", "date", "close"])
+        .sort(["symbol", "date"])
+    )
 
     if cands.is_empty():
         return cands
@@ -211,9 +225,12 @@ def get_signals(
 
 # ── Exit simulation ────────────────────────────────────────────────────────────
 
+
 def _exit_return(
-    closes: np.ndarray, opens: np.ndarray,
-    entry_price: float, rule: dict,
+    closes: np.ndarray,
+    opens: np.ndarray,
+    entry_price: float,
+    rule: dict,
 ) -> float:
     """Compute return for a single trade under the given exit rule."""
     kind = rule["kind"]
@@ -291,6 +308,7 @@ def compute_returns(
 
 # ── Metrics ────────────────────────────────────────────────────────────────────
 
+
 def metrics(rets: list[float]) -> dict:
     if len(rets) < 2:
         return {}
@@ -311,6 +329,7 @@ def metrics(rets: list[float]) -> dict:
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     settings = Settings.from_toml()
@@ -337,13 +356,17 @@ def main() -> None:
         sym_closes[sym] = g["close"].cast(pl.Float64).to_numpy(allow_copy=True)
         sym_opens[sym] = g["open"].cast(pl.Float64).to_numpy(allow_copy=True)
 
-    param_combos = list(itertools.product(
-        BREAKOUT_WEEKS, ROC_THRESHOLDS, SMA50_THRESHOLDS,
-        TIGHT_BASE_THRESHOLDS, VOL_SURGE_MULTIPLES,
-    ))
+    param_combos = list(
+        itertools.product(
+            BREAKOUT_WEEKS,
+            ROC_THRESHOLDS,
+            SMA50_THRESHOLDS,
+            TIGHT_BASE_THRESHOLDS,
+            VOL_SURGE_MULTIPLES,
+        )
+    )
     n_windows = len(OOS_WINDOWS)
-    log.info("%d walk-forward windows, %d signal combos, %d exit rules",
-             n_windows, len(param_combos), len(EXIT_RULES))
+    log.info("%d walk-forward windows, %d signal combos, %d exit rules", n_windows, len(param_combos), len(EXIT_RULES))
 
     # Accumulate OOS returns per (sig_key, exit_key)
     oos_rets: dict[str, list[float]] = {}
@@ -355,8 +378,7 @@ def main() -> None:
             is_sharpes[key] = []
 
     for w_idx, (is_start, is_end, oos_start, oos_end) in enumerate(OOS_WINDOWS):
-        log.info("Window %2d/%d  IS %s–%s  OOS %s–%s",
-                 w_idx + 1, n_windows, is_start, is_end, oos_start, oos_end)
+        log.info("Window %2d/%d  IS %s–%s  OOS %s–%s", w_idx + 1, n_windows, is_start, is_end, oos_start, oos_end)
 
         for bw, roc, sma, tb, vs in param_combos:
             sl = sig_label(bw, roc, sma, tb, vs)
@@ -389,19 +411,21 @@ def main() -> None:
         m = metrics(rets)
         avg_is = float(np.mean(is_sharpes[key])) if is_sharpes[key] else 0.0
         degradation = (avg_is - m["sharpe"]) / abs(avg_is) if avg_is != 0 else 999.0
-        rows.append({
-            "signal":      sl,
-            "exit":        exit_key,
-            "oos_trades":  m["n"],
-            "win%":        round(m["win_rate"] * 100, 1),
-            "median_ret":  round(m["median"] * 100, 2),
-            "q75_ret":     round(m["q75"] * 100, 2),
-            "oos_sharpe":  round(m["sharpe"], 3),
-            "is_sharpe":   round(avg_is, 3),
-            "degrade%":    round(degradation * 100, 1),
-            "pf":          round(m["pf"], 2),
-            "consistent":  "✓" if degradation < 0.30 else "",
-        })
+        rows.append(
+            {
+                "signal": sl,
+                "exit": exit_key,
+                "oos_trades": m["n"],
+                "win%": round(m["win_rate"] * 100, 1),
+                "median_ret": round(m["median"] * 100, 2),
+                "q75_ret": round(m["q75"] * 100, 2),
+                "oos_sharpe": round(m["sharpe"], 3),
+                "is_sharpe": round(avg_is, 3),
+                "degrade%": round(degradation * 100, 1),
+                "pf": round(m["pf"], 2),
+                "consistent": "✓" if degradation < 0.30 else "",
+            }
+        )
 
     rows.sort(key=lambda r: r["oos_sharpe"], reverse=True)
 
@@ -425,8 +449,10 @@ def main() -> None:
     if top3:
         print("\n=== Top 3 consistent combinations (IS→OOS degradation < 30%) ===")
         for r in top3:
-            print(f"  {r['signal']} | {r['exit']}  OOS Sharpe={r['oos_sharpe']}  "
-                  f"Win%={r['win%']}  Median={r['median_ret']}%  N={r['oos_trades']}")
+            print(
+                f"  {r['signal']} | {r['exit']}  OOS Sharpe={r['oos_sharpe']}  "
+                f"Win%={r['win%']}  Median={r['median_ret']}%  N={r['oos_trades']}"
+            )
 
     print(f"\nTotal combinations with ≥{MIN_OOS_TRADES} OOS trades: {len(rows)}")
 
