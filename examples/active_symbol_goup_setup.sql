@@ -42,3 +42,8 @@ values  ('active', 'SPY.US', null),
   ON CONFLICT DO NOTHING;
 
 select 'ticker_group', count(*) from turtle.ticker_group where code = 'active';
+
+SELECT column_name FROM information_schema.columns
+  WHERE table_schema = 'turtle' AND table_name = 'company'
+  ORDER BY ordinal_position
+  
