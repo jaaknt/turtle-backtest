@@ -1,0 +1,25 @@
+# Install (user-level systemd, no root required):
+#
+#   mkdir -p ~/.config/systemd/user
+#   ln -s /home/jack/github/turtle-backtest/deploy/snapshot_company.service \
+#          ~/.config/systemd/user/snapshot_company.service
+#   ln -s /home/jack/github/turtle-backtest/deploy/snapshot_company.timer \
+#          ~/.config/systemd/user/snapshot_company.timer
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now snapshot_company.timer
+#
+# Check status:
+#   systemctl --user status snapshot_company.timer
+#   journalctl --user -u snapshot_company.service
+
+[Unit]
+Description=Run turtle.company snapshot on the 1st of each month
+
+[Timer]
+# Fire at 01:00 on the first day of every month
+OnCalendar=*-*-01 01:00:00
+# If the machine was off on the 1st, run on next boot
+Persistent=true
+
+[Install]
+WantedBy=timers.target
