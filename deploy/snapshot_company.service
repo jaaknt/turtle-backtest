@@ -1,0 +1,11 @@
+[Unit]
+Description=Monthly turtle.company snapshot to company_history
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/jack/github/turtle-backtest
+EnvironmentFile=/home/jack/github/turtle-backtest/.env
+ExecStart=/home/jack/github/turtle-backtest/.venv/bin/python scripts/snapshot_company.py
+StandardOutput=journal
+StandardError=journal

@@ -33,7 +33,8 @@ if not alembic_password:
 
 with open(project_root / "config/settings.toml", "rb") as _f:
     _toml = tomllib.load(_f)
-_db = _toml["database"]
+_db_env = os.environ.get("DB_ENV", "local")
+_db = _toml["database"][_db_env]
 
 alembic_url = URL.create(
     "postgresql+psycopg",
