@@ -1,0 +1,33 @@
+# Daily EODHD data download timer — user-level systemd timer (no sudo required)
+#
+# DEPLOY
+#   mkdir -p ~/.config/systemd/user
+#   ln -s ~/turtle-backtest/deploy/eodhd-download.service ~/.config/systemd/user/eodhd-download.service
+#   ln -s ~/turtle-backtest/deploy/eodhd-download.timer   ~/.config/systemd/user/eodhd-download.timer
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now eodhd-download.timer
+#
+# PREREQUISITES
+#   secrets file must exist at ~/.config/turtle-backtest/secrets.env (see Phase 3 of docs/implementation.md)
+#   loginctl enable-linger <username>   # allows timer to fire without an active login session
+#
+# STATUS / LOGS
+#   systemctl --user status eodhd-download.timer
+#   systemctl --user list-timers eodhd-download.timer
+#   journalctl --user -u eodhd-download.service
+#
+# REMOVE
+#   systemctl --user disable --now eodhd-download.timer
+#   rm ~/.config/systemd/user/eodhd-download.{service,timer}
+#   systemctl --user daemon-reload
+
+[Unit]
+Description=Daily EODHD Download
+
+[Timer]
+OnCalendar=*-*-* 05:00:00
+TimeZone=Europe/Tallinn
+Persistent=true
+
+[Install]
+WantedBy=timers.target
