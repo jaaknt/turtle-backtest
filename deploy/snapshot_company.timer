@@ -2,7 +2,7 @@
 #
 # DEPLOY
 #   mkdir -p ~/.config/systemd/user
-#   ln -s ~/turtle-backtest/deploy/snapshot_company.service ~/.config/systemd/user/snapshot_company.service
+#   c
 #   ln -s ~/turtle-backtest/deploy/snapshot_company.timer   ~/.config/systemd/user/snapshot_company.timer
 #   systemctl --user daemon-reload
 #   systemctl --user enable --now snapshot_company.timer
@@ -25,8 +25,7 @@
 Description=Monthly turtle.company snapshot
 
 [Timer]
-OnCalendar=*-*-01 01:00:00
-Timezone=Europe/Tallinn
+OnCalendar=*-*-01 04:00:00 Europe/Tallinn
 Persistent=true
 
 [Install]
