@@ -27,8 +27,7 @@
 Description=Daily Database Backup
 
 [Timer]
-OnCalendar=*-*-* 02:00:00
-Timezone=Europe/Tallinn
+OnCalendar=*-*-* 06:00:00 Europe/Tallinn
 Persistent=true
 
 [Install]
