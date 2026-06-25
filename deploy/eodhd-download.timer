@@ -26,7 +26,7 @@ Description=Daily EODHD Download
 
 [Timer]
 OnCalendar=*-*-* 05:00:00
-TimeZone=Europe/Tallinn
+Timezone=Europe/Tallinn
 Persistent=true
 
 [Install]
