@@ -31,10 +31,10 @@ important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/resu
 - add your findings to improve the portfolio perfoermance (Mean%, Sortino, Calmar)
 - for top 3 algorithms print monthly returns by years (years are rows, months are columns)
 
-could you provide bk50d_s20_tr10_v1.2_roc100 signals for period 2026-05-01 : 2026-06-26
+could you provide bk50d_s20_tr10_v1.2_roc100 signals for period 2026-06-01 : 2026-06-26
  Date    │ Symbol │ Entry $ │ Curr Price | Change in % | %abv SMA50 │ ADR% │ RSI14 │ TR% │ ROC252% |
 
- could you provide bk50d_s15_tr15_v1.2_roc100 signals for period 2026-03-01 : 2026-06-26
+ could you provide bk50d_s15_tr15_v1.2_roc100 signals for period 2026-06-01 : 2026-06-26
  mark signals that are also in bk50d_s20_tr10_v1.2_roc100
  provide information to signals that are not in bk50d_s20_tr10_v1.2_roc100 list what was missing
  Date    │ Symbol │ Entry $ │ Curr Price | Change in % | %abv SMA50 │ ADR% │ RSI14 │ TR% │ ROC252% | 
