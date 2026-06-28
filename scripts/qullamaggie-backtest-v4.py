@@ -24,7 +24,8 @@ _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2021, 1, 1)
 HOLD_MAX_CAL = 366  # skip entries without 366 cal days of fwd data
 MIN_AVG_VOL = 500_000
-MIN_PRICE = 10.0
+MIN_PRICE = 5.0
+MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
 VOL_DRY_UP = 0.80
@@ -165,8 +166,9 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float, tr_t: flo
             & pl.col("tight_range_ratio").is_not_null()
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
-            & (pl.col("rsi14") < 72.0)
-            & (pl.col("close") >= MIN_PRICE)
+            & (pl.col("rsi14") < 80.0)
+            & (pl.col("close") > MIN_PRICE)
+            & (pl.col("close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
             & (pl.col("adr_pct") >= 0.025)
             & (pl.col("close") > pl.col("max_c_50d"))
@@ -345,8 +347,8 @@ def main() -> None:
     lines = [
         f"Period: {EVAL_START} – {date.today()}  |  HOLD_MAX_CAL={HOLD_MAX_CAL}d",
         f"Fixed: vol_dry_up<{int(VOL_DRY_UP * 100)}%, roc_12m<{int(ROC_CAP * 100)}%, "
-        f"{VOL_SURGE}x<vol_surge<{VOL_SURGE_MAX}x, RSI<72, ADR>=2.5%, SPY>200d SMA, "
-        f"close>=${MIN_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K",
+        f"{VOL_SURGE}x<vol_surge<{VOL_SURGE_MAX}x, RSI<80, ADR>=2.5%, SPY>200d SMA, "
+        f"close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K",
         "",
         _HDR,
         _SEP,
@@ -377,21 +379,28 @@ def main() -> None:
     with RESULT_PATH.open("w") as fh:
         fh.write("# Qullamaggie Backtest v4 — Results\n\n")
         fh.write(f"Run date: {date.today()}\n\n")
+        sma_vals = ", ".join(f"{int(v * 100)}%" for v in SMA_THRESHS)
+        tr_vals = ", ".join(f"{int(v * 100)}%" for v in TR_THRESHS)
+        hold_vals = ", ".join(f"{h}d" for h in HOLD_CALS)
         fh.write("## Configuration\n\n")
         fh.write("| Parameter | Value |\n|---|---|\n")
         fh.write("| Breakout | 50d high |\n")
-        fh.write("| SMA thresh sweep | 15%, 20%, 25% |\n")
-        fh.write("| Tight range sweep | 10%, 15%, 20% |\n")
-        fh.write("| Hold sweep | 62d, 184d, 366d (calendar) |\n")
-        fh.write("| vol_dry_up | avg_vol_10 < 75% × avg_vol_50 |\n")
-        fh.write("| vol_surge | 1.2× < volume/avg_vol_50 < 2.0× |\n")
-        fh.write("| roc_12m_cap | 12m ROC < 100% |\n")
-        fh.write("| RSI | RSI(14) < 72 |\n")
-        fh.write("| ADR | ≥ 3% |\n")
-        fh.write("| SMA alignment | SMA10 > SMA20 > SMA50 |\n")
+        fh.write(f"| SMA thresh sweep | {sma_vals} |\n")
+        fh.write(f"| Tight range sweep | {tr_vals} |\n")
+        fh.write(f"| Hold sweep | {hold_vals} (calendar) |\n")
+        fh.write(f"| vol_dry_up | avg_vol_10 < {int(VOL_DRY_UP * 100)}% × avg_vol_50 |\n")
+        fh.write(f"| vol_surge | {VOL_SURGE}× < volume/avg_vol_50 < {VOL_SURGE_MAX}× |\n")
+        fh.write(f"| roc_12m_cap | 12m ROC < {int(ROC_CAP * 100)}% |\n")
+        fh.write("| RSI | RSI(14) < 80 |\n")
+        fh.write("| ADR | ≥ 2.5% |\n")
+        fh.write("| SMA alignment | disabled (commented out) |\n")
         fh.write("| Market regime | SPY close > 200d SMA |\n")
+        fh.write(f"| Price range | > ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f} |\n")
+        fh.write(f"| Min avg vol (20d) | ≥ {MIN_AVG_VOL // 1000}K |\n")
+        fh.write(f"| Min history | ≥ {MIN_HISTORY} trading days |\n")
+        fh.write(f"| Cooldown | {COOLDOWN} calendar days |\n")
         fh.write(f"| Eval period | {EVAL_START} – {date.today()} |\n")
-        fh.write("| Universe | US common stocks, market_cap ≥ 2B, excl. Comm/RE |\n\n")
+        fh.write("| Universe | US common stocks, market_cap ≥ 1.5B, excl. Comm/RE |\n\n")
         fh.write("## Rankings\n\n```\n")
         fh.write(output)
         fh.write("\n```\n\n")

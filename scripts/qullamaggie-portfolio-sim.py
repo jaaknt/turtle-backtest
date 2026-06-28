@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from turtle.config.settings import Settings
 
 _EPOCH = date(1970, 1, 1)
-EVAL_START = date(2001, 1, 1)
+EVAL_START = date(2010, 1, 1)
 EVAL_END = date(2026, 6, 26)
 DATA_START = "2000-01-01"
 INIT_EQUITY = 30_000.0
@@ -51,6 +51,7 @@ ADR_FLOOR = 0.025
 CONFIGS = [
     ("s20_tr10", 0.20, 0.10),
     ("s15_tr15", 0.15, 0.15),
+    ("s15_tr10", 0.15, 0.10),
 ]
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -160,7 +161,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float, tr_t: flo
             & pl.col("tight_range_ratio").is_not_null()
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
-            & (pl.col("rsi14") < 72.0)
+            & (pl.col("rsi14") < 80.0)
             & (pl.col("close") >= MIN_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
             & (pl.col("adr_pct") >= ADR_FLOOR)
@@ -441,6 +442,9 @@ def main() -> None:
         f"exit: time {HOLD_CAL}d only  |  sizes: {', '.join(f'{f:.0%}' for f in POS_FRACTIONS)}"
     )
 
+    # collect all results first, then rank for monthly grids
+    all_results: list[tuple[str, float, dict]] = []  # (name, pos_fraction, result)
+
     for name, sma_t, tr_t in CONFIGS:
         print(f"Simulating {name} …", flush=True)
         sig = get_signals(df, bull_dates, sma_t, tr_t)
@@ -452,18 +456,21 @@ def main() -> None:
         hdr = f"{'size':<6} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} {'Sortino':>8} {'taken':>6} {'skip':>6} {'Uninv%':>7}"
         out(hdr)
         out("-" * len(hdr))
-        results = {}
         for pf in POS_FRACTIONS:
             r = run_sim(signals_by_day, "time", pf)
-            results[pf] = r
+            all_results.append((name, pf, r))
             out(
                 f"{pf:<6.0%} {r['final']:>11,.0f} {r['cagr'] * 100:>+7.2f} {r['max_dd'] * 100:>8.2f} "
                 f"{r['calmar']:>7.3f} {r['sortino']:>8.3f} {r['taken']:>6} {r['skipped']:>6} "
                 f"{r['avg_uninv_pct']:>6.1f}%"
             )
-        for pf in POS_FRACTIONS:
-            out(f"\n### {name} — size {pf:.0%}  (monthly % by year)")
-            monthly_grid(results[pf]["eom"])
+
+    # monthly grids for top 3 by Calmar
+    ranked = sorted(all_results, key=lambda x: x[2]["calmar"], reverse=True)
+    out("\n\n## Monthly returns — top 3 by Calmar\n")
+    for rank, (name, pf, r) in enumerate(ranked[:3], 1):
+        out(f"\n### #{rank}  {name} — size {pf:.0%}  (Calmar {r['calmar']:.3f})")
+        monthly_grid(r["eom"])
 
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
     RESULT_PATH.write_text("\n".join(lines) + "\n")
