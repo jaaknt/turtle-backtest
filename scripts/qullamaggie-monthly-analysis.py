@@ -10,6 +10,7 @@ Targets:
 import sys
 from datetime import date
 from pathlib import Path
+from typing import TypedDict
 
 import numpy as np
 import polars as pl
@@ -29,8 +30,18 @@ COOLDOWN = 30
 VOL_DRY_UP_RATIO = 0.85
 HOLD_MAX_CAL = 366  # skip entries without 366 calendar days of forward data
 
-TARGETS = [
-    {"bd": 50, "sma": 0.20, "tr": 0.10, "vs": 1.2, "hold_cal": 62,  "exit": "time_62d"},
+
+class TargetCfg(TypedDict):
+    bd: int
+    sma: float
+    tr: float
+    vs: float
+    hold_cal: int
+    exit: str
+
+
+TARGETS: list[TargetCfg] = [
+    {"bd": 50, "sma": 0.20, "tr": 0.10, "vs": 1.2, "hold_cal": 62, "exit": "time_62d"},
     {"bd": 50, "sma": 0.20, "tr": 0.10, "vs": 1.2, "hold_cal": 366, "exit": "time_366d"},
 ]
 
@@ -51,14 +62,14 @@ def load_spy_regime(engine: sa.Engine) -> tuple[set[date], pl.DataFrame]:
     """
     with engine.connect() as conn:
         rows = conn.execute(sa.text(sql)).fetchall()
-    spy = pl.DataFrame({
-        "date": pl.Series([r[0] for r in rows], dtype=pl.Date),
-        "close": [float(r[1]) for r in rows],
-    })
-    spy = spy.with_columns(pl.col("close").shift(1).alias("_c1"))
-    spy = spy.with_columns(
-        pl.col("_c1").rolling_mean(window_size=200, min_samples=200).alias("sma200")
+    spy = pl.DataFrame(
+        {
+            "date": pl.Series([r[0] for r in rows], dtype=pl.Date),
+            "close": [float(r[1]) for r in rows],
+        }
     )
+    spy = spy.with_columns(pl.col("close").shift(1).alias("_c1"))
+    spy = spy.with_columns(pl.col("_c1").rolling_mean(window_size=200, min_samples=200).alias("sma200"))
     bull_dates = set(spy.filter(pl.col("close") > pl.col("sma200"))["date"].to_list())
     return bull_dates, spy
 
@@ -73,27 +84,29 @@ def load_ticker_bars(engine: sa.Engine, symbol: str) -> pl.DataFrame:
     """
     with engine.connect() as conn:
         rows = conn.execute(sa.text(sql), {"symbol": symbol}).fetchall()
-    return pl.DataFrame({
-        "date": pl.Series([r[0] for r in rows], dtype=pl.Date),
-        "close": [float(r[1]) for r in rows],
-    })
+    return pl.DataFrame(
+        {
+            "date": pl.Series([r[0] for r in rows], dtype=pl.Date),
+            "close": [float(r[1]) for r in rows],
+        }
+    )
 
 
 def compute_spy_monthly(spy: pl.DataFrame) -> pl.DataFrame:
     """Month-over-month SPY return: last close of month / last close of prior month - 1."""
     monthly = (
         spy.sort("date")
-        .with_columns([
-            pl.col("date").dt.year().alias("year"),
-            pl.col("date").dt.month().alias("month"),
-        ])
+        .with_columns(
+            [
+                pl.col("date").dt.year().alias("year"),
+                pl.col("date").dt.month().alias("month"),
+            ]
+        )
         .group_by(["year", "month"])
         .agg(pl.col("close").last().alias("eom_close"))
         .sort(["year", "month"])
     )
-    monthly = monthly.with_columns(
-        (pl.col("eom_close") / pl.col("eom_close").shift(1) - 1.0).alias("ret")
-    )
+    monthly = monthly.with_columns((pl.col("eom_close") / pl.col("eom_close").shift(1) - 1.0).alias("ret"))
     return monthly.filter(pl.col("ret").is_not_null()).select(["year", "month", "ret"])
 
 
@@ -151,54 +164,68 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
     """
     with engine.connect() as conn:
         rows = conn.execute(sa.text(sql)).fetchall()
-    return pl.DataFrame({
-        "symbol": [r[0] for r in rows],
-        "date": pl.Series([r[1] for r in rows], dtype=pl.Date),
-        "close": [float(r[2]) for r in rows],
-        "high": [float(r[3]) for r in rows],
-        "low": [float(r[4]) for r in rows],
-        "volume": [int(r[5]) for r in rows],
-    })
+    return pl.DataFrame(
+        {
+            "symbol": [r[0] for r in rows],
+            "date": pl.Series([r[1] for r in rows], dtype=pl.Date),
+            "close": [float(r[2]) for r in rows],
+            "high": [float(r[3]) for r in rows],
+            "low": [float(r[4]) for r in rows],
+            "volume": [int(r[5]) for r in rows],
+        }
+    )
 
 
 def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
     df = df.sort(["symbol", "date"])
-    df = df.with_columns([
-        pl.col("close").shift(1).over("symbol").alias("_c1"),
-        pl.col("volume").cast(pl.Float64).shift(1).over("symbol").alias("_v1"),
-        (pl.col("high") - pl.col("low")).shift(1).over("symbol").alias("_dr1"),
-    ])
+    df = df.with_columns(
+        [
+            pl.col("close").shift(1).over("symbol").alias("_c1"),
+            pl.col("volume").cast(pl.Float64).shift(1).over("symbol").alias("_v1"),
+            (pl.col("high") - pl.col("low")).shift(1).over("symbol").alias("_dr1"),
+        ]
+    )
     df = df.with_columns([pl.col("_c1").diff(1).over("symbol").alias("_c1_diff")])
-    df = df.with_columns([
-        pl.when(pl.col("_c1_diff") > 0).then(pl.col("_c1_diff")).otherwise(0.0).alias("_gain"),
-        pl.when(pl.col("_c1_diff") < 0).then(-pl.col("_c1_diff")).otherwise(0.0).alias("_loss"),
-    ])
-    df = df.with_columns([
-        pl.col("_gain").rolling_mean(14, min_samples=14).over("symbol").alias("_avg_gain"),
-        pl.col("_loss").rolling_mean(14, min_samples=14).over("symbol").alias("_avg_loss"),
-    ])
-    df = df.with_columns([
-        (100.0 - 100.0 / (1.0 + pl.col("_avg_gain") / pl.col("_avg_loss"))).alias("rsi14"),
-    ])
+    df = df.with_columns(
+        [
+            pl.when(pl.col("_c1_diff") > 0).then(pl.col("_c1_diff")).otherwise(0.0).alias("_gain"),
+            pl.when(pl.col("_c1_diff") < 0).then(-pl.col("_c1_diff")).otherwise(0.0).alias("_loss"),
+        ]
+    )
+    df = df.with_columns(
+        [
+            pl.col("_gain").rolling_mean(14, min_samples=14).over("symbol").alias("_avg_gain"),
+            pl.col("_loss").rolling_mean(14, min_samples=14).over("symbol").alias("_avg_loss"),
+        ]
+    )
+    df = df.with_columns(
+        [
+            (100.0 - 100.0 / (1.0 + pl.col("_avg_gain") / pl.col("_avg_loss"))).alias("rsi14"),
+        ]
+    )
     df = df.drop(["_c1_diff", "_gain", "_loss", "_avg_gain", "_avg_loss"])
-    df = df.with_columns([
-        pl.col("_c1").rolling_mean(window_size=10, min_samples=10).over("symbol").alias("sma10"),
-        pl.col("_c1").rolling_mean(window_size=20, min_samples=20).over("symbol").alias("sma20"),
-        pl.col("_c1").rolling_mean(window_size=50, min_samples=50).over("symbol").alias("sma50"),
-        pl.col("_v1").rolling_mean(window_size=50, min_samples=50).over("symbol").alias("avg_vol_50"),
-        pl.col("_v1").rolling_mean(window_size=20, min_samples=20).over("symbol").alias("avg_vol_20"),
-        pl.col("_v1").rolling_mean(window_size=10, min_samples=10).over("symbol").alias("avg_vol_10"),
-        pl.col("_c1").rolling_max(window_size=50, min_samples=50).over("symbol").alias("max_c_50d"),
-        pl.col("_c1").rolling_max(window_size=10, min_samples=10).over("symbol").alias("_tr_max"),
-        pl.col("_c1").rolling_min(window_size=10, min_samples=10).over("symbol").alias("_tr_min"),
-        pl.col("_c1").rolling_mean(window_size=10, min_samples=10).over("symbol").alias("_tr_mean"),
-        pl.col("_dr1").rolling_mean(window_size=20, min_samples=20).over("symbol").alias("_adr_num"),
-    ])
-    df = df.with_columns([
-        ((pl.col("_tr_max") - pl.col("_tr_min")) / pl.col("_tr_mean")).alias("tight_range_ratio"),
-        ((pl.col("close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
-        (pl.col("_adr_num") / pl.col("sma50")).alias("adr_pct"),
-    ])
+    df = df.with_columns(
+        [
+            pl.col("_c1").rolling_mean(window_size=10, min_samples=10).over("symbol").alias("sma10"),
+            pl.col("_c1").rolling_mean(window_size=20, min_samples=20).over("symbol").alias("sma20"),
+            pl.col("_c1").rolling_mean(window_size=50, min_samples=50).over("symbol").alias("sma50"),
+            pl.col("_v1").rolling_mean(window_size=50, min_samples=50).over("symbol").alias("avg_vol_50"),
+            pl.col("_v1").rolling_mean(window_size=20, min_samples=20).over("symbol").alias("avg_vol_20"),
+            pl.col("_v1").rolling_mean(window_size=10, min_samples=10).over("symbol").alias("avg_vol_10"),
+            pl.col("_c1").rolling_max(window_size=50, min_samples=50).over("symbol").alias("max_c_50d"),
+            pl.col("_c1").rolling_max(window_size=10, min_samples=10).over("symbol").alias("_tr_max"),
+            pl.col("_c1").rolling_min(window_size=10, min_samples=10).over("symbol").alias("_tr_min"),
+            pl.col("_c1").rolling_mean(window_size=10, min_samples=10).over("symbol").alias("_tr_mean"),
+            pl.col("_dr1").rolling_mean(window_size=20, min_samples=20).over("symbol").alias("_adr_num"),
+        ]
+    )
+    df = df.with_columns(
+        [
+            ((pl.col("_tr_max") - pl.col("_tr_min")) / pl.col("_tr_mean")).alias("tight_range_ratio"),
+            ((pl.col("close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
+            (pl.col("_adr_num") / pl.col("sma50")).alias("adr_pct"),
+        ]
+    )
     return df.drop(["_c1", "_v1", "_dr1", "_tr_max", "_tr_min", "_tr_mean", "_adr_num"])
 
 
@@ -265,7 +292,7 @@ def compute_trade_records(
         idx_exit = int(np.searchsorted(dates, entry_int + hold_cal))
         if idx_exit >= len(dates):
             continue
-        window = closes[idx_entry: idx_exit + 1]
+        window = closes[idx_entry : idx_exit + 1]
         if len(window) < 2:
             continue
         ret = float((window[-1] - window[0]) / window[0])
@@ -317,7 +344,7 @@ def print_yearly_stats(trades: pl.DataFrame, label: str, hold_cal: int) -> None:
     years = sorted(trades["year"].unique().to_list())
     print(f"\n  Yearly Statistics — {label}")
     print(f"  {'Year':>5} {'N':>5} {'Win%':>6} {'Mean%':>7} {'Med%':>6} {'Sortino':>9} {'CVaR95%':>8}")
-    print(f"  {'-'*5} {'-'*5} {'-'*6} {'-'*7} {'-'*6} {'-'*9} {'-'*8}")
+    print(f"  {'-' * 5} {'-' * 5} {'-' * 6} {'-' * 7} {'-' * 6} {'-' * 9} {'-' * 8}")
 
     for yr in years:
         a = trades.filter(pl.col("year") == yr)["ret"].to_numpy()
@@ -327,7 +354,7 @@ def print_yearly_stats(trades: pl.DataFrame, label: str, hold_cal: int) -> None:
         med_pct = float(np.median(a) * 100)
         neg = a[a < 0]
         if len(neg) >= 3:
-            dd = float(np.sqrt(np.mean(neg ** 2)))
+            dd = float(np.sqrt(np.mean(neg**2)))
             sortino = float(np.mean(a) * np.sqrt(365 / hold_cal) / dd) if dd > 0 else float("nan")
         else:
             sortino = float("nan")
@@ -336,12 +363,12 @@ def print_yearly_stats(trades: pl.DataFrame, label: str, hold_cal: int) -> None:
         sortino_str = f"{sortino:>9.3f}" if not np.isnan(sortino) else f"{'n/a':>9}"
         print(f"  {yr:>5} {n:>5} {win_pct:>6.1f} {mean_pct:>+7.2f} {med_pct:>+6.2f} {sortino_str} {cvar:>8.2f}")
 
-    print(f"  {'-'*5} {'-'*5} {'-'*6} {'-'*7} {'-'*6} {'-'*9} {'-'*8}")
+    print(f"  {'-' * 5} {'-' * 5} {'-' * 6} {'-' * 7} {'-' * 6} {'-' * 9} {'-' * 8}")
     a = trades["ret"].to_numpy()
     n = len(a)
     neg = a[a < 0]
     if len(neg) >= 3:
-        dd = float(np.sqrt(np.mean(neg ** 2)))
+        dd = float(np.sqrt(np.mean(neg**2)))
         sortino = float(np.mean(a) * np.sqrt(365 / hold_cal) / dd) if dd > 0 else float("nan")
     else:
         sortino = float("nan")
@@ -375,9 +402,7 @@ def main() -> None:
     sym_closes: dict[str, np.ndarray] = {}
     for (sym,), grp in df.sort(["symbol", "date"]).group_by(["symbol"], maintain_order=False):
         g = grp.sort("date")
-        sym_dates[sym] = np.array(
-            [(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int32
-        )
+        sym_dates[sym] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int32)
         sym_closes[sym] = g["close"].cast(pl.Float64).to_numpy(allow_copy=True)
 
     for cfg in TARGETS:
