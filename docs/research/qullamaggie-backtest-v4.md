@@ -9,7 +9,7 @@ Using the `turtle.daily_bars`, `turtle.company` and `turtle.ticker` PostgreSQL t
 ## Data Scope
 
 - Universe: US common stocks (`turtle.ticker` where `country = 'USA'` and `type = 'Common Stock'`)
-- Minimum filters: `close >= 10` and `mean(volume[-21:-1]) >= 500_000` at entry
+- Minimum filters: `close > 5` and `close < 250` and `mean(volume[-21:-1]) >= 500_000` at entry
 - Market cap is > 1.5B (`turtle.company` where `market_cap >= 1500000000` and `company.ticker_code = ticker.code`)
 - Historical range: Jan 2020 onward in `turtle.daily_bars`
 - Exclude tickers with fewer than 300 trading days of history
@@ -28,7 +28,7 @@ For each trading day, compute the following metrics per ticker. Actual entry sig
 
 **Volatility quality filter (fixed, not swept):**
 - `adr_pct`: `mean(high[-(21+1):-1] − low[-(21+1):-1]) / mean(close[-(21+1):-1]) >= 2.5%` — average daily range as a percent of price over the prior 20 trading days. Requires `high` and `low` columns from `daily_bars`.
-- `rsi_filter`: `RSI(14) < 72` — 14-period RSI computed on prior closes (shift-1 convention, no look-ahead). Excludes already-overbought entries (fixed, not swept)
+- `rsi_filter`: `RSI(14) < 80` — 14-period RSI computed on prior closes (shift-1 convention, no look-ahead). Excludes already-overbought entries (fixed, not swept)
 - `roc_12m_cap`: `close[-1] / close[-253] − 1 < 100%` — 12-month return computed on prior closes (shift-1, no look-ahead). Excludes stocks that have already more than doubled in the past year, filtering out overextended breakouts that are likely in a late stage of their move. 
 
 **Volume signals:**
@@ -129,6 +129,7 @@ Rank | Entry Signal        | Exit  | Win% | Mean Ret |Median Ret | Profit Factor
 - **Look-ahead bias**: all signals must be computable from data available on the entry date only
 
 ## Implementation
-- create/overwrite script scripts/qullamaggie-backtest-v3.py
-- save research results in file docs/research/result-qullamaggie-backtest-v3.md overwriting existing file if file exists
-- add your findings and ideas how to improve the algorithm to end of docs/research/result-qullamaggie-backtest-v3.md file 
+- create/overwrite script scripts/qullamaggie-backtest-v4.py
+- save research results in file docs/research/result-qullamaggie-backtest-v4.md overwriting existing file if file exists
+- always update ## Configuration values to reflect latest setup
+- add your findings and ideas how to improve the algorithm to end of docs/research/result-qullamaggie-backtest-v4.md file 

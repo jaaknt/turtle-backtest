@@ -12,8 +12,9 @@ could you propose rankig algorithm for  s15_tr15 trades that will select only tr
 
 run the backtest described in @docs/research/qullamaggie-backtest-v4.md
 
-could you provide portfolio simulation bk50d_s20_tr10_v1.2_roc100-366d and bk50d_s15_tr15_v1.2_roc100-366d 
-- period 2001-01-01 : 2026-06-26
+could you provide portfolio simulation bk50d_s20_tr10_v1.2_roc100-366d, bk50d_s15_tr15_v1.2_roc100-366d, bk50d_s15_tr10_v1.2_roc100-366d
+important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md, @scripts/qullamaggie-portfolio-sim.py
+- period 2010-01-01 : 2026-06-26
 - initial portfolio amount 30000$
 - invest {3%, 4%, 5%} of portfolio at the time per trade
 - if there is no liquidity then skip the trade
@@ -28,3 +29,36 @@ could you provide portfolio simulation bk50d_s20_tr10_v1.2_roc100-366d and bk50d
   signals taken / skipped
   average uninvested capital per month
 - add your findings to improve the portfolio perfoermance (Mean%, Sortino, Calmar)
+- for top 3 algorithms print monthly returns by years (years are rows, months are columns)
+
+could you provide bk50d_s20_tr10_v1.2_roc100 signals for period 2026-05-01 : 2026-06-26
+ Date    │ Symbol │ Entry $ │ Curr Price | Change in % | %abv SMA50 │ ADR% │ RSI14 │ TR% │ ROC252% |
+
+ could you provide bk50d_s15_tr15_v1.2_roc100 signals for period 2026-03-01 : 2026-06-26
+ mark signals that are also in bk50d_s20_tr10_v1.2_roc100
+ provide information to signals that are not in bk50d_s20_tr10_v1.2_roc100 list what was missing
+ Date    │ Symbol │ Entry $ │ Curr Price | Change in % | %abv SMA50 │ ADR% │ RSI14 │ TR% │ ROC252% | 
+ important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
+
+ could you analyze bk50d_s20_tr10_v1.2_roc100, bk50d_s15_tr15_v1.2_roc100 algorithms
+ how  `roc_12m_cap`: `close[-1] / close[-253] − 1 < 100%` 
+ cohorts cohorts [<0], [0-20), [20-40), [40-60), [40-60), [60-80), [80-100), [100-120), [120-140), [140-160), [>160)
+ affect results using output columns
+ N     Med%    Mean%    Win%  Sortino
+ analyze period: 2020-01-01 : 2026-06-26  
+
+ could you analyze bk50d_s20_tr10_v1.2_roc100, bk50d_s15_tr15_v1.2_roc100 algorithms
+ how  `rsi_filter`: `RSI(14)
+ cohorts [0-20), [20-40), [40-60), [40-50), [50-60), [60-70), [70-75), [75-80), [80-100]
+ output format columns
+ N     Med%    Mean%    Win%  Sortino  PF
+ analyze period: 2015-01-01 : 2026-06-26  
+
+ could you analyze bk50d_s20_tr10_v1.2_roc100, bk50d_s15_tr15_v1.2_roc100 algorithms
+ how close price on entry affects results
+ cohorts [0-5), [5-10), [10-20), [20-50), [50-100), [100-250), [250-700), [700-2000), [>2000]
+ output format columns
+ N     Med%    Mean%    Win%  Sortino  PF
+ analyze period: 2015-01-01 : 2026-06-26  
+ save results in @docs/research/result-qullamaggie-price-cohorts.md
+ important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
