@@ -65,7 +65,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## 6. Standard Workflow
 
-- After non-trivial changes, run pytest and mypy before proposing a commit.
+- After non-trivial changes, run pytest and mypy before proposing a commit. Run mypy with no arguments (`uv run mypy`) — scanned paths are defined in `pyproject.toml` `[tool.mypy] files`.
 - Use the PR review subagent workflow (parallel agents) before commit/push on multi-file changes.
 - Polars for all new code. Pandas is intentionally retained in `turtle/repository/analytics.py`, `turtle/portfolio/analytics.py`, and the Streamlit `app.py`, plus indirectly via `quantstats` and `streamlit`. Don't introduce pandas elsewhere; flag any new pandas import in code review.
 
