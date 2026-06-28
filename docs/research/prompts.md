@@ -42,10 +42,22 @@ could you provide bk50d_s20_tr10_v1.2_roc100 signals for period 2026-05-01 : 202
 
  could you analyze bk50d_s20_tr10_v1.2_roc100, bk50d_s15_tr15_v1.2_roc100 algorithms
  how  `roc_12m_cap`: `close[-1] / close[-253] − 1 < 100%` 
- cohorts cohorts [<0], [0-20), [20-40), [40-60), [40-60), [60-80), [80-100), [100-120), [120-140), [140-160), [>160)
- affect results using output columns
+ cohorts (<20),  [-20-0), [0-20), [20-40), [40-60), [40-60), [60-80), [80-100), [100-120), [120-140), [140-160), [>160)
+ output format columns
  N     Med%    Mean%    Win%  Sortino
- analyze period: 2020-01-01 : 2026-06-26  
+ analyze period: 2015-01-01 : 2026-06-26  
+ save results in @docs/research/result-qullamaggie-roc-cohorts.md
+ important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
+
+ could you analyze bk50d_s20_tr10_v1.2_roc100, bk50d_s15_tr15_v1.2_roc100 algorithms
+ how  `adr_pct`: `mean(high[-(21+1):-1] − low[-(21+1):-1]) / mean(close[-(21+1):-1])
+ cohorts [0-1.0), [1.0-2.0), [2.0-2.5), [2.5-3.0), [3.0-3.5), [3.5-4.0), [4.0-4.5), [4.5-5.0), [5.0-7.0), (>8.0)  
+ affect performance
+ output format columns
+ N     Med%    Mean%    Win%  Sortino
+ analyze period: 2015-01-01 : 2026-06-26  
+ save results in @docs/research/result-qullamaggie-adr-cohorts.md
+ important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
 
  could you analyze bk50d_s20_tr10_v1.2_roc100, bk50d_s15_tr15_v1.2_roc100 algorithms
  how  `rsi_filter`: `RSI(14)
