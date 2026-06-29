@@ -3,9 +3,9 @@
 Qullamaggie-style breakout backtest v4.
 Spec: docs/research/qullamaggie-backtest-v4.md
 
-Fixed filters: vol_dry_up<75%, roc_12m<100%, 1.2x<vol_surge<2.0x, RSI<72, ADR>=3%,
-               SMA10>SMA20>SMA50, SPY>200d SMA, close>=$15, avg_vol>=500K
-Sweep: SMA_THRESH ∈ {15%,20%,25%} × TR_THRESH ∈ {10%,15%,20%} × HOLD_CAL ∈ {62,184,366 cal days}
+Fixed filters: vol_dry_up<80%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<80, ADR>=2.5%,
+               SPY>200d SMA, close>=$5&<$250, avg_vol>=500K
+Sweep: SMA_THRESH ∈ {15%,20%,25%} × TR_THRESH ∈ {10%,15%,20%} × HOLD_CAL ∈ {184,366 cal days}
 Eval: 2021-01-01 – present  |  Burn-in data from 2020-01-01
 """
 
@@ -29,7 +29,6 @@ MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
 VOL_DRY_UP = 0.80
-VOL_SURGE = 1.0
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 MIN_TRADES = 30
@@ -174,7 +173,6 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float, tr_t: flo
             & (pl.col("close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") >= sma_t)
             & (pl.col("tight_range_ratio") <= tr_t)
-            & (pl.col("volume").cast(pl.Float64) > VOL_SURGE * pl.col("avg_vol_50"))
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
@@ -347,7 +345,7 @@ def main() -> None:
     lines = [
         f"Period: {EVAL_START} – {date.today()}  |  HOLD_MAX_CAL={HOLD_MAX_CAL}d",
         f"Fixed: vol_dry_up<{int(VOL_DRY_UP * 100)}%, roc_12m<{int(ROC_CAP * 100)}%, "
-        f"{VOL_SURGE}x<vol_surge<{VOL_SURGE_MAX}x, RSI<80, ADR>=2.5%, SPY>200d SMA, "
+        f"vol_surge<{VOL_SURGE_MAX}x (no lower bound), RSI<80, ADR>=2.5%, SPY>200d SMA, "
         f"close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K",
         "",
         _HDR,
@@ -389,7 +387,7 @@ def main() -> None:
         fh.write(f"| Tight range sweep | {tr_vals} |\n")
         fh.write(f"| Hold sweep | {hold_vals} (calendar) |\n")
         fh.write(f"| vol_dry_up | avg_vol_10 < {int(VOL_DRY_UP * 100)}% × avg_vol_50 |\n")
-        fh.write(f"| vol_surge | {VOL_SURGE}× < volume/avg_vol_50 < {VOL_SURGE_MAX}× |\n")
+        fh.write(f"| vol_surge | volume/avg_vol_50 < {VOL_SURGE_MAX}× (no lower bound) |\n")
         fh.write(f"| roc_12m_cap | 12m ROC < {int(ROC_CAP * 100)}% |\n")
         fh.write("| RSI | RSI(14) < 80 |\n")
         fh.write("| ADR | ≥ 2.5% |\n")

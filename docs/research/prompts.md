@@ -30,6 +30,7 @@ important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/resu
   average uninvested capital per month
 - add your findings to improve the portfolio perfoermance (Mean%, Sortino, Calmar)
 - for top 3 algorithms print monthly returns by years (years are rows, months are columns)
+- output file @docs/research/result-qullamaggie-portfolio-v4.md
 
 could you provide bk50d_s20_tr10_v1.2_roc100 signals for period 2026-06-01 : 2026-06-26
  Date    │ Symbol │ Entry $ │ Curr Price | Change in % | %abv SMA50 │ ADR% │ RSI14 │ TR% │ ROC252% |
@@ -73,4 +74,13 @@ could you provide bk50d_s20_tr10_v1.2_roc100 signals for period 2026-06-01 : 202
  N     Med%    Mean%    Win%  Sortino  PF
  analyze period: 2015-01-01 : 2026-06-26  
  save results in @docs/research/result-qullamaggie-price-cohorts.md
+ important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
+
+ could you analyze bk50d_s20_tr10_v1.2_roc100, bk50d_s15_tr15_v1.2_roc100 algorithms
+ how vol_surge_ratio = volume / mean(volume[-51:-1]) affects results
+ cohorts [<0.7), [0.7-0.8), [0.8-0.9), [0.9-1.0), [1.0-1.1), [1.1-1.2), [1.2-1.3), [1.3-1.4), [1.4-1.6), [1.6-2.0), [2.0-3.0), [3.0-4.0), [4.0-6.0), [>6.0) 
+ output format columns
+ N     Med%    Mean%    Win%  Sortino  PF
+ analyze period: 2015-01-01 : 2026-06-26  
+ save results in @docs/research/result-qullamaggie-volsurge-cohorts.md
  important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
