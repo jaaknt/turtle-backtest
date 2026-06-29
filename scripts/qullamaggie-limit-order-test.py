@@ -358,10 +358,7 @@ def compute_metrics(records: list[dict]) -> dict | None:
 
 # ── Output ────────────────────────────────────────────────────────────────────────
 
-_HDR = (
-    f"{'Entry mode':<22}  {'Fill%':>6}  {'N':>4}  "
-    f"{'Win%':>5}  {'Mean%':>7}  {'Med%':>7}  {'PF':>5}  {'Sortino':>7}  {'CVaR%':>7}"
-)
+_HDR = f"{'Entry mode':<22}  {'Fill%':>6}  {'N':>4}  {'Win%':>5}  {'Mean%':>7}  {'Med%':>7}  {'PF':>5}  {'Sortino':>7}  {'CVaR%':>7}"
 _SEP = "─" * len(_HDR)
 
 
