@@ -32,7 +32,7 @@ For each trading day, compute the following metrics per ticker. Actual entry sig
 - `roc_12m_cap`: `close[-1] / close[-253] − 1 < 100%` — 12-month return computed on prior closes (shift-1, no look-ahead). Excludes stocks that have already more than doubled in the past year, filtering out overextended breakouts that are likely in a late stage of their move. 
 
 **Volume signals:**
-- `vol_surge`: `1.0 × mean(volume[-51:-1]) < volume < 2.0 × mean(volume[-51:-1])` — breakout volume must exceed 1.0× the 50-day average but stay below 2.0×. The upper cap removes panic/news-driven spikes: VolX Q4 (>2.0×) has 46.7–54.5% win rate vs 65%+ for Q1–Q3 across backtests (fixed, not swept)
+- `vol_surge`: `volume < 2.0 × mean(volume[-51:-1])` — breakout volume must stay below 2.0× the 50-day average. 
 - `vol_dry_up`: `mean(volume[-11:-1]) < 0.80 × mean(volume[-51:-1])` — base volume must be below 80% of the 50-day average, confirming the consolidation happened on declining volume before the breakout surge (fixed, not swept)
 
 <!--

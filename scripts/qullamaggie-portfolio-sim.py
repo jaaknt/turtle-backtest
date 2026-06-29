@@ -43,7 +43,6 @@ MIN_PRICE = 10.0
 MIN_HISTORY = 300
 COOLDOWN = 30
 VOL_DRY_UP = 0.80
-VOL_SURGE = 1.0
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 ADR_FLOOR = 0.025
@@ -168,7 +167,6 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float, tr_t: flo
             & (pl.col("close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") >= sma_t)
             & (pl.col("tight_range_ratio") <= tr_t)
-            & (pl.col("volume").cast(pl.Float64) > VOL_SURGE * pl.col("avg_vol_50"))
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
