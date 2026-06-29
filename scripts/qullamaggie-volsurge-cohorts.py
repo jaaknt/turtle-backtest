@@ -56,9 +56,7 @@ COHORTS: list[tuple[str, float, float]] = [
     ("[6.00+    )", 6.00, float("inf")),
 ]
 
-RESULT_PATH = (
-    Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-volsurge-cohorts.md"
-)
+RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-volsurge-cohorts.md"
 
 
 # ── Data loading ─────────────────────────────────────────────────────────────
@@ -273,10 +271,7 @@ _COL_SEP = "─" * len(_COL_HDR)
 
 def fmt_cohort_row(label: str, m: dict) -> str:
     sr_str = f"{m['sr']:>8.3f}" if not (isinstance(m["sr"], float) and np.isnan(m["sr"])) else "     n/a"
-    return (
-        f"{label:<16}  {m['n']:>5}  {m['med']:>+7.2f}  {m['mean']:>+7.2f}  "
-        f"{m['win']:>6.1f}  {sr_str}  {m['pf']:>6.2f}"
-    )
+    return f"{label:<16}  {m['n']:>5}  {m['med']:>+7.2f}  {m['mean']:>+7.2f}  {m['win']:>6.1f}  {sr_str}  {m['pf']:>6.2f}"
 
 
 def build_table(label: str, records: list[dict]) -> list[str]:
