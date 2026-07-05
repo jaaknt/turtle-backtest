@@ -5,7 +5,26 @@ info:
 
 http:
   method: GET
-  url: https://eodhd.com/api/eod
+  url: https://eodhd.com/api/eod/AMZN.US?from=2026-07-01&to=2026-07-04&period=d&order=a&api_token={{EODHD_API_KEY}}&fmt=json
+  params:
+    - name: from
+      value: 2026-07-01
+      type: query
+    - name: to
+      value: 2026-07-04
+      type: query
+    - name: period
+      value: d
+      type: query
+    - name: order
+      value: a
+      type: query
+    - name: api_token
+      value: "{{EODHD_API_KEY}}"
+      type: query
+    - name: fmt
+      value: json
+      type: query
   auth: inherit
 
 settings:
