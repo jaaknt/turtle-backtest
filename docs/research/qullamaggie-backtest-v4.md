@@ -2,7 +2,7 @@
 
 ## Objective
 
-Using the `turtle.daily_bars`, `turtle.company` and `turtle.ticker` PostgreSQL tables, identify which combination of **price action and volume metrics** best predicts top-quartile returns over a **1-month** and **3-month** holding period. The main metric to optimize is the per-trade Sortino ratio, annualized. Each signal trigger produces one trade return observation, regardless of how many signals fire on the same day. Returns are not aggregated by date. `annualization_factor = 252 / holding_days`
+Using the `turtle.daily_bars`, `turtle.company` and `turtle.ticker` PostgreSQL tables, identify which combination of **price action and volume metrics** best predicts top-quartile returns over a **6-month** and **12-month** holding period. The main metric to optimize is the per-trade Sortino ratio, annualized. Each signal trigger produces one trade return observation, regardless of how many signals fire on the same day. Returns are not aggregated by date. `annualization_factor = 365 / holding calendar days`
 
 ---
 
@@ -10,7 +10,7 @@ Using the `turtle.daily_bars`, `turtle.company` and `turtle.ticker` PostgreSQL t
 
 - Universe: US common stocks (`turtle.ticker` where `country = 'USA'` and `type = 'Common Stock'`)
 - Minimum filters: `close > 5` and `close < 250` and `mean(volume[-21:-1]) >= 500_000` at entry
-- Market cap is > 1.5B (`turtle.company` where `market_cap >= 1500000000` and `company.ticker_code = ticker.code`)
+- Market cap is ≥ 1.5B (`turtle.company` where `market_cap >= 1500000000` and `company.ticker_code = ticker.code`)
 - Historical range: Jan 2020 onward in `turtle.daily_bars`
 - Exclude tickers with fewer than 300 trading days of history
 - Exclude tickers in sectors: Communication Services, Real Estate (`turtle.company` where `company.sector not in ('Communication Services', 'Real Estate')` and `company.ticker_code = ticker.code`)
@@ -23,13 +23,14 @@ For each trading day, compute the following metrics per ticker. Actual entry sig
 
 **Price momentum conditions:**
 - `breakout_N_days`: `close > max(close[-(N+1):-1])` — exceeds prior N trading days' high (sweep N ∈ {50})
-- `pct_above_sma50`: `close / mean(close[-51:-1]) − 1 > X` (sweep X ∈ {15%, 20%, 25%})
-- `tight_range`: `(max(close[-11:-1]) − min(close[-11:-1])) / mean(close[-11:-1]) < Y` (10 trading days ending yesterday, sweep Y ∈ {10%, 15%, 20%})
+- `pct_above_sma50`: `close / mean(close[-51:-1]) − 1 > X` (sweep X ∈ {12%, 15%, 17%, 20%})
+- `tight_range`: `(max(close[-11:-1]) − min(close[-11:-1])) / mean(close[-11:-1]) < 20%` 
 
 **Volatility quality filter (fixed, not swept):**
-- `adr_pct`: `mean(high[-(21+1):-1] − low[-(21+1):-1]) / mean(close[-(21+1):-1]) >= 2.5%` — average daily range as a percent of price over the prior 20 trading days. Requires `high` and `low` columns from `daily_bars`.
-- `rsi_filter`: `RSI(14) < 80` — 14-period RSI computed on prior closes (shift-1 convention, no look-ahead). Excludes already-overbought entries (fixed, not swept)
-- `roc_12m_cap`: `close[-1] / close[-253] − 1 < 100%` — 12-month return computed on prior closes (shift-1, no look-ahead). Excludes stocks that have already more than doubled in the past year, filtering out overextended breakouts that are likely in a late stage of their move. 
+- `adr_pct`: `mean((high_i − low_i)/low_i, i in last 20 days, shift-1) >= 3.0%` — average daily range as a percent of price over the prior 20 trading days > 3.0% 
+- `adr_pct_change`: `adr_pct(10 days) / adr_pct(50 days) < 0.9` - average daily range of 10 days divided by average daily range of 50 days < 0.9
+- `rsi_filter`: `RSI(14) < 70` — 14-period RSI computed on prior closes (shift-1 convention, no look-ahead). Excludes already-overbought entries (fixed, not swept)
+- `roc_12m_cap`: `close / close[-252] − 1 < 100%` — 12-month return of stock. Excludes stocks that have already more than doubled in the past year, filtering out overextended breakouts that are likely in a late stage of their move. 
 
 **Volume signals:**
 - `vol_surge`: `volume < 2.0 × mean(volume[-51:-1])` — breakout volume must stay below 2.0× the 50-day average. 
@@ -44,7 +45,7 @@ For each trading day, compute the following metrics per ticker. Actual entry sig
 - `spy_above_200d`: SPY closing price on the entry date is above its 200-day SMA. Computed as `spy_close > mean(spy_close[-201:-1])` using `daily_bars` where `ticker_code = 'SPY.US'`. Skip any entry signal on dates where this condition is false.
 
 **Entering condition:**
-- `qullamaggie_style`: `spy_above_200d` AND `adr_pct` AND `rsi_filter` AND `roc_12m_cap` AND `breakout_N_days(N)` AND `pct_above_sma50(X)` AND `tight_range(Y)` AND `vol_surge(Z)` AND `vol_dry_up`
+- `qullamaggie_style`: `spy_above_200d` AND `adr_pct` AND `adr_pct_change` AND `rsi_filter` AND `roc_12m_cap` AND `breakout_N_days(N)` AND `pct_above_sma50(X)` AND `tight_range` AND `vol_surge` AND `vol_dry_up`
 
 ---
 
@@ -78,7 +79,7 @@ Exclusions applied to all combinations before reporting:
 For each (entry signal × exit rule) combination, report the metrics below.
 
 Notation: let `r₁, …, r_N` be the `N` per-trade returns for the combination, and
-`percentile(·, p)` the p-th percentile of that set. `annualization_factor = 252 / holding_days`.
+`percentile(·, p)` the p-th percentile of that set. `annualization_factor = 365 / holding_days`.
 
 - **Win rate**: % of trades with positive return
   - `win_rate = count(rᵢ > 0) / N`
