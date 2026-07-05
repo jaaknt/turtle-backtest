@@ -1,0 +1,22 @@
+info:
+  name: Get exchange tickers
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: https://eodhd.com/api/exchange-symbol-list/US?api_token={{process.env.EODHD_API_KEY}}&fmt=json
+  params:
+    - name: api_token
+      value: "{{process.env.EODHD_API_KEY}}"
+      type: query
+    - name: fmt
+      value: json
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
