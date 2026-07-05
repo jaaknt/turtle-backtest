@@ -75,33 +75,39 @@ references:  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-q
  output format columns
  Cohort            N     Med%    Mean%    Win%   Sortino      PF
  analyze period: 2015-01-01 : 2026-06-26  
- script: @docs/research/result-qullamaggie-adr-compression-cohorts.md
+ script: @scripts/qullamaggie-adr-compression-cohorts.py
+ save results in @docs/research/result-qullamaggie-adr-compression-cohorts.md
  important files: @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
 
- could you analyze bk50d_s20_tr10_v1.2_roc100, bk50d_s15_tr15_v1.2_roc100 algorithms
+ could you analyze bk50d_s20_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d algorithms
  how  `rsi_filter`: `RSI(14)
  cohorts [0-20), [20-40), [40-60), [40-50), [50-60), [60-70), [70-75), [75-80), [80-90), [90-100]
  output format columns
- N     Med%    Mean%    Win%  Sortino  PF
+ Cohort            N     Med%    Mean%    Win%   Sortino      PF
  analyze period: 2015-01-01 : 2026-06-26  
+ script: @scripts/qullamaggie-rsi-cohorts.py
+ save results in @docs/research/result-qullamaggie-rsi-cohorts.md
+ important files: @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
 
- could you analyze bk50d_s20_tr10_v1.2_roc100, bk50d_s15_tr15_v1.2_roc100 algorithms
+ could you analyze bk50d_s20_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d algorithms
  how close price on entry affects results
  cohorts [0-5), [5-10), [10-20), [20-50), [50-100), [100-250), [250-700), [700-2000), [>2000]
  output format columns
- N     Med%    Mean%    Win%  Sortino  PF
+ Cohort            N     Med%    Mean%    Win%   Sortino      PF
  analyze period: 2015-01-01 : 2026-06-26  
+ script: @scripts/qullamaggie-price-cohorts.py
  save results in @docs/research/result-qullamaggie-price-cohorts.md
  important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
 
- could you analyze bk50d_s20_tr10_v1.2_roc100, bk50d_s15_tr15_v1.2_roc100 algorithms
+ could you analyze bk50d_s20_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d algorithms
  how vol_surge_ratio = volume / mean(volume[-51:-1]) affects results
  cohorts [<0.7), [0.7-0.8), [0.8-0.9), [0.9-1.0), [1.0-1.1), [1.1-1.2), [1.2-1.3), [1.3-1.4), [1.4-1.6), [1.6-2.0), [2.0-3.0), [3.0-4.0), [4.0-6.0), [>6.0) 
  output format columns
  Cohort            N     Med%    Mean%    Win%   Sortino      PF
  analyze period: 2015-01-01 : 2026-06-26  
+ script: @scripts/qullamaggie-volsurge-cohorts.py
  save results in @docs/research/result-qullamaggie-volsurge-cohorts.md
- important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
+ important files: @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
 
  could you analyze bk50d_s12_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d, bk50d_s17_tr20_v1.2_roc100-366d, bk50d_s20_tr20_v1.2_roc100-366d algorithms
  how tight_range2: (max(close[-11:-1]) − min(close[-11:-1])) / mean(close[-11:-1]) < Y affects results
