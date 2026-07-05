@@ -173,9 +173,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date]) -> pl.DataFrame:
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
         )
-        .select(
-            ["symbol", "date", "close", "pct_vs_sma50", "adr_pct", "adr_pct_change", "rsi14", "tight_range_ratio", "roc_252d"]
-        )
+        .select(["symbol", "date", "close", "pct_vs_sma50", "adr_pct", "adr_pct_change", "rsi14", "tight_range_ratio", "roc_252d"])
         .sort(["symbol", "date"])
     )
     if cands.is_empty():
