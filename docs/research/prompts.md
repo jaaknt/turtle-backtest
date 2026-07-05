@@ -1,3 +1,16 @@
+could you provide bk50d_s12_tr20_v1.2_roc100 signals for period 2025-07-01 : today
+mark signals that are also in bk50d_s20_tr20_v1.2_roc100
+provide information to signals that are not in bk50d_s20_tr20_v1.2_roc100 list what was missing
+Date    │ Symbol │ Entry $ │ Curr Price | Change in % | %abv SMA50 │ ADR% │ ADR_CHANGE │ RSI14 │ TR% │ ROC252% | Latest date |
+%abv SMA50 │ ADR% │ RSI14 │ TR% │ ROC252% - these values must be calculated on entry date 
+Latest date - latest date when stock data is availbale in `turtle.daily_bars` table
+Write also separate table with aggregated results where `%abv SMA50` is in cohorts [12-15), [15-17.5), [17.5-20), [>20)
+Cohort | N |  Med% | Mean% | Win% | PF | Sortino | Max DD |
+Compare also mean(Mean%) with SPY.US, QQQ.US return for whole period  
+script: @scripts/qullamaggie-signals-v4.py
+output: @docs/research/result-qullamaggie-signals-v4.md
+references:  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
+
 analyze bk50d_s15_tr15_v1.2_roc100 366d results in period 2001-01-01 : 2026-06-26
   - propose 5 options how to achieve ~3 signals per month
   - important is that Med% and Sortino must stay on the same level
@@ -27,14 +40,6 @@ important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/resu
 - add your findings to improve the portfolio perfoermance (Mean%, Sortino, Calmar)
 - for top 10 algorithms print monthly returns by years (years are rows, months are columns)
 - output file @docs/research/result-qullamaggie-portfolio-v4.md
-
-could you provide bk50d_s15_tr20_v1.2_roc100 signals for period 2026-06-01 : today
-mark signals that are also in bk50d_s20_tr20_v1.2_roc100
-provide information to signals that are not in bk50d_s20_tr20_v1.2_roc100 list what was missing
-Date    │ Symbol │ Entry $ │ Curr Price | Change in % | %abv SMA50 │ ADR% │ ADR_CHANGE │ RSI14 │ TR% │ ROC252% |
-%abv SMA50 │ ADR% │ RSI14 │ TR% │ ROC252% - these values must be calculated on entry date 
-add also latest date when stock data is available
-references:  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
 
 could you provide bk50d_s20_tr20_v1.2_roc100 signals for period 2025-07-01 : today
 Date    │ Symbol │ Entry $ │ Curr Price | Change in % | %abv SMA50 │ ADR% │ ADR_CHANGE │ RSI14 │ TR% │ ROC252% |

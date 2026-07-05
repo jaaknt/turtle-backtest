@@ -11,7 +11,7 @@ Using the `turtle.daily_bars`, `turtle.company` and `turtle.ticker` PostgreSQL t
 - Universe: US common stocks (`turtle.ticker` where `country = 'USA'` and `type = 'Common Stock'`)
 - Minimum filters: `close > 5` and `close < 250` and `mean(volume[-21:-1]) >= 500_000` at entry
 - Market cap is ≥ 1.5B (`turtle.company` where `market_cap >= 1500000000` and `company.ticker_code = ticker.code`)
-- Historical range: Jan 2020 onward in `turtle.daily_bars`
+- Historical range: Jan 2021 onward in `turtle.daily_bars`
 - Exclude tickers with fewer than 300 trading days of history
 - Exclude tickers in sectors: Communication Services, Real Estate (`turtle.company` where `company.sector not in ('Communication Services', 'Real Estate')` and `company.ticker_code = ticker.code`)
 
@@ -53,7 +53,7 @@ For each trading day, compute the following metrics per ticker. Actual entry sig
 
 | Exit Rule | Parameters to sweep |
 |-----------|---------------------|
-| Time-based | Hold exactly 184 calendar days (6M), 366 calendar days (12M) |
+| Time-based | Hold exactly 91 calendar days (3M), 184 calendar days (6M), 366 calendar days (12M) |
 
 Skip any entry where 366 calendar days are not available in the DB.
 
@@ -87,6 +87,8 @@ Notation: let `r₁, …, r_N` be the `N` per-trade returns for the combination,
   - `median = percentile({rᵢ}, 50)`
 - **Mean return**: arithmetic average return per trade
   - `mean = (1 / N) × Σ rᵢ`
+- **Annualized mean return**: CAGR-style annualization of the mean return, so combinations with different holding periods (184d vs 366d) are directly comparable
+  - `ann_mean = (1 + mean)^(annualization_factor) − 1`
 - **Top-quartile threshold**: what return does the top 25% achieve?
   - `Q75 = percentile({rᵢ}, 75)`
 - **Sortino ratio**: annualized per-trade Sortino (MAR = 0%):
@@ -109,6 +111,11 @@ Notation: let `r₁, …, r_N` be the `N` per-trade returns for the combination,
 
 Rank all (entry signal × exit rule) combinations by **Sortino ratio** on the full evaluation period. Exclude any combination where overall Sortino ≤ 0.
 
+Report two ranking tables, same columns and ranking rule, side by side:
+
+1. **Unconstrained** — every entry signal that meets the entering condition is taken as a trade.
+2. **Capacity-constrained (max 30 and max 20 concurrent positions)** — same signals, but a portfolio can hold at most 20/30 open positions at once. Process candidates in chronological entry-date order (ties broken alphabetically by symbol); a position occupies its slot from entry date through exit date inclusive. If 20/30 positions are already open on a signal's entry date, skip it outright — there is no queueing for a freed-up slot later, and no signal-quality ranking is used to decide which trade to keep.
+
 **Year-by-year consistency flag**: for each complete calendar year in the evaluation period, compute the annual Sortino ratio. A combination is flagged ✓ consistent if:
 - Sortino > 0 in ≥ 70% of complete calendar years, AND
 - At least 3 complete calendar years have ≥ 10 negative-return trades (enough to compute a valid annual Sortino)
@@ -116,9 +123,9 @@ Rank all (entry signal × exit rule) combinations by **Sortino ratio** on the fu
 The `Yrs+` column shows `positive_sortino_years / total_valid_years` (e.g. `4/5`).
 
 ```
-Rank | Entry Signal        | Exit  | Win% | Mean Ret |Median Ret | Profit Factor |Sortino | CVaR(95%) | Freq/mo | Yrs+ | Consistent
------|---------------------|-------|------|----------|-----------|---------------|--------|-----------|---------|------|-----------
-  1  | breakout_100d+...   | 63d   |  62% |   +8.3%  | +10.3%    |    1.2        |    1.82|     -6.1% |      43 | 4/5  | ✓
+Rank | Entry Signal        | Exit  | Win% | Mean Ret | AnnMean Ret |Median Ret | Profit Factor |Sortino | CVaR(95%) | Freq/mo | Yrs+ | Consistent
+-----|---------------------|-------|------|----------|-------------|-----------|---------------|--------|-----------|---------|------|-----------
+  1  | breakout_100d+...   | 63d   |  62% |   +8.3%  |    +54.1%   | +10.3%    |    1.2        |    1.82|     -6.1% |      43 | 4/5  | ✓
   2  | ...
 ```
 

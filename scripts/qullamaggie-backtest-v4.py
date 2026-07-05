@@ -5,12 +5,12 @@ Spec: docs/research/qullamaggie-backtest-v4.md
 
 Fixed filters: vol_dry_up<80%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%,
                ADR_change<90%, SPY>200d SMA, close>=$5&<$250, avg_vol>=500K
-Sweep: SMA_THRESH ∈ {15%,20%,25%} × HOLD_CAL ∈ {184,366 cal days}  (tight_range fixed at 20%)
+Sweep: SMA_THRESH ∈ {12%,15%,17%,20%} × HOLD_CAL ∈ {91,184,366 cal days}  (tight_range fixed at 20%)
 Eval: 2021-01-01 – present  |  Burn-in data from 2020-01-01
 """
 
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -37,9 +37,10 @@ ADR_CHANGE_CAP = 0.90
 TR_FIXED = 0.20
 MIN_TRADES = 30
 MIN_NEG = 10
+CAPACITY_LIMITS = [30, 20]
 
 SMA_THRESHS = [0.12, 0.15, 0.17, 0.20]
-HOLD_CALS = [184, 366]
+HOLD_CALS = [91, 184, 366]
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-backtest-v4.md"
 
@@ -67,13 +68,22 @@ def load_spy_regime(engine: sa.Engine) -> set[date]:
 
 
 def load_bars(engine: sa.Engine) -> pl.DataFrame:
+    """Load daily bars with high/low/close adjusted for splits and dividends.
+
+    `raw_close` (unadjusted) is kept separately for the absolute MIN_PRICE/MAX_PRICE
+    filter, since adjusting it would leak knowledge of splits that hadn't happened yet
+    as of the entry date. `close`/`high`/`low` are split/dividend-adjusted (scaled by
+    adjusted_close/close) so rolling indicators and trade returns aren't corrupted by
+    the price discontinuity a raw close shows on a split date.
+    """
     sql = """
         SELECT db.symbol,
-               db.date::date    AS date,
-               db.close::float8 AS close,
-               db.high::float8  AS high,
-               db.low::float8   AS low,
-               db.volume::int8  AS volume
+               db.date::date             AS date,
+               db.close::float8          AS raw_close,
+               db.adjusted_close::float8 AS close,
+               db.high::float8           AS high,
+               db.low::float8            AS low,
+               db.volume::int8           AS volume
         FROM   turtle.daily_bars db
         JOIN   turtle.ticker  t  ON t.code        = db.symbol
         JOIN   turtle.company c  ON c.ticker_code = t.code
@@ -83,19 +93,22 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
           AND  c.sector NOT IN ('Communication Services', 'Real Estate')
           AND  db.date >= '2020-01-01'
           AND  db.close > 0
+          AND  db.adjusted_close > 0
           AND  db.volume > 0
         ORDER  BY db.symbol, db.date
     """
     with engine.connect() as conn:
         rows = conn.execute(sa.text(sql)).fetchall()
+    factor = [float(r[3]) / float(r[2]) for r in rows]  # adjusted_close / raw_close
     return pl.DataFrame(
         {
             "symbol": [r[0] for r in rows],
             "date": pl.Series([r[1] for r in rows], dtype=pl.Date),
-            "close": [float(r[2]) for r in rows],
-            "high": [float(r[3]) for r in rows],
-            "low": [float(r[4]) for r in rows],
-            "volume": [int(r[5]) for r in rows],
+            "raw_close": [float(r[2]) for r in rows],
+            "close": [float(r[3]) for r in rows],
+            "high": [float(r[4]) * f for r, f in zip(rows, factor)],
+            "low": [float(r[5]) * f for r, f in zip(rows, factor)],
+            "volume": [int(r[6]) for r in rows],
         }
     )
 
@@ -172,8 +185,8 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & pl.col("roc_252d").is_not_null()
             & pl.col("adr_pct_change").is_not_null()
             & (pl.col("rsi14") < RSI_CAP)
-            & (pl.col("close") > MIN_PRICE)
-            & (pl.col("close") < MAX_PRICE)
+            & (pl.col("raw_close") > MIN_PRICE)
+            & (pl.col("raw_close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
             & (pl.col("adr_pct") >= ADR_MIN)
             & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
@@ -230,8 +243,35 @@ def run_trades(
         ret = float((closes[idx_exit] - closes[idx_entry]) / closes[idx_entry])
         running_max = np.maximum.accumulate(window)
         mdd = float((1.0 - window / running_max).max())
-        records.append({"year": row["date"].year, "ret": ret, "mdd": mdd})
+        records.append(
+            {
+                "symbol": sym,
+                "entry_date": row["date"],
+                "exit_date": _EPOCH + timedelta(days=int(dates[idx_exit])),
+                "year": row["date"].year,
+                "ret": ret,
+                "mdd": mdd,
+            }
+        )
     return records
+
+
+def apply_capacity(records: list[dict], max_open: int) -> list[dict]:
+    """Keep only the trades a portfolio limited to `max_open` concurrent positions could take.
+
+    Processes candidate trades in chronological entry-date order (ties broken by symbol) and
+    greedily accepts a trade if fewer than `max_open` positions are open on its entry date;
+    otherwise the signal is skipped outright (no queueing for a freed-up slot later).
+    """
+    ordered = sorted(records, key=lambda r: (r["entry_date"], r["symbol"]))
+    open_exits: list[date] = []
+    accepted: list[dict] = []
+    for r in ordered:
+        open_exits = [d for d in open_exits if d >= r["entry_date"]]
+        if len(open_exits) < max_open:
+            open_exits.append(r["exit_date"])
+            accepted.append(r)
+    return accepted
 
 
 # ── Metrics ────────────────────────────────────────────────────────────────────
@@ -241,7 +281,8 @@ def sortino(a: np.ndarray, hold_cal: int) -> float:
     neg = a[a < 0]
     if len(neg) < MIN_NEG:
         return float("nan")
-    dd = float(np.sqrt(np.mean(neg**2)))
+    downside = np.where(a < 0, a, 0.0)
+    dd = float(np.sqrt(np.mean(downside**2)))
     return float(np.mean(a) * np.sqrt(365 / hold_cal) / dd) if dd > 0 else float("nan")
 
 
@@ -262,6 +303,7 @@ def compute_metrics(records: list[dict], hold_cal: int) -> dict | None:
         "n": len(a),
         "win": float((a > 0).mean() * 100),
         "mean": float(a.mean() * 100),
+        "ann_mean": float(((1.0 + a.mean()) ** (365.0 / hold_cal) - 1.0) * 100),
         "med": float(np.median(a) * 100),
         "q75": float(np.percentile(a, 75) * 100),
         "pf": gross_win / gross_loss if gross_loss > 0 else float("inf"),
@@ -286,7 +328,8 @@ def consistency_flag(records: list[dict], hold_cal: int) -> tuple[str, bool]:
         if len(neg) < MIN_NEG:
             continue
         valid += 1
-        dd = float(np.sqrt(np.mean(neg**2)))
+        downside = np.where(a < 0, a, 0.0)
+        dd = float(np.sqrt(np.mean(downside**2)))
         sr = float(np.mean(a) * np.sqrt(365 / hold_cal) / dd) if dd > 0 else 0.0
         if sr > 0:
             pos += 1
@@ -298,7 +341,7 @@ def consistency_flag(records: list[dict], hold_cal: int) -> tuple[str, bool]:
 
 _HDR = (
     f"{'#':>4}  {'Entry Signal':<30}  {'Exit':>6}  "
-    f"{'N':>4}  {'Win%':>5}  {'Mean%':>7}  {'Med%':>7}  {'Q75%':>7}  {'PF':>5}  {'Sortino':>7}  "
+    f"{'N':>4}  {'Win%':>5}  {'Mean%':>7}  {'AnnMean%':>8}  {'Med%':>7}  {'Q75%':>7}  {'PF':>5}  {'Sortino':>7}  "
     f"{'MaxDD%':>7}  {'CVaR%':>7}  {'F/mo':>5}  {'Yrs+':>5}  {'C':>1}"
 )
 _SEP = "─" * len(_HDR)
@@ -308,9 +351,39 @@ def fmt_row(rank: int, label: str, hold_cal: int, m: dict, yrs: str, cons: bool)
     c = "✓" if cons else " "
     return (
         f"{rank:>4}  {label:<30}  {hold_cal:>4}d  "
-        f"{m['n']:>4}  {m['win']:>5.1f}  {m['mean']:>+7.2f}  {m['med']:>+7.2f}  {m['q75']:>+7.2f}  {m['pf']:>5.2f}  {m['sr']:>7.3f}  "
+        f"{m['n']:>4}  {m['win']:>5.1f}  {m['mean']:>+7.2f}  {m['ann_mean']:>+8.2f}  {m['med']:>+7.2f}  {m['q75']:>+7.2f}  {m['pf']:>5.2f}  {m['sr']:>7.3f}  "
         f"{m['mdd']:>7.2f}  {m['cvar']:>+7.2f}  {m['freq']:>5.1f}  {yrs:>5}  {c}"
     )
+
+
+def build_rankings(
+    results: list[tuple[str, int, dict, list[dict]]], header_lines: list[str]
+) -> tuple[str, list[tuple[int, str, int, dict, str]]]:
+    lines = [*header_lines, _HDR, _SEP]
+    consistent_rows = []
+    for i, (lbl, hold_cal, m, records) in enumerate(results, 1):
+        yrs, cons = consistency_flag(records, hold_cal)
+        lines.append(fmt_row(i, lbl, hold_cal, m, yrs, cons))
+        if cons:
+            consistent_rows.append((i, lbl, hold_cal, m, yrs))
+    lines += ["", f"Valid combinations: {len(results)}  |  Consistent: {len(consistent_rows)}"]
+    return "\n".join(lines), consistent_rows
+
+
+def consistent_md(title: str, consistent_rows: list[tuple[int, str, int, dict, str]]) -> str:
+    if not consistent_rows:
+        return f"## {title}\n\nNo combinations met the consistency criteria.\n"
+    parts = [
+        f"## {title}\n\n",
+        f"Sortino > 0 in ≥70% of complete calendar years with ≥{MIN_NEG} negative trades, and ≥3 valid years.\n\n",
+    ]
+    for _rank, lbl, hold_cal, m, yrs in consistent_rows:
+        parts.append(
+            f"- `{lbl}` | `{hold_cal}d` — SR={m['sr']:.3f}, "
+            f"Win%={m['win']:.1f}, Med%={m['med']:+.2f}, AnnMean%={m['ann_mean']:+.2f}, Q75%={m['q75']:+.2f}, "
+            f"MaxDD%={m['mdd']:.2f}, CVaR%={m['cvar']:+.2f}, Yrs+={yrs}, N={m['n']}\n"
+        )
+    return "".join(parts)
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -338,6 +411,7 @@ def main() -> None:
         sym_closes[sym] = g["close"].cast(pl.Float64).to_numpy(allow_copy=True)
 
     results: list[tuple[str, int, dict, list[dict]]] = []
+    results_by_cap: dict[int, list[tuple[str, int, dict, list[dict]]]] = {cap: [] for cap in CAPACITY_LIMITS}
 
     for sma_t in SMA_THRESHS:
         lbl = f"bk50d_s{int(sma_t * 100)}_tr{int(TR_FIXED * 100)}_v1.2_roc100"
@@ -350,41 +424,50 @@ def main() -> None:
             m = compute_metrics(records, hold_cal)
             if m is not None:
                 results.append((lbl, hold_cal, m, records))
+            for cap in CAPACITY_LIMITS:
+                records_capped = apply_capacity(records, cap)
+                m_capped = compute_metrics(records_capped, hold_cal)
+                if m_capped is not None:
+                    results_by_cap[cap].append((lbl, hold_cal, m_capped, records_capped))
 
     results.sort(key=lambda x: x[2]["sr"], reverse=True)
+    for cap in CAPACITY_LIMITS:
+        results_by_cap[cap].sort(key=lambda x: x[2]["sr"], reverse=True)
 
-    # ── Print table ────────────────────────────────────────────────────────────
-    lines = [
+    # ── Print tables ───────────────────────────────────────────────────────────
+    header_lines = [
         f"Period: {EVAL_START} – {date.today()}  |  HOLD_MAX_CAL={HOLD_MAX_CAL}d",
         f"Fixed: vol_dry_up<{int(VOL_DRY_UP * 100)}%, roc_12m<{int(ROC_CAP * 100)}%, "
         f"vol_surge<{VOL_SURGE_MAX}x (no lower bound), RSI<{int(RSI_CAP)}, ADR>={ADR_MIN * 100:.1f}%, "
         f"ADR_change<{int(ADR_CHANGE_CAP * 100)}%, SPY>200d SMA, "
         f"close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K",
         "",
-        _HDR,
-        _SEP,
     ]
-    consistent_rows = []
-    for i, (lbl, hold_cal, m, records) in enumerate(results, 1):
-        yrs, cons = consistency_flag(records, hold_cal)
-        lines.append(fmt_row(i, lbl, hold_cal, m, yrs, cons))
-        if cons:
-            consistent_rows.append((i, lbl, hold_cal, m, yrs))
 
-    lines += ["", f"Valid combinations: {len(results)}  |  Consistent: {len(consistent_rows)}"]
-
-    output = "\n".join(lines)
-    print("\n" + output)
-
-    # ── Consistent summary ─────────────────────────────────────────────────────
-    if consistent_rows:
-        print("\n=== Consistent (Sortino>0 in ≥70% of complete eval years, ≥3 valid years) ===")
+    def print_consistent(title: str, consistent_rows: list[tuple[int, str, int, dict, str]]) -> None:
+        if not consistent_rows:
+            return
+        print(f"\n=== {title} ===")
         for rank, lbl, hold_cal, m, yrs in consistent_rows:
             print(
                 f"  #{rank}  {lbl} | {hold_cal}d  SR={m['sr']:.3f}  "
-                f"Win%={m['win']:.1f}  Med%={m['med']:+.2f}  Q75%={m['q75']:+.2f}  "
+                f"Win%={m['win']:.1f}  Med%={m['med']:+.2f}  AnnMean%={m['ann_mean']:+.2f}  Q75%={m['q75']:+.2f}  "
                 f"MaxDD%={m['mdd']:.2f}  CVaR%={m['cvar']:+.2f}  Yrs+={yrs}  N={m['n']}"
             )
+
+    output, consistent_rows = build_rankings(results, header_lines)
+    print("\n" + output)
+    print_consistent("Consistent (Sortino>0 in ≥70% of complete eval years, ≥3 valid years)", consistent_rows)
+
+    capped: dict[int, tuple[str, list[tuple[int, str, int, dict, str]]]] = {}
+    for cap in CAPACITY_LIMITS:
+        out, cons_rows = build_rankings(results_by_cap[cap], [*header_lines[:-1], f"Max concurrent positions: {cap}", ""])
+        capped[cap] = (out, cons_rows)
+        print("\n" + out)
+        print_consistent(
+            f"Consistent (Max {cap} Concurrent) — Sortino>0 in ≥70% of complete eval years, ≥3 valid years",
+            cons_rows,
+        )
 
     # ── Write markdown result ──────────────────────────────────────────────────
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -399,6 +482,7 @@ def main() -> None:
         fh.write(f"| SMA thresh sweep | {sma_vals} |\n")
         fh.write(f"| Tight range | {int(TR_FIXED * 100)}% (fixed) |\n")
         fh.write(f"| Hold sweep | {hold_vals} (calendar) |\n")
+        fh.write(f"| Capacity limits | unconstrained, {', '.join(str(c) for c in CAPACITY_LIMITS)} concurrent (FIFO) |\n")
         fh.write(f"| vol_dry_up | avg_vol_10 < {int(VOL_DRY_UP * 100)}% × avg_vol_50 |\n")
         fh.write(f"| vol_surge | volume/avg_vol_50 < {VOL_SURGE_MAX}× (no lower bound) |\n")
         fh.write(f"| roc_12m_cap | 12m ROC < {int(ROC_CAP * 100)}% |\n")
@@ -416,17 +500,70 @@ def main() -> None:
         fh.write("## Rankings\n\n```\n")
         fh.write(output)
         fh.write("\n```\n\n")
-        if consistent_rows:
-            fh.write("## Consistent Combinations\n\n")
-            fh.write(f"Sortino > 0 in ≥70% of complete calendar years with ≥{MIN_NEG} negative trades, and ≥3 valid years.\n\n")
-            for _rank, lbl, hold_cal, m, yrs in consistent_rows:
-                fh.write(
-                    f"- `{lbl}` | `{hold_cal}d` — SR={m['sr']:.3f}, "
-                    f"Win%={m['win']:.1f}, Med%={m['med']:+.2f}, Q75%={m['q75']:+.2f}, "
-                    f"MaxDD%={m['mdd']:.2f}, CVaR%={m['cvar']:+.2f}, Yrs+={yrs}, N={m['n']}\n"
-                )
-        else:
-            fh.write("## Consistent Combinations\n\nNo combinations met the consistency criteria.\n")
+        fh.write(consistent_md("Consistent Combinations", consistent_rows))
+
+        for cap in CAPACITY_LIMITS:
+            out, cons_rows = capped[cap]
+            fh.write(f"\n## Rankings — Max {cap} Concurrent Positions\n\n")
+            fh.write(
+                f"Same signals, but a trade is skipped if {cap} positions are already open on its entry "
+                "date (FIFO, ties broken alphabetically by symbol; no queueing for a freed-up slot later).\n\n```\n"
+            )
+            fh.write(out)
+            fh.write("\n```\n\n")
+            fh.write(consistent_md(f"Consistent Combinations (Max {cap} Concurrent)", cons_rows))
+        fh.write("\n## Findings & Caveats\n\n")
+        fh.write(
+            "**Fixed**: `close`/`high`/`low` are now split/dividend-adjusted (scaled by `adjusted_close/close`). "
+            "The prior version used raw `close`, which shows a fake ~90% one-day move on a stock's split date "
+            "(e.g. NVDA's 2024-06-10 10:1 split) — this corrupted rolling indicators for ~50 days around any split "
+            "and could make a real winning trade compute as a huge loss (or vice versa for a reverse split). "
+            "13.1% of the qualifying universe (254/1,943 tickers) had at least one such split event since 2020. "
+            "The MIN_PRICE/MAX_PRICE band still uses raw (unadjusted) close, since that's the real price a trader "
+            "would have paid on the entry date — adjusting it would leak knowledge of future splits into a "
+            "point-in-time filter.\n\n"
+        )
+        fh.write(
+            "**Unresolved — survivorship bias**: every ticker in the qualifying universe has `status='active'`; "
+            "the pipeline retains no delisted/bankrupt/acquired tickers. `company.market_cap` is also a single "
+            "current-day snapshot applied retroactively to all history, not a point-in-time value. A momentum-"
+            "breakout strategy specifically targets stocks that sometimes blow up afterward (fraud, failed trial, "
+            "acquisition below entry) — those trades are structurally impossible to appear in this backtest. This "
+            "likely explains part of the unusually high win rate/profit factor and should be treated as a ceiling "
+            "on how much to trust the absolute return numbers.\n\n"
+        )
+        cap_list = " and ".join(str(cap) for cap in CAPACITY_LIMITS)
+        fh.write(
+            "**Partially addressed — overlapping trades**: at several signals/month with 6-12 month holds, most "
+            "trades are open concurrently and share the same regime exposure, so the unconstrained N overstates "
+            "the number of independent bets and the Sortino/consistency stats overstate statistical confidence. "
+            f"The 'Max {cap_list} Concurrent Positions' tables above cap the portfolio at that many simultaneous "
+            "positions (FIFO signal acceptance) as a rough realism check — comparing the tables shows how much each "
+            "combination's apparent edge depends on taking every single signal versus a capital-constrained subset. "
+            "This doesn't fix the underlying correlation between trades still held concurrently within a cap, and "
+            "it uses an arbitrary FIFO rule rather than a real signal-quality ranking for which trade to take when "
+            "capacity is full.\n\n"
+        )
+        fh.write(
+            "**Unresolved — regime concentration**: the SPY>200d SMA filter concentrates trades in bull years. "
+            "The Yrs+ denominator silently drops any complete calendar year with <10 losing trades from its count "
+            "(see the Yrs+ column above, e.g. a stricter signal with fewer total trades may show fewer valid years "
+            "than the number of complete calendar years in the eval period), which can exclude harder regimes "
+            "rather than prove the strategy survived them.\n\n"
+        )
+        fh.write(
+            "**Unresolved — no execution costs**: entry is assumed fillable at the same close that generated the "
+            "signal, with no slippage, spread, commissions, or gap risk — unrealistic for breakout-day fills on "
+            "high-ADR names.\n\n"
+        )
+        fh.write(
+            "**Ideas to improve**: source point-in-time market cap (or shares outstanding × price at entry) instead "
+            "of a static snapshot; source a delisted-ticker history if available to address survivorship; shift "
+            "entry to next-day open (+ slippage assumption) for realistic fills; replace the FIFO acceptance rule in "
+            "the capacity-constrained table with a real signal-quality ranking (e.g. ADR%, breakout strength) to "
+            "pick which trade to take when capacity is full; account for trade overlap (e.g. block-bootstrap or "
+            "effective-sample-size adjustment) when judging Sortino confidence.\n"
+        )
     print(f"\nResults saved to {RESULT_PATH}", flush=True)
 
 
