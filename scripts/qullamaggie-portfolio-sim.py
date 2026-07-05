@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """
-Portfolio simulation for bk50d_s20_tr10_v1.2_roc100 / 366d.
+Portfolio simulation for bk50d_s20_tr20 / s17_tr20 / s15_tr20 (v1.2_roc100, 366d).
+
+Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=2.5%,
+ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<80%, tight_range<20%, SPY>200d SMA,
+close>$5&<$250, avg_vol>=500K).
 
 Rules:
-  - Period 2021-01-01 .. 2026-06-26, initial equity $30,000.
-  - Each signal: buy at the entry-day close, sizing = 10% of current portfolio
+  - Period 2018-01-01 .. 2026-06-26, initial equity $30,000.
+  - Each signal: buy at the entry-day close, sizing = {3%,4%,5%,6%,7%,8%} of current portfolio
     value (cash + open positions marked to market).
-  - If available cash < the 10% target, skip the trade (no liquidity).
+  - If available cash < the target, skip the trade (no liquidity).
   - Exit at the close of the first trading day >= entry + 366 calendar days
     (open positions at period end are marked to market, not force-closed).
   - Fractional shares, no commission/slippage.
@@ -26,35 +30,38 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from turtle.config.settings import Settings
 
 _EPOCH = date(1970, 1, 1)
-EVAL_START = date(2010, 1, 1)
+EVAL_START = date(2018, 1, 1)
 EVAL_END = date(2026, 6, 26)
 DATA_START = "2000-01-01"
 INIT_EQUITY = 30_000.0
-POS_FRACTIONS = [0.03, 0.04, 0.05]  # position-size sweep
+POS_FRACTIONS = [0.03, 0.04, 0.05, 0.06, 0.07, 0.08]  # position-size sweep
 HOLD_CAL = 366
 BELOW_DAYS = 3  # consecutive days below 200d SMA to trigger trend exit
 STOP_DD = 0.30  # fixed stop: close <= (1-STOP_DD) * entry price
 TRAIL_DD = 0.25  # trailing stop: close <= (1-TRAIL_DD) * peak-since-entry
 RANK_FUNDING = False  # when cash is scarce, fund competing signals by ADR (desc)
 
-EXIT_MODES = ["time"]  # each runs the full 366d time cap too
+EXIT_MODES = ["time"]  # 366d time cap only
 MIN_AVG_VOL = 500_000
-MIN_PRICE = 10.0
+MIN_PRICE = 5.0
+MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
 VOL_DRY_UP = 0.80
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
+RSI_CAP = 70.0
 ADR_FLOOR = 0.025
+ADR_CHANGE_CAP = 0.90
 
 CONFIGS = [
-    ("s20_tr10", 0.20, 0.10),
-    ("s15_tr15", 0.15, 0.15),
-    ("s15_tr10", 0.15, 0.10),
+    ("s20_tr20", 0.20, 0.20),
+    ("s17_tr20", 0.17, 0.20),
+    ("s15_tr20", 0.15, 0.20),
 ]
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-portfolio.md"
+RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-portfolio-v4.md"
 
 
 def load_spy(engine: sa.Engine) -> pl.DataFrame:
@@ -106,7 +113,7 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
         [
             pl.col("close").shift(1).over("symbol").alias("_c1"),
             pl.col("volume").cast(pl.Float64).shift(1).over("symbol").alias("_v1"),
-            (pl.col("high") - pl.col("low")).shift(1).over("symbol").alias("_dr1"),
+            ((pl.col("high") - pl.col("low")) / pl.col("low")).shift(1).over("symbol").alias("_rp1"),
         ]
     )
     df = df.with_columns(pl.col("_c1").diff(1).over("symbol").alias("_diff"))
@@ -135,7 +142,9 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("_c1").rolling_max(10, min_samples=10).over("symbol").alias("_tr_max"),
             pl.col("_c1").rolling_min(10, min_samples=10).over("symbol").alias("_tr_min"),
             pl.col("_c1").rolling_mean(10, min_samples=10).over("symbol").alias("_tr_mean"),
-            pl.col("_dr1").rolling_mean(20, min_samples=20).over("symbol").alias("_adr_num"),
+            pl.col("_rp1").rolling_mean(20, min_samples=20).over("symbol").alias("adr_pct"),
+            pl.col("_rp1").rolling_mean(10, min_samples=10).over("symbol").alias("_adr10"),
+            pl.col("_rp1").rolling_mean(50, min_samples=50).over("symbol").alias("_adr50"),
             pl.col("_c1").shift(251).over("symbol").alias("_c_252d"),
         ]
     )
@@ -143,7 +152,7 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
         [
             ((pl.col("_tr_max") - pl.col("_tr_min")) / pl.col("_tr_mean")).alias("tight_range_ratio"),
             ((pl.col("close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
-            (pl.col("_adr_num") / pl.col("sma50")).alias("adr_pct"),
+            (pl.col("_adr10") / pl.col("_adr50")).alias("adr_pct_change"),
             (pl.col("close") / pl.col("_c_252d") - 1.0).alias("roc_252d"),
         ]
     )
@@ -160,13 +169,16 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float, tr_t: flo
             & pl.col("tight_range_ratio").is_not_null()
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
-            & (pl.col("rsi14") < 80.0)
-            & (pl.col("close") >= MIN_PRICE)
+            & pl.col("adr_pct_change").is_not_null()
+            & (pl.col("rsi14") < RSI_CAP)
+            & (pl.col("close") > MIN_PRICE)
+            & (pl.col("close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
             & (pl.col("adr_pct") >= ADR_FLOOR)
+            & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
             & (pl.col("close") > pl.col("max_c_50d"))
-            & (pl.col("pct_vs_sma50") >= sma_t)
-            & (pl.col("tight_range_ratio") <= tr_t)
+            & (pl.col("pct_vs_sma50") > sma_t)
+            & (pl.col("tight_range_ratio") < tr_t)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
@@ -463,10 +475,10 @@ def main() -> None:
                 f"{r['avg_uninv_pct']:>6.1f}%"
             )
 
-    # monthly grids for top 3 by Calmar
+    # monthly grids for top 10 by Calmar
     ranked = sorted(all_results, key=lambda x: x[2]["calmar"], reverse=True)
-    out("\n\n## Monthly returns — top 3 by Calmar\n")
-    for rank, (name, pf, r) in enumerate(ranked[:3], 1):
+    out("\n\n## Monthly returns — top 10 by Calmar\n")
+    for rank, (name, pf, r) in enumerate(ranked[:10], 1):
         out(f"\n### #{rank}  {name} — size {pf:.0%}  (Calmar {r['calmar']:.3f})")
         monthly_grid(r["eom"])
 

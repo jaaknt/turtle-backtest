@@ -3,9 +3,9 @@
 Qullamaggie-style breakout backtest v4.
 Spec: docs/research/qullamaggie-backtest-v4.md
 
-Fixed filters: vol_dry_up<80%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<80, ADR>=2.5%,
-               SPY>200d SMA, close>=$5&<$250, avg_vol>=500K
-Sweep: SMA_THRESH ∈ {15%,20%,25%} × TR_THRESH ∈ {10%,15%,20%} × HOLD_CAL ∈ {184,366 cal days}
+Fixed filters: vol_dry_up<80%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%,
+               ADR_change<90%, SPY>200d SMA, close>=$5&<$250, avg_vol>=500K
+Sweep: SMA_THRESH ∈ {15%,20%,25%} × HOLD_CAL ∈ {184,366 cal days}  (tight_range fixed at 20%)
 Eval: 2021-01-01 – present  |  Burn-in data from 2020-01-01
 """
 
@@ -31,11 +31,14 @@ COOLDOWN = 30
 VOL_DRY_UP = 0.80
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
+RSI_CAP = 70.0
+ADR_MIN = 0.03
+ADR_CHANGE_CAP = 0.90
+TR_FIXED = 0.20
 MIN_TRADES = 30
 MIN_NEG = 10
 
-SMA_THRESHS = [0.15, 0.20, 0.25]
-TR_THRESHS = [0.10, 0.15, 0.20]
+SMA_THRESHS = [0.12, 0.15, 0.17, 0.20]
 HOLD_CALS = [184, 366]
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-backtest-v4.md"
@@ -106,7 +109,7 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
         [
             pl.col("close").shift(1).over("symbol").alias("_c1"),
             pl.col("volume").cast(pl.Float64).shift(1).over("symbol").alias("_v1"),
-            (pl.col("high") - pl.col("low")).shift(1).over("symbol").alias("_dr1"),
+            ((pl.col("high") - pl.col("low")) / pl.col("low")).shift(1).over("symbol").alias("_rp1"),
         ]
     )
     # RSI(14)
@@ -138,7 +141,9 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("_c1").rolling_max(10, min_samples=10).over("symbol").alias("_tr_max"),
             pl.col("_c1").rolling_min(10, min_samples=10).over("symbol").alias("_tr_min"),
             pl.col("_c1").rolling_mean(10, min_samples=10).over("symbol").alias("_tr_mean"),
-            pl.col("_dr1").rolling_mean(20, min_samples=20).over("symbol").alias("_adr_num"),
+            pl.col("_rp1").rolling_mean(20, min_samples=20).over("symbol").alias("adr_pct"),
+            pl.col("_rp1").rolling_mean(10, min_samples=10).over("symbol").alias("_adr10"),
+            pl.col("_rp1").rolling_mean(50, min_samples=50).over("symbol").alias("_adr50"),
             pl.col("_c1").shift(251).over("symbol").alias("_c_252d"),
         ]
     )
@@ -146,17 +151,17 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
         [
             ((pl.col("_tr_max") - pl.col("_tr_min")) / pl.col("_tr_mean")).alias("tight_range_ratio"),
             ((pl.col("close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
-            (pl.col("_adr_num") / pl.col("sma50")).alias("adr_pct"),
+            (pl.col("_adr10") / pl.col("_adr50")).alias("adr_pct_change"),
             (pl.col("close") / pl.col("_c_252d") - 1.0).alias("roc_252d"),
         ]
     )
-    return df.drop(["_c1", "_v1", "_dr1", "_tr_max", "_tr_min", "_tr_mean", "_adr_num", "_c_252d"])
+    return df.drop(["_c1", "_v1", "_rp1", "_tr_max", "_tr_min", "_tr_mean", "_adr10", "_adr50", "_c_252d"])
 
 
 # ── Signal generation ──────────────────────────────────────────────────────────
 
 
-def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float, tr_t: float) -> pl.DataFrame:
+def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
     cands = (
         df.filter(
             (pl.col("date") >= EVAL_START)
@@ -165,14 +170,16 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float, tr_t: flo
             & pl.col("tight_range_ratio").is_not_null()
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
-            & (pl.col("rsi14") < 80.0)
+            & pl.col("adr_pct_change").is_not_null()
+            & (pl.col("rsi14") < RSI_CAP)
             & (pl.col("close") > MIN_PRICE)
             & (pl.col("close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
-            & (pl.col("adr_pct") >= 0.025)
+            & (pl.col("adr_pct") >= ADR_MIN)
+            & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
             & (pl.col("close") > pl.col("max_c_50d"))
-            & (pl.col("pct_vs_sma50") >= sma_t)
-            & (pl.col("tight_range_ratio") <= tr_t)
+            & (pl.col("pct_vs_sma50") > sma_t)
+            & (pl.col("tight_range_ratio") < TR_FIXED)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
@@ -219,8 +226,11 @@ def run_trades(
         idx_exit = int(np.searchsorted(dates, entry_int + hold_cal))
         if idx_exit >= len(dates):
             continue
+        window = closes[idx_entry : idx_exit + 1]
         ret = float((closes[idx_exit] - closes[idx_entry]) / closes[idx_entry])
-        records.append({"year": row["date"].year, "ret": ret})
+        running_max = np.maximum.accumulate(window)
+        mdd = float((1.0 - window / running_max).max())
+        records.append({"year": row["date"].year, "ret": ret, "mdd": mdd})
     return records
 
 
@@ -247,13 +257,16 @@ def compute_metrics(records: list[dict], hold_cal: int) -> dict | None:
     months = (today.year - EVAL_START.year) * 12 + (today.month - EVAL_START.month)
     gross_win = float(a[a > 0].sum())
     gross_loss = float(-a[a < 0].sum())
+    mdds = np.array([r["mdd"] for r in records])
     return {
         "n": len(a),
         "win": float((a > 0).mean() * 100),
         "mean": float(a.mean() * 100),
         "med": float(np.median(a) * 100),
+        "q75": float(np.percentile(a, 75) * 100),
         "pf": gross_win / gross_loss if gross_loss > 0 else float("inf"),
         "sr": sr,
+        "mdd": float(mdds.mean() * 100),
         "cvar": float(np.sort(a)[:p5].mean() * 100),
         "freq": len(a) / max(months, 1),
     }
@@ -270,7 +283,7 @@ def consistency_flag(records: list[dict], hold_cal: int) -> tuple[str, bool]:
             continue
         a = np.array(rets)
         neg = a[a < 0]
-        if len(neg) < 5:
+        if len(neg) < MIN_NEG:
             continue
         valid += 1
         dd = float(np.sqrt(np.mean(neg**2)))
@@ -285,8 +298,8 @@ def consistency_flag(records: list[dict], hold_cal: int) -> tuple[str, bool]:
 
 _HDR = (
     f"{'#':>4}  {'Entry Signal':<30}  {'Exit':>6}  "
-    f"{'N':>4}  {'Win%':>5}  {'Mean%':>7}  {'Med%':>7}  {'PF':>5}  {'Sortino':>7}  "
-    f"{'CVaR%':>7}  {'F/mo':>5}  {'Yrs+':>5}  {'C':>1}"
+    f"{'N':>4}  {'Win%':>5}  {'Mean%':>7}  {'Med%':>7}  {'Q75%':>7}  {'PF':>5}  {'Sortino':>7}  "
+    f"{'MaxDD%':>7}  {'CVaR%':>7}  {'F/mo':>5}  {'Yrs+':>5}  {'C':>1}"
 )
 _SEP = "─" * len(_HDR)
 
@@ -295,8 +308,8 @@ def fmt_row(rank: int, label: str, hold_cal: int, m: dict, yrs: str, cons: bool)
     c = "✓" if cons else " "
     return (
         f"{rank:>4}  {label:<30}  {hold_cal:>4}d  "
-        f"{m['n']:>4}  {m['win']:>5.1f}  {m['mean']:>+7.2f}  {m['med']:>+7.2f}  {m['pf']:>5.2f}  {m['sr']:>7.3f}  "
-        f"{m['cvar']:>+7.2f}  {m['freq']:>5.1f}  {yrs:>5}  {c}"
+        f"{m['n']:>4}  {m['win']:>5.1f}  {m['mean']:>+7.2f}  {m['med']:>+7.2f}  {m['q75']:>+7.2f}  {m['pf']:>5.2f}  {m['sr']:>7.3f}  "
+        f"{m['mdd']:>7.2f}  {m['cvar']:>+7.2f}  {m['freq']:>5.1f}  {yrs:>5}  {c}"
     )
 
 
@@ -327,17 +340,16 @@ def main() -> None:
     results: list[tuple[str, int, dict, list[dict]]] = []
 
     for sma_t in SMA_THRESHS:
-        for tr_t in TR_THRESHS:
-            lbl = f"bk50d_s{int(sma_t * 100)}_tr{int(tr_t * 100)}_v1.2_roc100"
-            print(f"  {lbl} …", flush=True)
-            signals = get_signals(df, bull_dates, sma_t, tr_t)
-            if signals.is_empty():
-                continue
-            for hold_cal in HOLD_CALS:
-                records = run_trades(signals, sym_dates, sym_closes, hold_cal)
-                m = compute_metrics(records, hold_cal)
-                if m is not None:
-                    results.append((lbl, hold_cal, m, records))
+        lbl = f"bk50d_s{int(sma_t * 100)}_tr{int(TR_FIXED * 100)}_v1.2_roc100"
+        print(f"  {lbl} …", flush=True)
+        signals = get_signals(df, bull_dates, sma_t)
+        if signals.is_empty():
+            continue
+        for hold_cal in HOLD_CALS:
+            records = run_trades(signals, sym_dates, sym_closes, hold_cal)
+            m = compute_metrics(records, hold_cal)
+            if m is not None:
+                results.append((lbl, hold_cal, m, records))
 
     results.sort(key=lambda x: x[2]["sr"], reverse=True)
 
@@ -345,7 +357,8 @@ def main() -> None:
     lines = [
         f"Period: {EVAL_START} – {date.today()}  |  HOLD_MAX_CAL={HOLD_MAX_CAL}d",
         f"Fixed: vol_dry_up<{int(VOL_DRY_UP * 100)}%, roc_12m<{int(ROC_CAP * 100)}%, "
-        f"vol_surge<{VOL_SURGE_MAX}x (no lower bound), RSI<80, ADR>=2.5%, SPY>200d SMA, "
+        f"vol_surge<{VOL_SURGE_MAX}x (no lower bound), RSI<{int(RSI_CAP)}, ADR>={ADR_MIN * 100:.1f}%, "
+        f"ADR_change<{int(ADR_CHANGE_CAP * 100)}%, SPY>200d SMA, "
         f"close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K",
         "",
         _HDR,
@@ -369,7 +382,8 @@ def main() -> None:
         for rank, lbl, hold_cal, m, yrs in consistent_rows:
             print(
                 f"  #{rank}  {lbl} | {hold_cal}d  SR={m['sr']:.3f}  "
-                f"Win%={m['win']:.1f}  Med%={m['med']:+.2f}  CVaR%={m['cvar']:+.2f}  Yrs+={yrs}  N={m['n']}"
+                f"Win%={m['win']:.1f}  Med%={m['med']:+.2f}  Q75%={m['q75']:+.2f}  "
+                f"MaxDD%={m['mdd']:.2f}  CVaR%={m['cvar']:+.2f}  Yrs+={yrs}  N={m['n']}"
             )
 
     # ── Write markdown result ──────────────────────────────────────────────────
@@ -378,19 +392,19 @@ def main() -> None:
         fh.write("# Qullamaggie Backtest v4 — Results\n\n")
         fh.write(f"Run date: {date.today()}\n\n")
         sma_vals = ", ".join(f"{int(v * 100)}%" for v in SMA_THRESHS)
-        tr_vals = ", ".join(f"{int(v * 100)}%" for v in TR_THRESHS)
         hold_vals = ", ".join(f"{h}d" for h in HOLD_CALS)
         fh.write("## Configuration\n\n")
         fh.write("| Parameter | Value |\n|---|---|\n")
         fh.write("| Breakout | 50d high |\n")
         fh.write(f"| SMA thresh sweep | {sma_vals} |\n")
-        fh.write(f"| Tight range sweep | {tr_vals} |\n")
+        fh.write(f"| Tight range | {int(TR_FIXED * 100)}% (fixed) |\n")
         fh.write(f"| Hold sweep | {hold_vals} (calendar) |\n")
         fh.write(f"| vol_dry_up | avg_vol_10 < {int(VOL_DRY_UP * 100)}% × avg_vol_50 |\n")
         fh.write(f"| vol_surge | volume/avg_vol_50 < {VOL_SURGE_MAX}× (no lower bound) |\n")
         fh.write(f"| roc_12m_cap | 12m ROC < {int(ROC_CAP * 100)}% |\n")
-        fh.write("| RSI | RSI(14) < 80 |\n")
-        fh.write("| ADR | ≥ 2.5% |\n")
+        fh.write(f"| RSI | RSI(14) < {int(RSI_CAP)} |\n")
+        fh.write(f"| ADR | mean((high-low)/low, last 20d, shift-1) ≥ {ADR_MIN * 100:.1f}% |\n")
+        fh.write(f"| ADR change | ADR%(10d) / ADR%(50d) < {int(ADR_CHANGE_CAP * 100)}% |\n")
         fh.write("| SMA alignment | disabled (commented out) |\n")
         fh.write("| Market regime | SPY close > 200d SMA |\n")
         fh.write(f"| Price range | > ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f} |\n")
@@ -404,12 +418,12 @@ def main() -> None:
         fh.write("\n```\n\n")
         if consistent_rows:
             fh.write("## Consistent Combinations\n\n")
-            fh.write("Sortino > 0 in ≥70% of complete calendar years with ≥5 negative trades, and ≥3 valid years.\n\n")
+            fh.write(f"Sortino > 0 in ≥70% of complete calendar years with ≥{MIN_NEG} negative trades, and ≥3 valid years.\n\n")
             for _rank, lbl, hold_cal, m, yrs in consistent_rows:
                 fh.write(
                     f"- `{lbl}` | `{hold_cal}d` — SR={m['sr']:.3f}, "
-                    f"Win%={m['win']:.1f}, Med%={m['med']:+.2f}, "
-                    f"CVaR%={m['cvar']:+.2f}, Yrs+={yrs}, N={m['n']}\n"
+                    f"Win%={m['win']:.1f}, Med%={m['med']:+.2f}, Q75%={m['q75']:+.2f}, "
+                    f"MaxDD%={m['mdd']:.2f}, CVaR%={m['cvar']:+.2f}, Yrs+={yrs}, N={m['n']}\n"
                 )
         else:
             fh.write("## Consistent Combinations\n\nNo combinations met the consistency criteria.\n")
