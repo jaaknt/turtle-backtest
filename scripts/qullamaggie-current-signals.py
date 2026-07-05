@@ -172,9 +172,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
         )
-        .select(
-            ["symbol", "date", "close", "pct_vs_sma50", "adr_pct", "adr_pct_change", "rsi14", "tight_range_ratio", "roc_252d"]
-        )
+        .select(["symbol", "date", "close", "pct_vs_sma50", "adr_pct", "adr_pct_change", "rsi14", "tight_range_ratio", "roc_252d"])
         .sort(["symbol", "date"])
     )
     if cands.is_empty():
@@ -256,9 +254,7 @@ def main() -> None:
         for row in missing_rows:
             sym, d = row["symbol"], row["date"]
             pct = row["pct_vs_sma50"] * 100
-            print(
-                f"  {d} {sym:<7} %abv SMA50={pct:+.1f}%  (needs > 20% for s20_tr20; short by {20.0 - pct:.1f}pp)"
-            )
+            print(f"  {d} {sym:<7} %abv SMA50={pct:+.1f}%  (needs > 20% for s20_tr20; short by {20.0 - pct:.1f}pp)")
 
 
 if __name__ == "__main__":
