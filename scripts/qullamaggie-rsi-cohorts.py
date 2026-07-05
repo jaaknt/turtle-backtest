@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-RSI(14) cohort analysis for bk50d_s20_tr10 and bk50d_s15_tr15 (366d hold).
+RSI(14) cohort analysis for bk50d_s20_tr20_v1.2_roc100, bk50d_s15_tr20_v1.2_roc100 (366d hold).
 
-All strategy filters applied EXCEPT the rsi14 < 80 cap, so we can see
-performance across the full RSI(14) range including the 80-100 band.
+All strategy filters applied EXCEPT the rsi14 < 70 cap, so we can see
+performance across the full RSI(14) range including the 70-100 band.
 
 Period: 2015-01-01 – 2026-06-26  (burn-in from 2013-01-01)
 """
@@ -32,11 +32,15 @@ COOLDOWN = 30
 VOL_DRY_UP = 0.80
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
+ADR_MIN = 0.03
+ADR_CHANGE_CAP = 0.90
+TR_FIXED = 0.20
+RSI_CAP = 70.0
 MIN_NEG = 5
 
 STRATEGIES = [
-    ("bk50d_s20_tr10_v1.2_roc100", 0.20, 0.10),
-    ("bk50d_s15_tr15_v1.2_roc100", 0.15, 0.15),
+    ("bk50d_s20_tr20_v1.2_roc100", 0.20),
+    ("bk50d_s15_tr20_v1.2_roc100", 0.15),
 ]
 
 COHORTS: list[tuple[str, float, float]] = [
@@ -120,7 +124,7 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
         [
             pl.col("close").shift(1).over("symbol").alias("_c1"),
             pl.col("volume").cast(pl.Float64).shift(1).over("symbol").alias("_v1"),
-            (pl.col("high") - pl.col("low")).shift(1).over("symbol").alias("_dr1"),
+            ((pl.col("high") - pl.col("low")) / pl.col("low")).shift(1).over("symbol").alias("_rp1"),
         ]
     )
     df = df.with_columns(pl.col("_c1").diff(1).over("symbol").alias("_diff"))
@@ -148,7 +152,9 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("_c1").rolling_max(10, min_samples=10).over("symbol").alias("_tr_max"),
             pl.col("_c1").rolling_min(10, min_samples=10).over("symbol").alias("_tr_min"),
             pl.col("_c1").rolling_mean(10, min_samples=10).over("symbol").alias("_tr_mean"),
-            pl.col("_dr1").rolling_mean(20, min_samples=20).over("symbol").alias("_adr_num"),
+            pl.col("_rp1").rolling_mean(20, min_samples=20).over("symbol").alias("adr_pct"),
+            pl.col("_rp1").rolling_mean(10, min_samples=10).over("symbol").alias("_adr10"),
+            pl.col("_rp1").rolling_mean(50, min_samples=50).over("symbol").alias("_adr50"),
             pl.col("_c1").shift(251).over("symbol").alias("_c_252d"),
         ]
     )
@@ -156,17 +162,17 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
         [
             ((pl.col("_tr_max") - pl.col("_tr_min")) / pl.col("_tr_mean")).alias("tight_range_ratio"),
             ((pl.col("close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
-            (pl.col("_adr_num") / pl.col("sma50")).alias("adr_pct"),
+            (pl.col("_adr10") / pl.col("_adr50")).alias("adr_pct_change"),
             (pl.col("close") / pl.col("_c_252d") - 1.0).alias("roc_252d"),
         ]
     )
-    return df.drop(["_c1", "_v1", "_dr1", "_tr_max", "_tr_min", "_tr_mean", "_adr_num", "_c_252d"])
+    return df.drop(["_c1", "_v1", "_rp1", "_tr_max", "_tr_min", "_tr_mean", "_adr10", "_adr50", "_c_252d"])
 
 
-# ── Signal generation (no rsi14 < 80 cap) ────────────────────────────────────
+# ── Signal generation (no rsi14 < 70 cap) ─────────────────────────────────────
 
 
-def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float, tr_t: float) -> pl.DataFrame:
+def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
     cands = (
         df.filter(
             (pl.col("date") >= EVAL_START)
@@ -176,13 +182,16 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float, tr_t: flo
             & pl.col("tight_range_ratio").is_not_null()
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
+            & pl.col("adr_pct_change").is_not_null()
+            & pl.col("adr_pct").is_not_null()
             & (pl.col("close") > MIN_PRICE)
             & (pl.col("close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
-            & (pl.col("adr_pct") >= 0.025)
+            & (pl.col("adr_pct") >= ADR_MIN)
+            & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
             & (pl.col("close") > pl.col("max_c_50d"))
-            & (pl.col("pct_vs_sma50") >= sma_t)
-            & (pl.col("tight_range_ratio") <= tr_t)
+            & (pl.col("pct_vs_sma50") > sma_t)
+            & (pl.col("tight_range_ratio") < TR_FIXED)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
@@ -284,11 +293,10 @@ def build_table(label: str, records: list[dict]) -> list[str]:
     m_all = compute_metrics(all_rets)
     if m_all:
         lines.append(fmt_cohort_row("ALL", m_all))
-    # reference: current strategy filter cap RSI < 80
-    ref_rets = np.array([r["ret"] for r in records if r["rsi"] < 80.0])
+    ref_rets = np.array([r["ret"] for r in records if r["rsi"] < RSI_CAP])
     m_ref = compute_metrics(ref_rets)
     if m_ref:
-        lines.append(fmt_cohort_row("<80 (cap)", m_ref))
+        lines.append(fmt_cohort_row(f"<{int(RSI_CAP)} (cap)", m_ref))
     lines.append("")
     return lines
 
@@ -320,15 +328,15 @@ def main() -> None:
     header = (
         f"RSI(14) cohort analysis | Hold: {HOLD_CAL}d | "
         f"Period: {EVAL_START} – {EVAL_END}\n"
-        f"Filters: all bk50d fixed filters applied; rsi14 < 80 cap removed for cohort view\n"
+        f"Filters: all bk50d fixed filters applied; rsi14 < {int(RSI_CAP)} cap removed for cohort view\n"
     )
     print("\n" + header)
 
     all_lines: list[str] = [header]
 
-    for strat_label, sma_t, tr_t in STRATEGIES:
+    for strat_label, sma_t in STRATEGIES:
         print(f"  {strat_label} …", flush=True)
-        signals = get_signals(df, bull_dates, sma_t, tr_t)
+        signals = get_signals(df, bull_dates, sma_t)
         print(f"    {len(signals)} signals", flush=True)
         records = run_trades(signals, sym_dates, sym_closes)
         table_lines = build_table(strat_label, records)
