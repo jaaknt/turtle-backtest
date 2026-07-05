@@ -136,8 +136,8 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
             "date": pl.Series([r[1] for r in rows], dtype=pl.Date),
             "raw_close": [float(r[2]) for r in rows],
             "close": [float(r[3]) for r in rows],
-            "high": [float(r[4]) * f for r, f in zip(rows, factor)],
-            "low": [float(r[5]) * f for r, f in zip(rows, factor)],
+            "high": [float(r[4]) * f for r, f in zip(rows, factor, strict=True)],
+            "low": [float(r[5]) * f for r, f in zip(rows, factor, strict=True)],
             "volume": [int(r[6]) for r in rows],
         }
     )

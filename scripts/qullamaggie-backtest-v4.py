@@ -106,8 +106,8 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
             "date": pl.Series([r[1] for r in rows], dtype=pl.Date),
             "raw_close": [float(r[2]) for r in rows],
             "close": [float(r[3]) for r in rows],
-            "high": [float(r[4]) * f for r, f in zip(rows, factor)],
-            "low": [float(r[5]) * f for r, f in zip(rows, factor)],
+            "high": [float(r[4]) * f for r, f in zip(rows, factor, strict=True)],
+            "low": [float(r[5]) * f for r, f in zip(rows, factor, strict=True)],
             "volume": [int(r[6]) for r in rows],
         }
     )
@@ -351,7 +351,8 @@ def fmt_row(rank: int, label: str, hold_cal: int, m: dict, yrs: str, cons: bool)
     c = "✓" if cons else " "
     return (
         f"{rank:>4}  {label:<30}  {hold_cal:>4}d  "
-        f"{m['n']:>4}  {m['win']:>5.1f}  {m['mean']:>+7.2f}  {m['ann_mean']:>+8.2f}  {m['med']:>+7.2f}  {m['q75']:>+7.2f}  {m['pf']:>5.2f}  {m['sr']:>7.3f}  "
+        f"{m['n']:>4}  {m['win']:>5.1f}  {m['mean']:>+7.2f}  {m['ann_mean']:>+8.2f}  {m['med']:>+7.2f}  "
+        f"{m['q75']:>+7.2f}  {m['pf']:>5.2f}  {m['sr']:>7.3f}  "
         f"{m['mdd']:>7.2f}  {m['cvar']:>+7.2f}  {m['freq']:>5.1f}  {yrs:>5}  {c}"
     )
 
