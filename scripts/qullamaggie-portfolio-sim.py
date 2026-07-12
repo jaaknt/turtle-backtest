@@ -409,9 +409,7 @@ def main() -> None:
                     n_skipped += 1
                     continue
                 cash -= target
-                positions.append(
-                    {"sym": o["sym"], "shares": target / o["limit_price"], "exit_int": dint + HOLD_CAL}
-                )
+                positions.append({"sym": o["sym"], "shares": target / o["limit_price"], "exit_int": dint + HOLD_CAL})
                 n_taken += 1
                 entry_dates.append(d)
             pending = still_pending
@@ -595,10 +593,7 @@ def main() -> None:
             signals_by_day.setdefault((r["date"] - _EPOCH).days, []).append(r)
 
         out(f"\n\n## {name}  (bk50d_{name}_v1.2_roc100 / 366d)\n")
-        hdr = (
-            f"{'size':<6} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} {'Sortino':>8} "
-            f"{'taken':>6} {'skip':>6} {'Uninv%':>7}"
-        )
+        hdr = f"{'size':<6} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} {'Sortino':>8} {'taken':>6} {'skip':>6} {'Uninv%':>7}"
 
         out("### EOD (buy at signal-day close)\n")
         out(hdr)
@@ -614,9 +609,7 @@ def main() -> None:
                 f"{r['avg_uninv_pct']:>6.1f}%"
             )
 
-        out(
-            f"\n### {limit_label} (resting {LIMIT_WINDOW_CAL}d, buy {LIMIT_DISCOUNT * 100:.0f}% below signal-day close)\n"
-        )
+        out(f"\n### {limit_label} (resting {LIMIT_WINDOW_CAL}d, buy {LIMIT_DISCOUNT * 100:.0f}% below signal-day close)\n")
         out(hdr)
         out("-" * len(hdr))
         limit_results: dict[float, dict] = {}
