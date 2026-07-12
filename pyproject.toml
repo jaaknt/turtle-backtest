@@ -37,6 +37,10 @@ packages = ["turtle"]
 
 [tool.pytest.ini_options]
 filterwarnings = ["ignore::DeprecationWarning:websockets.legacy.*"]
+addopts = ["-m", "not bruno"]
+markers = [
+    "bruno: runs the Bruno CLI against the real EODHD API (requires bru + EODHD_API_KEY); excluded by default, run with `-m bruno`",
+]
 
 [tool.ruff]
 target-version = "py313"

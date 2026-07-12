@@ -2,6 +2,7 @@ info:
   name: Get exchange tickers
   type: http
   seq: 4
+  tags: [positive]
 
 http:
   method: GET
@@ -20,3 +21,21 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("status is 200", function() {
+          expect(res.status).to.equal(200);
+        });
+        test("returns a non-empty array of tickers", function() {
+          expect(res.body).to.be.an('array').that.is.not.empty;
+        });
+        test("each ticker has all fields turtle/schema/eodhd/ticker.py uses", function() {
+          const ticker = res.body[0];
+          const fields = ['Code', 'Name', 'Country', 'Exchange', 'Currency', 'Type', 'Isin'];
+          fields.forEach(function(field) {
+            expect(ticker).to.have.property(field);
+          });
+        });
