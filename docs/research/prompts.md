@@ -1,4 +1,4 @@
-could you provide bk50d_s12_tr20_v1.2_roc100 signals for period 2025-07-01 : today
+could you provide bk50d_s12_tr20_v1.2_roc100 signals for period 2026-06-01 : today
 mark signals that are also in bk50d_s20_tr20_v1.2_roc100
 provide information to signals that are not in bk50d_s20_tr20_v1.2_roc100 list what was missing
 Date    │ Symbol │ Entry $ │ Curr Price | Change in % | %abv SMA50 │ ADR% │ ADR_CHANGE │ RSI14 │ TR% │ ROC252% | Latest date |
@@ -6,9 +6,10 @@ Date    │ Symbol │ Entry $ │ Curr Price | Change in % | %abv SMA50 │ ADR
 Latest date - latest date when stock data is availbale in `turtle.daily_bars` table
 Write also separate table with aggregated results where `%abv SMA50` is in cohorts [12-15), [15-17.5), [17.5-20), [>20)
 Cohort | N |  Med% | Mean% | Win% | PF | Sortino | Max DD |
-Compare also mean(Mean%) with SPY.US, QQQ.US return for whole period  
+Compare also mean(Mean%) with SPY.US, QQQ.US return for whole period. Exclude LC.US and other suspicious data points.
 script: @scripts/qullamaggie-signals-v4.py
-output: @docs/research/result-qullamaggie-signals-v4.md
+<!-- output: @docs/research/result-qullamaggie-signals-v4.md -->
+output: screen
 references:  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
 
 analyze bk50d_s15_tr15_v1.2_roc100 366d results in period 2001-01-01 : 2026-06-26
@@ -21,25 +22,29 @@ could you propose rankig algorithm for  s15_tr15 trades that will select only tr
 validate that @docs/research/qullamaggie-backtest-v4.md and @scripts/qullamaggie-backtest-v4.py are consistent
 run the backtest described in @docs/research/qullamaggie-backtest-v4.md
 
-could you provide portfolio simulation bk50d_s20_tr20_v1.2_roc100-366d, bk50d_s17_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d
+could you provide portfolio simulation bk50d_s20_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d, bk50d_s12_tr20_v1.2_roc100-366d
 important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md, @scripts/qullamaggie-portfolio-sim.py
-- period 2018-01-01 : 2026-06-26
+- period 2020-01-01 : 2026-06-26
 - initial portfolio amount 30000$
 - invest {3%, 4%, 5%, 6%, 7%, 8%} of portfolio at the time per trade
 - if there is no liquidity then skip the trade
 <!-- - prefer always bk50d_s20_tr10_v1.2_roc100 signals, but if there is liquidity then use bk50d_s15_tr15_v1.2_roc100 signals to reduce uninvested amounts
  - implement rank based funding to choose trade if there are several trades available on the same day 
 - sell position if stock closes below 200 day SMA for 3 consequtive trades -->
-- provide these metrics as output
-  Mean% per months/years (rows are years and columns are months)
-  Portfolio Max DD 
-  Portfolio Calmar ratio
-  Portfolio Sortino ratio  
-  signals taken / skipped
-  average uninvested capital per month
+- output format
+size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
+--------------------------------------------------------------------------
+3%         145,397  +20.44   -30.34   0.674    0.885    261    977   14.4%
+4%         162,566  +22.04   -29.08   0.758    0.938    198   1040   13.5%
+5%         187,419  +24.10   -28.07   0.859    0.977    160   1078   11.8%
+- for top 5 algorithms by `Calmar` and by `Final$` print `monthly returns` and `trades count in particular month` by years (years are rows, months are columns)
+ Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ 2010 |    -3.2|7    +3.8|1    +2.6|1    -0.4|2    -2.4|0    -3.9|0    +2.9|0    -3.1|4    +5.5|2    +1.0|2    -0.3|2    +8.3|6 |   +10.5    27
+- could you provide comparison with alternative approach where limit order will be added to buy stock 3% below closing price during next 30 days (instead of buying on closing proce)
 - add your findings to improve the portfolio perfoermance (Mean%, Sortino, Calmar)
-- for top 10 algorithms print monthly returns by years (years are rows, months are columns)
-- output file @docs/research/result-qullamaggie-portfolio-v4.md
+output file: @docs/research/result-qullamaggie-portfolio-v4.md
+script: @scripts/qullamaggie-portfolio-sim.py
 
 could you provide bk50d_s20_tr20_v1.2_roc100 signals for period 2025-07-01 : today
 Date    │ Symbol │ Entry $ │ Curr Price | Change in % | %abv SMA50 │ ADR% │ ADR_CHANGE │ RSI14 │ TR% │ ROC252% |
@@ -122,6 +127,23 @@ references:  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-q
  analyze period: 2015-01-01 : 2026-06-26  
  save results in @docs/research/result-qullamaggie-tightrange-cohorts.md
  important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
+
+Could you analyze bk50d_s20_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d, bk50d_s12_tr20_v1.2_roc100-366d algorithms
+how buying on next day with limit order: limit order price = previous day closing price - X% affects results
+X% = 0%, 1%, 2%, 3%4%, 5% 
+limit order is effective during next 30 days
+output format columns
+Cohort            N     Med%    Mean%    Win%   Sortino      PF
+Additionally provide monthly Mean%, trade count by months/years bk50d_s20_tr20 eod, bk50d_s25_tr20 eod, bk50d_s12_tr20 eod
+Output format ->
+ Year |    Jan    Feb    Mar    Apr    May    Jun    Jul    Aug    Sep    Oct    Nov    Dec |   Mean%    N
+------------------------------------------------------------------------------------------------------------
+ 2010 |  +22.3|2   -4.5|1      ·      ·  +46.4|5      ·      ·  -31.4|2  -28.6|4  -39.1|2      ·      · |    -4.4|3   19
+ analyze period: 2010-01-01 : 2026-06-26  
+ script: @scripts/qullamaggie-limit-order-cohorts.py
+ save results in @docs/research/result-qullamaggie-limit-order-cohorts.md
+ important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
+
 
  could you analyze bk50d_s12_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d, bk50d_s17_tr20_v1.2_roc100-366d, bk50d_s20_tr20_v1.2_roc100-366d algorithms
    in period 2007-01-01 : 2026-06-26

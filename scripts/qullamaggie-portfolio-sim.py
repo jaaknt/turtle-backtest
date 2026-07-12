@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Portfolio simulation for bk50d_s20_tr20 / s17_tr20 / s15_tr20 (v1.2_roc100, 366d).
+Portfolio simulation for bk50d_s20_tr20 / s15_tr20 / s12_tr20 (v1.2_roc100, 366d).
 
-Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=2.5%,
+Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
 ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<80%, tight_range<20%, SPY>200d SMA,
 close>$5&<$250, avg_vol>=500K).
 
 Rules:
-  - Period 2018-01-01 .. 2026-06-26, initial equity $30,000.
+  - Period 2020-01-01 .. 2026-06-26, initial equity $30,000.
   - Each signal: buy at the entry-day close, sizing = {3%,4%,5%,6%,7%,8%} of current portfolio
     value (cash + open positions marked to market).
   - If available cash < the target, skip the trade (no liquidity).
@@ -15,7 +15,15 @@ Rules:
     (open positions at period end are marked to market, not force-closed).
   - Fractional shares, no commission/slippage.
 
-Outputs: monthly portfolio return grid (year x month), Max DD, Calmar, Sortino.
+Alternative entry compared side-by-side with the EOD baseline: a resting limit buy at
+signal_day_close * (1 - LIMIT_DISCOUNT), good for LIMIT_WINDOW_CAL calendar days. It fills on
+the first day the low touches the limit price (subject to the same liquidity check, sized off
+the portfolio value at the moment of the fill, not the signal day); if the price condition is
+never met within the window, the order expires unfilled. Both approaches share the same 366d
+time-based exit.
+
+Outputs: monthly portfolio return + transaction-count grid (year x month), Max DD, Calmar,
+Sortino, signals taken/skipped, average uninvested capital.
 """
 
 import sys
@@ -30,7 +38,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from turtle.config.settings import Settings
 
 _EPOCH = date(1970, 1, 1)
-EVAL_START = date(2018, 1, 1)
+EVAL_START = date(2020, 1, 1)
 EVAL_END = date(2026, 6, 26)
 DATA_START = "2000-01-01"
 INIT_EQUITY = 30_000.0
@@ -40,6 +48,8 @@ BELOW_DAYS = 3  # consecutive days below 200d SMA to trigger trend exit
 STOP_DD = 0.30  # fixed stop: close <= (1-STOP_DD) * entry price
 TRAIL_DD = 0.25  # trailing stop: close <= (1-TRAIL_DD) * peak-since-entry
 RANK_FUNDING = False  # when cash is scarce, fund competing signals by ADR (desc)
+LIMIT_DISCOUNT = 0.03  # alternative entry: resting limit at close * (1 - LIMIT_DISCOUNT)
+LIMIT_WINDOW_CAL = 30  # limit order stays resting this many calendar days after the signal
 
 EXIT_MODES = ["time"]  # 366d time cap only
 MIN_AVG_VOL = 500_000
@@ -51,13 +61,13 @@ VOL_DRY_UP = 0.80
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
-ADR_FLOOR = 0.025
+ADR_FLOOR = 0.03
 ADR_CHANGE_CAP = 0.90
 
 CONFIGS = [
     ("s20_tr20", 0.20, 0.20),
-    ("s17_tr20", 0.17, 0.20),
     ("s15_tr20", 0.15, 0.20),
+    ("s12_tr20", 0.12, 0.20),
 ]
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -215,11 +225,13 @@ def main() -> None:
     # per-symbol arrays for mark-to-market / entry / exit
     sym_dates: dict[str, np.ndarray] = {}
     sym_closes: dict[str, np.ndarray] = {}
+    sym_lows: dict[str, np.ndarray] = {}
     sym_sma200: dict[str, np.ndarray] = {}
     for (sym,), grp in df.sort(["symbol", "date"]).group_by(["symbol"], maintain_order=False):
         g = grp.sort("date")
         sym_dates[sym] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int64)
         sym_closes[sym] = g["close"].cast(pl.Float64).to_numpy(allow_copy=True)
+        sym_lows[sym] = g["low"].cast(pl.Float64).to_numpy(allow_copy=True)
         sym_sma200[sym] = g["sma200"].cast(pl.Float64).to_numpy(allow_copy=True)
 
     def _idx_on(sym: str, dint: int) -> int:
@@ -231,6 +243,10 @@ def main() -> None:
     def price_on(sym: str, dint: int) -> float | None:
         idx = _idx_on(sym, dint)
         return float(sym_closes[sym][idx]) if idx >= 0 else None
+
+    def low_on(sym: str, dint: int) -> float | None:
+        idx = _idx_on(sym, dint)
+        return float(sym_lows[sym][idx]) if idx >= 0 else None
 
     def below_sma200(sym: str, dint: int) -> bool:
         idx = _idx_on(sym, dint)
@@ -254,6 +270,7 @@ def main() -> None:
         positions: list[dict] = []
         equity_curve: list[tuple[date, float]] = []
         cash_curve: list[float] = []
+        entry_dates: list[date] = []
         n_taken = n_skipped = n_exit_rule = 0
 
         for d, dint in zip(cal, cal_int, strict=False):
@@ -306,6 +323,7 @@ def main() -> None:
                     }
                 )
                 n_taken += 1
+                entry_dates.append(d)
 
             equity = cash + sum(p["shares"] * (price_on(p["sym"], dint) or 0.0) for p in positions)
             equity_curve.append((d, equity))
@@ -348,23 +366,135 @@ def main() -> None:
             "avg_uninv_pct": avg_uninv_pct,
             "avg_uninv_usd": avg_uninv_usd,
             "eom": eom,
+            "entries": entry_dates,
         }
 
-    def monthly_grid(eom: pl.DataFrame) -> None:
+    def run_sim_limit(signals_by_day: dict[int, list[dict]], pos_fraction: float) -> dict:
+        """Resting limit buy at signal_day_close * (1 - LIMIT_DISCOUNT), good for
+        LIMIT_WINDOW_CAL calendar days. Fills on the first day the low touches the limit
+        price, sized off the portfolio value at the moment of the fill (not the signal day);
+        if cash is short at that moment the order is dropped (liquidity skip, no retry). Same
+        366d time-based exit as run_sim."""
+        cash = INIT_EQUITY
+        positions: list[dict] = []
+        pending: list[dict] = []
+        equity_curve: list[tuple[date, float]] = []
+        cash_curve: list[float] = []
+        entry_dates: list[date] = []
+        n_taken = n_skipped = 0
+
+        for d, dint in zip(cal, cal_int, strict=False):
+            still_open = []
+            for p in positions:
+                if dint >= p["exit_int"]:
+                    px = price_on(p["sym"], dint)
+                    if px is not None:
+                        cash += p["shares"] * px
+                else:
+                    still_open.append(p)
+            positions = still_open
+
+            still_pending = []
+            for o in pending:
+                if dint > o["expire_int"]:
+                    n_skipped += 1
+                    continue
+                low = low_on(o["sym"], dint)
+                if low is None or low > o["limit_price"]:
+                    still_pending.append(o)
+                    continue
+                mtm = cash + sum(p["shares"] * (price_on(p["sym"], dint) or 0.0) for p in positions)
+                target = pos_fraction * mtm
+                if cash + 1e-9 < target:
+                    n_skipped += 1
+                    continue
+                cash -= target
+                positions.append(
+                    {"sym": o["sym"], "shares": target / o["limit_price"], "exit_int": dint + HOLD_CAL}
+                )
+                n_taken += 1
+                entry_dates.append(d)
+            pending = still_pending
+
+            for s in signals_by_day.get(dint, []):
+                entry_px = price_on(s["symbol"], dint)
+                if entry_px is None or entry_px <= 0:
+                    continue
+                pending.append(
+                    {
+                        "sym": s["symbol"],
+                        "limit_price": entry_px * (1.0 - LIMIT_DISCOUNT),
+                        "expire_int": dint + LIMIT_WINDOW_CAL,
+                    }
+                )
+
+            equity = cash + sum(p["shares"] * (price_on(p["sym"], dint) or 0.0) for p in positions)
+            equity_curve.append((d, equity))
+            cash_curve.append(cash)
+
+        dates = [e[0] for e in equity_curve]
+        eq = np.array([e[1] for e in equity_curve])
+        cash_arr = np.array(cash_curve)
+        avg_uninv_pct = float(np.mean(cash_arr / eq) * 100)
+        avg_uninv_usd = float(np.mean(cash_arr))
+        daily_ret = eq[1:] / eq[:-1] - 1.0
+        max_dd = float((eq / np.maximum.accumulate(eq) - 1.0).min())
+        n_days = (dates[-1] - dates[0]).days
+        cagr = (eq[-1] / eq[0]) ** (365.0 / n_days) - 1.0
+        calmar = cagr / abs(max_dd) if max_dd < 0 else float("inf")
+        neg = daily_ret[daily_ret < 0]
+        dd_daily = float(np.sqrt(np.mean(neg**2))) if len(neg) else float("nan")
+        sortino = float(np.mean(daily_ret) * np.sqrt(252) / dd_daily) if dd_daily > 0 else float("nan")
+
+        eq_df = pl.DataFrame({"date": pl.Series(dates, dtype=pl.Date), "eq": eq}).with_columns(
+            [
+                pl.col("date").dt.year().alias("year"),
+                pl.col("date").dt.month().alias("month"),
+            ]
+        )
+        eom = eq_df.group_by(["year", "month"]).agg(pl.col("eq").last().alias("eom")).sort(["year", "month"])
+        eom = eom.with_columns((pl.col("eom") / pl.col("eom").shift(1) - 1.0).alias("ret"))
+        eom = eom.with_columns(
+            pl.when(pl.col("ret").is_null()).then(pl.col("eom") / INIT_EQUITY - 1.0).otherwise(pl.col("ret")).alias("ret")
+        )
+        return {
+            "final": float(eq[-1]),
+            "cagr": cagr,
+            "max_dd": max_dd,
+            "calmar": calmar,
+            "sortino": sortino,
+            "taken": n_taken,
+            "skipped": n_skipped,
+            "avg_uninv_pct": avg_uninv_pct,
+            "avg_uninv_usd": avg_uninv_usd,
+            "eom": eom,
+            "entries": entry_dates,
+        }
+
+    def monthly_grid(eom: pl.DataFrame, entries: list[date]) -> None:
+        entry_counts: dict[tuple[int, int], int] = {}
+        for ed in entries:
+            key = (ed.year, ed.month)
+            entry_counts[key] = entry_counts.get(key, 0) + 1
+
         out("```")
-        header = f"{'Year':>5} | " + " ".join(f"{m:>6}" for m in MONTHS) + f" | {'Year%':>7}"
+        header = f"{'Year':>5} | " + " ".join(f"{m:>9}" for m in MONTHS) + f" | {'Year%':>7} {'Txns':>5}"
         out(header)
         out("-" * len(header))
         for yr in sorted(eom["year"].unique().to_list()):
             parts, comp = [], 1.0
+            year_txns = 0
             for mo in range(1, 13):
                 r = eom.filter((pl.col("year") == yr) & (pl.col("month") == mo))["ret"].to_list()
+                cnt = entry_counts.get((yr, mo), 0)
+                year_txns += cnt
                 if r:
-                    parts.append(f"{r[0] * 100:>+6.1f}")
+                    cell = f"{r[0] * 100:+.1f}|{cnt}"
                     comp *= 1 + r[0]
                 else:
-                    parts.append(f"{'·':>6}")
-            out(f"{yr:>5} | " + " ".join(parts) + f" | {(comp - 1) * 100:>+7.1f}")
+                    cell = "·"
+                parts.append(f"{cell:>9}")
+            out(f"{yr:>5} | " + " ".join(parts) + f" | {(comp - 1) * 100:>+7.1f} {year_txns:>5}")
         out("```")
 
     def run_blend(s20_by_day: dict, s15_by_day: dict, pos_fraction: float) -> dict:
@@ -452,8 +582,10 @@ def main() -> None:
         f"exit: time {HOLD_CAL}d only  |  sizes: {', '.join(f'{f:.0%}' for f in POS_FRACTIONS)}"
     )
 
-    # collect all results first, then rank for monthly grids
-    all_results: list[tuple[str, float, dict]] = []  # (name, pos_fraction, result)
+    limit_label = f"LIMIT-{LIMIT_DISCOUNT * 100:.0f}%"
+
+    # collect all results first (both approaches), then rank for monthly grids
+    all_results: list[tuple[str, str, float, dict]] = []  # (name, approach, pos_fraction, result)
 
     for name, sma_t, tr_t in CONFIGS:
         print(f"Simulating {name} …", flush=True)
@@ -463,24 +595,68 @@ def main() -> None:
             signals_by_day.setdefault((r["date"] - _EPOCH).days, []).append(r)
 
         out(f"\n\n## {name}  (bk50d_{name}_v1.2_roc100 / 366d)\n")
-        hdr = f"{'size':<6} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} {'Sortino':>8} {'taken':>6} {'skip':>6} {'Uninv%':>7}"
+        hdr = (
+            f"{'size':<6} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} {'Sortino':>8} "
+            f"{'taken':>6} {'skip':>6} {'Uninv%':>7}"
+        )
+
+        out("### EOD (buy at signal-day close)\n")
         out(hdr)
         out("-" * len(hdr))
+        eod_results: dict[float, dict] = {}
         for pf in POS_FRACTIONS:
             r = run_sim(signals_by_day, "time", pf)
-            all_results.append((name, pf, r))
+            eod_results[pf] = r
+            all_results.append((name, "EOD", pf, r))
             out(
                 f"{pf:<6.0%} {r['final']:>11,.0f} {r['cagr'] * 100:>+7.2f} {r['max_dd'] * 100:>8.2f} "
                 f"{r['calmar']:>7.3f} {r['sortino']:>8.3f} {r['taken']:>6} {r['skipped']:>6} "
                 f"{r['avg_uninv_pct']:>6.1f}%"
             )
 
-    # monthly grids for top 10 by Calmar
-    ranked = sorted(all_results, key=lambda x: x[2]["calmar"], reverse=True)
-    out("\n\n## Monthly returns — top 10 by Calmar\n")
-    for rank, (name, pf, r) in enumerate(ranked[:10], 1):
-        out(f"\n### #{rank}  {name} — size {pf:.0%}  (Calmar {r['calmar']:.3f})")
-        monthly_grid(r["eom"])
+        out(
+            f"\n### {limit_label} (resting {LIMIT_WINDOW_CAL}d, buy {LIMIT_DISCOUNT * 100:.0f}% below signal-day close)\n"
+        )
+        out(hdr)
+        out("-" * len(hdr))
+        limit_results: dict[float, dict] = {}
+        for pf in POS_FRACTIONS:
+            r = run_sim_limit(signals_by_day, pf)
+            limit_results[pf] = r
+            all_results.append((name, limit_label, pf, r))
+            out(
+                f"{pf:<6.0%} {r['final']:>11,.0f} {r['cagr'] * 100:>+7.2f} {r['max_dd'] * 100:>8.2f} "
+                f"{r['calmar']:>7.3f} {r['sortino']:>8.3f} {r['taken']:>6} {r['skipped']:>6} "
+                f"{r['avg_uninv_pct']:>6.1f}%"
+            )
+
+        out(f"\n### EOD vs {limit_label} comparison\n")
+        cmp_hdr = (
+            f"{'size':<6} {'EOD Calmar':>11} {limit_label + ' Calmar':>16} {'EOD Sortino':>12} "
+            f"{limit_label + ' Sortino':>17} {'EOD Final$':>12} {limit_label + ' Final$':>16}"
+        )
+        out(cmp_hdr)
+        out("-" * len(cmp_hdr))
+        for pf in POS_FRACTIONS:
+            e = eod_results[pf]
+            lm = limit_results[pf]
+            out(
+                f"{pf:<6.0%} {e['calmar']:>11.3f} {lm['calmar']:>16.3f} {e['sortino']:>12.3f} "
+                f"{lm['sortino']:>17.3f} {e['final']:>12,.0f} {lm['final']:>16,.0f}"
+            )
+
+    # monthly grids for top 5 by Calmar, and separately top 5 by Final$ (both approaches combined)
+    ranked_calmar = sorted(all_results, key=lambda x: x[3]["calmar"], reverse=True)
+    out("\n\n## Monthly returns/transactions — top 5 by Calmar (EOD + limit combined)\n")
+    for rank, (name, approach, pf, r) in enumerate(ranked_calmar[:5], 1):
+        out(f"\n### #{rank}  {name} {approach} — size {pf:.0%}  (Calmar {r['calmar']:.3f})")
+        monthly_grid(r["eom"], r["entries"])
+
+    ranked_final = sorted(all_results, key=lambda x: x[3]["final"], reverse=True)
+    out("\n\n## Monthly returns/transactions — top 5 by Final$ (EOD + limit combined)\n")
+    for rank, (name, approach, pf, r) in enumerate(ranked_final[:5], 1):
+        out(f"\n### #{rank}  {name} {approach} — size {pf:.0%}  (Final ${r['final']:,.0f})")
+        monthly_grid(r["eom"], r["entries"])
 
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
     RESULT_PATH.write_text("\n".join(lines) + "\n")
