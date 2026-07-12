@@ -2,6 +2,7 @@ info:
   name: Get exchanges list
   type: http
   seq: 3
+  tags: [positive]
 
 http:
   method: GET
@@ -20,3 +21,21 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("status is 200", function() {
+          expect(res.status).to.equal(200);
+        });
+        test("returns a non-empty array of exchanges", function() {
+          expect(res.body).to.be.an('array').that.is.not.empty;
+        });
+        test("each exchange has all fields turtle/schema/eodhd/exchange.py uses", function() {
+          const exchange = res.body[0];
+          const fields = ['Name', 'Code', 'Country', 'Currency', 'CountryISO3'];
+          fields.forEach(function(field) {
+            expect(exchange).to.have.property(field);
+          });
+        });

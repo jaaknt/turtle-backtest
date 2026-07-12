@@ -2,6 +2,7 @@ info:
   name: Get company extended data
   type: http
   seq: 2
+  tags: [positive]
 
 http:
   method: GET
@@ -23,3 +24,26 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("status is 200", function() {
+          expect(res.status).to.equal(200);
+        });
+        test("response has a data.AMZN.US entry", function() {
+          expect(res.body).to.have.property('data');
+          expect(res.body.data).to.have.property('AMZN.US');
+        });
+        test("AMZN.US entry has all fields turtle/schema/eodhd/company.py uses", function() {
+          const company = res.body.data['AMZN.US'];
+          const fields = [
+            'symbol', 'type', 'name', 'sector', 'industry',
+            'averageVolume', 'fiftyDayAveragePrice', 'dividendYield',
+            'marketCap', 'pe', 'forwardPE'
+          ];
+          fields.forEach(function(field) {
+            expect(company).to.have.property(field);
+          });
+        });

@@ -2,6 +2,7 @@ info:
   name: Get stock history
   type: http
   seq: 1
+  tags: [positive]
 
 http:
   method: GET
@@ -32,3 +33,21 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("status is 200", function() {
+          expect(res.status).to.equal(200);
+        });
+        test("returns a non-empty array of daily bars", function() {
+          expect(res.body).to.be.an('array').that.is.not.empty;
+        });
+        test("each bar has all fields turtle/schema/eodhd/daily_bars.py uses", function() {
+          const bar = res.body[0];
+          const fields = ['date', 'open', 'high', 'low', 'close', 'adjusted_close', 'volume'];
+          fields.forEach(function(field) {
+            expect(bar).to.have.property(field);
+          });
+        });
