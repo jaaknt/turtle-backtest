@@ -4,7 +4,7 @@ Current-period signal report for bk50d_s12_tr20_v1.2_roc100 vs bk50d_s20_tr20_v1
 
 Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
 ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<80%, tight_range<20%, SPY>200d SMA,
-close>$5&<$250, avg_vol>=500K). Display window: 2025-07-01 - today.
+close>$5&<$250, avg_vol>=500K). Display window: 2026-06-01 - today.
 Candidate window starts earlier so the 30-day cooldown state is correct at the start of the
 display window.
 
@@ -28,7 +28,7 @@ import sqlalchemy as sa
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from turtle.config.settings import Settings
 
-DISPLAY_START = date(2025, 7, 1)
+DISPLAY_START = date(2026, 6, 1)
 DISPLAY_END = date.today()
 CANDIDATE_START = date(2025, 1, 1)
 BAR_LOAD_START = date(2023, 1, 1)
@@ -45,6 +45,7 @@ RSI_CAP = 70.0
 ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 TR_FIXED = 0.20
+SUSPICIOUS_DAY_MOVE = 0.50  # exclude signals with a >50% single-day raw-close move between entry and latest date
 
 BASE_LABEL = "bk50d_s12_tr20_v1.2_roc100"
 BASE_SMA_T = 0.12
@@ -295,10 +296,17 @@ def main() -> None:
 
     lines: list[str] = [hdr, sep]
     missing_rows: list[dict] = []
+    excluded_rows: list[dict] = []
     cohort_returns: dict[str, list[float]] = {label: [] for _, _, label in COHORTS}
     cohort_mdds: dict[str, list[float]] = {label: [] for _, _, label in COHORTS}
     for row in base_sig.iter_rows(named=True):
         sym, d = row["symbol"], row["date"]
+        idx_entry = bisect_left(sym_dates[sym], d)
+        window = np.array(sym_raw_closes[sym][idx_entry:])
+        max_day_chg = float(np.abs(window[1:] / window[:-1] - 1.0).max()) if len(window) > 1 else 0.0
+        if max_day_chg > SUSPICIOUS_DAY_MOVE:
+            excluded_rows.append({**row, "max_day_chg": max_day_chg})
+            continue
         entry = row["raw_close"]
         curr = latest_raw_close.get(sym, float("nan"))
         chg = (curr / entry - 1.0) * 100 if entry else float("nan")
@@ -316,14 +324,15 @@ def main() -> None:
             missing_rows.append(row)
         label = cohort_label(sma_pct)
         cohort_returns[label].append(chg)
-        idx_entry = bisect_left(sym_dates[sym], d)
-        window = np.array(sym_raw_closes[sym][idx_entry:])
         running_max = np.maximum.accumulate(window)
         cohort_mdds[label].append(float((1.0 - window / running_max).max()))
 
     lines.append(sep)
-    also_in_compare = len(base_sig) - len(missing_rows)
-    summary = f"Total {BASE_LABEL} signals in window: {len(base_sig)}  |  Also in {COMPARE_LABEL}: {also_in_compare}"
+    shown = len(base_sig) - len(excluded_rows)
+    also_in_compare = shown - len(missing_rows)
+    summary = f"Total {BASE_LABEL} signals in window: {shown}  |  Also in {COMPARE_LABEL}: {also_in_compare}"
+    if excluded_rows:
+        summary += f"  |  Excluded as suspicious: {len(excluded_rows)}"
     lines.append(summary)
 
     output = "\n".join(lines)
@@ -350,6 +359,22 @@ def main() -> None:
 
     reasons_text = "\n".join(reason_lines)
     print("\n" + reasons_text)
+
+    excluded_lines: list[str] = []
+    if excluded_rows:
+        excluded_lines.append(
+            f"=== Excluded as suspicious data — single-day |Δraw_close| > {SUSPICIOUS_DAY_MOVE * 100:.0f}% "
+            f"between entry and latest available date (N={len(excluded_rows)}) ===\n"
+        )
+        for row in excluded_rows:
+            excluded_lines.append(
+                f"  {row['date']} {row['symbol']:<7} max 1-day move {row['max_day_chg'] * 100:.1f}% "
+                "— likely a data anomaly or delisting/halt-type event, not organic price action"
+            )
+    else:
+        excluded_lines.append("No signals excluded as suspicious.")
+    excluded_text = "\n".join(excluded_lines)
+    print("\n" + excluded_text)
 
     cohort_hdr = f"{'Cohort':<10} {'N':>4} {'Med%':>8} {'Mean%':>8} {'Win%':>7} {'PF':>6} {'Sortino':>8} {'MaxDD%':>7}"
     cohort_sep = "-" * len(cohort_hdr)
@@ -409,6 +434,15 @@ def main() -> None:
         fh.write("## Signals not in bk50d_s20_tr20_v1.2_roc100\n\n")
         fh.write("```\n")
         fh.write(reasons_text)
+        fh.write("\n```\n\n")
+        fh.write("## Excluded as suspicious data\n\n")
+        fh.write(
+            f"Signals with a single-day raw-close move exceeding {SUSPICIOUS_DAY_MOVE * 100:.0f}% between entry "
+            "and the latest available date are dropped from the table, cross-check, and cohort analysis above — "
+            "such a move is not organic price action for this universe (market cap ≥ $1.5B) and most likely "
+            "reflects a delisting/halt-type event or a data anomaly.\n\n```\n"
+        )
+        fh.write(excluded_text)
         fh.write("\n```\n\n")
         fh.write(f"## Cohort Analysis — {BASE_LABEL} by %abv SMA50 at entry\n\n")
         fh.write(

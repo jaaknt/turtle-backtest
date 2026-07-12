@@ -2,7 +2,7 @@
 """
 Current-period trade report for bk50d_s20_tr20_v1.2_roc100.
 
-Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=2.5%,
+Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
 ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<80%, tight_range<20%, SPY>200d SMA,
 close>$5&<$250, avg_vol>=500K). Display window: 2025-07-01 - today.
 Candidate window starts earlier so the 30-day cooldown state is correct at the start of the
@@ -34,7 +34,7 @@ VOL_DRY_UP = 0.80
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
-ADR_MIN = 0.025
+ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 TR_FIXED = 0.20
 SMA_T = 0.20
