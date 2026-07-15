@@ -5,9 +5,11 @@ Trade set: bk50d_s15_tr15_v1.2_roc100 / 366d  |  N=279
 Baseline (all trades): Win%=65.2  Med%=+15.57  Mean%=+34.05  Sortino=0.988
 
 ## Per-feature predictive power
+
 IC = Spearman rank corr(feature, 366d return). Top/Bot = top vs bottom
 tercile sorted ascending by feature.
 
+```text
 feature                 IC |  TopMed%  TopWin%  TopSR |  BotMed%  BotWin%  BotSR | dir
 --------------------------------------------------------------------------------------
 adr_pct             +0.039 |   +23.32     66.7   1.14 |   +10.66     68.8   0.70 | +
@@ -27,12 +29,15 @@ sma10_slope         +0.054 |   +22.69     66.7   1.18 |    +2.85     58.1   0.57
 vol_surge_ratio     -0.104 |    +7.99     59.1   0.59 |   +19.03     68.8   1.29 | +
 vol_dryup_ratio     -0.069 |   +18.96     66.7   0.73 |   +17.09     68.8   1.69 | -
 pos_52w             -0.121 |    +6.77     59.1   0.41 |   +20.95     69.9   1.15 | +
+```
 
 ## Composite ranking scores
 
 (A) Data-driven (|IC|>=0.05, empirical sign): pct_vs_sma50+, tight_range_ratio-, roc_252d-, ext_sma10-, ext_sma20-, breakout_margin-, sma10_20_spread+, vol_surge_ratio-, vol_dryup_ratio-, pos_52w-
 
 (A) Data-driven composite
+
+```text
 select            N   Win%     Med%    Mean%  Sortino   F/mo
 ----------------------------------------------------------
 all             279   65.2   +15.57   +34.05    0.988   4.29
@@ -40,8 +45,11 @@ top 75%         209   70.3   +21.20   +44.34    1.337   3.22
 top 50%         140   74.3   +26.76   +56.29    1.787   2.15
 top 33%          92   73.9   +25.62   +52.72    1.543   1.42
 top 25%          70   71.4   +24.84   +57.32    1.676   1.08
+```
 
 (B) Freshness + quality composite (8 features, equal weight)
+
+```text
 select            N   Win%     Med%    Mean%  Sortino   F/mo
 ----------------------------------------------------------
 all             279   65.2   +15.57   +34.05    0.988   4.29
@@ -49,6 +57,7 @@ top 75%         209   67.5   +19.03   +42.56    1.278   3.22
 top 50%         140   75.0   +26.76   +50.27    1.504   2.15
 top 33%          92   75.0   +27.69   +54.03    1.582   1.42
 top 25%          70   78.6   +28.43   +53.10    1.344   1.08
+```
 
 ---
 
@@ -68,6 +77,7 @@ setups**. The four strongest predictors are all negative-signed:
 | `ext_sma10` / `ext_sma20` (short-term extension) | −0.090 / −0.062 | Enter near the pivot, not stretched above the fast MAs. |
 
 Secondary, weaker signals:
+
 - `adr_pct` **+0.039** — higher ADR does help (Top-tercile Med +23% vs +11%), but the
   effect is weaker than the user's hypothesis assumed.
 - `sma10_20_spread` / `sma10_slope` **+0.054** — a steeper short-term trend helps
@@ -83,7 +93,7 @@ already capped at 100% by the entry filter.
 
 Equal-weight z-score composite (rank descending, keep the top slice):
 
-```
+```text
 score =  z(adr_pct) + z(sma10_20_spread)
        − z(roc_252d) − z(pos_52w) − z(ext_sma10) − z(breakout_margin)
        − z(tight_range_ratio) − z(vol_surge_ratio)

@@ -18,7 +18,7 @@ Variant key: `cd15` cooldown 30→15d; `p3` min price $5→$3; `mcap1.0B` market
 
 ## Results
 
-```
+```text
 Variant                                   N   F/mo   Win%    Mean%     Med%  Sortino      PF   MaxDD%
 ─────────────────────────────────────────────────────────────────────────────────────────────────────
 baseline (bk50d_s20_v1.2_roc100)        924    6.7   76.2   +56.32   +40.87    3.618   10.34    35.60

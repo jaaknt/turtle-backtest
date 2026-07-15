@@ -7,6 +7,7 @@ Python-based financial trading strategy backtesting library for US stocks. Suppo
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
 Before implementing:
+
 - State your assumptions explicitly. If uncertain, ask.
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
@@ -29,12 +30,14 @@ Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, sim
 **Touch only what you must. Clean up only your own mess.**
 
 When editing existing code:
+
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
 - If you notice unrelated dead code, mention it - don't delete it.
 
 When your changes create orphans:
+
 - Remove imports/variables/functions that YOUR changes made unused.
 - Don't remove pre-existing dead code unless asked.
 
@@ -45,12 +48,14 @@ The test: Every changed line should trace directly to the user's request.
 **Define success criteria. Loop until verified.**
 
 Transform tasks into verifiable goals:
+
 - "Add validation" → "Write tests for invalid inputs, then make them pass"
 - "Fix the bug" → "Write a test that reproduces it, then make it pass"
 - "Refactor X" → "Ensure tests pass before and after"
 
 For multi-step tasks, state a brief plan:
-```
+
+```text
 1. [Step] → verify: [check]
 2. [Step] → verify: [check]
 3. [Step] → verify: [check]
@@ -72,17 +77,20 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## Quick Start & Common Commands
 
 ### Most Common Operations
+
 | Task | Command | Use When |
-|------|---------|----------|
+| ------ | --------- | ---------- |
 | **Generate signals** | `uv run python scripts/signal_runner.py --start-date 2024-06-01 --end-date 2024-06-01 --mode analyze` | Analyze trading opportunities |
 | **Portfolio backtest** | `uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31` | Test multi-position strategy |
 | **Single backtest** | `uv run python scripts/backtest.py --ticker AAPL --start-date 2024-01-01` | Test specific ticker |
 | **Run tests** | `uv run pytest` | Verify code changes |
+| **Lint markdown docs** | `npx markdownlint-cli2` | Check README/CLAUDE.md/docs before committing (`--fix` to auto-fix) |
 | **Run Bruno API smoke tests** | `uv run pytest -m bruno` | Verify live EODHD endpoints still match expectations (requires `npm install -g @usebruno/cli` + real `EODHD_API_KEY` in `bruno/eodhd/.env`) |
 | **Start database** | `docker-compose up -d` | Before any data operations |
 | **Run Streamlit app** | `uv run streamlit run app.py` | Explore signals interactively |
 
 ### Critical File Paths
+
 - **Configuration**: `/config/settings.toml` + `.env` for API keys
 - **Strategies**: `/turtle/strategy/trading/*.py` - Trading signal implementations
 - **Exit Strategies**: `/turtle/strategy/exit/*.py` - Position exit logic
@@ -108,7 +116,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 Configured in `.mcp.json`. Tool-selection rules are in [Tool Preferences](#tool-preferences) below.
 
 | Server | Purpose |
-|--------|---------|
+| -------- | --------- |
 | `postgres` | Direct read-only SQL queries against `trading` db as `claude` user (`hetzner:5432`). Requires `DB_CLAUDE_PASSWORD` env var. |
 | `github` | GitHub API — issues, PRs, commits, actions (prefer over `gh` CLI when supported). Requires `GITHUB_PERSONAL_ACCESS_TOKEN` env var. |
 | `context7` | Fetch current library/framework docs |
@@ -127,7 +135,7 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 ## Development Setup
 
 | Command | Purpose |
-|---------|---------|
+| --------- | --------- |
 | `uv sync --extra dev --extra lint` | Install dependencies |
 | `source ./.venv/bin/activate` | Activate virtual environment |
 | `docker-compose up -d` | Start PostgreSQL database |
@@ -137,9 +145,11 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 ## Architecture Overview
 
 ### Repo Layout
+
 Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `docs/` (project docs), `tasks/` (issue files used by `/new-task`), `examples/` (see [Examples Directory](#examples-directory)), `scripts/` (CLI entry points), `tests/` (mirrors source tree).
 
 ### Core Components
+
 - **turtle/common/**: Shared enums and utilities
   - `enums.py`: `TimeFrameUnit` enum (DAY, WEEK)
   - `cli.py`: `iso_date_type` — argparse type helper for ISO date strings (YYYY-MM-DD)
@@ -173,6 +183,7 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 - **turtle/service/**: Business logic orchestration layer
 
 ### Database
+
 - **Schema**: `turtle` (PostgreSQL)
 - **Tables**: `ticker`, `daily_bars`, `company`, `symbol_group`, `exchange`
 - **Connection**: SQLAlchemy `Engine` (sync reads) + `AsyncSession` (async writes)
@@ -180,11 +191,13 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 ## Core Systems Overview
 
 ### Portfolio Management
+
 - **PortfolioManager**: Position/cash management, daily snapshots, position sizing with min/max constraints
 - **PortfolioSignalSelector**: Signal ranking and filtering, position limits, minimum ranking threshold
 - **PortfolioAnalytics**: Performance metrics (Sharpe, Sortino, Max DD, win rate), benchmark comparison
 
 ### Configuration System
+
 - **Settings**: TOML-based with environment variable overrides for secrets
 - **Key Files**: `config/settings.toml`, `.env` (API keys, DB password)
 - **Environment Variables**: `EODHD_API_KEY`, `DB_APP_PASSWORD` (required by app; see `turtle/config/settings.py`)
@@ -193,7 +206,7 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 ## Database Migrations
 
 | Command | Purpose |
-|---------|---------|
+| --------- | --------- |
 | `uv run alembic current` | Check current migration version |
 | `uv run alembic history` | Show migration history |
 | `uv run alembic upgrade head` | Apply all pending migrations |
@@ -208,6 +221,7 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 
 1. **Create strategy file**: `turtle/strategy/trading/my_strategy.py`
 2. **Extend TradingStrategy base class**:
+
    ```python
    from turtle.strategy.trading.base import TradingStrategy
    from turtle.strategy.trading.models import Signal
@@ -223,6 +237,7 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
            # Your logic here
            return signals
    ```
+
 3. **Add tests**: `tests/strategy/trading/test_my_strategy.py` (mirror the source tree)
 4. **Wire via dependency injection**: Instantiate your strategy and pass it to the service constructor — see `scripts/signal_runner.py` (`get_trading_strategy`) for the canonical wiring pattern
 5. **Test**: `uv run python scripts/signal_runner.py --strategy my_strategy --mode analyze`
@@ -230,7 +245,7 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 ## Examples Directory
 
 | Example | Purpose | Command |
-|---------|---------|---------|
+| --------- | --------- | --------- |
 | **backtesting.ipynb** | Interactive single-strategy backtesting with visualizations | `uv run jupyter notebook examples/backtesting.ipynb` |
 | **portfolio_backtesting.ipynb** | Portfolio-level backtesting with multiple positions | `uv run jupyter notebook examples/portfolio_backtesting.ipynb` |
 | **symbol_group.ipynb** | Managing custom symbol groups (watchlists) | `uv run jupyter notebook examples/symbol_group.ipynb` |
@@ -241,27 +256,34 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 ## Design Patterns & Principles
 
 ### Strategy Pattern (Abstract Base Classes)
+
 All pluggable behaviours — signals, exits, rankings — share a common ABC interface. Services depend on the abstract type; concrete implementations are swapped at runtime without changing any service code. See `turtle/strategy/trading/base.py` (base) and `turtle/strategy/trading/darvas_box.py` (concrete). Same pattern in `turtle/strategy/exit/` and `turtle/strategy/ranking/`.
 
 ### Repository Pattern (Data Access)
+
 All database operations live in `turtle/repository/`. No SQL outside this directory. Sync `Engine`-based repos handle reads; async `AsyncSession`-based repos handle writes. See `turtle/repository/analytics.py` (sync reads) and `turtle/repository/eodhd/` (async writes).
 
 ### Dependency Injection (Constructor Injection)
+
 All dependencies are passed explicitly through constructors — no globals, no service locators. The connection pool flows from `Settings` → `Service` → `Repo`. See `turtle/service/signal_service.py`.
 
 ### Domain Models (Dataclasses vs Pydantic)
+
 - **Dataclasses** for all internal domain objects (`Signal`, `Trade`, `Benchmark`, etc.). Use `@property` for computed fields — no setters. All shared domain models live in a single module: `turtle/model.py` (no per-package `models.py`).
 - **Pydantic `BaseModel`** only for external API responses where field aliasing (`alias=`) is needed. See `Exchange`, `Ticker`, `Company` in `turtle/schema/`.
 
 ### Configuration (Factory Method)
+
 `Settings.from_toml()` is the single entry point for all config. It loads TOML, validates required env vars (raises `ValueError` if missing — never falls back to TOML values for secrets), builds nested config objects, and creates the connection pool. See `turtle/config/settings.py`.
 
 ### Async Boundary
+
 External API clients (`turtle/client/eodhd.py`) are `async`/`await` using `httpx.AsyncClient`. Services that orchestrate bulk API downloads (e.g. `turtle/service/eodhd_service.py`) may also be async when they need concurrent requests via `asyncio.gather`. Repos and backtesting logic must remain synchronous. Scripts may use `asyncio.run()` as the async entry point. Do not make repo methods async.
 
 ### Naming Conventions
+
 | Construct | Convention | Example |
-|-----------|-----------|---------|
+| ----------- | ----------- | --------- |
 | Classes | PascalCase | `DarvasBoxStrategy`, `OhlcvAnalyticsRepository` |
 | Methods / variables | snake_case | `get_signals()`, `start_date` |
 | Private methods | leading underscore | `_get_bars_history_db()` |
@@ -270,23 +292,29 @@ External API clients (`turtle/client/eodhd.py`) are `async`/`await` using `httpx
 | Folders / packages | singular snake_case | `turtle/service/`, `turtle/repository/` |
 
 ### Docstrings
+
 All public methods (no leading underscore) must have a docstring explaining the purpose of the method and each parameter. Private methods (`_name`) do not require docstrings unless the logic is non-obvious.
 
 ### Type Hints
+
 All function signatures carry full type hints — parameters and return types. Use `X | None` (not `Optional[X]`), `list[X]` (not `List[X]`). No `Any` except at external API boundaries.
 
 ### Logging
+
 One module-level logger per file via `logging.getLogger(__name__)`. Use `DEBUG` for decision points and data values; `WARNING`/`ERROR` for anomalies and failures. Never log secrets or API keys.
 
 ### Error Handling
+
 Validate preconditions early and return `bool` (for data-collection methods) or raise `ValueError` with a descriptive message. No bare `except` clauses. No swallowed exceptions. Properties validate their preconditions before computing.
 
 ### Static Methods
+
 Use `@staticmethod` for pure utility functions that belong logically to a class but require no instance state. See `DarvasBoxStrategy.check_local_max()` in `turtle/strategy/trading/darvas_box.py`.
 
 ## Testing
 
 Tests mirror the source tree under `tests/`:
+
 - `strategy/trading/test_darvas_box.py`: Darvas Box strategy logic
 - `strategy/trading/test_mars_strategy.py`: Mars strategy logic
 - `strategy/trading/test_momentum_strategy_parity.py`: Momentum strategy (polars path)

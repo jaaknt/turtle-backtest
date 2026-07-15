@@ -1,0 +1,16 @@
+{
+  // prompts.md is a verbatim prompt log, not documentation
+  "globs": ["README.md", "CLAUDE.md", "docs/**/*.md", "!docs/research/prompts.md"],
+  "config": {
+    // Line length — prose docs shouldn't hard-wrap
+    "MD013": false,
+    // Allow inline HTML (badges, <br> in tables)
+    "MD033": false,
+    // First line need not be a top-level heading
+    "MD041": false,
+    // Table pipe spacing/alignment — pure cosmetics, not auto-fixable
+    "MD060": false,
+    // Duplicate headings allowed under different parent sections
+    "MD024": { "siblings_only": true }
+  }
+}

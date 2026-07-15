@@ -25,7 +25,7 @@ N signals: 2818  |  N attempted (>=1 bar after signal): 2817  |  N with full 90d
 
 Fill% = n_filled / N attempted. MedD/MeanD = median/mean trading days from the signal day to the fill day, filled orders only (1 = fills on the first trading day after the signal).
 
-```
+```text
   X%  |         Y=30d          |         Y=60d          |         Y=90d         
       |   Fill%   MedD  MeanD |   Fill%   MedD  MeanD |   Fill%   MedD  MeanD
 -----------------------------------------------------------------------------
@@ -39,7 +39,7 @@ Fill% = n_filled / N attempted. MedD/MeanD = median/mean trading days from the s
 
 ### n_filled per cell
 
-```
+```text
   X%  | n_filled Y=30d | n_filled Y=60d | n_filled Y=90d
 --------------------------------------------------------
   0%  |           2731 |           2751 |           2758

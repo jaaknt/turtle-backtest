@@ -2,7 +2,7 @@
 
 Run date: 2026-07-15
 
-```
+```text
 Entry-price cohort analysis | Hold: 366d | Period: 2015-01-01 – 2026-06-26
 Filters: all bk50d fixed filters applied; close>$5&<$250 bounds removed for cohort view
 

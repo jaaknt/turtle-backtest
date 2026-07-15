@@ -2,7 +2,7 @@
 
 Run date: 2026-07-05
 
-```
+```text
 ADR% cohort analysis | Hold: 366d | Period: 2015-01-01 – 2026-06-26
 Filters: all bk50d fixed filters applied; adr_pct >= 2.5% floor removed for cohort view
 

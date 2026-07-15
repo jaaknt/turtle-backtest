@@ -2,7 +2,7 @@
 
 Run date: 2026-07-15
 
-```
+```text
 Tight-range cohort analysis | Hold: 366d | Period: 2015-01-01 – 2026-06-26
 Filters: all bk50d fixed filters applied; tight_range cap removed for cohort view
 Note: s20_tr10 and s20_tr20 share pct_above_sma50=20%, so with the tr cap removed
