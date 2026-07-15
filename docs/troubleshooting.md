@@ -5,7 +5,7 @@ Quick reference for common issues. Use `--verbose` on any script for detailed lo
 ## Common Issues
 
 | Problem | Quick Fix | Details |
-|---------|-----------|---------|
+| --------- | ----------- | --------- |
 | **Database connection failed** | `docker-compose ps` to verify postgres running, check `.env` credentials | Verify DB exists with `psql -U postgres -l`, test port 5432 access |
 | **API rate limiting** | Use `--ticker-limit 10` for testing, verify API keys in `.env` | Check `EODHD_API_KEY` is active, typical limit 20 req/sec |
 | **No signals generated** | Verify data exists: `SELECT COUNT(*) FROM turtle.daily_bars WHERE symbol='AAPL'`, enable `--verbose` | Check ticker has sufficient history, validate strategy parameters |

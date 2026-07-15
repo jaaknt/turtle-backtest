@@ -2,7 +2,7 @@
 
 Run date: 2026-07-15
 
-```
+```text
 ADR compression cohort analysis | Hold: 366d | Period: 2015-01-01 – 2026-06-26
 Filters: all bk50d filters applied as-is (no tight_range);
 compression = ADR%(10)/ADR%(50) is measured only, not filtered

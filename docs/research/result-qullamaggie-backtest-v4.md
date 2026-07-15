@@ -28,7 +28,7 @@ Run date: 2026-07-14
 
 ## Rankings
 
-```
+```text
 Period: 2021-01-01 – 2026-07-14  |  HOLD_MAX_CAL=366d
 Fixed: vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K
 
@@ -71,7 +71,7 @@ Sortino > 0 in ≥70% of complete calendar years with ≥10 negative trades, and
 
 Same signals, but a trade is skipped if 30 positions are already open on its entry date (FIFO, ties broken alphabetically by symbol; no queueing for a freed-up slot later).
 
-```
+```text
 Period: 2021-01-01 – 2026-07-14  |  HOLD_MAX_CAL=366d
 Fixed: vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K
 Max concurrent positions: 30
@@ -113,7 +113,7 @@ Sortino > 0 in ≥70% of complete calendar years with ≥10 negative trades, and
 
 Same signals, but a trade is skipped if 20 positions are already open on its entry date (FIFO, ties broken alphabetically by symbol; no queueing for a freed-up slot later).
 
-```
+```text
 Period: 2021-01-01 – 2026-07-14  |  HOLD_MAX_CAL=366d
 Fixed: vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K
 Max concurrent positions: 20

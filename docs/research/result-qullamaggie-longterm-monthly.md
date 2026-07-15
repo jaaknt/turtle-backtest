@@ -2,7 +2,7 @@
 
 Run date: 2026-07-15
 
-```
+```text
 Hold: 366d | Period: 2007-01-01 – 2026-06-26
 Fixed: vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=2.5%, ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K
 

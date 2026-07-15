@@ -6,7 +6,7 @@ Period: 2026-06-01 – 2026-07-15
 
 Entry $/Curr Price/Change % use raw (unadjusted) close — the real tradeable price. %abv SMA50/ADR%/ADR_CHG/RSI14/TR%/ROC252% are computed on the entry date, using the same split/dividend-adjusted series as scripts/qullamaggie-backtest-v4.py. Last date is the latest date with data available for that symbol in turtle.daily_bars.
 
-```
+```text
 Date       │ Symbol │  Entry $ │ Curr Price │ 0.97*Entry │  Change % │ %abv SMA50 │   ADR% │ ADR_CHG │  RSI14 │    TR% │  ROC252% │ In s15? │ In s20? │ Reached? │   Last date
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 2026-06-01 │ DUOL.US│   117.97 │     128.35 │     114.43 │     +8.8% │     +14.7% │   5.7% │    0.90 │   56.0 │   7.7% │   -77.0% │         │         │        ✓ │  2026-07-14
@@ -42,7 +42,7 @@ Total bk50d_s12_v1.2_roc100 signals in window: 27  |  Also in bk50d_s15_v1.2_roc
 
 ## Signals not in bk50d_s20_v1.2_roc100
 
-```
+```text
 === bk50d_s12_v1.2_roc100 signals NOT in bk50d_s20_v1.2_roc100 (N=17) — what's missing ===
 
   2026-06-01 DUOL.US %abv SMA50=+14.7% < 20% threshold — short by 5.3pp
@@ -68,7 +68,7 @@ Total bk50d_s12_v1.2_roc100 signals in window: 27  |  Also in bk50d_s15_v1.2_roc
 
 Signals with a single-day raw-close move exceeding 50% between entry and the latest available date are dropped from the table, cross-check, and cohort analysis above — such a move is not organic price action for this universe (market cap ≥ $1.5B) and most likely reflects a delisting/halt-type event or a data anomaly.
 
-```
+```text
 === Excluded as suspicious data — single-day |Δraw_close| > 50% between entry and latest available date (N=1) ===
 
   2026-06-01 LC.US   max 1-day move 99.0% — likely a data anomaly or delisting/halt-type event, not organic price action
@@ -78,7 +78,7 @@ Signals with a single-day raw-close move exceeding 50% between entry and the lat
 
 Med%/Mean%/Win%/PF/Sortino are computed on the mark-to-latest-price Change % (same as the Change % column above) grouped by each signal's %abv SMA50 value at entry. Unlike the backtest's Sortino, these are **not annualized** (positions have no fixed holding period here — each is still open, marked at whatever elapsed time has passed since entry), but downside_dev keeps the backtest's convention (RMS of negative returns over all N, positives count as 0). MaxDD% is the mean of each signal's own peak-to-trough decline (raw close) from entry through its latest available date.
 
-```
+```text
 Cohort        N     Med%    Mean%    Win%     PF  Sortino  MaxDD%
 -----------------------------------------------------------------
 [12-15)       8    +3.7%    +1.1%   87.5%   1.36     0.13   10.8%
@@ -91,7 +91,7 @@ Cohort        N     Med%    Mean%    Win%     PF  Sortino  MaxDD%
 
 `mean(Mean%)` is the unweighted average of the four cohort Mean% values above (not weighted by N per cohort). SPY.US/QQQ.US are raw-close buy-and-hold over the same window, no dividend reinvestment — same convention as Entry $/Curr Price/Change %.
 
-```
+```text
 mean(Mean%) across cohorts:     +5.3%
 SPY.US buy-and-hold:            -0.9%   (2026-06-01 → 2026-07-14)
 QQQ.US buy-and-hold:            -3.1%   (2026-06-01 → 2026-07-14)

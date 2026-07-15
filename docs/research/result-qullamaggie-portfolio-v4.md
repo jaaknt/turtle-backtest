@@ -3,11 +3,11 @@
 Run date: 2026-07-14
 Period: 2020-01-01 – 2026-06-26  |  Initial: $30,000  |  exit: time 366d only  |  sizes: 3%, 4%, 5%, 6%, 7%, 8%
 
-
 ## s20  (bk50d_s20_v1.2_roc100 / 366d)
 
 ### EOD (buy at signal-day close)
 
+```text
 size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 --------------------------------------------------------------------------
 3%         235,315  +37.39   -20.42   1.831    1.454    173    669   24.9%
@@ -16,9 +16,11 @@ size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 6%         195,496  +33.51   -34.68   0.966    1.113    104    738   14.2%
 7%         198,230  +33.80   -37.54   0.900    1.121     90    752   13.7%
 8%         214,010  +35.39   -34.33   1.031    1.149     79    763   13.0%
+```
 
 ### LIMIT-3% (resting 30d, buy 3% below signal-day close)
 
+```text
 size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 --------------------------------------------------------------------------
 3%         227,108  +36.64   -21.88   1.674    1.401    163    671   26.7%
@@ -27,9 +29,11 @@ size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 6%         171,252  +30.81   -38.80   0.794    1.068     97    737   16.4%
 7%         177,394  +31.53   -38.10   0.828    1.088     83    751   17.3%
 8%         178,056  +31.60   -40.45   0.781    1.057     75    759   15.0%
+```
 
 ### EOD vs LIMIT-3% comparison
 
+```text
 size    EOD Calmar  LIMIT-3% Calmar  EOD Sortino  LIMIT-3% Sortino   EOD Final$  LIMIT-3% Final$
 ------------------------------------------------------------------------------------------------
 3%           1.831            1.674        1.454             1.401      235,315          227,108
@@ -38,12 +42,13 @@ size    EOD Calmar  LIMIT-3% Calmar  EOD Sortino  LIMIT-3% Sortino   EOD Final$ 
 6%           0.966            0.794        1.113             1.068      195,496          171,252
 7%           0.900            0.828        1.121             1.088      198,230          177,394
 8%           1.031            0.781        1.149             1.057      214,010          178,056
-
+```
 
 ## s15  (bk50d_s15_v1.2_roc100 / 366d)
 
 ### EOD (buy at signal-day close)
 
+```text
 size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 --------------------------------------------------------------------------
 3%         176,624  +31.44   -20.16   1.560    1.193    207   1236   14.5%
@@ -52,9 +57,11 @@ size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 6%         204,350  +34.43   -30.52   1.128    1.143    107   1336   11.0%
 7%         183,135  +32.18   -35.51   0.906    1.050     92   1351    9.7%
 8%         158,570  +29.27   -43.14   0.679    0.919     81   1362    8.4%
+```
 
 ### LIMIT-3% (resting 30d, buy 3% below signal-day close)
 
+```text
 size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 --------------------------------------------------------------------------
 3%         230,941  +36.99   -22.80   1.622    1.327    200   1230   14.7%
@@ -63,9 +70,11 @@ size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 6%         234,183  +37.28   -30.59   1.219    1.191    106   1324   11.0%
 7%         227,476  +36.67   -32.37   1.133    1.187     92   1338   11.3%
 8%         282,246  +41.29   -36.82   1.121    1.207     80   1350   10.3%
+```
 
 ### EOD vs LIMIT-3% comparison
 
+```text
 size    EOD Calmar  LIMIT-3% Calmar  EOD Sortino  LIMIT-3% Sortino   EOD Final$  LIMIT-3% Final$
 ------------------------------------------------------------------------------------------------
 3%           1.560            1.622        1.193             1.327      176,624          230,941
@@ -74,12 +83,13 @@ size    EOD Calmar  LIMIT-3% Calmar  EOD Sortino  LIMIT-3% Sortino   EOD Final$ 
 6%           1.128            1.219        1.143             1.191      204,350          234,183
 7%           0.906            1.133        1.050             1.187      183,135          227,476
 8%           0.679            1.121        0.919             1.207      158,570          282,246
-
+```
 
 ## s12  (bk50d_s12_v1.2_roc100 / 366d)
 
 ### EOD (buy at signal-day close)
 
+```text
 size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 --------------------------------------------------------------------------
 3%         125,353  +24.67   -26.18   0.942    0.973    213   1686   11.1%
@@ -88,9 +98,11 @@ size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 6%         143,740  +27.33   -40.79   0.670    0.935    110   1789    8.6%
 7%         106,099  +21.51   -45.09   0.477    0.764     94   1805    7.0%
 8%         141,761  +27.06   -48.65   0.556    0.910     83   1816    6.4%
+```
 
 ### LIMIT-3% (resting 30d, buy 3% below signal-day close)
 
+```text
 size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 --------------------------------------------------------------------------
 3%         221,693  +36.13   -25.23   1.432    1.296    212   1671   11.6%
@@ -99,9 +111,11 @@ size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 6%         193,940  +33.35   -39.18   0.851    1.111    110   1773    8.2%
 7%         162,181  +29.72   -45.44   0.654    0.957     93   1790    9.1%
 8%         131,723  +25.63   -48.14   0.532    0.859     81   1802    8.2%
+```
 
 ### EOD vs LIMIT-3% comparison
 
+```text
 size    EOD Calmar  LIMIT-3% Calmar  EOD Sortino  LIMIT-3% Sortino   EOD Final$  LIMIT-3% Final$
 ------------------------------------------------------------------------------------------------
 3%           0.942            1.432        0.973             1.296      125,353          221,693
@@ -110,13 +124,13 @@ size    EOD Calmar  LIMIT-3% Calmar  EOD Sortino  LIMIT-3% Sortino   EOD Final$ 
 6%           0.670            0.851        0.935             1.111      143,740          193,940
 7%           0.477            0.654        0.764             0.957      106,099          162,181
 8%           0.556            0.532        0.910             0.859      141,761          131,723
-
+```
 
 ## Monthly returns/transactions — top 5 by Calmar (EOD + limit combined)
 
-
 ### #1  s15 LIMIT-3% — size 5%  (Calmar 1.832)
-```
+
+```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
  2020 |    -1.3|6    -4.3|5   -11.2|0    +9.1|0   +11.2|9    +6.5|0    +5.8|0    +8.2|0    -0.6|0    +1.0|0   +29.7|0   +20.4|0 |   +94.6    20
@@ -129,7 +143,8 @@ size    EOD Calmar  LIMIT-3% Calmar  EOD Sortino  LIMIT-3% Sortino   EOD Final$ 
 ```
 
 ### #2  s20 EOD — size 3%  (Calmar 1.831)
-```
+
+```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
  2020 |    +0.4|2    -0.3|3    -3.3|0    +2.9|0   +1.5|27    +4.2|0    +4.1|0    +8.6|0    -2.6|0    +3.4|0   +27.8|0   +15.5|0 |   +76.7    32
@@ -142,7 +157,8 @@ size    EOD Calmar  LIMIT-3% Calmar  EOD Sortino  LIMIT-3% Sortino   EOD Final$ 
 ```
 
 ### #3  s15 LIMIT-3% — size 4%  (Calmar 1.757)
-```
+
+```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
  2020 |    -1.0|6    -3.4|5    -8.9|0    +7.0|0   +8.3|14    +6.4|0    +5.8|0    +8.8|0    -0.4|0    +1.2|0   +28.1|0   +17.7|0 |   +87.8    25
@@ -155,7 +171,8 @@ size    EOD Calmar  LIMIT-3% Calmar  EOD Sortino  LIMIT-3% Sortino   EOD Final$ 
 ```
 
 ### #4  s20 LIMIT-3% — size 3%  (Calmar 1.674)
-```
+
+```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
  2020 |    +0.6|2    -0.1|3    -3.4|0    +3.0|0   +2.1|27    +5.8|0    +2.0|0    +8.5|0    -0.6|0    +4.0|0   +27.3|0   +16.5|0 |   +83.6    32
@@ -168,7 +185,8 @@ size    EOD Calmar  LIMIT-3% Calmar  EOD Sortino  LIMIT-3% Sortino   EOD Final$ 
 ```
 
 ### #5  s15 LIMIT-3% — size 3%  (Calmar 1.622)
-```
+
+```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
  2020 |    -0.7|6    -2.6|5    -6.6|0    +5.1|0   +4.9|22    +5.8|0    +3.8|0    +8.5|0    -0.3|0    +2.5|0   +28.4|0   +16.6|0 |   +81.5    33
@@ -180,12 +198,11 @@ size    EOD Calmar  LIMIT-3% Calmar  EOD Sortino  LIMIT-3% Sortino   EOD Final$ 
  2026 |   +10.5|6    +1.6|4    -4.3|0   +13.9|0    +6.1|0   +3.1|12         ·         ·         ·         ·         ·         · |   +33.8    22
 ```
 
-
 ## Monthly returns/transactions — top 5 by Final$ (EOD + limit combined)
 
-
 ### #1  s15 LIMIT-3% — size 5%  (Final $301,361)
-```
+
+```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
  2020 |    -1.3|6    -4.3|5   -11.2|0    +9.1|0   +11.2|9    +6.5|0    +5.8|0    +8.2|0    -0.6|0    +1.0|0   +29.7|0   +20.4|0 |   +94.6    20
@@ -198,7 +215,8 @@ size    EOD Calmar  LIMIT-3% Calmar  EOD Sortino  LIMIT-3% Sortino   EOD Final$ 
 ```
 
 ### #2  s15 LIMIT-3% — size 8%  (Final $282,246)
-```
+
+```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
  2020 |    -2.0|6    -6.9|5   -18.4|0   +16.3|0   +20.5|1    +7.8|0    +7.8|0    +9.7|0    +0.3|0    -1.6|0   +34.8|0   +25.7|0 |  +122.2    12
@@ -211,7 +229,8 @@ size    EOD Calmar  LIMIT-3% Calmar  EOD Sortino  LIMIT-3% Sortino   EOD Final$ 
 ```
 
 ### #3  s15 LIMIT-3% — size 4%  (Final $260,500)
-```
+
+```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
  2020 |    -1.0|6    -3.4|5    -8.9|0    +7.0|0   +8.3|14    +6.4|0    +5.8|0    +8.8|0    -0.4|0    +1.2|0   +28.1|0   +17.7|0 |   +87.8    25
@@ -224,7 +243,8 @@ size    EOD Calmar  LIMIT-3% Calmar  EOD Sortino  LIMIT-3% Sortino   EOD Final$ 
 ```
 
 ### #4  s20 LIMIT-3% — size 4%  (Final $241,562)
-```
+
+```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
  2020 |    +0.9|2    -0.1|3    -4.5|0    +4.0|0   +3.9|18    +6.2|0    +1.4|0    +9.5|0    -0.2|0    +3.7|0   +30.9|0   +16.3|0 |   +93.3    23
@@ -237,7 +257,8 @@ size    EOD Calmar  LIMIT-3% Calmar  EOD Sortino  LIMIT-3% Sortino   EOD Final$ 
 ```
 
 ### #5  s20 EOD — size 3%  (Final $235,315)
-```
+
+```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
  2020 |    +0.4|2    -0.3|3    -3.3|0    +2.9|0   +1.5|27    +4.2|0    +4.1|0    +8.6|0    -2.6|0    +3.4|0   +27.8|0   +15.5|0 |   +76.7    32
@@ -260,6 +281,7 @@ size    EOD Calmar  LIMIT-3% Calmar  EOD Sortino  LIMIT-3% Sortino   EOD Final$ 
 **Window comparison (identical methodology, adjusted prices)**: 2020-2026 metrics run ~2.3x the 2010-2026 full cycle — best Calmar 1.832 vs 0.786, best CAGR +42.7% vs +25.8%. With the methodology now fixed in both runs, this is a clean regime measurement: treat this window as the favorable-regime ceiling and the full-cycle numbers as the base case. (The 2026-07-12 version of this doc used the old tr20/vdu80 algorithm AND raw un-adjusted prices, so its numbers are not comparable to either run.)
 
 **Ideas to improve Mean%/Sortino/Calmar** (unchanged from the full-cycle run, all still open):
+
 1. **Rank-based funding** — `s12` skips ~1,700 signals for lack of cash even in this short window; funding by ADR%/breakout quality instead of arrival order is the biggest untested lever (`RANK_FUNDING` infra exists).
 2. **Early-exit sweep** (`sma200x3`/`trail25`, already implemented) targeted at the large-size configs where MaxDD reaches -35 to -49%.
 3. **Blend s20-priority + s15-fill** (`run_blend`, implemented but unused) to combine s20's per-trade quality with s15's capital utilization.

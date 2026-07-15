@@ -2,7 +2,7 @@
 
 Run date: 2026-07-15
 
-```
+```text
 Vol-surge cohort analysis | Hold: 366d | Period: 2015-01-01 – 2026-06-26
 Filters: all bk50d fixed filters applied; vol_surge_max cap removed for cohort view
 

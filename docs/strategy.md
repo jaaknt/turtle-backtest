@@ -6,7 +6,7 @@ This document covers the three categories of pluggable strategies used by the ba
 
 The framework composes three independent strategy types into a complete trading system:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Symbol Universe                          │
 │              (all US tickers from turtle.ticker)                │
@@ -43,7 +43,7 @@ The framework composes three independent strategy types into a complete trading 
 **Typical usage pattern:**
 
 | Use case | Trading | Ranking | Exit |
-|----------|---------|---------|------|
+| ---------- | --------- | --------- | ------ |
 | Trend-following backtest | `darvas_box` | `momentum` | `atr` |
 | Momentum screening | `momentum` | `volume_momentum` | `trailing_percentage_loss` |
 | Tight breakout | `mars` | `breakout_quality` | `profit_loss` |
@@ -63,15 +63,16 @@ Trading strategies implement `TradingStrategy` (ABC in `turtle/strategy/trading/
 
 Identifies breakouts from price consolidation boxes, inspired by Nicolas Darvas's method.
 
-**Data requirements**
+#### Data requirements
+
 - Time frame: configurable (default: daily)
 - Minimum bars: 201
 - Warmup period: 730 days
 
-**Entry conditions**
+#### Entry conditions
 
 | Category | Condition |
-|----------|-----------|
+| ---------- | ----------- |
 | Box formation | Local max: high that exceeds 10 preceding and 4 following bars |
 | Box formation | Local min: low followed by 3 higher lows |
 | Breakout | Close > established box top |
@@ -89,15 +90,16 @@ Identifies breakouts from price consolidation boxes, inspired by Nicolas Darvas'
 
 Focuses on breakouts from tight price consolidation, attributed to the @marsrides approach.
 
-**Data requirements**
+#### Data requirements
+
 - Time frame: weekly (default)
 - Minimum bars: 30
 - Warmup period: 730 days
 
-**Entry conditions**
+#### Entry conditions
 
 | Category | Condition |
-|----------|-----------|
+| ---------- | ----------- |
 | Consolidation | Price range of last 4 bars < 12% of current price |
 | Breakout | Close > max of last 10 closes |
 | Risk distance | Distance from consolidation midpoint < 25% of current price |
@@ -114,15 +116,16 @@ Focuses on breakouts from tight price consolidation, attributed to the @marsride
 
 Identifies weekly momentum breakouts with EMA trend confirmation.
 
-**Data requirements**
+#### Data requirements
+
 - Time frame: weekly signals, daily EMA validation
 - Minimum bars: 30 weekly, 240 daily
 - Lookback period: 360 days
 
-**Entry conditions**
+#### Entry conditions
 
 | Category | Condition |
-|----------|-----------|
+| ---------- | ----------- |
 | Trend | Close > SMA(20) (weekly); ≤ 40 days below EMA(200) in past year |
 | Long-term momentum | 10% price increase from 1, 3, or 6 months ago |
 | New highs | Close > max of last 10 weekly closes |
@@ -135,7 +138,7 @@ Identifies weekly momentum breakouts with EMA trend confirmation.
 ### Strategy Comparison
 
 | | Darvas Box | Mars | Momentum |
-|--|-----------|------|----------|
+| -- | ----------- | ------ | ---------- |
 | **Primary signal** | Box breakout | Tight consolidation breakout | Weekly momentum |
 | **Time frame** | Daily | Weekly | Weekly |
 | **Volume required** | Yes (>110% EMA10) | Optional | Yes (>110% prev week) |
@@ -158,7 +161,7 @@ Evaluates price performance relative to EMA(200) over multiple time horizons plu
 **Score breakdown** (max 80 + 20 = 100):
 
 | Component | Method | Range | Max score |
-|-----------|--------|-------|-----------|
+| ----------- | -------- | ------- | ----------- |
 | Price tier | `_price_to_ranking()` | ≤$10 → 20 pts; ≤$1000 → 4 pts | 20 |
 | EMA200 vs 1 month ago | `_ranking_ema200_1month()` | Linear 0–10% gain | 20 |
 | EMA200 vs 3 months ago | `_ranking_ema200_3month()` | Linear −5% to +20% gain | 20 |
@@ -178,7 +181,7 @@ Combines price momentum, volatility adjustment, liquidity, and technical conflue
 **Score breakdown** (max 100):
 
 | Component | Method | Range | Max score |
-|-----------|--------|-------|-----------|
+| ----------- | -------- | ------- | ----------- |
 | Volume-weighted momentum | `_volume_weighted_momentum()` | 20-day return weighted by recent volume | 30 |
 | Volatility-adjusted strength | `_volatility_adjusted_strength()` | 60-day risk-adjusted return | 30 |
 | Liquidity quality | `_liquidity_quality()` | 60-day avg dollar volume (≥$5M for max) | 20 |
@@ -197,7 +200,7 @@ Scores the strength of the breakout event itself at signal time — useful for c
 **Score breakdown** (max 100):
 
 | Component | Method | Criteria | Max score |
-|-----------|--------|----------|-----------|
+| ----------- | -------- | ---------- | ----------- |
 | Volume conviction | `_volume_conviction()` | Volume / EMA10 volume; ratio ≥3.0 = max | 30 |
 | Breakout extension | `_breakout_extension()` | (close − 20d high) / 20d high; ≥5% = max | 25 |
 | Trend health | `_trend_health()` | EMA10 > EMA20 > EMA50 > EMA200 stack + distance from EMA200 (optimal 5–30% above) | 25 |
@@ -208,7 +211,7 @@ Scores the strength of the breakout event itself at signal time — useful for c
 ### Ranking Strategy Comparison
 
 | | Momentum | Volume Momentum | Breakout Quality |
-|--|----------|----------------|-----------------|
+| -- | ---------- | ---------------- | ----------------- |
 | **Primary focus** | EMA(200) trend strength | Risk-adjusted momentum + liquidity | Breakout event conviction |
 | **Lookback** | 1/3/6 months | 20–60 days | At signal bar |
 | **Volume factor** | No | Yes (30 pts) | Yes (30 pts) |
@@ -273,7 +276,7 @@ Fetches 40 days of pre-signal data to seed the EMA. **Exit reasons**: `stop_loss
 Exits when the MACD line crosses below the signal line (bearish crossover). Captures the bulk of the move while exiting on momentum deterioration.
 
 | Parameter | Default | Description |
-|-----------|---------|-------------|
+| ----------- | --------- | ------------- |
 | `fastperiod` | `12` | Fast EMA period |
 | `slowperiod` | `26` | Slow EMA period |
 | `signalperiod` | `9` | Signal line period |
@@ -322,7 +325,7 @@ Simpler trailing stop based on a fixed percentage below the running maximum clos
 ### Exit Strategy Comparison
 
 | | Buy & Hold | Profit/Loss | EMA | MACD | ATR | Trailing % |
-|--|-----------|-------------|-----|------|-----|------------|
+| -- | ----------- | ------------- | ----- | ------ | ----- | ------------ |
 | **Stop loss** | None | Fixed % | Dynamic (EMA) | Momentum | Volatility-adjusted | Fixed % trailing |
 | **Profit target** | None | Fixed % | None | None | None | None |
 | **Adapts to volatility** | — | No | No | No | Yes | No |

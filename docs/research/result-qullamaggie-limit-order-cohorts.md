@@ -23,7 +23,7 @@ Period: 2010-01-01 – 2026-06-26  |  Hold: 366d (calendar)
 
 ### bk50d_s20_v1.2_roc100 — 366d
 
-```
+```text
 Cohort             Fill%     N     Med%    Mean%    Win%  Sortino      PF
 -------------------------------------------------------------------------
 EOD (baseline)    100.0%  1008   +37.7%   +53.4%   75.0%    1.639    9.21
@@ -38,7 +38,7 @@ EOD (baseline)    100.0%  1008   +37.7%   +53.4%   75.0%    1.639    9.21
 
 ### bk50d_s15_v1.2_roc100 — 366d
 
-```
+```text
 Cohort             Fill%     N     Med%    Mean%    Win%  Sortino      PF
 -------------------------------------------------------------------------
 EOD (baseline)    100.0%  1839   +29.4%   +42.5%   72.4%    1.335    7.00
@@ -53,7 +53,7 @@ EOD (baseline)    100.0%  1839   +29.4%   +42.5%   72.4%    1.335    7.00
 
 ### bk50d_s12_v1.2_roc100 — 366d
 
-```
+```text
 Cohort             Fill%     N     Med%    Mean%    Win%  Sortino      PF
 -------------------------------------------------------------------------
 EOD (baseline)    100.0%  2516   +24.9%   +37.3%   69.8%    1.184    5.88
@@ -72,7 +72,7 @@ Each cell is `Mean%|N` for trades entered in that calendar month (entry = signal
 
 ### bk50d_s20_v1.2_roc100 — Monthly Mean% / N (EOD, entry month/year)
 
-```
+```text
  Year |     Jan     Feb     Mar     Apr     May     Jun     Jul     Aug     Sep     Oct     Nov     Dec |   Mean%     N
 -----------------------------------------------------------------------------------------------------------------------
  2010 | +56.0|5 -33.1|1       ·  -4.9|3       ·       ·       ·  +9.1|3  -0.8|2 +88.6|1 -12.2|2 -17.4|7 |   +8.3%   24
@@ -95,7 +95,7 @@ Each cell is `Mean%|N` for trades entered in that calendar month (entry = signal
 
 ### bk50d_s15_v1.2_roc100 — Monthly Mean% / N (EOD, entry month/year)
 
-```
+```text
  Year |     Jan     Feb     Mar     Apr     May     Jun     Jul     Aug     Sep     Oct     Nov     Dec |   Mean%     N
 -----------------------------------------------------------------------------------------------------------------------
  2010 | +43.1|9 -33.1|1       ·  -0.4|4       ·       ·       · +25.4|5 +31.2|7  +7.3|4  +8.9|5-13.1|10 |  +14.3%   45
@@ -118,7 +118,7 @@ Each cell is `Mean%|N` for trades entered in that calendar month (entry = signal
 
 ### bk50d_s12_v1.2_roc100 — Monthly Mean% / N (EOD, entry month/year)
 
-```
+```text
  Year |     Jan     Feb     Mar     Apr     May     Jun     Jul     Aug     Sep     Oct     Nov     Dec |   Mean%     N
 -----------------------------------------------------------------------------------------------------------------------
  2010 |+29.7|16 -33.1|1  +1.6|1 +27.5|7       ·       ·       · +18.1|9 +0.9|18 +7.2|12  +5.8|6-15.0|19 |   +7.3%   89

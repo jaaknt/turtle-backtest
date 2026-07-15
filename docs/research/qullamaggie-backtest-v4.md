@@ -22,20 +22,23 @@ Using the `turtle.daily_bars`, `turtle.company` and `turtle.ticker` PostgreSQL t
 For each trading day, compute the following metrics per ticker. Actual entry signal is triggered if all conditions are met:
 
 **Price momentum conditions:**
+
 - `breakout_N_days`: `close > max(close[-(N+1):-1])` — exceeds prior N trading days' high (sweep N ∈ {50})
 - `pct_above_sma50`: `close / mean(close[-51:-1]) − 1 > X` (sweep X ∈ {12%, 15%, 17%, 20%})
 <!--  
 - `tight_range`: `(max(close[-11:-1]) − min(close[-11:-1])) / mean(close[-11:-1]) < 30%` 
---> 
+-->
 
 **Volatility quality filter (fixed, not swept):**
-- `adr_pct`: `mean((high_i − low_i)/low_i, i in last 20 days, shift-1) >= 3.0%` — average daily range as a percent of price over the prior 20 trading days > 3.0% 
+
+- `adr_pct`: `mean((high_i − low_i)/low_i, i in last 20 days, shift-1) >= 3.0%` — average daily range as a percent of price over the prior 20 trading days > 3.0%
 - `adr_pct_change`: `adr_pct(10 days) / adr_pct(50 days) < 0.9` - average daily range of 10 days divided by average daily range of 50 days < 0.9
 - `rsi_filter`: `RSI(14) < 70` — 14-period RSI computed on prior closes (shift-1 convention, no look-ahead). Excludes already-overbought entries (fixed, not swept)
-- `roc_12m_cap`: `close / close[-252] − 1 < 100%` — 12-month return of stock. Excludes stocks that have already more than doubled in the past year, filtering out overextended breakouts that are likely in a late stage of their move. 
+- `roc_12m_cap`: `close / close[-252] − 1 < 100%` — 12-month return of stock. Excludes stocks that have already more than doubled in the past year, filtering out overextended breakouts that are likely in a late stage of their move.
 
 **Volume signals:**
-- `vol_surge`: `volume < 2.0 × mean(volume[-51:-1])` — breakout volume must stay below 2.0× the 50-day average. 
+
+- `vol_surge`: `volume < 2.0 × mean(volume[-51:-1])` — breakout volume must stay below 2.0× the 50-day average.
 - `vol_dry_up`: `mean(volume[-11:-1]) < 0.90 × mean(volume[-51:-1])` — base volume must be below 90% of the 50-day average, confirming the consolidation happened on declining volume before the breakout surge (fixed, not swept)
 
 <!--
@@ -44,9 +47,11 @@ For each trading day, compute the following metrics per ticker. Actual entry sig
 -->
 
 **Market regime filter (fixed, not swept):**
+
 - `spy_above_200d`: SPY closing price on the entry date is above its 200-day SMA. Computed as `spy_close > mean(spy_close[-201:-1])` using `daily_bars` where `ticker_code = 'SPY.US'`. Skip any entry signal on dates where this condition is false.
 
 **Entering condition:**
+
 - `qullamaggie_style`: `spy_above_200d` AND `adr_pct` AND `adr_pct_change` AND `rsi_filter` AND `roc_12m_cap` AND `breakout_N_days(N)` AND `pct_above_sma50(X)` AND `vol_surge` AND `vol_dry_up`
 
 ---
@@ -69,6 +74,7 @@ Skip any entry where 366 calendar days are not available in the DB.
 Trade return formula: `return = close[entry_date + holding_days] / close[entry_date] − 1`
 
 Exclusions applied to all combinations before reporting:
+
 - Exclude combinations with fewer than 30 total trades
 - Exclude combinations where fewer than 10 trades have negative returns (Sortino denominator unreliable)
 
@@ -119,12 +125,13 @@ Report two ranking tables, same columns and ranking rule, side by side:
 2. **Capacity-constrained (max 30 and max 20 concurrent positions)** — same signals, but a portfolio can hold at most 20/30 open positions at once. Process candidates in chronological entry-date order (ties broken alphabetically by symbol); a position occupies its slot from entry date through exit date inclusive. If 20/30 positions are already open on a signal's entry date, skip it outright — there is no queueing for a freed-up slot later, and no signal-quality ranking is used to decide which trade to keep.
 
 **Year-by-year consistency flag**: for each complete calendar year in the evaluation period, compute the annual Sortino ratio. A combination is flagged ✓ consistent if:
+
 - Sortino > 0 in ≥ 70% of complete calendar years, AND
 - At least 3 complete calendar years have ≥ 10 negative-return trades (enough to compute a valid annual Sortino)
 
 The `Yrs+` column shows `positive_sortino_years / total_valid_years` (e.g. `4/5`).
 
-```
+```text
 Rank | Entry Signal        | Exit  | Win% | Mean Ret | AnnMean Ret |Median Ret | Profit Factor |Sortino | CVaR(95%) | Freq/mo | Yrs+ | Consistent
 -----|---------------------|-------|------|----------|-------------|-----------|---------------|--------|-----------|---------|------|-----------
   1  | breakout_100d+...   | 63d   |  62% |   +8.3%  |    +54.1%   | +10.3%    |    1.2        |    1.82|     -6.1% |      43 | 4/5  | ✓
@@ -139,7 +146,8 @@ Rank | Entry Signal        | Exit  | Win% | Mean Ret | AnnMean Ret |Median Ret |
 - **Look-ahead bias**: all signals must be computable from data available on the entry date only
 
 ## Implementation
+
 - create/overwrite script scripts/qullamaggie-backtest-v4.py
 - save research results in file docs/research/result-qullamaggie-backtest-v4.md overwriting existing file if file exists
 - always update ## Configuration values to reflect latest setup
-- add your findings and ideas how to improve the algorithm to end of docs/research/result-qullamaggie-backtest-v4.md file 
+- add your findings and ideas how to improve the algorithm to end of docs/research/result-qullamaggie-backtest-v4.md file

@@ -1,7 +1,9 @@
 # Turtle Strategy Backtester
+
 Python library to backtest different trading strategies with US stocks
 
 ## Features
+
 - Download all relevant data from EODHD API (exchanges, tickers, company fundamentals, OHLCV history)
 - Trading strategies: Darvas Box, Mars, Momentum
 - Exit strategies: Buy and Hold, Profit/Loss, EMA, MACD, ATR, Trailing Percentage Loss
@@ -11,7 +13,8 @@ Python library to backtest different trading strategies with US stocks
 - HTML tearsheet generation with performance analytics
 
 ## Installation
-```
+
+```bash
 # Install uv if not already installed
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
@@ -38,19 +41,21 @@ uv run alembic upgrade head
 
 To download exchange data from EODHD, you first need to configure your EODHD API key.
 
-1.  **Configure API Keys and secrets**
+1. **Configure API Keys and secrets**
     Copy .env.example -> .env and add your database password and EODHD Api key.
-    ```
+
+    ```text
     DB_PASSWORD=
     EODHD_API_KEY=
     ```
 
-2.  **Run the Download Script:**
+2. **Run the Download Script:**
     Execute the `scripts/download_eodhd_data.py` script to fetch and store exchange data in your local PostgreSQL database:
 
     ```bash
     uv run python scripts/download_eodhd_data.py --data exchange
     ```
+
     This script will fetch the latest list of exchanges and upsert them into the `turtle.exchange` table.
 
 ### Downloading Data
@@ -69,6 +74,7 @@ uv run python scripts/download_eodhd_data.py --data history --start-date 2024-01
 ```
 
 **Data Sources:**
+
 - **Symbol lists**: EODHD API
 - **Company fundamentals**: EODHD API
 - **OHLCV historical data**: EODHD API
@@ -95,7 +101,7 @@ For a guide on deploying to a Hetzner VPS (server sizing, PostgreSQL setup, syst
 
 ### Layered Architecture
 
-```
+```text
 scripts/               ← CLI entry points (argparse, asyncio.run)
 turtle/service/       ← Business logic orchestration
 turtle/strategy/trading/         ← Trading signal strategies
