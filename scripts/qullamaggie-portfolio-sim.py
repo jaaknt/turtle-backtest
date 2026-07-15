@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """
-Portfolio simulation for bk50d_s20_tr20 / s15_tr20 / s12_tr20 (v1.2_roc100, 366d).
+Portfolio simulation for bk50d_s20 / s15 / s12 (v1.2_roc100, 366d).
 
 Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
-ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<80%, tight_range<20%, SPY>200d SMA,
-close>$5&<$250, avg_vol>=500K).
+ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA,
+close>$5&<$250, avg_vol>=500K; tight_range and sma_alignment disabled).
+
+close/high/low are split/dividend-adjusted (scaled by adjusted_close/close) so indicators,
+entries, and mark-to-market aren't corrupted by split-day discontinuities; raw (unadjusted)
+close is used only for the $5-$250 price band, matching scripts/qullamaggie-backtest-v4.py.
 
 Rules:
   - Period 2020-01-01 .. 2026-06-26, initial equity $30,000.
@@ -57,7 +61,7 @@ MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
-VOL_DRY_UP = 0.80
+VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
@@ -65,9 +69,9 @@ ADR_FLOOR = 0.03
 ADR_CHANGE_CAP = 0.90
 
 CONFIGS = [
-    ("s20_tr20", 0.20, 0.20),
-    ("s15_tr20", 0.15, 0.20),
-    ("s12_tr20", 0.12, 0.20),
+    ("s20", 0.20),
+    ("s15", 0.15),
+    ("s12", 0.12),
 ]
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -92,7 +96,8 @@ def load_spy(engine: sa.Engine) -> pl.DataFrame:
 
 def load_bars(engine: sa.Engine) -> pl.DataFrame:
     sql = """
-        SELECT db.symbol, db.date::date AS date, db.close::float8 AS close,
+        SELECT db.symbol, db.date::date AS date, db.close::float8 AS raw_close,
+               db.adjusted_close::float8 AS close,
                db.high::float8 AS high, db.low::float8 AS low, db.volume::int8 AS volume
         FROM   turtle.daily_bars db
         JOIN   turtle.ticker  t  ON t.code        = db.symbol
@@ -100,19 +105,21 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
         WHERE  t.country = 'USA' AND t.type = 'Common Stock'
           AND  c.market_cap >= 1500000000
           AND  c.sector NOT IN ('Communication Services', 'Real Estate')
-          AND  db.date >= :data_start AND db.close > 0 AND db.volume > 0
+          AND  db.date >= :data_start AND db.close > 0 AND db.adjusted_close > 0 AND db.volume > 0
         ORDER  BY db.symbol, db.date
     """
     with engine.connect() as conn:
         rows = conn.execute(sa.text(sql), {"data_start": DATA_START}).fetchall()
+    factor = [float(r[3]) / float(r[2]) for r in rows]  # adjusted_close / raw_close
     return pl.DataFrame(
         {
             "symbol": [r[0] for r in rows],
             "date": pl.Series([r[1] for r in rows], dtype=pl.Date),
-            "close": [float(r[2]) for r in rows],
-            "high": [float(r[3]) for r in rows],
-            "low": [float(r[4]) for r in rows],
-            "volume": [int(r[5]) for r in rows],
+            "raw_close": [float(r[2]) for r in rows],
+            "close": [float(r[3]) for r in rows],
+            "high": [float(r[4]) * f for r, f in zip(rows, factor, strict=True)],
+            "low": [float(r[5]) * f for r, f in zip(rows, factor, strict=True)],
+            "volume": [int(r[6]) for r in rows],
         }
     )
 
@@ -149,9 +156,6 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("_v1").rolling_mean(20, min_samples=20).over("symbol").alias("avg_vol_20"),
             pl.col("_v1").rolling_mean(10, min_samples=10).over("symbol").alias("avg_vol_10"),
             pl.col("_c1").rolling_max(50, min_samples=50).over("symbol").alias("max_c_50d"),
-            pl.col("_c1").rolling_max(10, min_samples=10).over("symbol").alias("_tr_max"),
-            pl.col("_c1").rolling_min(10, min_samples=10).over("symbol").alias("_tr_min"),
-            pl.col("_c1").rolling_mean(10, min_samples=10).over("symbol").alias("_tr_mean"),
             pl.col("_rp1").rolling_mean(20, min_samples=20).over("symbol").alias("adr_pct"),
             pl.col("_rp1").rolling_mean(10, min_samples=10).over("symbol").alias("_adr10"),
             pl.col("_rp1").rolling_mean(50, min_samples=50).over("symbol").alias("_adr50"),
@@ -160,7 +164,6 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
     )
     df = df.with_columns(
         [
-            ((pl.col("_tr_max") - pl.col("_tr_min")) / pl.col("_tr_mean")).alias("tight_range_ratio"),
             ((pl.col("close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
             (pl.col("_adr10") / pl.col("_adr50")).alias("adr_pct_change"),
             (pl.col("close") / pl.col("_c_252d") - 1.0).alias("roc_252d"),
@@ -169,26 +172,24 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float, tr_t: float) -> pl.DataFrame:
+def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
     cands = (
         df.filter(
             (pl.col("date") >= EVAL_START)
             & (pl.col("date") <= EVAL_END)
             & pl.col("sma50").is_not_null()
             & pl.col("max_c_50d").is_not_null()
-            & pl.col("tight_range_ratio").is_not_null()
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
             & pl.col("adr_pct_change").is_not_null()
             & (pl.col("rsi14") < RSI_CAP)
-            & (pl.col("close") > MIN_PRICE)
-            & (pl.col("close") < MAX_PRICE)
+            & (pl.col("raw_close") > MIN_PRICE)
+            & (pl.col("raw_close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
             & (pl.col("adr_pct") >= ADR_FLOOR)
             & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
             & (pl.col("close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") > sma_t)
-            & (pl.col("tight_range_ratio") < tr_t)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
@@ -585,9 +586,9 @@ def main() -> None:
     # collect all results first (both approaches), then rank for monthly grids
     all_results: list[tuple[str, str, float, dict]] = []  # (name, approach, pos_fraction, result)
 
-    for name, sma_t, tr_t in CONFIGS:
+    for name, sma_t in CONFIGS:
         print(f"Simulating {name} …", flush=True)
-        sig = get_signals(df, bull_dates, sma_t, tr_t)
+        sig = get_signals(df, bull_dates, sma_t)
         signals_by_day: dict[int, list[dict]] = {}
         for r in sig.iter_rows(named=True):
             signals_by_day.setdefault((r["date"] - _EPOCH).days, []).append(r)

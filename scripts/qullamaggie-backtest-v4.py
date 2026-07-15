@@ -3,9 +3,9 @@
 Qullamaggie-style breakout backtest v4.
 Spec: docs/research/qullamaggie-backtest-v4.md
 
-Fixed filters: vol_dry_up<80%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%,
-               ADR_change<90%, SPY>200d SMA, close>=$5&<$250, avg_vol>=500K
-Sweep: SMA_THRESH ∈ {12%,15%,17%,20%} × HOLD_CAL ∈ {91,184,366 cal days}  (tight_range fixed at 20%)
+Fixed filters: vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%,
+               ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K
+Sweep: SMA_THRESH ∈ {12%,15%,17%,20%} × HOLD_CAL ∈ {91,184,366 cal days}  (tight_range and sma_alignment disabled)
 Eval: 2021-01-01 – present  |  Burn-in data from 2020-01-01
 """
 
@@ -28,13 +28,12 @@ MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
-VOL_DRY_UP = 0.80
+VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
 ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
-TR_FIXED = 0.20
 MIN_TRADES = 30
 MIN_NEG = 10
 CAPACITY_LIMITS = [30, 20]
@@ -151,9 +150,6 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("_v1").rolling_mean(20, min_samples=20).over("symbol").alias("avg_vol_20"),
             pl.col("_v1").rolling_mean(10, min_samples=10).over("symbol").alias("avg_vol_10"),
             pl.col("_c1").rolling_max(50, min_samples=50).over("symbol").alias("max_c_50d"),
-            pl.col("_c1").rolling_max(10, min_samples=10).over("symbol").alias("_tr_max"),
-            pl.col("_c1").rolling_min(10, min_samples=10).over("symbol").alias("_tr_min"),
-            pl.col("_c1").rolling_mean(10, min_samples=10).over("symbol").alias("_tr_mean"),
             pl.col("_rp1").rolling_mean(20, min_samples=20).over("symbol").alias("adr_pct"),
             pl.col("_rp1").rolling_mean(10, min_samples=10).over("symbol").alias("_adr10"),
             pl.col("_rp1").rolling_mean(50, min_samples=50).over("symbol").alias("_adr50"),
@@ -162,13 +158,12 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
     )
     df = df.with_columns(
         [
-            ((pl.col("_tr_max") - pl.col("_tr_min")) / pl.col("_tr_mean")).alias("tight_range_ratio"),
             ((pl.col("close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
             (pl.col("_adr10") / pl.col("_adr50")).alias("adr_pct_change"),
             (pl.col("close") / pl.col("_c_252d") - 1.0).alias("roc_252d"),
         ]
     )
-    return df.drop(["_c1", "_v1", "_rp1", "_tr_max", "_tr_min", "_tr_mean", "_adr10", "_adr50", "_c_252d"])
+    return df.drop(["_c1", "_v1", "_rp1", "_adr10", "_adr50", "_c_252d"])
 
 
 # ── Signal generation ──────────────────────────────────────────────────────────
@@ -180,7 +175,6 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             (pl.col("date") >= EVAL_START)
             & pl.col("sma50").is_not_null()
             & pl.col("max_c_50d").is_not_null()
-            & pl.col("tight_range_ratio").is_not_null()
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
             & pl.col("adr_pct_change").is_not_null()
@@ -192,7 +186,6 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
             & (pl.col("close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") > sma_t)
-            & (pl.col("tight_range_ratio") < TR_FIXED)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
@@ -415,7 +408,7 @@ def main() -> None:
     results_by_cap: dict[int, list[tuple[str, int, dict, list[dict]]]] = {cap: [] for cap in CAPACITY_LIMITS}
 
     for sma_t in SMA_THRESHS:
-        lbl = f"bk50d_s{int(sma_t * 100)}_tr{int(TR_FIXED * 100)}_v1.2_roc100"
+        lbl = f"bk50d_s{int(sma_t * 100)}_v1.2_roc100"
         print(f"  {lbl} …", flush=True)
         signals = get_signals(df, bull_dates, sma_t)
         if signals.is_empty():
@@ -481,7 +474,7 @@ def main() -> None:
         fh.write("| Parameter | Value |\n|---|---|\n")
         fh.write("| Breakout | 50d high |\n")
         fh.write(f"| SMA thresh sweep | {sma_vals} |\n")
-        fh.write(f"| Tight range | {int(TR_FIXED * 100)}% (fixed) |\n")
+        fh.write("| Tight range | disabled (commented out) |\n")
         fh.write(f"| Hold sweep | {hold_vals} (calendar) |\n")
         fh.write(f"| Capacity limits | unconstrained, {', '.join(str(c) for c in CAPACITY_LIMITS)} concurrent (FIFO) |\n")
         fh.write(f"| vol_dry_up | avg_vol_10 < {int(VOL_DRY_UP * 100)}% × avg_vol_50 |\n")

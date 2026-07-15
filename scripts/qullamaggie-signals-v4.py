@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """
-Current-period signal report for bk50d_s12_tr20_v1.2_roc100 vs bk50d_s20_tr20_v1.2_roc100.
+Current-period signal report for bk50d_s12_v1.2_roc100 vs bk50d_s15_v1.2_roc100 and
+bk50d_s20_v1.2_roc100 (signals marked when also present in the stricter variants).
+0.97*Entry is the 3%-below-entry-close resting-limit level from the portfolio study;
+"Reached?" marks whether any daily low touched that level within LIMIT_WINDOW_CAL calendar
+days after the signal (fill eligible from the day after the signal, adjusted-price space —
+same convention as scripts/qullamaggie-portfolio-sim.py's run_sim_limit).
 
 Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
-ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<80%, tight_range<20%, SPY>200d SMA,
-close>$5&<$250, avg_vol>=500K). Display window: 2026-06-01 - today.
+ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA,
+close>$5&<$250, avg_vol>=500K; tight_range and sma_alignment disabled — TR% is shown for
+information only, not filtered). Display window: 2026-06-01 - today.
 Candidate window starts earlier so the 30-day cooldown state is correct at the start of the
 display window.
 
@@ -38,19 +44,22 @@ MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
-VOL_DRY_UP = 0.80
+VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
 ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
-TR_FIXED = 0.20
 SUSPICIOUS_DAY_MOVE = 0.50  # exclude signals with a >50% single-day raw-close move between entry and latest date
 
-BASE_LABEL = "bk50d_s12_tr20_v1.2_roc100"
+BASE_LABEL = "bk50d_s12_v1.2_roc100"
 BASE_SMA_T = 0.12
-COMPARE_LABEL = "bk50d_s20_tr20_v1.2_roc100"
+COMPARE_LABEL = "bk50d_s20_v1.2_roc100"
 COMPARE_SMA_T = 0.20
+COMPARE15_LABEL = "bk50d_s15_v1.2_roc100"
+COMPARE15_SMA_T = 0.15
+LIMIT_DISCOUNT = 0.03  # 0.97*Entry column: resting-limit level 3% below the entry-day close
+LIMIT_WINDOW_CAL = 30  # "Reached?" checks lows for this many calendar days after the signal
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-signals-v4.md"
 
@@ -214,7 +223,6 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
             & (pl.col("close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") > sma_t)
-            & (pl.col("tight_range_ratio") < TR_FIXED)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
@@ -266,14 +274,31 @@ def main() -> None:
     latest_raw_close: dict[str, float] = {}
     sym_dates: dict[str, list[date]] = {}
     sym_raw_closes: dict[str, list[float]] = {}
+    sym_adj_closes: dict[str, list[float]] = {}
+    sym_adj_lows: dict[str, list[float]] = {}
     for (sym,), grp in df.sort(["symbol", "date"]).group_by(["symbol"], maintain_order=False):
         g = grp.sort("date")
         d_list = g["date"].to_list()
         c_list = [float(c) for c in g["raw_close"].to_list()]
         sym_dates[sym] = d_list
         sym_raw_closes[sym] = c_list
+        sym_adj_closes[sym] = [float(c) for c in g["close"].to_list()]
+        sym_adj_lows[sym] = [float(v) for v in g["low"].to_list()]
         latest_date[sym] = d_list[-1]
         latest_raw_close[sym] = c_list[-1]
+
+    def limit_reached(sym: str, idx_entry: int, entry_date: date) -> bool:
+        """True if any adjusted low within LIMIT_WINDOW_CAL calendar days after the signal
+        (starting the day after) touched adjusted_entry_close * (1 - LIMIT_DISCOUNT)."""
+        limit_adj = sym_adj_closes[sym][idx_entry] * (1.0 - LIMIT_DISCOUNT)
+        dates = sym_dates[sym]
+        lows = sym_adj_lows[sym]
+        for i in range(idx_entry + 1, len(dates)):
+            if (dates[i] - entry_date).days > LIMIT_WINDOW_CAL:
+                break
+            if lows[i] <= limit_adj:
+                return True
+        return False
 
     print(f"Generating signals for {BASE_LABEL} …", flush=True)
     base_sig = get_signals(df, bull_dates, BASE_SMA_T)
@@ -287,10 +312,16 @@ def main() -> None:
 
     compare_keys = {(r["symbol"], r["date"]) for r in compare_sig.iter_rows(named=True)}
 
+    print(f"Generating signals for {COMPARE15_LABEL} …", flush=True)
+    compare15_sig = get_signals(df, bull_dates, COMPARE15_SMA_T)
+    compare15_sig = compare15_sig.filter((pl.col("date") >= DISPLAY_START) & (pl.col("date") <= DISPLAY_END))
+    print(f"  {len(compare15_sig)} signals in display window", flush=True)
+    compare15_keys = {(r["symbol"], r["date"]) for r in compare15_sig.iter_rows(named=True)}
+
     hdr = (
-        f"{'Date':<11}│ {'Symbol':<7}│ {'Entry $':>8} │ {'Curr Price':>10} │ {'Change %':>9} │ "
+        f"{'Date':<11}│ {'Symbol':<7}│ {'Entry $':>8} │ {'Curr Price':>10} │ {'0.97*Entry':>10} │ {'Change %':>9} │ "
         f"{'%abv SMA50':>10} │ {'ADR%':>6} │ {'ADR_CHG':>7} │ {'RSI14':>6} │ {'TR%':>6} │ {'ROC252%':>8} │ "
-        f"{'In s20?':>7} │ {'Last date':>11}"
+        f"{'In s15?':>7} │ {'In s20?':>7} │ {'Reached?':>8} │ {'Last date':>11}"
     )
     sep = "─" * len(hdr)
 
@@ -309,16 +340,19 @@ def main() -> None:
             continue
         entry = row["raw_close"]
         curr = latest_raw_close.get(sym, float("nan"))
+        limit_px = entry * (1.0 - LIMIT_DISCOUNT)
         chg = (curr / entry - 1.0) * 100 if entry else float("nan")
         in_compare = (sym, d) in compare_keys
         mark = "✓" if in_compare else " "
+        mark15 = "✓" if (sym, d) in compare15_keys else " "
+        mark_reached = "✓" if limit_reached(sym, idx_entry, d) else " "
         ld = latest_date.get(sym)
         sma_pct = row["pct_vs_sma50"] * 100
         lines.append(
-            f"{str(d):<11}│ {sym:<7}│ {entry:>8.2f} │ {curr:>10.2f} │ {chg:>+8.1f}% │ "
+            f"{str(d):<11}│ {sym:<7}│ {entry:>8.2f} │ {curr:>10.2f} │ {limit_px:>10.2f} │ {chg:>+8.1f}% │ "
             f"{sma_pct:>+9.1f}% │ {row['adr_pct'] * 100:>5.1f}% │ {row['adr_pct_change']:>7.2f} │ "
             f"{row['rsi14']:>6.1f} │ {row['tight_range_ratio'] * 100:>5.1f}% │ {row['roc_252d'] * 100:>+7.1f}% │ "
-            f"{mark:>7} │ {str(ld):>11}"
+            f"{mark15:>7} │ {mark:>7} │ {mark_reached:>8} │ {str(ld):>11}"
         )
         if not in_compare:
             missing_rows.append(row)
@@ -330,7 +364,16 @@ def main() -> None:
     lines.append(sep)
     shown = len(base_sig) - len(excluded_rows)
     also_in_compare = shown - len(missing_rows)
-    summary = f"Total {BASE_LABEL} signals in window: {shown}  |  Also in {COMPARE_LABEL}: {also_in_compare}"
+    also_in_15 = sum(
+        1
+        for row in base_sig.iter_rows(named=True)
+        if (row["symbol"], row["date"]) in compare15_keys
+        and not any(e["symbol"] == row["symbol"] and e["date"] == row["date"] for e in excluded_rows)
+    )
+    summary = (
+        f"Total {BASE_LABEL} signals in window: {shown}  |  Also in {COMPARE15_LABEL}: {also_in_15}  |  "
+        f"Also in {COMPARE_LABEL}: {also_in_compare}"
+    )
     if excluded_rows:
         summary += f"  |  Excluded as suspicious: {len(excluded_rows)}"
     lines.append(summary)
@@ -431,7 +474,7 @@ def main() -> None:
         fh.write("```\n")
         fh.write(output)
         fh.write("\n```\n\n")
-        fh.write("## Signals not in bk50d_s20_tr20_v1.2_roc100\n\n")
+        fh.write(f"## Signals not in {COMPARE_LABEL}\n\n")
         fh.write("```\n")
         fh.write(reasons_text)
         fh.write("\n```\n\n")

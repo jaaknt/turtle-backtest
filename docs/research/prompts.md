@@ -1,9 +1,8 @@
-could you provide bk50d_s12_tr20_v1.2_roc100 signals for period 2026-06-01 : today
-mark signals that are also in bk50d_s20_tr20_v1.2_roc100
-provide information to signals that are not in bk50d_s20_tr20_v1.2_roc100 list what was missing
-Date    │ Symbol │ Entry $ │ Curr Price | Change in % | %abv SMA50 │ ADR% │ ADR_CHANGE │ RSI14 │ TR% │ ROC252% | Latest date |
+could you provide bk50d_s12_v1.2_roc100 signals for period 2026-06-01 : today
+mark signals that are also in bk50d_s20_v1.2_roc100, bk50d_s15_v1.2_roc100
+Date       │ Symbol │  Entry $ │ Curr Price │ 0.97*Entry Price | Change % │ %abv SMA50 │ ADR% │ ADR_CHG │  RSI14 │    TR% │  ROC252% │ In s15? │ In s20? | 0.97*Entry Price reached? │ Last date |
 %abv SMA50 │ ADR% │ RSI14 │ TR% │ ROC252% - these values must be calculated on entry date 
-Latest date - latest date when stock data is availbale in `turtle.daily_bars` table
+Last date - latest date when stock data is available in `turtle.daily_bars` table
 Write also separate table with aggregated results where `%abv SMA50` is in cohorts [12-15), [15-17.5), [17.5-20), [>20)
 Cohort | N |  Med% | Mean% | Win% | PF | Sortino | Max DD |
 Compare also mean(Mean%) with SPY.US, QQQ.US return for whole period. Exclude LC.US and other suspicious data points.
@@ -12,17 +11,19 @@ script: @scripts/qullamaggie-signals-v4.py
 output: screen
 references:  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
 
-analyze bk50d_s15_tr15_v1.2_roc100 366d results in period 2001-01-01 : 2026-06-26
+analyze bk50d_s15_v1.2_roc100 366d results in period 2001-01-01 : 2026-06-26
   - propose 5 options how to achieve ~3 signals per month
   - important is that Med% and Sortino must stay on the same level
-  - the main idea is to loose currently applied filters. what filters conditions loosening affects the Mean%, Sortino less
+  - the main idea is to loosen currently applied filters. what filters conditions loosening affects the Mean%, Sortino less
   
-could you propose rankig algorithm for  s15_tr15 trades that will select only trades with most potential based on technical data (ADR is higher, (SMA10, SMA20), <your discovery> ) 
+could you propose ranking algorithm for  s15_tr15 trades that will select only trades with most potential based on technical data (ADR is higher, (SMA10, SMA20), <your discovery> ) 
+
+run Ruff + mypy + pytest
 
 validate that @docs/research/qullamaggie-backtest-v4.md and @scripts/qullamaggie-backtest-v4.py are consistent
 run the backtest described in @docs/research/qullamaggie-backtest-v4.md
 
-could you provide portfolio simulation bk50d_s20_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d, bk50d_s12_tr20_v1.2_roc100-366d
+could you provide portfolio simulation bk50d_s20_v1.2_roc100-366d, bk50d_s15_v1.2_roc100-366d, bk50d_s12_v1.2_roc100-366d
 important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md, @scripts/qullamaggie-portfolio-sim.py
 - period 2020-01-01 : 2026-06-26
 - initial portfolio amount 30000$
@@ -30,7 +31,7 @@ important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/resu
 - if there is no liquidity then skip the trade
 <!-- - prefer always bk50d_s20_tr10_v1.2_roc100 signals, but if there is liquidity then use bk50d_s15_tr15_v1.2_roc100 signals to reduce uninvested amounts
  - implement rank based funding to choose trade if there are several trades available on the same day 
-- sell position if stock closes below 200 day SMA for 3 consequtive trades -->
+- sell position if stock closes below 200 day SMA for 3 consecutive trades -->
 - output format
 size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 --------------------------------------------------------------------------
@@ -42,22 +43,23 @@ size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 -----------------------------------------------------------------------------------------------------------------------------------------------
  2010 |    -3.2|7    +3.8|1    +2.6|1    -0.4|2    -2.4|0    -3.9|0    +2.9|0    -3.1|4    +5.5|2    +1.0|2    -0.3|2    +8.3|6 |   +10.5    27
 - could you provide comparison with alternative approach where limit order will be added to buy stock 3% below closing price during next 30 days (instead of buying on closing proce)
-- add your findings to improve the portfolio perfoermance (Mean%, Sortino, Calmar)
-output file: @docs/research/result-qullamaggie-portfolio-v4.md
+- add your findings to improve the portfolio performance (Mean%, Sortino, Calmar)
+save results in @docs/research/result-qullamaggie-portfolio-v4.md
 script: @scripts/qullamaggie-portfolio-sim.py
 
-could you provide bk50d_s20_tr20_v1.2_roc100 signals for period 2025-07-01 : today
+could you provide bk50d_s20_v1.2_roc100 signals for period 2025-07-01 : today
 Date    │ Symbol │ Entry $ │ Curr Price | Change in % | %abv SMA50 │ ADR% │ ADR_CHANGE │ RSI14 │ TR% │ ROC252% |
 %abv SMA50 │ ADR% │ RSI14 │ TR% │ ROC252% - these values must be calculated on entry date 
 add also latest date when stock data is available
 provide mean trade performance, trade count if all trades will be closed on last date
 references:  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
-- output file @docs/research/result-qullamaggie-trades-v4.md
+save results in @docs/research/result-qullamaggie-trades-v4.md
+note: implemented by @scripts/qullamaggie-trades-v4.py as bk50d_s20_v1.2_roc100 (vol_dry_up<90%, no tight_range — TR% shown for information only)
 
 
- could you analyze bk50d_s20_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d algorithms
+ could you analyze bk50d_s20_v1.2_roc100-366d, bk50d_s15_v1.2_roc100-366d algorithms
  how  `roc_12m_cap`: `close / close[-252] − 1 < 100%` 
- cohorts (<20),  [-20-0), [0-20), [20-40), [40-60), [40-60), [60-80), [80-100), [100-120), [120-140), [140-160), [>160)
+ cohorts (<-20), [-20-0), [0-20), [20-40), [40-60), [60-80), [80-100), [100-120), [120-140), [140-160), [>160)
  affect performance
  output format columns
  Cohort            N     Med%    Mean%    Win%   Sortino      PF
@@ -66,7 +68,7 @@ references:  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-q
  save results in @docs/research/result-qullamaggie-roc-cohorts.md
  important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
 
- could you analyze bk50d_s20_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d algorithms
+ could you analyze bk50d_s20_v1.2_roc100-366d, bk50d_s15_v1.2_roc100-366d algorithms
  how  `adr_pct`: `mean((high_i − low_i)/low_i, i in last 20 days, shift-1)`
  cohorts [0-1.0), [1.0-2.0), [2.0-2.5), [2.5-3.0), [3.0-3.5), [3.5-4.0), [4.0-4.5), [4.5-5.0), [5.0-7.0), (>8.0)  
  affect performance
@@ -75,10 +77,11 @@ references:  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-q
  analyze period: 2015-01-01 : 2026-06-26  
  script: @scripts/qullamaggie-adr-cohorts.py
  save results in @docs/research/result-qullamaggie-adr-cohorts.md
+ note: @scripts/qullamaggie-adr-cohorts.py was later overwritten to run the ROC cohort study above; the ADR% version survives only as @docs/research/result-qullamaggie-adr-cohorts.md
  important files:  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
 
- could you analyze bk50d_s20_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d algorithms
- how adr compresstion before breakout affects results
+ could you analyze bk50d_s20_v1.2_roc100-366d, bk50d_s15_v1.2_roc100-366d algorithms
+ how adr compression before breakout affects results
  ADR%(N) = mean( (high − low) / low ) over previous N days × 100 (exclude current day)
   compression = ADR%(10) / ADR%(50)
  cohorts [<0.5), [0.5-0.7) [0.7-0.8), [0.8-0.9), [0.9-1.0), [1.0-1.3), [>1.3) 
@@ -89,7 +92,7 @@ references:  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-q
  save results in @docs/research/result-qullamaggie-adr-compression-cohorts.md
  important files: @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
 
- could you analyze bk50d_s20_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d algorithms
+ could you analyze bk50d_s20_v1.2_roc100-366d, bk50d_s15_v1.2_roc100-366d algorithms
  how  `rsi_filter`: `RSI(14)
  cohorts [0-20), [20-40), [40-60), [40-50), [50-60), [60-70), [70-75), [75-80), [80-90), [90-100]
  output format columns
@@ -99,7 +102,7 @@ references:  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-q
  save results in @docs/research/result-qullamaggie-rsi-cohorts.md
  important files: @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
 
- could you analyze bk50d_s20_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d algorithms
+ could you analyze bk50d_s20_v1.2_roc100-366d, bk50d_s15_v1.2_roc100-366d algorithms
  how close price on entry affects results
  cohorts [0-5), [5-10), [10-20), [20-50), [50-100), [100-250), [250-700), [700-2000), [>2000]
  output format columns
@@ -109,7 +112,7 @@ references:  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-q
  save results in @docs/research/result-qullamaggie-price-cohorts.md
  important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
 
- could you analyze bk50d_s20_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d algorithms
+ could you analyze bk50d_s20_v1.2_roc100-366d, bk50d_s15_v1.2_roc100-366d algorithms
  how vol_surge_ratio = volume / mean(volume[-51:-1]) affects results
  cohorts [<0.7), [0.7-0.8), [0.8-0.9), [0.9-1.0), [1.0-1.1), [1.1-1.2), [1.2-1.3), [1.3-1.4), [1.4-1.6), [1.6-2.0), [2.0-3.0), [3.0-4.0), [4.0-6.0), [>6.0) 
  output format columns
@@ -119,22 +122,24 @@ references:  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-q
  save results in @docs/research/result-qullamaggie-volsurge-cohorts.md
  important files: @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
 
- could you analyze bk50d_s12_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d, bk50d_s17_tr20_v1.2_roc100-366d, bk50d_s20_tr20_v1.2_roc100-366d algorithms
+ could you analyze bk50d_s12_v1.2_roc100-366d, bk50d_s15_v1.2_roc100-366d, bk50d_s17_v1.2_roc100-366d, bk50d_s20_v1.2_roc100-366d algorithms
  how tight_range2: (max(close[-11:-1]) − min(close[-11:-1])) / mean(close[-11:-1]) < Y affects results
  cohorts [<0), [0.0-0.1) [0.1-0.15), [0.15-0.2), [0.2-0.25), [0.25-0.3), [>0.3) 
  output format columns
  Cohort            N     Med%    Mean%    Win%   Sortino      PF
  analyze period: 2015-01-01 : 2026-06-26  
+ script: @scripts/qullamaggie-tightrange-cohorts.py
  save results in @docs/research/result-qullamaggie-tightrange-cohorts.md
+ note: implemented as s20_tr10, s20_tr20, s15_tr15 variants (not s12/s17)
  important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
 
-Could you analyze bk50d_s20_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d, bk50d_s12_tr20_v1.2_roc100-366d algorithms
+Could you analyze bk50d_s20_v1.2_roc100-366d, bk50d_s15_v1.2_roc100-366d, bk50d_s12_v1.2_roc100-366d algorithms
 how buying on next day with limit order: limit order price = previous day closing price - X% affects results
-X% = 0%, 1%, 2%, 3%4%, 5% 
+X% = 0%, 1%, 2%, 3%, 4%, 5% 
 limit order is effective during next 30 days
 output format columns
 Cohort            N     Med%    Mean%    Win%   Sortino      PF
-Additionally provide monthly Mean%, trade count by months/years bk50d_s20_tr20 eod, bk50d_s25_tr20 eod, bk50d_s12_tr20 eod
+Additionally provide monthly Mean%, trade count by months/years bk50d_s20 eod, bk50d_s15 eod, bk50d_s12 eod
 Output format ->
  Year |    Jan    Feb    Mar    Apr    May    Jun    Jul    Aug    Sep    Oct    Nov    Dec |   Mean%    N
 ------------------------------------------------------------------------------------------------------------
@@ -142,10 +147,11 @@ Output format ->
  analyze period: 2010-01-01 : 2026-06-26  
  script: @scripts/qullamaggie-limit-order-cohorts.py
  save results in @docs/research/result-qullamaggie-limit-order-cohorts.md
+ note: vol_dry_up<90%, no tight_range (standardized 2026-07-15); saved results were generated earlier with tr20 variants and vol_dry_up<80%
  important files  @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md
 
 
- could you analyze bk50d_s12_tr20_v1.2_roc100-366d, bk50d_s15_tr20_v1.2_roc100-366d, bk50d_s17_tr20_v1.2_roc100-366d, bk50d_s20_tr20_v1.2_roc100-366d algorithms
+ could you analyze bk50d_s12_v1.2_roc100-366d, bk50d_s15_v1.2_roc100-366d, bk50d_s17_v1.2_roc100-366d, bk50d_s20_v1.2_roc100-366d algorithms
    in period 2007-01-01 : 2026-06-26
   and provide monthly Mean%, trade count by years
   and share your general findings and pros/cons of different algorithms  
@@ -162,3 +168,37 @@ and
  2008    61   73.8  +20.26  +17.01    0.977   -33.40
  2009    61   73.8  +20.26  +17.01    0.977   -33.40
  ...
+ script: @scripts/qullamaggie-longterm-monthly.py
+ save results in @docs/research/result-qullamaggie-longterm-monthly.md
+ note: script uses ADR>=2.5% (looser than the v4 canonical 3.0%); no tight_range
+
+could you analyze bk50d_s20_v1.2_roc100-366d algorithm
+ baseline (2021-01-01 : 2026-07-05, unconstrained): N=243, F/mo=3.7, Win%=67.1, Mean%=+52.50, Med%=+22.32, Sortino=2.864, MaxDD%=39.71
+ goal: increase signals per month (F/mo) without degrading Sortino and Mean%
+ - propose 5 ideas how to loosen currently applied filters or expand the universe
+ - prefer relaxations where existing cohort studies show the excluded region performs at or above the included pool
+ - for each idea run the modified variant (change ONE dimension at a time, all other filters unchanged) over 2015-01-01 : 2026-06-26, hold 366d, and report
+   Variant                              N   F/mo   Win%    Mean%    Med%   Sortino      PF   MaxDD%
+ - also run baseline + the best 2-3 ideas combined
+ - fixed filters reference: vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x, RSI<70, ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown 30d, mcap>=1.5B excl Comm/RE
+ - important: Sortino and Mean% must stay on the same level as baseline; reject ideas that trade quality for count
+ - share your findings: which single relaxation has the best F/mo gain per unit of Sortino given up
+ script: @scripts/qullamaggie-backtest-v4.py (new: @scripts/qullamaggie-relax-sweep.py)
+ save results in @docs/research/result-qullamaggie-relax-sweep.md
+ important files: @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-tightrange-cohorts.md, @docs/research/result-qullamaggie-price-cohorts.md
+
+calculate bk50d_s12_v1.2_roc100 signals for period 2010-06-01 : today
+ filters same as @scripts/qullamaggie-signals-v4.py (RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, no tight_range, cooldown 30d, mcap>=1.5B excl Comm/RE)
+ after signals calculation figure out percentage of signals where price drops X% during next Y days so that a resting limit order would be filled
+ limit order price = signal-day close * (1 - X%), X = 0%, 1%, 2%, 3%, 4%, 5%
+ limit order is effective for Y calendar days after the signal day, Y = 30, 60, 90
+ fill rule: order is eligible from the day after the signal; fills on the first trading day whose low <= limit price, else expires unfilled (adjusted prices, same convention as @scripts/qullamaggie-limit-order-cohorts.py)
+ output format ->
+   X%  |        Y=30d         |        Y=60d         |        Y=90d
+       |  Fill%   MedD  MeanD |  Fill%   MedD  MeanD |  Fill%   MedD  MeanD
+ MedD/MeanD = median/mean trading days from signal to fill, filled orders only
+ report also total signal count N and n_filled per cell
+ analyze period: 2010-06-01 : today
+ script: create new @scripts/qullamaggie-limit-fill-rate.py
+ save results in @docs/research/result-qullamaggie-limit-fill-rate.md
+ important files: @scripts/qullamaggie-signals-v4.py, @scripts/qullamaggie-limit-order-cohorts.py, @docs/research/qullamaggie-backtest-v4.md, @docs/research/result-qullamaggie-backtest-v4.md

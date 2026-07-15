@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-ADR compression cohort analysis for bk50d_s20_tr10, bk50d_s20_tr20, bk50d_s15_tr15 (366d hold).
+ADR compression cohort analysis for bk50d_s20_v1.2_roc100, bk50d_s15_v1.2_roc100 (366d hold).
 
-New metric, not currently used as a filter — all standard bk50d filters (incl. each
-strategy's own tight_range cap) apply as-is; compression is only measured, not filtered.
+New metric, not currently used as a filter — all standard bk50d filters (no tight_range)
+apply as-is; compression is only measured, not filtered.
 
 ADR%(N)     = mean((high[-i] - low[-i]) / low[-i] for i in 1..N) * 100  (shift-1, no look-ahead)
 compression = ADR%(10) / ADR%(50)
@@ -35,7 +35,7 @@ MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
-VOL_DRY_UP = 0.80
+VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
@@ -43,9 +43,8 @@ ADR_MIN = 0.025
 MIN_NEG = 5
 
 STRATEGIES = [
-    ("bk50d_s20_tr10_v1.2_roc100", 0.20, 0.10),
-    ("bk50d_s20_tr20_v1.2_roc100", 0.20, 0.20),
-    ("bk50d_s15_tr15_v1.2_roc100", 0.15, 0.15),
+    ("bk50d_s20_v1.2_roc100", 0.20),
+    ("bk50d_s15_v1.2_roc100", 0.15),
 ]
 
 COHORTS: list[tuple[str, float, float]] = [
@@ -152,9 +151,6 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("_v1").rolling_mean(20, min_samples=20).over("symbol").alias("avg_vol_20"),
             pl.col("_v1").rolling_mean(10, min_samples=10).over("symbol").alias("avg_vol_10"),
             pl.col("_c1").rolling_max(50, min_samples=50).over("symbol").alias("max_c_50d"),
-            pl.col("_c1").rolling_max(10, min_samples=10).over("symbol").alias("_tr_max"),
-            pl.col("_c1").rolling_min(10, min_samples=10).over("symbol").alias("_tr_min"),
-            pl.col("_c1").rolling_mean(10, min_samples=10).over("symbol").alias("_tr_mean"),
             pl.col("_dr1").rolling_mean(20, min_samples=20).over("symbol").alias("_adr_num"),
             pl.col("_c1").shift(251).over("symbol").alias("_c_252d"),
             (pl.col("_rp1").rolling_mean(10, min_samples=10).over("symbol") * 100).alias("adr10"),
@@ -163,27 +159,25 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
     )
     df = df.with_columns(
         [
-            ((pl.col("_tr_max") - pl.col("_tr_min")) / pl.col("_tr_mean")).alias("tight_range_ratio"),
             ((pl.col("close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
             (pl.col("_adr_num") / pl.col("sma50")).alias("adr_pct"),
             (pl.col("close") / pl.col("_c_252d") - 1.0).alias("roc_252d"),
             (pl.col("adr10") / pl.col("adr50")).alias("compression"),
         ]
     )
-    return df.drop(["_c1", "_v1", "_dr1", "_rp1", "_tr_max", "_tr_min", "_tr_mean", "_adr_num", "_c_252d"])
+    return df.drop(["_c1", "_v1", "_dr1", "_rp1", "_adr_num", "_c_252d"])
 
 
 # ── Signal generation ──────────────────────────────────────────────────────────
 
 
-def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float, tr_t: float) -> pl.DataFrame:
+def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
     cands = (
         df.filter(
             (pl.col("date") >= EVAL_START)
             & (pl.col("date") <= EVAL_END)
             & pl.col("sma50").is_not_null()
             & pl.col("max_c_50d").is_not_null()
-            & pl.col("tight_range_ratio").is_not_null()
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
             & pl.col("compression").is_not_null()
@@ -194,7 +188,6 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float, tr_t: flo
             & (pl.col("adr_pct") >= ADR_MIN)
             & (pl.col("close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") >= sma_t)
-            & (pl.col("tight_range_ratio") <= tr_t)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
@@ -327,16 +320,16 @@ def main() -> None:
     header = (
         f"ADR compression cohort analysis | Hold: {HOLD_CAL}d | "
         f"Period: {EVAL_START} – {EVAL_END}\n"
-        f"Filters: all bk50d filters applied as-is (incl. each strategy's own tight_range cap);\n"
+        f"Filters: all bk50d filters applied as-is (no tight_range);\n"
         f"compression = ADR%(10)/ADR%(50) is measured only, not filtered\n"
     )
     print("\n" + header)
 
     all_lines: list[str] = [header]
 
-    for strat_label, sma_t, tr_t in STRATEGIES:
+    for strat_label, sma_t in STRATEGIES:
         print(f"  {strat_label} …", flush=True)
-        signals = get_signals(df, bull_dates, sma_t, tr_t)
+        signals = get_signals(df, bull_dates, sma_t)
         print(f"    {len(signals)} signals", flush=True)
         records = run_trades(signals, sym_dates, sym_closes)
         table_lines = build_table(strat_label, records)
