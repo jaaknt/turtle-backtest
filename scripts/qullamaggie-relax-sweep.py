@@ -228,9 +228,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], allowed_syms: set[str],
     return pl.DataFrame(rows_out) if rows_out else cands.clear()
 
 
-def run_trades(
-    signals: pl.DataFrame, sym_dates: dict[str, np.ndarray], sym_closes: dict[str, np.ndarray]
-) -> list[dict]:
+def run_trades(signals: pl.DataFrame, sym_dates: dict[str, np.ndarray], sym_closes: dict[str, np.ndarray]) -> list[dict]:
     records: list[dict] = []
     for row in signals.iter_rows(named=True):
         sym = row["symbol"]
@@ -277,10 +275,7 @@ def compute_metrics(records: list[dict]) -> dict:
     }
 
 
-_HDR = (
-    f"{'Variant':<36}  {'N':>5}  {'F/mo':>5}  {'Win%':>5}  {'Mean%':>7}  {'Med%':>7}  "
-    f"{'Sortino':>7}  {'PF':>6}  {'MaxDD%':>7}"
-)
+_HDR = f"{'Variant':<36}  {'N':>5}  {'F/mo':>5}  {'Win%':>5}  {'Mean%':>7}  {'Med%':>7}  {'Sortino':>7}  {'PF':>6}  {'MaxDD%':>7}"
 _SEP = "─" * len(_HDR)
 
 
@@ -301,9 +296,7 @@ def main() -> None:
     print("Loading bars (loosest universe: mcap>=1.0B, all sectors) …", flush=True)
     df = load_bars(settings.engine)
     meta = load_symbol_meta(settings.engine)
-    valid_syms = set(
-        df.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"].to_list()
-    )
+    valid_syms = set(df.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"].to_list())
     df = df.filter(pl.col("symbol").is_in(list(valid_syms)))
     print(f"  {df.height:,} bars, {len(valid_syms):,} symbols", flush=True)
 
@@ -321,9 +314,7 @@ def main() -> None:
         return {
             sym
             for sym in valid_syms
-            if sym in meta
-            and meta[sym][0] >= params["min_mcap"]
-            and (params["include_comm_re"] or meta[sym][1] not in EXCLUDED_SECTORS)
+            if sym in meta and meta[sym][0] >= params["min_mcap"] and (params["include_comm_re"] or meta[sym][1] not in EXCLUDED_SECTORS)
         }
 
     def run_variant(label: str, params: dict) -> dict:
@@ -351,7 +342,7 @@ def main() -> None:
 
     # Two combo rankings: raw F/mo gain, and F/mo gain per unit of Sortino given up.
     def cost_ratio(m: dict) -> float:
-        return (m["freq"] - base_m["freq"]) / max(base_m["sr"] - m["sr"], 1e-9)
+        return float((m["freq"] - base_m["freq"]) / max(base_m["sr"] - m["sr"], 1e-9))
 
     by_ratio = sorted(passing, key=lambda x: cost_ratio(x[2]), reverse=True)
 
@@ -394,9 +385,7 @@ def main() -> None:
             cost = "Sortino cost: none (improved)" if d_sr > 0 else "Sortino cost: none (flat)"
         else:
             cost = f"F/mo gain per unit Sortino lost: {d_freq / -d_sr:.1f}"
-        finding_lines.append(
-            f"- `{label}` — ΔF/mo {d_freq:+.1f}, ΔSortino {d_sr:+.3f}, ΔMean% {d_mean:+.2f}pp → {cost}"
-        )
+        finding_lines.append(f"- `{label}` — ΔF/mo {d_freq:+.1f}, ΔSortino {d_sr:+.3f}, ΔMean% {d_mean:+.2f}pp → {cost}")
     findings = "\n".join(finding_lines)
 
     print("\n" + table)
@@ -425,8 +414,10 @@ def main() -> None:
             f"ranked by F/mo; top-2 and top-3 combined (qualified: {quality_note}) |\n"
         )
         fh.write("| Universe load | mcap >= 1.0B, all sectors (variant filters applied per run) |\n\n")
-        fh.write("Variant key: `cd15` cooldown 30→15d; `p3` min price $5→$3; `mcap1.0B` market-cap floor "
-                 "$1.5B→$1.0B; `sect+CommRE` re-admit Communication Services/Real Estate.\n\n")
+        fh.write(
+            "Variant key: `cd15` cooldown 30→15d; `p3` min price $5→$3; `mcap1.0B` market-cap floor "
+            "$1.5B→$1.0B; `sect+CommRE` re-admit Communication Services/Real Estate.\n\n"
+        )
         fh.write("## Results\n\n```\n")
         fh.write(table)
         fh.write("\n```\n\n")
