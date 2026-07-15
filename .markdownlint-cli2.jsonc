@@ -1,6 +1,5 @@
 {
-  // prompts.md is a verbatim prompt log, not documentation
-  "globs": ["README.md", "CLAUDE.md", "docs/**/*.md", "!docs/research/prompts.md"],
+  "globs": ["README.md", "CLAUDE.md", "docs/**/*.md"],
   "config": {
     // Line length — prose docs shouldn't hard-wrap
     "MD013": false,
