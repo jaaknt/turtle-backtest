@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-Current-period trade report for bk50d_s20_tr20_v1.2_roc100.
+Current-period trade report for bk50d_s20_v1.2_roc100.
 
 Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
-ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<80%, tight_range<20%, SPY>200d SMA,
-close>$5&<$250, avg_vol>=500K). Display window: 2025-07-01 - today.
+ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA,
+close>$5&<$250, avg_vol>=500K; tight_range disabled — TR% is shown for information
+only, not filtered). Display window: 2025-07-01 - today.
 Candidate window starts earlier so the 30-day cooldown state is correct at the start of the
 display window.
 """
@@ -30,16 +31,15 @@ MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
-VOL_DRY_UP = 0.80
+VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
 ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
-TR_FIXED = 0.20
 SMA_T = 0.20
 
-STRATEGY_LABEL = "bk50d_s20_tr20_v1.2_roc100"
+STRATEGY_LABEL = "bk50d_s20_v1.2_roc100"
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-trades-v4.md"
 
@@ -167,7 +167,6 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date]) -> pl.DataFrame:
             & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
             & (pl.col("close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") > SMA_T)
-            & (pl.col("tight_range_ratio") < TR_FIXED)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)

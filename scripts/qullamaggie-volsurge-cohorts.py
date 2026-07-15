@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Vol-surge cohort analysis for bk50d_s20_tr10 and bk50d_s15_tr15 (366d hold).
+Vol-surge cohort analysis for bk50d_s20_v1.2_roc100 and bk50d_s15_v1.2_roc100 (366d hold).
 
 All strategy filters applied EXCEPT the vol_surge_max cap, so we can see
 performance across the full vol_surge_ratio range including >2x bands.
@@ -30,13 +30,13 @@ MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
-VOL_DRY_UP = 0.80
+VOL_DRY_UP = 0.90
 ROC_CAP = 1.00
 MIN_NEG = 5
 
 STRATEGIES = [
-    ("bk50d_s20_tr10_v1.2_roc100", 0.20, 0.10),
-    ("bk50d_s15_tr15_v1.2_roc100", 0.15, 0.15),
+    ("bk50d_s20_v1.2_roc100", 0.20),
+    ("bk50d_s15_v1.2_roc100", 0.15),
 ]
 
 COHORTS: list[tuple[str, float, float]] = [
@@ -149,36 +149,31 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("_v1").rolling_mean(20, min_samples=20).over("symbol").alias("avg_vol_20"),
             pl.col("_v1").rolling_mean(10, min_samples=10).over("symbol").alias("avg_vol_10"),
             pl.col("_c1").rolling_max(50, min_samples=50).over("symbol").alias("max_c_50d"),
-            pl.col("_c1").rolling_max(10, min_samples=10).over("symbol").alias("_tr_max"),
-            pl.col("_c1").rolling_min(10, min_samples=10).over("symbol").alias("_tr_min"),
-            pl.col("_c1").rolling_mean(10, min_samples=10).over("symbol").alias("_tr_mean"),
             pl.col("_dr1").rolling_mean(20, min_samples=20).over("symbol").alias("_adr_num"),
             pl.col("_c1").shift(251).over("symbol").alias("_c_252d"),
         ]
     )
     df = df.with_columns(
         [
-            ((pl.col("_tr_max") - pl.col("_tr_min")) / pl.col("_tr_mean")).alias("tight_range_ratio"),
             ((pl.col("close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
             (pl.col("_adr_num") / pl.col("sma50")).alias("adr_pct"),
             (pl.col("close") / pl.col("_c_252d") - 1.0).alias("roc_252d"),
             (pl.col("volume").cast(pl.Float64) / pl.col("avg_vol_50")).alias("vol_surge_ratio"),
         ]
     )
-    return df.drop(["_c1", "_v1", "_dr1", "_tr_max", "_tr_min", "_tr_mean", "_adr_num", "_c_252d"])
+    return df.drop(["_c1", "_v1", "_dr1", "_adr_num", "_c_252d"])
 
 
 # ── Signal generation (no vol_surge_max cap) ─────────────────────────────────
 
 
-def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float, tr_t: float) -> pl.DataFrame:
+def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
     cands = (
         df.filter(
             (pl.col("date") >= EVAL_START)
             & (pl.col("date") <= EVAL_END)
             & pl.col("sma50").is_not_null()
             & pl.col("max_c_50d").is_not_null()
-            & pl.col("tight_range_ratio").is_not_null()
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
             & (pl.col("rsi14") < 80.0)
@@ -188,7 +183,6 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float, tr_t: flo
             & (pl.col("adr_pct") >= 0.025)
             & (pl.col("close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") >= sma_t)
-            & (pl.col("tight_range_ratio") <= tr_t)
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
@@ -331,9 +325,9 @@ def main() -> None:
 
     all_lines: list[str] = [header]
 
-    for strat_label, sma_t, tr_t in STRATEGIES:
+    for strat_label, sma_t in STRATEGIES:
         print(f"  {strat_label} …", flush=True)
-        signals = get_signals(df, bull_dates, sma_t, tr_t)
+        signals = get_signals(df, bull_dates, sma_t)
         print(f"    {len(signals)} signals", flush=True)
         records = run_trades(signals, sym_dates, sym_closes)
         table_lines = build_table(strat_label, records)

@@ -3,7 +3,7 @@
 Long-term monthly analysis for multiple bk50d configs (366d hold).
 
 Same fixed filters as scripts/qullamaggie-backtest-v4.py (RSI<70, roc_12m<100%,
-vol_surge<2.0x, vol_dry_up<80%, ADR>=2.5%, ADR_change<90%, SPY>200d SMA,
+vol_surge<2.0x, vol_dry_up<90%, ADR>=2.5%, ADR_change<90%, SPY>200d SMA,
 close>$5&<$250, avg_vol>=500K), extended back to 2007-01-01 to cover the 2008 GFC,
 2011/2015/2018 corrections, 2020 COVID crash and 2022 bear market.
 
@@ -31,7 +31,7 @@ MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
-VOL_DRY_UP = 0.80
+VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
@@ -40,10 +40,10 @@ ADR_CHANGE_CAP = 0.90
 MIN_NEG = 3
 
 STRATEGIES = [
-    ("bk50d_s12_tr20_v1.2_roc100", 0.12, 0.20),
-    ("bk50d_s15_tr20_v1.2_roc100", 0.15, 0.20),
-    ("bk50d_s17_tr20_v1.2_roc100", 0.17, 0.20),
-    ("bk50d_s20_tr20_v1.2_roc100", 0.20, 0.20),
+    ("bk50d_s12_v1.2_roc100", 0.12),
+    ("bk50d_s15_v1.2_roc100", 0.15),
+    ("bk50d_s17_v1.2_roc100", 0.17),
+    ("bk50d_s20_v1.2_roc100", 0.20),
 ]
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -141,9 +141,6 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("_v1").rolling_mean(20, min_samples=20).over("symbol").alias("avg_vol_20"),
             pl.col("_v1").rolling_mean(10, min_samples=10).over("symbol").alias("avg_vol_10"),
             pl.col("_c1").rolling_max(50, min_samples=50).over("symbol").alias("max_c_50d"),
-            pl.col("_c1").rolling_max(10, min_samples=10).over("symbol").alias("_tr_max"),
-            pl.col("_c1").rolling_min(10, min_samples=10).over("symbol").alias("_tr_min"),
-            pl.col("_c1").rolling_mean(10, min_samples=10).over("symbol").alias("_tr_mean"),
             pl.col("_rp1").rolling_mean(20, min_samples=20).over("symbol").alias("adr_pct"),
             pl.col("_rp1").rolling_mean(10, min_samples=10).over("symbol").alias("_adr10"),
             pl.col("_rp1").rolling_mean(50, min_samples=50).over("symbol").alias("_adr50"),
@@ -152,26 +149,24 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
     )
     df = df.with_columns(
         [
-            ((pl.col("_tr_max") - pl.col("_tr_min")) / pl.col("_tr_mean")).alias("tight_range_ratio"),
             ((pl.col("close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
             (pl.col("_adr10") / pl.col("_adr50")).alias("adr_pct_change"),
             (pl.col("close") / pl.col("_c_252d") - 1.0).alias("roc_252d"),
         ]
     )
-    return df.drop(["_c1", "_v1", "_rp1", "_tr_max", "_tr_min", "_tr_mean", "_adr10", "_adr50", "_c_252d"])
+    return df.drop(["_c1", "_v1", "_rp1", "_adr10", "_adr50", "_c_252d"])
 
 
 # ── Signal generation ──────────────────────────────────────────────────────────
 
 
-def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float, tr_t: float) -> pl.DataFrame:
+def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
     cands = (
         df.filter(
             (pl.col("date") >= EVAL_START)
             & (pl.col("date") <= EVAL_END)
             & pl.col("sma50").is_not_null()
             & pl.col("max_c_50d").is_not_null()
-            & pl.col("tight_range_ratio").is_not_null()
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
             & pl.col("adr_pct_change").is_not_null()
@@ -183,7 +178,6 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float, tr_t: flo
             & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
             & (pl.col("close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") > sma_t)
-            & (pl.col("tight_range_ratio") < tr_t)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
@@ -333,9 +327,9 @@ def main() -> None:
 
     all_lines: list[str] = [fixed_hdr]
 
-    for strat_label, sma_t, tr_t in STRATEGIES:
+    for strat_label, sma_t in STRATEGIES:
         print(f"Generating signals for {strat_label} …", flush=True)
-        signals = get_signals(df, bull_dates, sma_t, tr_t)
+        signals = get_signals(df, bull_dates, sma_t)
         print(f"  {len(signals)} signals", flush=True)
         records = run_trades(signals, sym_dates, sym_closes)
 

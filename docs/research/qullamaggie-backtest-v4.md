@@ -24,7 +24,9 @@ For each trading day, compute the following metrics per ticker. Actual entry sig
 **Price momentum conditions:**
 - `breakout_N_days`: `close > max(close[-(N+1):-1])` — exceeds prior N trading days' high (sweep N ∈ {50})
 - `pct_above_sma50`: `close / mean(close[-51:-1]) − 1 > X` (sweep X ∈ {12%, 15%, 17%, 20%})
-- `tight_range`: `(max(close[-11:-1]) − min(close[-11:-1])) / mean(close[-11:-1]) < 20%` 
+<!--  
+- `tight_range`: `(max(close[-11:-1]) − min(close[-11:-1])) / mean(close[-11:-1]) < 30%` 
+--> 
 
 **Volatility quality filter (fixed, not swept):**
 - `adr_pct`: `mean((high_i − low_i)/low_i, i in last 20 days, shift-1) >= 3.0%` — average daily range as a percent of price over the prior 20 trading days > 3.0% 
@@ -34,7 +36,7 @@ For each trading day, compute the following metrics per ticker. Actual entry sig
 
 **Volume signals:**
 - `vol_surge`: `volume < 2.0 × mean(volume[-51:-1])` — breakout volume must stay below 2.0× the 50-day average. 
-- `vol_dry_up`: `mean(volume[-11:-1]) < 0.80 × mean(volume[-51:-1])` — base volume must be below 80% of the 50-day average, confirming the consolidation happened on declining volume before the breakout surge (fixed, not swept)
+- `vol_dry_up`: `mean(volume[-11:-1]) < 0.90 × mean(volume[-51:-1])` — base volume must be below 90% of the 50-day average, confirming the consolidation happened on declining volume before the breakout surge (fixed, not swept)
 
 <!--
 **Trend alignment filter (fixed, not swept):**
@@ -45,7 +47,7 @@ For each trading day, compute the following metrics per ticker. Actual entry sig
 - `spy_above_200d`: SPY closing price on the entry date is above its 200-day SMA. Computed as `spy_close > mean(spy_close[-201:-1])` using `daily_bars` where `ticker_code = 'SPY.US'`. Skip any entry signal on dates where this condition is false.
 
 **Entering condition:**
-- `qullamaggie_style`: `spy_above_200d` AND `adr_pct` AND `adr_pct_change` AND `rsi_filter` AND `roc_12m_cap` AND `breakout_N_days(N)` AND `pct_above_sma50(X)` AND `tight_range` AND `vol_surge` AND `vol_dry_up`
+- `qullamaggie_style`: `spy_above_200d` AND `adr_pct` AND `adr_pct_change` AND `rsi_filter` AND `roc_12m_cap` AND `breakout_N_days(N)` AND `pct_above_sma50(X)` AND `vol_surge` AND `vol_dry_up`
 
 ---
 
