@@ -326,8 +326,9 @@ def main() -> None:
     sep = "─" * len(hdr)
 
     lines: list[str] = [hdr, sep]
-    missing_rows: list[dict] = []
     excluded_rows: list[dict] = []
+    also_in_compare = 0
+    reached_count = 0
     cohort_returns: dict[str, list[float]] = {label: [] for _, _, label in COHORTS}
     cohort_mdds: dict[str, list[float]] = {label: [] for _, _, label in COHORTS}
     for row in base_sig.iter_rows(named=True):
@@ -345,7 +346,8 @@ def main() -> None:
         in_compare = (sym, d) in compare_keys
         mark = "✓" if in_compare else " "
         mark15 = "✓" if (sym, d) in compare15_keys else " "
-        mark_reached = "✓" if limit_reached(sym, idx_entry, d) else " "
+        reached = limit_reached(sym, idx_entry, d)
+        mark_reached = "✓" if reached else " "
         ld = latest_date.get(sym)
         sma_pct = row["pct_vs_sma50"] * 100
         lines.append(
@@ -354,8 +356,10 @@ def main() -> None:
             f"{row['rsi14']:>6.1f} │ {row['tight_range_ratio'] * 100:>5.1f}% │ {row['roc_252d'] * 100:>+7.1f}% │ "
             f"{mark15:>7} │ {mark:>7} │ {mark_reached:>8} │ {str(ld):>11}"
         )
-        if not in_compare:
-            missing_rows.append(row)
+        if in_compare:
+            also_in_compare += 1
+        if reached:
+            reached_count += 1
         label = cohort_label(sma_pct)
         cohort_returns[label].append(chg)
         running_max = np.maximum.accumulate(window)
@@ -363,16 +367,17 @@ def main() -> None:
 
     lines.append(sep)
     shown = len(base_sig) - len(excluded_rows)
-    also_in_compare = shown - len(missing_rows)
     also_in_15 = sum(
         1
         for row in base_sig.iter_rows(named=True)
         if (row["symbol"], row["date"]) in compare15_keys
         and not any(e["symbol"] == row["symbol"] and e["date"] == row["date"] for e in excluded_rows)
     )
+    reached_pct = reached_count / shown * 100 if shown else 0.0
     summary = (
         f"Total {BASE_LABEL} signals in window: {shown}  |  Also in {COMPARE15_LABEL}: {also_in_15}  |  "
-        f"Also in {COMPARE_LABEL}: {also_in_compare}"
+        f"Also in {COMPARE_LABEL}: {also_in_compare}  |  "
+        f"0.97*Entry reached: {reached_count}/{shown} ({reached_pct:.1f}%)"
     )
     if excluded_rows:
         summary += f"  |  Excluded as suspicious: {len(excluded_rows)}"
@@ -380,28 +385,6 @@ def main() -> None:
 
     output = "\n".join(lines)
     print("\n" + output)
-
-    reason_lines: list[str] = []
-    if missing_rows:
-        reason_lines.append(f"=== {BASE_LABEL} signals NOT in {COMPARE_LABEL} (N={len(missing_rows)}) — what's missing ===\n")
-        for row in missing_rows:
-            sym, d = row["symbol"], row["date"]
-            pct = row["pct_vs_sma50"] * 100
-            threshold_pct = COMPARE_SMA_T * 100
-            if pct < threshold_pct:
-                reason = f"%abv SMA50={pct:+.1f}% < {threshold_pct:.0f}% threshold — short by {threshold_pct - pct:.1f}pp"
-            else:
-                reason = (
-                    f"%abv SMA50={pct:+.1f}% already clears {threshold_pct:.0f}%, but this exact entry date was "
-                    f"suppressed by {COMPARE_LABEL}'s own 30-day cooldown (a different date for {sym} was selected "
-                    "as its trigger instead)"
-                )
-            reason_lines.append(f"  {d} {sym:<7} {reason}")
-    else:
-        reason_lines.append(f"All {BASE_LABEL} signals in the display window are also in {COMPARE_LABEL}.")
-
-    reasons_text = "\n".join(reason_lines)
-    print("\n" + reasons_text)
 
     excluded_lines: list[str] = []
     if excluded_rows:
@@ -471,19 +454,15 @@ def main() -> None:
             "same split/dividend-adjusted series as scripts/qullamaggie-backtest-v4.py. Last date is "
             "the latest date with data available for that symbol in turtle.daily_bars.\n\n"
         )
-        fh.write("```\n")
+        fh.write("```text\n")
         fh.write(output)
-        fh.write("\n```\n\n")
-        fh.write(f"## Signals not in {COMPARE_LABEL}\n\n")
-        fh.write("```\n")
-        fh.write(reasons_text)
         fh.write("\n```\n\n")
         fh.write("## Excluded as suspicious data\n\n")
         fh.write(
             f"Signals with a single-day raw-close move exceeding {SUSPICIOUS_DAY_MOVE * 100:.0f}% between entry "
             "and the latest available date are dropped from the table, cross-check, and cohort analysis above — "
             "such a move is not organic price action for this universe (market cap ≥ $1.5B) and most likely "
-            "reflects a delisting/halt-type event or a data anomaly.\n\n```\n"
+            "reflects a delisting/halt-type event or a data anomaly.\n\n```text\n"
         )
         fh.write(excluded_text)
         fh.write("\n```\n\n")
@@ -495,7 +474,7 @@ def main() -> None:
             "still open, marked at whatever elapsed time has passed since entry), but downside_dev keeps the "
             "backtest's convention (RMS of negative returns over all N, positives count as 0). MaxDD% is the "
             "mean of each signal's own peak-to-trough decline (raw close) from entry through its latest "
-            "available date.\n\n```\n"
+            "available date.\n\n```text\n"
         )
         fh.write(cohort_output)
         fh.write("\n```\n\n")
@@ -503,7 +482,7 @@ def main() -> None:
         fh.write(
             "`mean(Mean%)` is the unweighted average of the four cohort Mean% values above (not weighted "
             "by N per cohort). SPY.US/QQQ.US are raw-close buy-and-hold over the same window, no dividend "
-            "reinvestment — same convention as Entry $/Curr Price/Change %.\n\n```\n"
+            "reinvestment — same convention as Entry $/Curr Price/Change %.\n\n```text\n"
         )
         fh.write(bench_output)
         fh.write("\n```\n")

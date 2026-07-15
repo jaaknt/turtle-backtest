@@ -1,8 +1,8 @@
 # bk50d_s12_v1.2_roc100 vs bk50d_s20_v1.2_roc100 — Signal Report
 
-Run date: 2026-07-15
+Run date: 2026-07-16
 
-Period: 2026-06-01 – 2026-07-15
+Period: 2026-06-01 – 2026-07-16
 
 Entry $/Curr Price/Change % use raw (unadjusted) close — the real tradeable price. %abv SMA50/ADR%/ADR_CHG/RSI14/TR%/ROC252% are computed on the entry date, using the same split/dividend-adjusted series as scripts/qullamaggie-backtest-v4.py. Last date is the latest date with data available for that symbol in turtle.daily_bars.
 
@@ -37,31 +37,7 @@ Date       │ Symbol │  Entry $ │ Curr Price │ 0.97*Entry │  Change % �
 2026-07-13 │ KMX.US │    54.87 │      55.73 │      53.22 │     +1.6% │     +21.0% │   4.5% │    0.80 │   49.4 │   6.3% │   -18.0% │       ✓ │       ✓ │          │  2026-07-14
 2026-07-14 │ BBY.US │    83.98 │      83.98 │      81.46 │     +0.0% │     +20.9% │   3.0% │    0.85 │   67.5 │   8.8% │   +21.9% │       ✓ │       ✓ │          │  2026-07-14
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-Total bk50d_s12_v1.2_roc100 signals in window: 27  |  Also in bk50d_s15_v1.2_roc100: 19  |  Also in bk50d_s20_v1.2_roc100: 10  |  Excluded as suspicious: 1
-```
-
-## Signals not in bk50d_s20_v1.2_roc100
-
-```text
-=== bk50d_s12_v1.2_roc100 signals NOT in bk50d_s20_v1.2_roc100 (N=17) — what's missing ===
-
-  2026-06-01 DUOL.US %abv SMA50=+14.7% < 20% threshold — short by 5.3pp
-  2026-06-03 GEO.US  %abv SMA50=+19.5% < 20% threshold — short by 0.5pp
-  2026-06-08 MOH.US  %abv SMA50=+16.9% < 20% threshold — short by 3.1pp
-  2026-06-08 PBI.US  %abv SMA50=+18.9% < 20% threshold — short by 1.1pp
-  2026-06-08 PRKS.US %abv SMA50=+17.0% < 20% threshold — short by 3.0pp
-  2026-06-09 BAX.US  %abv SMA50=+12.0% < 20% threshold — short by 8.0pp
-  2026-06-11 ALK.US  %abv SMA50=+14.7% < 20% threshold — short by 5.3pp
-  2026-06-11 VIK.US  %abv SMA50=+12.2% < 20% threshold — short by 7.8pp
-  2026-06-15 HUN.US  %abv SMA50=+12.3% < 20% threshold — short by 7.7pp
-  2026-06-24 CRL.US  %abv SMA50=+15.6% < 20% threshold — short by 4.4pp
-  2026-06-24 RGEN.US %abv SMA50=+13.7% < 20% threshold — short by 6.3pp
-  2026-06-25 AVTR.US %abv SMA50=+17.3% < 20% threshold — short by 2.7pp
-  2026-06-25 CARR.US %abv SMA50=+15.8% < 20% threshold — short by 4.2pp
-  2026-06-25 WSC.US  %abv SMA50=+17.6% < 20% threshold — short by 2.4pp
-  2026-06-26 YETI.US %abv SMA50=+16.2% < 20% threshold — short by 3.8pp
-  2026-07-02 HRB.US  %abv SMA50=+12.4% < 20% threshold — short by 7.6pp
-  2026-07-06 DRVN.US %abv SMA50=+13.1% < 20% threshold — short by 6.9pp
+Total bk50d_s12_v1.2_roc100 signals in window: 27  |  Also in bk50d_s15_v1.2_roc100: 19  |  Also in bk50d_s20_v1.2_roc100: 10  |  0.97*Entry reached: 15/27 (55.6%)  |  Excluded as suspicious: 1
 ```
 
 ## Excluded as suspicious data

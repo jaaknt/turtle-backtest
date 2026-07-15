@@ -253,7 +253,7 @@ def main() -> None:
         fh.write(f"# {STRATEGY_LABEL} — Trade Report\n\n")
         fh.write(f"Run date: {date.today()}\n\n")
         fh.write(f"Period: {DISPLAY_START} – {DISPLAY_END}\n\n")
-        fh.write("```\n")
+        fh.write("```text\n")
         fh.write(output)
         fh.write("\n```\n")
     print(f"\nResults saved to {RESULT_PATH}", flush=True)
