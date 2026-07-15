@@ -355,10 +355,7 @@ def main() -> None:
             "fills on the first trading day whose low <= limit price within Y calendar days, else expires unfilled "
             "(adjusted prices, same convention as scripts/qullamaggie-limit-order-cohorts.py) |\n"
         )
-        fh.write(
-            "| Fixed filters | RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, "
-            "no tight_range |\n"
-        )
+        fh.write("| Fixed filters | RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, no tight_range |\n")
         fh.write("| Market regime | SPY close > 200d SMA |\n")
         fh.write(f"| Price range | > ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f} |\n")
         fh.write(f"| Min avg vol (20d) | >= {MIN_AVG_VOL // 1000}K |\n")
