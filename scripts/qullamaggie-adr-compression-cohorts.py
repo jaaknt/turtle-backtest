@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ADR compression cohort analysis for bk50d_s20_v1.2_roc100, bk50d_s15_v1.2_roc100 (366d hold).
+ADR compression cohort analysis for bk50d_s20_v1.2_roc100, bk50d_s15_v1.2_roc100, bk50d_s12_v1.2_roc100 (366d hold).
 
 New metric, not currently used as a filter — all standard bk50d filters (no tight_range)
 apply as-is; compression is only measured, not filtered.
@@ -45,6 +45,7 @@ MIN_NEG = 5
 STRATEGIES = [
     ("bk50d_s20_v1.2_roc100", 0.20),
     ("bk50d_s15_v1.2_roc100", 0.15),
+    ("bk50d_s12_v1.2_roc100", 0.12),
 ]
 
 COHORTS: list[tuple[str, float, float]] = [
@@ -343,7 +344,7 @@ def main() -> None:
     with RESULT_PATH.open("w") as fh:
         fh.write("# Qullamaggie ADR Compression Cohort Analysis\n\n")
         fh.write(f"Run date: {date.today()}\n\n")
-        fh.write("```\n")
+        fh.write("```text\n")
         fh.write(output)
         fh.write("\n```\n")
     print(f"\nResults saved to {RESULT_PATH}", flush=True)

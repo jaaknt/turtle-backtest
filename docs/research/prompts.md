@@ -10,8 +10,8 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 | -------- | -------- | --------- |
 | [Validate & run backtest v4](#validate--run-backtest-v4) | `scripts/qullamaggie-backtest-v4.py` | `result-qullamaggie-backtest-v4.md` |
 | [Long-term monthly analysis](#long-term-monthly-analysis) | `scripts/qullamaggie-longterm-monthly.py` | `result-qullamaggie-longterm-monthly.md` |
-| [ROC 12m cohorts](#roc-12m-cohorts) | `scripts/qullamaggie-adr-cohorts.py` | `result-qullamaggie-roc-cohorts.md` |
-| [ADR% cohorts](#adr-cohorts) | `scripts/qullamaggie-adr-cohorts.py` (overwritten) | `result-qullamaggie-adr-cohorts.md` |
+| [ROC 12m cohorts](#roc-12m-cohorts) | `scripts/qullamaggie-roc-cohorts.py` | `result-qullamaggie-roc-cohorts.md` |
+| [ADR% cohorts](#adr-cohorts) | `scripts/qullamaggie-adr-cohorts.py` | `result-qullamaggie-adr-cohorts.md` |
 | [ADR compression cohorts](#adr-compression-cohorts) | `scripts/qullamaggie-adr-compression-cohorts.py` | `result-qullamaggie-adr-compression-cohorts.md` |
 | [RSI(14) cohorts](#rsi14-cohorts) | `scripts/qullamaggie-rsi-cohorts.py` | `result-qullamaggie-rsi-cohorts.md` |
 | [Entry price cohorts](#entry-price-cohorts) | `scripts/qullamaggie-price-cohorts.py` | `result-qullamaggie-price-cohorts.md` |
@@ -69,7 +69,7 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 
 All cohort studies below share the same setup unless stated otherwise:
 
-- **Algorithms:** `bk50d_s20_v1.2_roc100-366d`, `bk50d_s15_v1.2_roc100-366d`
+- **Algorithms:** `bk50d_s20_v1.2_roc100-366d`, `bk50d_s15_v1.2_roc100-366d`, `bk50d_s12_v1.2_roc100-366d`
 - **Period:** 2015-01-01 : 2026-06-26
 - **Output columns:** `Cohort  N  Med%  Mean%  Win%  Sortino  PF`
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`
@@ -79,7 +79,7 @@ All cohort studies below share the same setup unless stated otherwise:
 **Goal:** How `roc_12m_cap` (`close / close[-252] − 1 < 100%`) affects performance.
 
 - **Cohorts:** (<-20), [-20-0), [0-20), [20-40), [40-60), [60-80), [80-100), [100-120), [120-140), [140-160), (>160)
-- **Script:** `scripts/qullamaggie-adr-cohorts.py`
+- **Script:** `scripts/qullamaggie-roc-cohorts.py`
 - **Results:** `docs/research/result-qullamaggie-roc-cohorts.md`
 
 ### ADR% cohorts
@@ -89,7 +89,7 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Cohorts:** [0-1.0), [1.0-2.0), [2.0-2.5), [2.5-3.0), [3.0-3.5), [3.5-4.0), [4.0-4.5), [4.5-5.0), [5.0-7.0), (>8.0)
 - **Script:** `scripts/qullamaggie-adr-cohorts.py`
 - **Results:** `docs/research/result-qullamaggie-adr-cohorts.md`
-- **Note:** `scripts/qullamaggie-adr-cohorts.py` was later overwritten to run the ROC cohort study above; the ADR% version survives only as `docs/research/result-qullamaggie-adr-cohorts.md`.
+- **Note:** the script was recreated 2026-07-16 with the standardized v1.2 filters (vol_dry_up<90%, no tight_range); an earlier run with tr20 variants and vol_dry_up<80% had overwritten it with the ROC study, which now lives in `scripts/qullamaggie-roc-cohorts.py`.
 
 ### ADR compression cohorts
 

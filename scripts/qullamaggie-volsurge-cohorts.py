@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Vol-surge cohort analysis for bk50d_s20_v1.2_roc100 and bk50d_s15_v1.2_roc100 (366d hold).
+Vol-surge cohort analysis for bk50d_s20_v1.2_roc100 and bk50d_s15_v1.2_roc100, bk50d_s12_v1.2_roc100 (366d hold).
 
 All strategy filters applied EXCEPT the vol_surge_max cap, so we can see
 performance across the full vol_surge_ratio range including >2x bands.
@@ -37,6 +37,7 @@ MIN_NEG = 5
 STRATEGIES = [
     ("bk50d_s20_v1.2_roc100", 0.20),
     ("bk50d_s15_v1.2_roc100", 0.15),
+    ("bk50d_s12_v1.2_roc100", 0.12),
 ]
 
 COHORTS: list[tuple[str, float, float]] = [
@@ -341,7 +342,7 @@ def main() -> None:
     with RESULT_PATH.open("w") as fh:
         fh.write("# Qullamaggie Vol-Surge Cohort Analysis\n\n")
         fh.write(f"Run date: {date.today()}\n\n")
-        fh.write("```\n")
+        fh.write("```text\n")
         fh.write(output)
         fh.write("\n```\n")
     print(f"\nResults saved to {RESULT_PATH}", flush=True)
