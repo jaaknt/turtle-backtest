@@ -22,6 +22,7 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 | [Relaxation brainstorm (s15)](#relaxation-brainstorm-s15) | — | — |
 | [Relaxation sweep (s20)](#relaxation-sweep-s20) | `scripts/qullamaggie-relax-sweep.py` | `result-qullamaggie-relax-sweep.md` |
 | [Ranking algorithm proposal](#ranking-algorithm-proposal) | — | `result-qullamaggie-ranking.md` |
+| [Dynamic cohort ranking (s15)](#dynamic-cohort-ranking-s15) | `scripts/qullamaggie-cohort-ranking.py` | `result-qullamaggie-cohort-ranking.md` |
 | [Portfolio simulation](#portfolio-simulation) | `scripts/qullamaggie-portfolio-sim.py` | `result-qullamaggie-portfolio-v4.md` |
 | [Signals: s12 with overlap & cohorts](#signals-s12-with-overlap--cohorts) | `scripts/qullamaggie-signals-v4.py` | screen |
 | [Trades: s20 open-trade performance](#trades-s20-open-trade-performance) | `scripts/qullamaggie-trades-v4.py` | `result-qullamaggie-trades-v4.md` |
@@ -215,6 +216,29 @@ All cohort studies below share the same setup unless stated otherwise:
 ### Ranking algorithm proposal
 
 **Goal:** Propose a ranking algorithm for s15_tr15 trades that selects only the trades with the most potential based on technical data (higher ADR, (SMA10, SMA20), your own discoveries).
+
+### Dynamic cohort ranking (s15)
+
+**Goal:** Build a dynamic ranking score for `bk50d_s15_v1.2_roc100` signals that estimates the probability the signal will succeed (trade return > 0 at the 366d exit), derived from the per-dimension cohort statistics of the existing cohort studies.
+
+- **Dimensions** (all computed on the entry date, definitions identical to the cohort scripts): `adr_pct` (ADR% cohorts), `adr_pct_change` = ADR%(10)/ADR%(50) (compression cohorts), `rsi14` (RSI cohorts), entry close price (price cohorts), `vol_surge_ratio` (volsurge cohorts), `roc_252d` (ROC cohorts). Reuse each study's cohort boundaries.
+- **Per-dimension probability:** the Win% of the signal's cohort, computed **walk-forward** — from s15 trades whose 366d hold completed before the signal date (expanding window; no look-ahead). Shrink small cohorts toward the running pool win rate: `p̂ = (wins + k·p₀) / (n + k)` with `k = 20`.
+- **Composite score:** average the per-dimension log-odds and convert back: `P = σ( mean_d( ln(p̂_d / (1 − p̂_d)) ) )`. Report the score as a probability in [0, 1].
+- **Warm-up:** scoring starts once ≥ 300 completed trades exist (~2017); earlier signals are excluded from validation.
+- **Validation:** rank all scored signals by P and split into deciles; report per decile:
+
+  ```text
+  Decile   PredP%      N     Med%    Mean%    Win%   Sortino      PF
+  ```
+
+  - `PredP%` = mean predicted probability in the decile; compare with realized Win% (calibration).
+  - Check the Win%/Mean%/Sortino gradient is monotonic from D1 (lowest score) to D10 (highest).
+
+- **Period:** 2015-01-01 : 2026-06-26, hold 366d, all standardized v1.2 filters (vol_dry_up<90%, no tight_range).
+- **Script:** `scripts/qullamaggie-cohort-ranking.py` (create new; reuse the shared harness of the cohort scripts)
+- **Results:** `docs/research/result-qullamaggie-cohort-ranking.md`
+- **Note:** implementation adds a second, regime-neutral decile table (score minus running pool log-odds) because the raw walk-forward P proved anti-calibrated — dominated by pool-win-rate time drift; see Findings in the result doc. RSI uses the fine partition ([40-50), [50-60)) so bins are disjoint; values in cohort gaps (e.g. ADR [7-8)) fall back to the pool win rate via n=0 shrinkage.
+- **Important files:** `scripts/qullamaggie-adr-cohorts.py`, `scripts/qullamaggie-roc-cohorts.py`, `docs/research/result-qullamaggie-adr-cohorts.md`, `docs/research/result-qullamaggie-adr-compression-cohorts.md`, `docs/research/result-qullamaggie-rsi-cohorts.md`, `docs/research/result-qullamaggie-price-cohorts.md`, `docs/research/result-qullamaggie-volsurge-cohorts.md`, `docs/research/result-qullamaggie-roc-cohorts.md`, `docs/research/qullamaggie-backtest-v4.md`
 
 ## Portfolio simulation
 
