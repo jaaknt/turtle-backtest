@@ -109,6 +109,14 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Script:** `scripts/qullamaggie-rsi-cohorts.py`
 - **Results:** `docs/research/result-qullamaggie-rsi-cohorts.md`
 
+### SMA(200) analyze
+
+**Goal:** How `signal above sma(200)` (`SMA(200)` on entry) affects performance.
+
+- **Output:** setup is the same as for cohort analyze
+- **Script:** `scripts/qullamaggie-sma200.py`updat
+- **Results:** `docs/research/result-qullamaggie-sma200.md`
+
 ### Entry price cohorts
 
 **Goal:** How the close price on entry affects results.
