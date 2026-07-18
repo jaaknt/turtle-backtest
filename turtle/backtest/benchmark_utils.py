@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from turtle.common.enums import TimeFrameUnit
 from turtle.model import Benchmark
-from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
 
 import polars as pl
 
@@ -15,7 +15,7 @@ def calculate_benchmark_list(
     start_date: datetime,
     end_date: datetime,
     benchmark_tickers: list[str],
-    bars_history: OhlcvAnalyticsRepository,
+    bars_history: DailyBarsQueryRepository,
     time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
 ) -> list[Benchmark]:
     """

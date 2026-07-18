@@ -1,7 +1,7 @@
 """Tests for MarsStrategy polars path."""
 from datetime import date, timedelta
 from turtle.common.enums import TimeFrameUnit
-from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
 from turtle.strategy.ranking.base import RankingStrategy
 from turtle.strategy.trading.mars import MarsStrategy
 from unittest.mock import MagicMock
@@ -25,7 +25,7 @@ def _build_ohlcv(n: int = 300) -> pl.DataFrame:
 
 
 def _make_strategy(pl_df: pl.DataFrame, min_bars: int = 100) -> MarsStrategy:
-    mock_repo = MagicMock(spec=OhlcvAnalyticsRepository)
+    mock_repo = MagicMock(spec=DailyBarsQueryRepository)
     mock_repo.get_bars_pl.return_value = pl_df
     mock_ranking = MagicMock(spec=RankingStrategy)
     mock_ranking.ranking.return_value = 8
@@ -176,7 +176,7 @@ def test_ranking_returns_correct_price_bracket() -> None:
 
 
 def test_ranking_returns_zero_when_no_data() -> None:
-    mock_repo = MagicMock(spec=OhlcvAnalyticsRepository)
+    mock_repo = MagicMock(spec=DailyBarsQueryRepository)
     mock_repo.get_bars_pl.return_value = pl.DataFrame()
     mock_ranking = MagicMock(spec=RankingStrategy)
     strategy = MarsStrategy(mock_repo, mock_ranking, min_bars=1)

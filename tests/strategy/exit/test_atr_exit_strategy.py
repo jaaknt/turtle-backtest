@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 from turtle.model import Trade
-from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
 from turtle.strategy.exit import ATRExitStrategy
 from unittest.mock import Mock
 
@@ -15,7 +15,7 @@ class TestATRExitStrategy:
 
     def create_mock_bars_history(self) -> Mock:
         """Create a mock bars history repo for testing."""
-        mock_bars_history = Mock(spec=OhlcvAnalyticsRepository)
+        mock_bars_history = Mock(spec=DailyBarsQueryRepository)
         return mock_bars_history
 
     def test_init(self) -> None:

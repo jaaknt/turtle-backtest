@@ -10,7 +10,7 @@ from turtle.model import FutureTrade, Signal
 from turtle.portfolio.analytics import PortfolioAnalytics
 from turtle.portfolio.manager import PortfolioManager
 from turtle.portfolio.selector import PortfolioSignalSelector
-from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
 from turtle.strategy.exit.base import ExitStrategy
 from turtle.strategy.trading.base import TradingStrategy
 
@@ -29,7 +29,7 @@ class PortfolioService:
         self,
         trading_strategy: TradingStrategy,
         exit_strategy: ExitStrategy,
-        bars_history: OhlcvAnalyticsRepository,
+        bars_history: DailyBarsQueryRepository,
         start_date: date,
         end_date: date,
         initial_capital: float = 30000.0,

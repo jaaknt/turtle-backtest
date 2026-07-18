@@ -1,7 +1,7 @@
 import logging
 from datetime import date, timedelta
 from turtle.common.enums import TimeFrameUnit
-from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
 
 import polars as pl
 
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class MarketData:
-    def __init__(self, bars_history: OhlcvAnalyticsRepository, ticker: str):
+    def __init__(self, bars_history: DailyBarsQueryRepository, ticker: str):
         self.bars_history = bars_history
         self.ticker = ticker
         self.pl = pl.DataFrame()

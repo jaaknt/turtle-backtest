@@ -3,7 +3,7 @@ import logging
 from datetime import date
 from turtle.common.enums import TimeFrameUnit
 from turtle.model import Signal
-from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
 from turtle.service.market import MarketData
 
 # from turtle.strategy.trading.momentum import MomentumStrategy
@@ -30,7 +30,7 @@ class SignalService:
         self.warmup_period = warmup_period
 
         self.engine = engine
-        self.bars_history = OhlcvAnalyticsRepository(self.engine)
+        self.bars_history = DailyBarsQueryRepository(self.engine)
         self.market_data = MarketData(self.bars_history, market_ticker)
 
     def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:

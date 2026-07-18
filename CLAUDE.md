@@ -72,7 +72,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 - After non-trivial changes, run pytest and mypy before proposing a commit. Run mypy with no arguments (`uv run mypy`) — scanned paths are defined in `pyproject.toml` `[tool.mypy] files`.
 - Use the PR review subagent workflow (parallel agents) before commit/push on multi-file changes.
-- Polars for all new code. Pandas is intentionally retained in `turtle/repository/analytics.py`, `turtle/portfolio/analytics.py`, and the Streamlit `app.py`, plus indirectly via `quantstats` and `streamlit`. Don't introduce pandas elsewhere; flag any new pandas import in code review.
+- Polars for all new code. Pandas is intentionally retained in `turtle/repository/daily_bars_query.py`, `turtle/portfolio/analytics.py`, and the Streamlit `app.py`, plus indirectly via `quantstats` and `streamlit`. Don't introduce pandas elsewhere; flag any new pandas import in code review.
 
 ## Quick Start & Common Commands
 
@@ -157,9 +157,10 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 - **turtle/strategy/factory.py**: Strategy factories for CLI scripts — canonical string → lambda factory mapping for trading, exit, and ranking strategies (`get_trading_strategy`, `get_exit_strategy`, `get_ranking_strategy`). Each entry is a `Callable[[], StrategyBase]` lambda that closes over the required dependencies, so concrete constructors are called directly rather than through the abstract base type.
 - **turtle/repository/**: All database access (sync Engine reads + async Session writes)
   - `tables.py`: SQLAlchemy Core table definitions
-  - `analytics.py`: `OhlcvAnalyticsRepository` — bulk OHLCV reads returning DataFrames (pandas/polars)
+  - `daily_bars_query.py`: `DailyBarsQueryRepository` — bulk OHLCV reads returning DataFrames (pandas/polars)
+  - `ticker_query.py`: `TickerQueryRepository` — ticker universe reads (symbol groups, fundamentals-qualified lists)
   - `symbol_group.py`: `SymbolGroupRepository` — symbol group reads/writes
-  - `eodhd/`: `ExchangeRepository`, `TickerRepository`, `TickerQueryRepository`, `DailyBarsRepository`, `CompanyRepository`
+  - `eodhd/`: `ExchangeRepository`, `TickerRepository`, `DailyBarsRepository`, `CompanyRepository`
 - **turtle/strategy/trading/**: Trading signal implementations
   - `base.py`: TradingStrategy abstract base
   - `darvas_box.py`, `mars.py`, `momentum.py`
@@ -261,7 +262,7 @@ All pluggable behaviours — signals, exits, rankings — share a common ABC int
 
 ### Repository Pattern (Data Access)
 
-All database operations live in `turtle/repository/`. No SQL outside this directory. Sync `Engine`-based repos handle reads; async `AsyncSession`-based repos handle writes. See `turtle/repository/analytics.py` (sync reads) and `turtle/repository/eodhd/` (async writes).
+All database operations live in `turtle/repository/`. No SQL outside this directory. Sync `Engine`-based repos handle reads; async `AsyncSession`-based repos handle writes. See `turtle/repository/daily_bars_query.py` (sync reads) and `turtle/repository/eodhd/` (async writes).
 
 ### Dependency Injection (Constructor Injection)
 
@@ -284,7 +285,7 @@ External API clients (`turtle/client/eodhd.py`) are `async`/`await` using `httpx
 
 | Construct | Convention | Example |
 | ----------- | ----------- | --------- |
-| Classes | PascalCase | `DarvasBoxStrategy`, `OhlcvAnalyticsRepository` |
+| Classes | PascalCase | `DarvasBoxStrategy`, `DailyBarsQueryRepository` |
 | Methods / variables | snake_case | `get_signals()`, `start_date` |
 | Private methods | leading underscore | `_get_bars_history_db()` |
 | Constants / enums | UPPER_SNAKE_CASE | `TimeFrameUnit.DAY` |
@@ -328,8 +329,9 @@ Tests mirror the source tree under `tests/`:
 - `strategy/exit/test_profit_loss_exit_strategy.py`: Profit/loss exit strategy logic
 - `strategy/exit/test_trailing_percentage_loss_exit_strategy.py`: Trailing percentage loss exit strategy logic
 - `strategy/test_factory.py`: Strategy factory
-- `repository/test_ohlcv_analytics_repository.py`: OhlcvAnalyticsRepository (pandas/polars reads)
+- `repository/test_daily_bars_query_repository.py`: DailyBarsQueryRepository (pandas/polars reads)
 - `repository/test_repositories_eodhd.py`: EODHD repository classes (exchange, ticker, daily bars, company)
+- `repository/test_ticker_query_repository.py`: TickerQueryRepository (symbol list and qualified-universe reads)
 - `portfolio/test_portfolio.py`: Portfolio management and analytics
 - `backtest/test_signal_processor.py`: Signal processing pipeline
 - `config/test_settings.py`: Configuration loading

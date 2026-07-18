@@ -10,7 +10,7 @@ the strategy directly instead of going through the factory.
 """
 
 from collections.abc import Callable
-from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
 from turtle.strategy.exit.atr import ATRExitStrategy
 from turtle.strategy.exit.base import ExitStrategy
 from turtle.strategy.exit.buy_and_hold import BuyAndHoldExitStrategy
@@ -29,7 +29,7 @@ from turtle.strategy.trading.momentum import MomentumStrategy
 from turtle.strategy.trading.qullamaggie import QullamaggieStrategy
 
 
-def get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, bars_history: OhlcvAnalyticsRepository) -> TradingStrategy:
+def get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, bars_history: DailyBarsQueryRepository) -> TradingStrategy:
     """Create a trading strategy instance by name."""
     strategies: dict[str, Callable[[], TradingStrategy]] = {
         "darvas_box": lambda: DarvasBoxStrategy(bars_history, ranking_strategy),
@@ -46,7 +46,7 @@ def get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, 
     return factory()
 
 
-def get_exit_strategy(strategy_name: str, bars_history: OhlcvAnalyticsRepository) -> ExitStrategy:
+def get_exit_strategy(strategy_name: str, bars_history: DailyBarsQueryRepository) -> ExitStrategy:
     """Create an exit strategy instance by name."""
     strategies: dict[str, Callable[[], ExitStrategy]] = {
         "buy_and_hold": lambda: BuyAndHoldExitStrategy(bars_history),

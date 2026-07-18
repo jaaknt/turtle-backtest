@@ -57,9 +57,9 @@ The `SignalService` provides a clean interface for executing trading strategies 
 
 ```python
 from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
-from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
 
-bars_history = OhlcvAnalyticsRepository(engine)
+bars_history = DailyBarsQueryRepository(engine)
 strategy = DarvasBoxStrategy(bars_history, time_frame_unit=TimeFrameUnit.DAY)
 signal_service = SignalService(engine, strategy, market_ticker="SPY")
 
@@ -104,9 +104,9 @@ The `BacktestService` orchestrates complete signal-to-exit backtesting by combin
 ```python
 from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
 from turtle.strategy.exit.atr import ATRExitStrategy
-from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
 
-bars_history = OhlcvAnalyticsRepository(engine)
+bars_history = DailyBarsQueryRepository(engine)
 strategy = DarvasBoxStrategy(bars_history)
 signal_service = SignalService(engine, strategy, market_ticker="SPY")
 exit_strategy = ATRExitStrategy(bars_history, atr_multiplier=2.0)

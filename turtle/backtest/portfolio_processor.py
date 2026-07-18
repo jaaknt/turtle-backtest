@@ -4,7 +4,7 @@ import logging
 from datetime import date, timedelta
 from turtle.common.enums import TimeFrameUnit
 from turtle.model import Signal
-from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
 from turtle.strategy.trading.base import TradingStrategy
 
 import polars as pl
@@ -24,7 +24,7 @@ class PortfolioSignalProcessor:
     def __init__(
         self,
         trading_strategy: TradingStrategy,
-        bars_history: OhlcvAnalyticsRepository,
+        bars_history: DailyBarsQueryRepository,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         batch_size: int = 50,
     ):

@@ -1,8 +1,8 @@
 from datetime import date
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.settings import Settings
-from turtle.repository.analytics import OhlcvAnalyticsRepository
-from turtle.repository.eodhd import TickerQueryRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
+from turtle.repository.ticker_query import TickerQueryRepository
 from turtle.service.signal_service import SignalService
 from turtle.strategy.ranking.momentum import MomentumRanking
 from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
@@ -19,7 +19,7 @@ end_date = date.today()
 # Create settings and database connection
 settings = Settings.from_toml()
 engine = settings.engine
-bars_history = OhlcvAnalyticsRepository(engine)
+bars_history = DailyBarsQueryRepository(engine)
 
 # Create DarvasBoxStrategy instance
 darvas_strategy = DarvasBoxStrategy(

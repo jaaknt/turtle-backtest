@@ -1,12 +1,13 @@
-from turtle.repository.analytics import OhlcvAnalyticsRepository
-from turtle.repository.eodhd import CompanyRepository, DailyBarsRepository, ExchangeRepository, TickerQueryRepository, TickerRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
+from turtle.repository.eodhd import CompanyRepository, DailyBarsRepository, ExchangeRepository, TickerRepository
 from turtle.repository.symbol_group import SymbolGroupRepository
+from turtle.repository.ticker_query import TickerQueryRepository
 
 __all__ = [
     "CompanyRepository",
     "DailyBarsRepository",
     "ExchangeRepository",
-    "OhlcvAnalyticsRepository",
+    "DailyBarsQueryRepository",
     "SymbolGroupRepository",
     "TickerQueryRepository",
     "TickerRepository",

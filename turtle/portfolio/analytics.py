@@ -4,7 +4,7 @@ import logging
 import warnings
 from datetime import date, datetime
 from turtle.model import PortfolioState
-from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
 
 import matplotlib
 import numpy as np
@@ -34,7 +34,7 @@ class PortfolioAnalytics:
         portfolio_state: PortfolioState,
         start_date: date,
         end_date: date,
-        ohlcv_repo: OhlcvAnalyticsRepository,
+        ohlcv_repo: DailyBarsQueryRepository,
         output_file: str | None = None,
     ) -> None:
         """Generate portfolio analysis with printed metrics and tearsheet report."""
@@ -124,7 +124,7 @@ class PortfolioAnalytics:
 
         return returns
 
-    def _calculate_benchmark_returns(self, start_date: date, end_date: date, ohlcv_repo: OhlcvAnalyticsRepository) -> pd.Series:
+    def _calculate_benchmark_returns(self, start_date: date, end_date: date, ohlcv_repo: DailyBarsQueryRepository) -> pd.Series:
         """Calculate QQQ benchmark returns for comparison."""
         try:
             # Fetch QQQ historical data

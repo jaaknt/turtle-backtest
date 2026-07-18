@@ -33,8 +33,8 @@ from turtle.common.cli import iso_date_type
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
-from turtle.repository.analytics import OhlcvAnalyticsRepository
-from turtle.repository.eodhd import TickerQueryRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
+from turtle.repository.ticker_query import TickerQueryRepository
 from turtle.service.signal_service import SignalService
 from turtle.strategy.factory import get_ranking_strategy, get_trading_strategy
 
@@ -125,7 +125,7 @@ def main() -> int:
 
         # Get the trading strategy (we need it for service initialization)
         try:
-            bars_history = OhlcvAnalyticsRepository(engine=settings.engine)
+            bars_history = DailyBarsQueryRepository(engine=settings.engine)
             trading_strategy = get_trading_strategy(args.trading_strategy, ranking_strategy, bars_history)
         except ValueError as e:
             logger.error(str(e))
