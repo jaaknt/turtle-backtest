@@ -25,6 +25,7 @@ import argparse
 import logging
 import pathlib
 import sys
+import time
 
 # Add project root to path to import turtle modules
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
@@ -106,6 +107,7 @@ def main() -> int:
     parser = create_argument_parser()
     args = parser.parse_args()
     settings = Settings.from_toml()
+    run_start = time.perf_counter()
 
     # Setup logging
     LogConfig.setup(args.verbose)
@@ -179,7 +181,7 @@ def main() -> int:
                     for signal in signals:
                         print(f"  ✓ Signal {ticker} on {signal.date} ranking: {signal.ranking} ")
 
-        logger.info("Strategy analysis completed successfully")
+        logger.info(f"Strategy analysis completed successfully in {time.perf_counter() - run_start:.1f}s")
         return 0
 
     except KeyboardInterrupt:

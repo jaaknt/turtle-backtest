@@ -23,6 +23,7 @@ References: docs/research/qullamaggie-backtest-v4.md, docs/research/result-qulla
 """
 
 import sys
+import time
 from bisect import bisect_left
 from datetime import date
 from pathlib import Path
@@ -257,6 +258,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
 
 
 def main() -> None:
+    run_start = time.perf_counter()
     settings = Settings.from_toml()
 
     print("Loading SPY regime …", flush=True)
@@ -487,6 +489,7 @@ def main() -> None:
         fh.write(bench_output)
         fh.write("\n```\n")
     print(f"\nResults saved to {RESULT_PATH}", flush=True)
+    print(f"Signal report completed in {time.perf_counter() - run_start:.1f}s", flush=True)
 
 
 if __name__ == "__main__":
