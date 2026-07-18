@@ -26,6 +26,7 @@ from turtle.strategy.trading.base import TradingStrategy
 from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
 from turtle.strategy.trading.mars import MarsStrategy
 from turtle.strategy.trading.momentum import MomentumStrategy
+from turtle.strategy.trading.qullamaggie import QullamaggieStrategy
 
 
 def get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, bars_history: OhlcvAnalyticsRepository) -> TradingStrategy:
@@ -34,6 +35,7 @@ def get_trading_strategy(strategy_name: str, ranking_strategy: RankingStrategy, 
         "darvas_box": lambda: DarvasBoxStrategy(bars_history, ranking_strategy),
         "mars": lambda: MarsStrategy(bars_history, ranking_strategy),
         "momentum": lambda: MomentumStrategy(bars_history, ranking_strategy),
+        "qullamaggie": lambda: QullamaggieStrategy(bars_history, ranking_strategy),
     }
 
     factory = strategies.get(strategy_name.lower())

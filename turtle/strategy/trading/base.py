@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from turtle.common.enums import TimeFrameUnit
 from turtle.model import Signal
 from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.eodhd.ticker import TickerQueryRepository
 from turtle.strategy.ranking.base import RankingStrategy
 
 import polars as pl
@@ -17,7 +18,15 @@ class TradingStrategy(ABC):
 
     This interface defines the common methods that all trading strategies
     must implement to provide consistent trading signal functionality.
+
+    Each strategy also owns its ticker universe: the default get_universe
+    implementation returns the members of the symbol_group class attribute,
+    so a strategy can either point symbol_group at a different group in the
+    ticker_group table or override get_universe entirely with a custom
+    repository query.
     """
+
+    symbol_group: str = "active"
 
     def __init__(
         self,
@@ -46,6 +55,23 @@ class TradingStrategy(ABC):
 
     @abstractmethod
     def _get_polars_signals(self, ticker: str, start_date: date) -> list[Signal]: ...
+
+    def get_universe(self, ticker_repo: TickerQueryRepository, limit: int | None = None) -> list[str]:
+        """
+        Return the ticker universe this strategy generates signals for.
+
+        The default implementation returns the US members of the symbol group
+        named by the symbol_group class attribute. Strategies with a custom
+        universe (e.g. a fundamentals-based query) should override this method.
+
+        Args:
+            ticker_repo: Repository used to query the ticker universe
+            limit: Optional maximum number of symbols to return
+
+        Returns:
+            list[str]: Ticker symbols in "TICKER.US" format
+        """
+        return ticker_repo.get_symbol_list("USA", limit=limit, ticker_group=self.symbol_group)
 
     def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
         """
