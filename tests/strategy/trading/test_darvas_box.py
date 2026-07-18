@@ -1,6 +1,6 @@
 from datetime import date, datetime, timedelta
 from turtle.common.enums import TimeFrameUnit
-from turtle.repository.analytics import OhlcvAnalyticsRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
 from turtle.strategy.ranking.momentum import MomentumRanking
 from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
 from unittest.mock import MagicMock
@@ -33,7 +33,7 @@ def test_check_local_min() -> None:
 
 
 def test_collect() -> None:
-    bars_history_mock = MagicMock(spec=OhlcvAnalyticsRepository)
+    bars_history_mock = MagicMock(spec=DailyBarsQueryRepository)
     ranking_strategy_mock = MagicMock(spec=MomentumRanking)
     strategy = DarvasBoxStrategy(bars_history_mock, ranking_strategy_mock, warmup_period=3, min_bars=3)
 
@@ -57,7 +57,7 @@ def test_collect() -> None:
 
 
 def test_calculate_indicators() -> None:
-    bars_history_mock = MagicMock(spec=OhlcvAnalyticsRepository)
+    bars_history_mock = MagicMock(spec=DailyBarsQueryRepository)
     ranking_strategy_mock = MagicMock(spec=MomentumRanking)
     strategy = DarvasBoxStrategy(bars_history_mock, ranking_strategy_mock, warmup_period=3, min_bars=3)
 
@@ -207,7 +207,7 @@ def test_get_polars_signals_returns_empty_on_downtrend() -> None:
         "volume": [1_000_000.0] * n,
     })
 
-    mock_repo = MagicMock(spec=OhlcvAnalyticsRepository)
+    mock_repo = MagicMock(spec=DailyBarsQueryRepository)
     mock_repo.get_bars_pl.return_value = pl_df
     mock_ranking = MagicMock(spec=MomentumRanking)
 
@@ -236,7 +236,7 @@ def test_get_polars_signals_produces_signal() -> None:
         "open": opens, "high": highs, "low": lows, "close": closes, "volume": volumes,
     })
 
-    mock_repo = MagicMock(spec=OhlcvAnalyticsRepository)
+    mock_repo = MagicMock(spec=DailyBarsQueryRepository)
     mock_repo.get_bars_pl.return_value = pl_df
     mock_ranking = MagicMock(spec=MomentumRanking)
     mock_ranking.ranking.return_value = 8

@@ -56,8 +56,8 @@ from turtle.common.cli import iso_date_type
 from turtle.common.enums import TimeFrameUnit
 from turtle.config.logging import LogConfig
 from turtle.config.settings import Settings
-from turtle.repository.analytics import OhlcvAnalyticsRepository
-from turtle.repository.eodhd import TickerQueryRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
+from turtle.repository.ticker_query import TickerQueryRepository
 from turtle.service.portfolio_service import PortfolioService
 from turtle.strategy.factory import get_exit_strategy, get_ranking_strategy, get_trading_strategy
 
@@ -200,7 +200,7 @@ def main() -> int:
         settings = Settings.from_toml()
 
         # Create bars history repository
-        bars_history = OhlcvAnalyticsRepository(engine=settings.engine)
+        bars_history = DailyBarsQueryRepository(engine=settings.engine)
 
         # Create strategy instances
         ranking_strategy = get_ranking_strategy(args.ranking_strategy)

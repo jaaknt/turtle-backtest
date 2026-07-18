@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 from datetime import date, timedelta
 from turtle.common.enums import TimeFrameUnit
 from turtle.model import Signal
-from turtle.repository.analytics import OhlcvAnalyticsRepository
-from turtle.repository.eodhd.ticker import TickerQueryRepository
+from turtle.repository.daily_bars_query import DailyBarsQueryRepository
+from turtle.repository.ticker_query import TickerQueryRepository
 from turtle.strategy.ranking.base import RankingStrategy
 
 import polars as pl
@@ -30,7 +30,7 @@ class TradingStrategy(ABC):
 
     def __init__(
         self,
-        bars_history: OhlcvAnalyticsRepository,
+        bars_history: DailyBarsQueryRepository,
         ranking_strategy: RankingStrategy,
         time_frame_unit: TimeFrameUnit,
         warmup_period: int,

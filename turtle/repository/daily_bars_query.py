@@ -10,7 +10,7 @@ from sqlalchemy import Engine, Select, select
 logger = logging.getLogger(__name__)
 
 
-class OhlcvAnalyticsRepository:
+class DailyBarsQueryRepository:
     """Dedicated repository for bulk analytical reads from daily_bars.
 
     Bypasses ORM hydration — returns DataFrames directly.
