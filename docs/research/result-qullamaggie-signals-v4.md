@@ -1,8 +1,8 @@
 # bk50d_s12_v1.2_roc100 vs bk50d_s20_v1.2_roc100 — Signal Report
 
-Run date: 2026-07-18
+Run date: 2026-07-19
 
-Period: 2026-06-01 – 2026-07-18
+Period: 2026-06-01 – 2026-07-19
 
 Entry $/Curr Price/Change % use raw (unadjusted) close — the real tradeable price. %abv SMA50/ADR%/ADR_CHG/RSI14/TR%/ROC252% are computed on the entry date, using the same split/dividend-adjusted series as scripts/qullamaggie-backtest-v4.py. Last date is the latest date with data available for that symbol in turtle.daily_bars.
 
