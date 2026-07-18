@@ -114,9 +114,7 @@ class QullamaggieStrategy(TradingStrategy):
             logger.warning(f"No {self.MARKET_TICKER} bars available - market-regime filter blocks all signals")
             self._bull_dates = set()
         else:
-            spy = spy.sort("date").with_columns(
-                pl.col("close").shift(1).rolling_mean(200, min_samples=200).alias("sma200")
-            )
+            spy = spy.sort("date").with_columns(pl.col("close").shift(1).rolling_mean(200, min_samples=200).alias("sma200"))
             self._bull_dates = set(spy.filter(pl.col("close") > pl.col("sma200"))["date"].to_list())
         self._bull_dates_key = key
 
