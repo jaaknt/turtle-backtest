@@ -276,7 +276,7 @@ class DailyPortfolioSnapshot:
         position.current_price = new_price
         return None
 
-    def copy(self) -> "DailyPortfolioSnapshot":
+    def copy(self) -> DailyPortfolioSnapshot:
         """Create a deep copy of the snapshot."""
         return DailyPortfolioSnapshot(
             date=self.date,
