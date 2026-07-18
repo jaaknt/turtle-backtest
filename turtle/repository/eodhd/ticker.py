@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from turtle.repository.tables import ticker_group_table, ticker_table
 from turtle.schema import Ticker
 
-from sqlalchemy import Engine, and_, select
+from sqlalchemy import Engine, and_, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Row
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -118,32 +118,26 @@ class TickerRepository:
             rows = rows[:limit]
         return rows
 
-    async def fetch_group_tickers(self, country: str, group_code: str, limit: int | None = None) -> Sequence[Row]:
-        """Fetch tickers that belong to a named symbol group for a given country.
+    async def fetch_us_downloadable_tickers(self) -> Sequence[Row]:
+        """Fetch the full ticker universe for historical OHLCV downloads.
 
-        Used for historical OHLCV downloads where the group defines the
-        universe of interest regardless of exchange or instrument type.
-        Returns rows with code in "TICKER.US" format.
+        Common Stock tickers with a company sector, plus a fixed set of index
+        and sector ETFs. Returns rows with code in "TICKER.US" format.
         """
-        if not group_code:
-            raise ValueError("group_code must be a non-empty string")
-        stmt = (
-            select(ticker_table.c.code)
-            .select_from(
-                ticker_table.join(
-                    ticker_group_table,
-                    (and_(ticker_table.c.code == ticker_group_table.c.ticker_code, ticker_group_table.c.code == group_code)),
-                )
-            )
-            .where(
-                and_(
-                    ticker_table.c.country == country,
-                )
-            )
-            .order_by(ticker_table.c.code)
-        )
+        stmt = text("""
+            select t.code
+              from turtle.ticker t
+                   inner join turtle.company c
+                           on c.ticker_code = t.code
+             where t.type = 'Common Stock'
+               and c.sector is not null
+            union
+            select t.code
+              from turtle.ticker t
+             where t.code in ('SPY.US', 'QQQ.US', 'XLB.US', 'XLC.US', 'XLE.US', 'XLF.US',
+                              'XLI.US', 'XLK.US', 'XLP.US', 'XLRE.US', 'XLU.US', 'XLV.US',
+                              'XLY.US', 'XBI.US', 'XAR.US')
+             order by code
+        """)
         result = await self._session.execute(stmt)
-        rows = result.fetchall()
-        if limit is not None:
-            rows = rows[:limit]
-        return rows
+        return result.fetchall()
