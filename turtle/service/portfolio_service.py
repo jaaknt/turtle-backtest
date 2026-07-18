@@ -37,6 +37,7 @@ class PortfolioService:
         position_max_amount: float = 3000.0,
         min_signal_ranking: int = 70,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
+        max_holding_period: int = 365,
     ):
         """
         Initialize portfolio service.
@@ -50,6 +51,7 @@ class PortfolioService:
             position_max_amount: Maximum dollar amount per position
             min_signal_ranking: Minimum signal ranking to consider
             time_frame_unit: Time frame for analysis (DAY, WEEK, etc.)
+            max_holding_period: Maximum calendar days a position may stay open
         """
         self.trading_strategy = trading_strategy
         self.exit_strategy = exit_strategy
@@ -76,7 +78,7 @@ class PortfolioService:
 
         # Initialize signal processor for shared calculations
         self.signal_processor = SignalProcessor(
-            max_holding_period=365,  # Configurable max holding period in days
+            max_holding_period=max_holding_period,
             bars_history=bars_history,
             exit_strategy=exit_strategy,
             benchmark_tickers=[],  # Standard benchmarks, ignored in portfolio calculations

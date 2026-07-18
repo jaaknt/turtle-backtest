@@ -13,7 +13,7 @@ Options:
     --start-date YYYY-MM-DD      Start date for analysis (required for count mode)
     --end-date YYYY-MM-DD        End date for analysis (required for count mode)
     --tickers TICKER             Space separated list of specific tickers to test
-    --trading-strategy STRATEGY  Trading strategy: darvas_box, mars, momentum (default: darvas_box)
+    --trading-strategy STRATEGY  Trading strategy: darvas_box, mars, momentum, qullamaggie (default: darvas_box)
     --ranking-strategy STRATEGY  Ranking strategy: momentum, volume_momentum (default: momentum)
     --max-tickers NUM            Maximum number of tickers to test (default: 10000)
     --mode MODE                  Analysis mode: signal, list, top (default: signal)
@@ -73,7 +73,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--trading-strategy",
         type=str,
         default="darvas_box",
-        choices=["darvas_box", "mars", "momentum"],
+        choices=["darvas_box", "mars", "momentum", "qullamaggie"],
         help="Trading strategy to use (default: darvas_box)",
     )
 
@@ -140,12 +140,14 @@ def main() -> int:
             time_frame_unit=TimeFrameUnit.DAY,
         )
         symbol_repo = TickerQueryRepository(settings.engine)
+        # each strategy defines its own universe (symbol group or custom query)
+        universe = trading_strategy.get_universe(symbol_repo, limit=args.max_tickers)
 
         # Run analysis based on mode
         if args.mode == "list":
             if args.tickers:
                 logger.warning("Tickers parameter is ignored in list mode")
-            for ticker in symbol_repo.get_symbol_list("USA", limit=args.max_tickers):
+            for ticker in universe:
                 signals = strategy_runner.get_signals(ticker, start_date, end_date)
 
                 if len(signals) > 0:
@@ -155,7 +157,7 @@ def main() -> int:
         elif args.mode == "top":
             logger.info("Getting top 20 signals...")
             signal_list = []
-            for ticker in symbol_repo.get_symbol_list("USA", limit=args.max_tickers):
+            for ticker in universe:
                 signal_list.extend(strategy_runner.get_signals(ticker, start_date, end_date))
 
             # Flatten the list and get top 20 signals

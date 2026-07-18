@@ -111,3 +111,12 @@ def test_day_timeframe_produces_signals() -> None:
     start_date = last_date - timedelta(days=30)
     signals = _make_day_strategy(pl_df).get_signals("TEST", start_date, last_date)
     assert len(signals) >= 1, "DAY timeframe polars path should produce at least one signal"
+
+
+def test_default_universe_uses_active_symbol_group(ohlcv: pl.DataFrame) -> None:
+    """The base get_universe implementation queries the strategy's symbol group."""
+    strategy = _make_strategy(ohlcv)
+    mock_ticker_repo = MagicMock()
+    mock_ticker_repo.get_symbol_list.return_value = ["AAA.US"]
+    assert strategy.get_universe(mock_ticker_repo, limit=50) == ["AAA.US"]
+    mock_ticker_repo.get_symbol_list.assert_called_once_with("USA", limit=50, ticker_group="active")

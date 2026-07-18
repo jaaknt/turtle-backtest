@@ -11,7 +11,7 @@ Usage:
 Options:
     --start-date YYYY-MM-DD          Start date for backtest (required)
     --end-date YYYY-MM-DD            End date for backtest (required)
-    --trading-strategy STRATEGY      Trading strategy: darvas_box, mars, momentum (default: darvas_box)
+    --trading-strategy STRATEGY      Trading strategy: darvas_box, mars, momentum, qullamaggie (default: darvas_box)
     --exit-strategy STRATEGY         Exit strategy: buy_and_hold, profit_loss, ema, macd, atr,
                                      trailing_percentage_loss (default: buy_and_hold)
     --ranking-strategy STRATEGY      Ranking strategy: momentum, volume_momentum (default: momentum)
@@ -20,6 +20,7 @@ Options:
     --position-max-amount NUM        Maximum position size (default: 3000.0)
     --min-signal-ranking NUM         Minimum signal ranking threshold (default: 70)
     --max-tickers NUM                Maximum number of tickers to test (default: 10000)
+    --max-holding-days NUM           Maximum calendar days a position may stay open (default: 365)
     --tickers TICKER [TICKER ...]    Specific tickers to test (optional)
     --benchmark-tickers TICKER [TICKER ...] Custom benchmark tickers (default: SPY QQQ)
     --output-file FILE               Optional HTML tearsheet filename (saved in reports/ folder)
@@ -91,7 +92,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--trading-strategy",
         type=str,
         default="darvas_box",
-        choices=["darvas_box", "mars", "momentum"],
+        choices=["darvas_box", "mars", "momentum", "qullamaggie"],
         help="Trading strategy to use (default: darvas_box)",
     )
 
@@ -145,6 +146,13 @@ def create_argument_parser() -> argparse.ArgumentParser:
         type=int,
         default=10000,
         help="Maximum number of tickers to test (default: 10000)",
+    )
+
+    parser.add_argument(
+        "--max-holding-days",
+        type=int,
+        default=365,
+        help="Maximum calendar days a position may stay open (default: 365)",
     )
 
     # Optional ticker list
@@ -212,6 +220,7 @@ def main() -> int:
             position_max_amount=args.position_max_amount,
             min_signal_ranking=args.min_signal_ranking,
             time_frame_unit=TimeFrameUnit.DAY,
+            max_holding_period=args.max_holding_days,
         )
 
         # Determine universe of stocks to test
@@ -219,8 +228,9 @@ def main() -> int:
             universe = args.tickers
             logger.info(f"Using specific tickers: {', '.join(universe)}")
         else:
-            universe = TickerQueryRepository(settings.engine).get_symbol_list("USA", limit=args.max_tickers)
-            logger.info(f"Using {len(universe)} tickers from symbol database")
+            # each strategy defines its own universe (symbol group or custom query)
+            universe = trading_strategy.get_universe(TickerQueryRepository(settings.engine), limit=args.max_tickers)
+            logger.info(f"Using {len(universe)} tickers from strategy universe")
 
         # Run the backtest (now prints results and generates tearsheet automatically)
         logger.info(f"Running portfolio backtest from {args.start_date} to {args.end_date}")
