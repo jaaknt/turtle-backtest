@@ -147,12 +147,12 @@ def main() -> int:
         if args.mode == "list":
             if args.tickers:
                 logger.warning("Tickers parameter is ignored in list mode")
+            signal_list = []
             for ticker in universe:
-                signals = strategy_runner.get_signals(ticker, start_date, end_date)
+                signal_list.extend(strategy_runner.get_signals(ticker, start_date, end_date))
 
-                if len(signals) > 0:
-                    for signal in signals:
-                        print(f"  ✓ Signal {ticker} on {signal.date} ranking: {signal.ranking} ")
+            for signal in sorted(signal_list, key=lambda s: (s.date, s.ticker)):
+                print(f"  ✓ Signal {signal.ticker} on {signal.date} ranking: {signal.ranking} ")
 
         elif args.mode == "top":
             logger.info("Getting top 20 signals...")

@@ -86,7 +86,7 @@ class TradingStrategy(ABC):
             list[Signal]: List of Signal objects for each trading signal
         """
         if not self.collect_data(ticker, start_date, end_date):
-            logger.warning(f"{ticker} - not enough data, rows: {self.pl_df.shape[0]}")
+            logger.debug(f"{ticker} - not enough data, rows: {self.pl_df.shape[0]}")
             return []
         return self._get_polars_signals(ticker, start_date)
 
