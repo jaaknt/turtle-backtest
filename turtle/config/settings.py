@@ -17,7 +17,7 @@ class Settings:
     engine: Engine
 
     @classmethod
-    def from_toml(cls, file_path: str = "./config/settings.toml") -> "Settings":
+    def from_toml(cls, file_path: str = "./config/settings.toml") -> Settings:
         """Load settings from TOML file"""
         load_dotenv()
 
