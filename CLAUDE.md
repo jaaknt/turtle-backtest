@@ -279,7 +279,10 @@ All dependencies are passed explicitly through constructors — no globals, no s
 
 ### Async Boundary
 
-External API clients (`turtle/client/eodhd.py`) are `async`/`await` using `httpx.AsyncClient`. Services that orchestrate bulk API downloads (e.g. `turtle/service/eodhd_service.py`) may also be async when they need concurrent requests via `asyncio.gather`. Repos and backtesting logic must remain synchronous. Scripts may use `asyncio.run()` as the async entry point. Do not make repo methods async.
+Async is used only in the data-download path; analytical queries are always sync:
+
+- **Async (downloads/writes)**: external API clients (`turtle/client/eodhd.py`, `httpx.AsyncClient`), download-orchestration services (e.g. `turtle/service/eodhd_service.py`, concurrent requests via `asyncio.gather`), and the `turtle/repository/eodhd/` write repositories (`AsyncSession`). Scripts may use `asyncio.run()` as the async entry point.
+- **Sync (analytical reads)**: query repositories (`daily_bars_query.py`, `ticker_query.py`, `symbol_group.py`) use a sync `Engine`; strategy, backtesting, and portfolio logic is synchronous. Do not make query repositories or backtest logic async.
 
 ### Naming Conventions
 

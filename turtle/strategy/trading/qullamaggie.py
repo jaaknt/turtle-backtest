@@ -65,8 +65,8 @@ class QullamaggieStrategy(TradingStrategy):
             min_bars: Minimum number of bars required for analysis
         """
         super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars)
-        self._bull_dates: set[date] = set()
-        self._bull_dates_key: tuple[date, date] | None = None
+        self._regime_dates: set[date] = set()
+        self._regime_dates_key: tuple[date, date] | None = None
 
     def get_universe(self, ticker_repo: TickerQueryRepository, limit: int | None = None) -> list[str]:
         """
@@ -96,27 +96,27 @@ class QullamaggieStrategy(TradingStrategy):
         """
         if not super().collect_data(ticker, start_date, end_date):
             return False
-        self._load_bull_dates(start_date, end_date)
+        self._load_regime_dates(start_date, end_date)
         return True
 
-    def _load_bull_dates(self, start_date: date, end_date: date) -> None:
+    def _load_regime_dates(self, start_date: date, end_date: date) -> None:
         """Cache the set of dates where SPY closed above its prior-day 200d SMA.
 
         The result is cached per (start_date, end_date) so the runner's
         per-ticker loop over the universe fetches SPY only once.
         """
         key = (start_date, end_date)
-        if self._bull_dates_key == key:
+        if self._regime_dates_key == key:
             return
         fetch_start = start_date - timedelta(days=self.warmup_period + self.MARKET_SMA_WARMUP_DAYS)
         spy = self.bars_history.get_bars_pl(self.MARKET_TICKER, fetch_start, end_date, self.time_frame_unit)
         if spy.is_empty():
             logger.warning(f"No {self.MARKET_TICKER} bars available - market-regime filter blocks all signals")
-            self._bull_dates = set()
+            self._regime_dates = set()
         else:
             spy = spy.sort("date").with_columns(pl.col("close").shift(1).rolling_mean(200, min_samples=200).alias("sma200"))
-            self._bull_dates = set(spy.filter(pl.col("close") > pl.col("sma200"))["date"].to_list())
-        self._bull_dates_key = key
+            self._regime_dates = set(spy.filter(pl.col("close") > pl.col("sma200"))["date"].to_list())
+        self._regime_dates_key = key
 
     def calculate_indicators_pl(self) -> None:
         """Calculate technical indicators using the polars DataFrame (self.pl_df).
@@ -205,7 +205,7 @@ class QullamaggieStrategy(TradingStrategy):
             & (pl.col("volume").cast(pl.Float64) < self.VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < self.VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < self.ROC_CAP)
-            & pl.col("date").is_in(sorted(self._bull_dates))
+            & pl.col("date").is_in(sorted(self._regime_dates))
         ).sort("date")
         if candidates.is_empty():
             logger.debug(f"{ticker} - no candidate breakout days")
