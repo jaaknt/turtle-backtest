@@ -88,8 +88,9 @@ class EodhdService:
         try:
             async with self.AsyncSessionLocal() as session:
                 ticker_repo = TickerRepository(session)
-                us_stocks = await ticker_repo.fetch_group_tickers(country="USA", group_code="active", limit=ticker_limit)
+                us_stocks = await ticker_repo.fetch_us_downloadable_tickers()
                 if ticker_limit is not None:
+                    us_stocks = us_stocks[:ticker_limit]
                     logger.info(f"Limiting to first {ticker_limit} tickers for testing.")
 
                 logger.info(f"Found {len(us_stocks)} US stocks matching criteria for historical data download.")

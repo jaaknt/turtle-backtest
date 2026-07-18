@@ -46,4 +46,18 @@ select 'ticker_group', count(*) from turtle.ticker_group where code = 'active';
 SELECT column_name FROM information_schema.columns
   WHERE table_schema = 'turtle' AND table_name = 'company'
   ORDER BY ordinal_position
-  
+
+select * from turtle.company;
+
+select type, count(*)  from turtle.ticker t group by 1;
+
+select t.code
+   from turtle.ticker t
+     inner join turtle.company c
+             on c.ticker_code = t.code
+  where t.type = 'Common Stock' 
+    and c.sector is not null
+union 
+ select t.code 
+   from turtle.ticker t 
+  where t.code in ('SPY.US', 'QQQ.US', 'XLB.US', 'XLC.US', 'XLE.US', 'XLF.US', 'XLI.US', 'XLK.US', 'XLP.US', 'XLRE.US', 'XLU.US', 'XLV.US', 'XLY.US', 'XBI.US', 'XAR.US')
