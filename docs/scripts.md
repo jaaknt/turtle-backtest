@@ -27,19 +27,19 @@ The `download_eodhd_data.py` script downloads bulk data from the EODHD API and s
 
 ```bash
 # Download exchange reference data
-uv run python scripts/download_eodhd_data.py --data exchange
+uv run download-eodhd-data --data exchange
 
 # Download only US ticker list
-uv run python scripts/download_eodhd_data.py --data us_ticker
+uv run download-eodhd-data --data us_ticker
 
 # Download company fundamentals, limited to 10 tickers (for testing)
-uv run python scripts/download_eodhd_data.py --data company --ticker-limit 10
+uv run download-eodhd-data --data company --ticker-limit 10
 
 # Download historical price data for a specific date range
-uv run python scripts/download_eodhd_data.py --data history --start-date 2024-01-01 --end-date 2024-12-31
+uv run download-eodhd-data --data history --start-date 2024-01-01 --end-date 2024-12-31
 
 # Test historical download with 10 tickers
-uv run python scripts/download_eodhd_data.py --data history --ticker-limit 10 --start-date 2024-06-01 --end-date 2024-06-30
+uv run download-eodhd-data --data history --ticker-limit 10 --start-date 2024-06-01 --end-date 2024-06-30
 ```
 
 **Options:**
@@ -53,16 +53,16 @@ uv run python scripts/download_eodhd_data.py --data history --ticker-limit 10 --
 
 ```bash
 # 1. Populate exchange reference data
-uv run python scripts/download_eodhd_data.py --data exchange
+uv run download-eodhd-data --data exchange
 
 # 2. Download US ticker list
-uv run python scripts/download_eodhd_data.py --data us_ticker
+uv run download-eodhd-data --data us_ticker
 
 # 3. Download company fundamentals
-uv run python scripts/download_eodhd_data.py --data company
+uv run download-eodhd-data --data company
 
 # 4. Download full price history (long-running — thousands of tickers)
-uv run python scripts/download_eodhd_data.py --data history --start-date 2020-01-01 --end-date 2024-12-31
+uv run download-eodhd-data --data history --start-date 2020-01-01 --end-date 2024-12-31
 ```
 
 **Notes:**

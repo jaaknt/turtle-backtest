@@ -107,7 +107,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **Want to test portfolio performance?** → Use `scripts/portfolio_runner.py` with date range
 
-**Need historical data?** → Use `scripts/download_eodhd_data.py` for bulk historical downloads
+**Need historical data?** → Use `uv run download-eodhd-data` for bulk historical downloads
 
 ## MCP Servers
 
@@ -330,7 +330,7 @@ Tests mirror the source tree under `tests/`:
 - `portfolio/test_portfolio.py`: Portfolio management and analytics
 - `backtest/test_signal_processor.py`: Signal processing pipeline
 - `config/test_settings.py`: Configuration loading
-- `config/test_api_token_filter.py`: API token filter logic
+- `cli/test_api_token_filter.py`: API token filter logic
 
 Shared fixtures live in `tests/conftest.py`. File-specific fixtures stay in the individual test file.
 

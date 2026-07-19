@@ -275,7 +275,7 @@ Choose the appropriate service based on your analysis needs:
 
 ## Typical Workflow
 
-1. **Data Setup**: Use `EodhdService` (via `scripts/download_eodhd_data.py`) to populate your database with market data
+1. **Data Setup**: Use `EodhdService` (via `uv run download-eodhd-data`) to populate your database with market data
 2. **Strategy Development**: Use `SignalService` to test and refine signal generation logic
 3. **Strategy Validation**: Use `BacktestService` to test complete strategies with exit logic
 4. **Portfolio Testing**: Use `PortfolioService` for realistic portfolio-level backtesting

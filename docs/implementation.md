@@ -210,14 +210,14 @@ gunzip -c ~/trading_backup.sql.gz | psql -h 127.0.0.1 -U postgres trading
 Alternatively, skip migration and re-download fresh data from EODHD:
 
 ```bash
-uv run python scripts/download_eodhd_data.py --data exchange
-uv run python scripts/download_eodhd_data.py --data us_ticker
-uv run python scripts/download_eodhd_data.py --data company
+uv run download-eodhd-data --data exchange
+uv run download-eodhd-data --data us_ticker
+uv run download-eodhd-data --data company
 
 # set active group that is needed for stocks history download
 PGPASSWORD=$DB_APP_PASSWORD psql -h localhost -p 5432 -U app_user -d trading -f examples/active_symbol_goup_setup.sql
 
-uv run python scripts/download_eodhd_data.py --data history 
+uv run download-eodhd-data --data history 
 ```
 
 ### Phase 5: Systemd Services
