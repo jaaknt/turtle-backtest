@@ -1,7 +1,8 @@
 # User-level service — install to ~/.config/systemd/user/
-# See deploy/eodhd-download.timer for the schedule.
+# Weekly full refresh (Sun): US ticker list, company fundamentals, price history.
+# See deploy/eodhd-download-weekly.timer for the schedule.
 [Unit]
-Description=Turtle EODHD Data Download
+Description=Turtle EODHD Weekly Full Download
 After=network.target
 
 [Service]
@@ -10,6 +11,6 @@ WorkingDirectory=%h/turtle-backtest
 EnvironmentFile=%h/.config/turtle-backtest/secrets.env
 ExecStart=%h/.local/bin/uv run download-eodhd-data --data us_ticker
 ExecStart=%h/.local/bin/uv run download-eodhd-data --data company
-ExecStart=%h/.local/bin/uv run download-eodhd-data --data history --start-date 2000-01-03
+ExecStart=%h/.local/bin/uv run download-eodhd-data --data history
 StandardOutput=journal
 StandardError=journal

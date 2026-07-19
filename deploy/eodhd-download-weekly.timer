@@ -1,0 +1,35 @@
+# Weekly EODHD full download timer (Sun) — user-level systemd timer (no sudo required)
+#
+# Refreshes the US ticker list and company fundamentals before the history
+# download; eodhd-download-daily.timer covers Mon-Sat with history only.
+#
+# DEPLOY
+#   mkdir -p ~/.config/systemd/user
+#   ln -s ~/turtle-backtest/deploy/eodhd-download-weekly.service ~/.config/systemd/user/eodhd-download-weekly.service
+#   ln -s ~/turtle-backtest/deploy/eodhd-download-weekly.timer   ~/.config/systemd/user/eodhd-download-weekly.timer
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now eodhd-download-weekly.timer
+#
+# PREREQUISITES
+#   secrets file must exist at ~/.config/turtle-backtest/secrets.env (see Phase 3 of docs/implementation.md)
+#   loginctl enable-linger <username>   # allows timer to fire without an active login session
+#
+# STATUS / LOGS
+#   systemctl --user status eodhd-download-weekly.timer
+#   systemctl --user list-timers eodhd-download-weekly.timer
+#   journalctl --user -u eodhd-download-weekly.service
+#
+# REMOVE
+#   systemctl --user disable --now eodhd-download-weekly.timer
+#   rm ~/.config/systemd/user/eodhd-download-weekly.{service,timer}
+#   systemctl --user daemon-reload
+
+[Unit]
+Description=Weekly EODHD Full Download (Sun)
+
+[Timer]
+OnCalendar=Sun *-*-* 05:00:00 Europe/Tallinn
+Persistent=true
+
+[Install]
+WantedBy=timers.target

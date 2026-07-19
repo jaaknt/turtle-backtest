@@ -1,0 +1,14 @@
+# User-level service — install to ~/.config/systemd/user/
+# Daily incremental price-history download (Mon-Sat).
+# See deploy/eodhd-download-daily.timer for the schedule.
+[Unit]
+Description=Turtle EODHD Daily History Download
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/turtle-backtest
+EnvironmentFile=%h/.config/turtle-backtest/secrets.env
+ExecStart=%h/.local/bin/uv run download-eodhd-data --data history
+StandardOutput=journal
+StandardError=journal
