@@ -13,10 +13,10 @@ Options:
     --start-date YYYY-MM-DD  Start date for analysis (required for count mode)
     --end-date YYYY-MM-DD    End date for analysis (required for count mode)
     --tickers TICKER         Comma-separated list of specific tickers to test
-    --trading-strategy STRATEGY      Trading strategy: darvas_box, mars, momentum (default: darvas_box)
+    --trading-strategy STRATEGY      Trading strategy: darvas_box, mars, momentum, qullamaggie (default: darvas_box)
     --exit-strategy STRATEGY         Exit strategy: buy_and_hold, profit_loss, ema, macd, atr,
                                      trailing_percentage_loss (default: buy_and_hold)
-    --ranking-strategy STRATEGY      Ranking strategy: momentum, volume_momentum (default: momentum)
+    --ranking-strategy STRATEGY      Ranking strategy: momentum, volume_momentum, breakout_quality (default: momentum)
     --max-tickers NUM        Maximum number of tickers to test (default: 10000)
     --mode MODE              Analysis mode: list (default: list)
     --verbose                Enable verbose logging
@@ -34,7 +34,14 @@ from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.service.backtest_service import BacktestService
-from turtlex.strategy.factory import get_exit_strategy, get_ranking_strategy, get_trading_strategy
+from turtlex.strategy.factory import (
+    EXIT_STRATEGIES,
+    RANKING_STRATEGIES,
+    TRADING_STRATEGIES,
+    get_exit_strategy,
+    get_ranking_strategy,
+    get_trading_strategy,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +78,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--trading-strategy",
         type=str,
         default="darvas_box",
-        choices=["darvas_box", "mars", "momentum"],
+        choices=list(TRADING_STRATEGIES),
         help="Trading strategy to use (default: darvas_box)",
     )
 
@@ -79,7 +86,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--exit-strategy",
         type=str,
         default="buy_and_hold",
-        choices=["buy_and_hold", "profit_loss", "ema", "macd", "atr", "trailing_percentage_loss"],
+        choices=list(EXIT_STRATEGIES),
         help="Exit strategy to use (default: buy_and_hold)",
     )
 
@@ -87,7 +94,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--ranking-strategy",
         type=str,
         default="momentum",
-        choices=["momentum", "volume_momentum", "breakout_quality"],
+        choices=list(RANKING_STRATEGIES),
         help=(
             "Ranking strategy to use: momentum (EMA200-based), "
             "volume_momentum (volume+volatility-based), "

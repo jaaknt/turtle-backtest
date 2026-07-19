@@ -135,16 +135,43 @@ Identifies weekly momentum breakouts with EMA trend confirmation.
 
 ---
 
+### Qullamaggie (`qullamaggie`)
+
+**File**: `turtlex/strategy/trading/qullamaggie.py`
+
+Qullamaggie-style 50-day-high breakout (bk50d_s15_v1.2_roc100), ported from the validated signal in `scripts/qullamaggie-backtest-v4.py`. Unlike the other strategies it defines its own fundamentals-based universe (US common stocks with market cap ≥ $1.5B, excluding Communication Services and Real Estate) instead of a symbol group, and gates entries on market regime. All rolling indicators are computed on prior-day (shift-1) values so filters only use information available at the previous close.
+
+#### Data requirements
+
+- Time frame: daily
+- Minimum bars: 300
+- Warmup period: 730 days (plus 300 extra days of SPY history for the regime gate)
+
+#### Entry conditions
+
+| Category | Condition |
+| ---------- | ----------- |
+| Breakout | Adjusted close > max of prior 50 closes |
+| Trend distance | Close more than 15% above the 50-day SMA |
+| Volume | Average volume ≥ 500k; dry-up < 0.90 of average; surge capped at 2.0× |
+| Momentum caps | 12-month ROC ≤ 100%; RSI ≤ 70 |
+| Volatility | ADR(20) ≥ 3%; ADR change ≤ 0.90 |
+| Price band | Raw close between $5 and $250 |
+| Market regime | SPY above its 200-day SMA |
+| Cooldown | Signals within 30 calendar days of the previous accepted trigger are suppressed |
+
+---
+
 ### Strategy Comparison
 
-| | Darvas Box | Mars | Momentum |
-| -- | ----------- | ------ | ---------- |
-| **Primary signal** | Box breakout | Tight consolidation breakout | Weekly momentum |
-| **Time frame** | Daily | Weekly | Weekly |
-| **Volume required** | Yes (>110% EMA10) | Optional | Yes (>110% prev week) |
-| **EMA stack** | EMA10 > EMA20 > EMA50 > EMA200 | EMA10 > EMA20 | EMA(200) proximity |
-| **New highs window** | 20 bars | 10 bars | 10 weeks |
-| **Stop loss** | At box bottom | Consolidation midpoint −2% | None specified |
+| | Darvas Box | Mars | Momentum | Qullamaggie |
+| -- | ----------- | ------ | ---------- | ------------- |
+| **Primary signal** | Box breakout | Tight consolidation breakout | Weekly momentum | 50-day-high breakout |
+| **Time frame** | Daily | Weekly | Weekly | Daily |
+| **Volume required** | Yes (>110% EMA10) | Optional | Yes (>110% prev week) | Yes (dry-up + surge cap) |
+| **EMA stack** | EMA10 > EMA20 > EMA50 > EMA200 | EMA10 > EMA20 | EMA(200) proximity | >15% above SMA(50) |
+| **New highs window** | 20 bars | 10 bars | 10 weeks | 50 bars |
+| **Stop loss** | At box bottom | Consolidation midpoint −2% | None specified | None specified |
 
 ---
 

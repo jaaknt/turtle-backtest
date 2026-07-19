@@ -81,7 +81,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | Task | Command | Use When |
 | ------ | --------- | ---------- |
 | **Generate signals** | `uv run signal-runner list --start-date 2024-06-01 --end-date 2024-06-01` | Analyze trading opportunities |
-| **Portfolio backtest** | `uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31` | Test multi-position strategy |
+| **Portfolio backtest** | `uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31` | Test multi-position strategy |
 | **Single backtest** | `uv run python scripts/backtest.py --ticker AAPL --start-date 2024-01-01` | Test specific ticker |
 | **Run tests** | `uv run pytest` | Verify code changes |
 | **Test coverage** | `uv run pytest --cov=turtlex --cov-report=term-missing` | Find untested code paths |
@@ -106,7 +106,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **Want to test a strategy on one ticker?** → Use `scripts/backtest.py --ticker SYMBOL`
 
-**Want to test portfolio performance?** → Use `scripts/portfolio_runner.py` with date range
+**Want to test portfolio performance?** → Use `uv run portfolio-runner` with date range
 
 **Need historical data?** → Use `uv run download-eodhd-data` for bulk historical downloads
 
@@ -153,7 +153,7 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
   - `enums.py`: `TimeFrameUnit` enum (DAY, WEEK)
   - `cli.py`: `iso_date_type` — argparse type helper for ISO date strings (YYYY-MM-DD)
 - **turtlex/model.py**: Core domain dataclasses (`Signal`, `Trade`, `Benchmark`, etc.) — single shared module; do not create per-package `models.py` files
-- **turtlex/strategy/factory.py**: Strategy factories for CLI scripts — canonical string → lambda factory mapping for trading, exit, and ranking strategies (`get_trading_strategy`, `get_exit_strategy`, `get_ranking_strategy`). Each entry is a `Callable[[], StrategyBase]` lambda that closes over the required dependencies, so concrete constructors are called directly rather than through the abstract base type.
+- **turtlex/strategy/factory.py**: Strategy factories for CLI scripts — module-level registries (`TRADING_STRATEGIES`, `EXIT_STRATEGIES`, `RANKING_STRATEGIES`) hold the canonical string → class mapping for trading, exit, and ranking strategies; `get_trading_strategy` / `get_exit_strategy` / `get_ranking_strategy` instantiate from them with injected dependencies. CLIs derive their argparse `choices` from the registry keys — never hardcode strategy name lists in scripts.
 - **turtlex/repository/**: All database access (sync Engine reads + async Session writes)
   - `tables.py`: SQLAlchemy Core table definitions + shared reference constants (`US_EXCHANGES`, `COMMON_STOCK_TYPE`)
   - `query/`: sync Engine-based analytical reads — `daily_bars.py` → `DailyBarsQueryRepository` (bulk OHLCV reads returning polars DataFrames), `ticker.py` → `TickerQueryRepository` (symbol groups, fundamentals-qualified lists)
@@ -220,8 +220,8 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 2. **Extend TradingStrategy base class**:
 
    ```python
+   from turtlex.model import Signal
    from turtlex.strategy.trading.base import TradingStrategy
-   from turtlex.strategy.trading.models import Signal
 
    class MyStrategy(TradingStrategy):
        def collect_data(self, ticker: str, start_date: date, end_date: date) -> bool:
@@ -236,7 +236,7 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
    ```
 
 3. **Add tests**: `tests/strategy/trading/test_my_strategy.py` (mirror the source tree)
-4. **Wire via dependency injection**: Instantiate your strategy and pass it to the service constructor — see `turtlex/cli/signal_runner.py` (`get_trading_strategy`) for the canonical wiring pattern
+4. **Register in the factory**: Add your class to the `TRADING_STRATEGIES` registry in `turtlex/strategy/factory.py` — all CLIs derive their `--trading-strategy` choices from it. For programmatic use, instantiate the class directly and pass it to the service constructor.
 5. **Test**: `uv run signal-runner list --trading-strategy my_strategy --start-date 2024-06-01 --end-date 2024-06-01`
 
 ## Examples Directory
@@ -274,7 +274,7 @@ All dependencies are passed explicitly through constructors — no globals, no s
 Async is used only in the data-download path; analytical queries are always sync:
 
 - **Async (downloads/writes)**: external API clients (`turtlex/client/eodhd.py`, `httpx.AsyncClient`), download-orchestration services (e.g. `turtlex/service/eodhd_service.py`, concurrent requests via `asyncio.gather`), and the `turtlex/repository/ingest/` write repositories (`AsyncSession`). Scripts may use `asyncio.run()` as the async entry point.
-- **Sync (analytical reads)**: query repositories (`daily_bars_query.py`, `ticker_query.py`) use a sync `Engine`; strategy, backtesting, and portfolio logic is synchronous. Do not make query repositories or backtest logic async.
+- **Sync (analytical reads)**: query repositories (`turtlex/repository/query/`) use a sync `Engine`; strategy, backtesting, and portfolio logic is synchronous. Do not make query repositories or backtest logic async.
 
 ### Naming Conventions
 

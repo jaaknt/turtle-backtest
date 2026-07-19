@@ -1,45 +1,27 @@
 #!/usr/bin/env python3
 """
-Portfolio Runner Script
+Portfolio Runner
 
-This script runs portfolio backtests using the PortfolioService class with configurable
-trading strategies, exit strategies, and portfolio parameters.
+Runs portfolio backtests using the PortfolioService class with configurable
+trading strategies, exit strategies, and portfolio parameters. Run with
+``--help`` for the full option list.
 
 Usage:
-    python scripts/portfolio_runner.py [options]
-
-Options:
-    --start-date YYYY-MM-DD          Start date for backtest (required)
-    --end-date YYYY-MM-DD            End date for backtest (required)
-    --trading-strategy STRATEGY      Trading strategy: darvas_box, mars, momentum, qullamaggie (default: darvas_box)
-    --exit-strategy STRATEGY         Exit strategy: buy_and_hold, profit_loss, ema, macd, atr,
-                                     trailing_percentage_loss (default: buy_and_hold)
-    --ranking-strategy STRATEGY      Ranking strategy: momentum, volume_momentum (default: momentum)
-    --initial-capital NUM            Starting capital amount (default: 30000.0)
-    --position-min-amount NUM        Minimum position size (default: 1500.0)
-    --position-max-amount NUM        Maximum position size (default: 3000.0)
-    --min-signal-ranking NUM         Minimum signal ranking threshold (default: 70)
-    --max-tickers NUM                Maximum number of tickers to test (default: 10000)
-    --max-holding-days NUM           Maximum calendar days a position may stay open (default: 365)
-    --tickers TICKER [TICKER ...]    Specific tickers to test (optional)
-    --benchmark-tickers TICKER [TICKER ...] Custom benchmark tickers (default: SPY QQQ)
-    --output-file FILE               Optional HTML tearsheet filename (saved in reports/ folder)
-    --verbose                        Enable verbose logging
-    --help                           Show this help message
+    uv run portfolio-runner [options]
 
 Examples:
     # Basic portfolio backtest
-    python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31
+    uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31
 
     # Advanced backtest with custom parameters
-    python scripts/portfolio_runner.py \
+    uv run portfolio-runner \
         --start-date 2024-01-01 --end-date 2024-12-31 \
         --trading-strategy mars --exit-strategy profit_loss \
         --initial-capital 50000 --min-signal-ranking 80 \
         --output-file results.html --verbose
 
     # Test specific tickers
-    python scripts/portfolio_runner.py \
+    uv run portfolio-runner \
         --start-date 2024-01-01 --end-date 2024-12-31 \
         --tickers AAPL MSFT GOOGL --verbose
 """
@@ -55,18 +37,21 @@ from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.service.portfolio_service import PortfolioService
-from turtlex.strategy.factory import get_exit_strategy, get_ranking_strategy, get_trading_strategy
+from turtlex.strategy.factory import (
+    EXIT_STRATEGIES,
+    RANKING_STRATEGIES,
+    TRADING_STRATEGIES,
+    get_exit_strategy,
+    get_ranking_strategy,
+    get_trading_strategy,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def create_argument_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser."""
-    parser = argparse.ArgumentParser(
-        description="Run portfolio backtest analysis",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__,
-    )
+    parser = argparse.ArgumentParser(description="Run portfolio backtest analysis")
 
     # Required arguments
     parser.add_argument(
@@ -88,7 +73,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--trading-strategy",
         type=str,
         default="darvas_box",
-        choices=["darvas_box", "mars", "momentum", "qullamaggie"],
+        choices=list(TRADING_STRATEGIES),
         help="Trading strategy to use (default: darvas_box)",
     )
 
@@ -96,7 +81,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--exit-strategy",
         type=str,
         default="buy_and_hold",
-        choices=["buy_and_hold", "profit_loss", "ema", "macd", "atr", "trailing_percentage_loss"],
+        choices=list(EXIT_STRATEGIES),
         help="Exit strategy to use (default: buy_and_hold)",
     )
 
@@ -104,7 +89,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--ranking-strategy",
         type=str,
         default="momentum",
-        choices=["momentum", "volume_momentum", "breakout_quality"],
+        choices=list(RANKING_STRATEGIES),
         help="Ranking strategy to use (default: momentum)",
     )
 
@@ -240,14 +225,17 @@ def main() -> int:
         logger.info("Portfolio backtest completed successfully")
         return 0
 
+    except ValueError as e:
+        logger.error(f"Invalid configuration: {e}")
+        return 1
     except KeyboardInterrupt:
         logger.warning("Backtest interrupted by user")
         return 1
-    # except Exception as e:
-    #    logger.error(f"Backtest failed with error: {e}")
-    #    if args.verbose:
-    #        logger.exception("Full error details:")
-    #    return 1
+    except Exception as e:
+        logger.error(f"Backtest failed with error: {e}")
+        if args.verbose:
+            logger.exception("Full error details:")
+        return 1
 
 
 if __name__ == "__main__":
