@@ -1,10 +1,12 @@
 """Polars path signal tests for QullamaggieStrategy."""
+
 from datetime import date, timedelta
-from turtle.strategy.trading.qullamaggie import QullamaggieStrategy
 from unittest.mock import MagicMock
 
 import numpy as np
 import polars as pl
+
+from turtlex.strategy.trading.qullamaggie import QullamaggieStrategy
 
 N = 320  # > min_bars=300, > 253 bars needed for roc_252d
 QUIET = 30  # last QUIET bars: low volume (dry-up) and contracted range (ADR change)

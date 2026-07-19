@@ -10,7 +10,6 @@ Candidate window starts earlier so the 30-day cooldown state is correct at the s
 display window.
 """
 
-import sys
 from datetime import date
 from pathlib import Path
 
@@ -18,8 +17,7 @@ import numpy as np
 import polars as pl
 import sqlalchemy as sa
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from turtle.config.settings import Settings
+from turtlex.config.settings import Settings
 
 DISPLAY_START = date(2025, 7, 1)
 DISPLAY_END = date.today()

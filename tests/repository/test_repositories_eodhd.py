@@ -1,16 +1,17 @@
 """Tests for turtle/repository/eodhd.py async repository classes."""
 
 from datetime import date
-from turtle.repository.eodhd import (
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+from turtlex.repository.eodhd import (
     CompanyRepository,
     DailyBarsRepository,
     ExchangeRepository,
     TickerRepository,
 )
-from turtle.schema import Company, DailyBars, Exchange, Ticker
-from unittest.mock import AsyncMock, MagicMock
-
-import pytest
+from turtlex.schema import Company, DailyBars, Exchange, Ticker
 
 
 @pytest.fixture
@@ -211,5 +212,3 @@ async def test_company_upsert_calls_execute_and_commit(session: AsyncMock) -> No
     assert count == 2
     session.execute.assert_called_once()
     session.commit.assert_called_once()
-
-

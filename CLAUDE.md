@@ -72,7 +72,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 - After non-trivial changes, run pytest and mypy before proposing a commit. Run mypy with no arguments (`uv run mypy`) — scanned paths are defined in `pyproject.toml` `[tool.mypy] files`.
 - Use the PR review subagent workflow (parallel agents) before commit/push on multi-file changes.
-- Polars for all new code. Pandas is intentionally retained in `turtle/portfolio/analytics.py`, plus indirectly via `quantstats`. Don't introduce pandas elsewhere; flag any new pandas import in code review.
+- Polars for all new code. Pandas is intentionally retained in `turtlex/portfolio/analytics.py`, plus indirectly via `quantstats`. Don't introduce pandas elsewhere; flag any new pandas import in code review.
 
 ## Quick Start & Common Commands
 
@@ -80,7 +80,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 | Task | Command | Use When |
 | ------ | --------- | ---------- |
-| **Generate signals** | `uv run python scripts/signal_runner.py --start-date 2024-06-01 --end-date 2024-06-01 --mode analyze` | Analyze trading opportunities |
+| **Generate signals** | `uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --mode analyze` | Analyze trading opportunities |
 | **Portfolio backtest** | `uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31` | Test multi-position strategy |
 | **Single backtest** | `uv run python scripts/backtest.py --ticker AAPL --start-date 2024-01-01` | Test specific ticker |
 | **Run tests** | `uv run pytest` | Verify code changes |
@@ -91,17 +91,17 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ### Critical File Paths
 
 - **Configuration**: `/config/settings.toml` + `.env` for API keys
-- **Strategies**: `/turtle/strategy/trading/*.py` - Trading signal implementations
-- **Exit Strategies**: `/turtle/strategy/exit/*.py` - Position exit logic
-- **Portfolio**: `/turtle/portfolio/*.py` - Multi-position management
-- **Services**: `/turtle/service/*.py` - Business logic orchestration
-- **Domain models**: `/turtle/model.py` - `Signal`, `Trade`, `Benchmark` dataclasses
+- **Strategies**: `/turtlex/strategy/trading/*.py` - Trading signal implementations
+- **Exit Strategies**: `/turtlex/strategy/exit/*.py` - Position exit logic
+- **Portfolio**: `/turtlex/portfolio/*.py` - Multi-position management
+- **Services**: `/turtlex/service/*.py` - Business logic orchestration
+- **Domain models**: `/turtlex/model.py` - `Signal`, `Trade`, `Benchmark` dataclasses
 - **Project docs**: `/docs/*.md` - `implementation.md`, `scripts.md`, `service.md`, `strategy.md`, `troubleshooting.md`
 - **Database init & migrations**: `/db/init.sql`, `/db/init.sh`, `/db/migrations/`
 
 ### Development Decision Tree
 
-**Want to analyze market signals?** → Use `scripts/signal_runner.py --mode analyze`
+**Want to analyze market signals?** → Use `uv run signal-runner --mode analyze`
 
 **Want to test a strategy on one ticker?** → Use `scripts/backtest.py --ticker SYMBOL`
 
@@ -148,36 +148,36 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 
 ### Core Components
 
-- **turtle/common/**: Shared enums and utilities
+- **turtlex/common/**: Shared enums and utilities
   - `enums.py`: `TimeFrameUnit` enum (DAY, WEEK)
   - `cli.py`: `iso_date_type` — argparse type helper for ISO date strings (YYYY-MM-DD)
-- **turtle/model.py**: Core domain dataclasses (`Signal`, `Trade`, `Benchmark`, etc.) — single shared module; do not create per-package `models.py` files
-- **turtle/strategy/factory.py**: Strategy factories for CLI scripts — canonical string → lambda factory mapping for trading, exit, and ranking strategies (`get_trading_strategy`, `get_exit_strategy`, `get_ranking_strategy`). Each entry is a `Callable[[], StrategyBase]` lambda that closes over the required dependencies, so concrete constructors are called directly rather than through the abstract base type.
-- **turtle/repository/**: All database access (sync Engine reads + async Session writes)
+- **turtlex/model.py**: Core domain dataclasses (`Signal`, `Trade`, `Benchmark`, etc.) — single shared module; do not create per-package `models.py` files
+- **turtlex/strategy/factory.py**: Strategy factories for CLI scripts — canonical string → lambda factory mapping for trading, exit, and ranking strategies (`get_trading_strategy`, `get_exit_strategy`, `get_ranking_strategy`). Each entry is a `Callable[[], StrategyBase]` lambda that closes over the required dependencies, so concrete constructors are called directly rather than through the abstract base type.
+- **turtlex/repository/**: All database access (sync Engine reads + async Session writes)
   - `tables.py`: SQLAlchemy Core table definitions
   - `daily_bars_query.py`: `DailyBarsQueryRepository` — bulk OHLCV reads returning polars DataFrames
   - `ticker_query.py`: `TickerQueryRepository` — ticker universe reads (symbol groups, fundamentals-qualified lists)
   - `eodhd/`: `ExchangeRepository`, `TickerRepository`, `DailyBarsRepository`, `CompanyRepository`
-- **turtle/strategy/trading/**: Trading signal implementations
+- **turtlex/strategy/trading/**: Trading signal implementations
   - `base.py`: TradingStrategy abstract base
   - `darvas_box.py`, `mars.py`, `momentum.py`
-- **turtle/strategy/exit/**: Exit strategy implementations
+- **turtlex/strategy/exit/**: Exit strategy implementations
   - `base.py`: ExitStrategy abstract base
   - `buy_and_hold.py`, `profit_loss.py`, `ema.py`, `macd.py`, `atr.py`, `trailing_percentage_loss.py`
-- **turtle/backtest/**: Backtesting engine
+- **turtlex/backtest/**: Backtesting engine
   - `processor.py`, `benchmark_utils.py`
-- **turtle/portfolio/**: Multi-position portfolio management
+- **turtlex/portfolio/**: Multi-position portfolio management
   - `manager.py`, `selector.py`, `analytics.py`
-- **turtle/strategy/ranking/**: Signal ranking strategies — `momentum.py`, `volume_momentum.py`, `breakout_quality.py` (see [docs/strategy.md](docs/strategy.md))
-- **turtle/client/**: External API clients
+- **turtlex/strategy/ranking/**: Signal ranking strategies — `momentum.py`, `volume_momentum.py`, `breakout_quality.py` (see [docs/strategy.md](docs/strategy.md))
+- **turtlex/client/**: External API clients
   - `eodhd.py`: EODHD API wrapper
-- **turtle/config/**: Configuration management
+- **turtlex/config/**: Configuration management
   - `settings.py`: TOML + environment variable loader
   - `model.py`: Config dataclasses (`DatabaseConfig`, `AppConfig`, `DatabasePoolConfig`)
   - `logging.py`: Logging configuration
-- **turtle/schema/**: Pydantic models for external API responses
+- **turtlex/schema/**: Pydantic models for external API responses
   - `eodhd/`: `exchange.py` → `Exchange`, `ticker.py` → `Ticker`, `company.py` → `Company`, `daily_bars.py` → `DailyBars`
-- **turtle/service/**: Business logic orchestration layer
+- **turtlex/service/**: Business logic orchestration layer
 
 ### Database
 
@@ -197,7 +197,7 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 
 - **Settings**: TOML-based with environment variable overrides for secrets
 - **Key Files**: `config/settings.toml`, `.env` (API keys, DB password)
-- **Environment Variables**: `EODHD_API_KEY`, `DB_APP_PASSWORD` (required by app; see `turtle/config/settings.py`)
+- **Environment Variables**: `EODHD_API_KEY`, `DB_APP_PASSWORD` (required by app; see `turtlex/config/settings.py`)
 - **Database DSN**: `host=localhost port=5432 dbname=trading user=app_user`
 
 ## Database Migrations
@@ -216,12 +216,12 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 
 ### Adding a New Trading Strategy
 
-1. **Create strategy file**: `turtle/strategy/trading/my_strategy.py`
+1. **Create strategy file**: `turtlex/strategy/trading/my_strategy.py`
 2. **Extend TradingStrategy base class**:
 
    ```python
-   from turtle.strategy.trading.base import TradingStrategy
-   from turtle.strategy.trading.models import Signal
+   from turtlex.strategy.trading.base import TradingStrategy
+   from turtlex.strategy.trading.models import Signal
 
    class MyStrategy(TradingStrategy):
        def collect_data(self, ticker: str, start_date: date, end_date: date) -> bool:
@@ -236,8 +236,8 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
    ```
 
 3. **Add tests**: `tests/strategy/trading/test_my_strategy.py` (mirror the source tree)
-4. **Wire via dependency injection**: Instantiate your strategy and pass it to the service constructor — see `scripts/signal_runner.py` (`get_trading_strategy`) for the canonical wiring pattern
-5. **Test**: `uv run python scripts/signal_runner.py --strategy my_strategy --mode analyze`
+4. **Wire via dependency injection**: Instantiate your strategy and pass it to the service constructor — see `turtlex/cli/signal_runner.py` (`get_trading_strategy`) for the canonical wiring pattern
+5. **Test**: `uv run signal-runner --strategy my_strategy --mode analyze`
 
 ## Examples Directory
 
@@ -250,30 +250,30 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 
 ### Strategy Pattern (Abstract Base Classes)
 
-All pluggable behaviours — signals, exits, rankings — share a common ABC interface. Services depend on the abstract type; concrete implementations are swapped at runtime without changing any service code. See `turtle/strategy/trading/base.py` (base) and `turtle/strategy/trading/darvas_box.py` (concrete). Same pattern in `turtle/strategy/exit/` and `turtle/strategy/ranking/`.
+All pluggable behaviours — signals, exits, rankings — share a common ABC interface. Services depend on the abstract type; concrete implementations are swapped at runtime without changing any service code. See `turtlex/strategy/trading/base.py` (base) and `turtlex/strategy/trading/darvas_box.py` (concrete). Same pattern in `turtlex/strategy/exit/` and `turtlex/strategy/ranking/`.
 
 ### Repository Pattern (Data Access)
 
-All database operations live in `turtle/repository/`. No SQL outside this directory. Sync `Engine`-based repos handle reads; async `AsyncSession`-based repos handle writes. See `turtle/repository/daily_bars_query.py` (sync reads) and `turtle/repository/eodhd/` (async writes).
+All database operations live in `turtlex/repository/`. No SQL outside this directory. Sync `Engine`-based repos handle reads; async `AsyncSession`-based repos handle writes. See `turtlex/repository/daily_bars_query.py` (sync reads) and `turtlex/repository/eodhd/` (async writes).
 
 ### Dependency Injection (Constructor Injection)
 
-All dependencies are passed explicitly through constructors — no globals, no service locators. The connection pool flows from `Settings` → `Service` → `Repo`. See `turtle/service/signal_service.py`.
+All dependencies are passed explicitly through constructors — no globals, no service locators. The connection pool flows from `Settings` → `Service` → `Repo`. See `turtlex/service/signal_service.py`.
 
 ### Domain Models (Dataclasses vs Pydantic)
 
-- **Dataclasses** for all internal domain objects (`Signal`, `Trade`, `Benchmark`, etc.). Use `@property` for computed fields — no setters. All shared domain models live in a single module: `turtle/model.py` (no per-package `models.py`).
-- **Pydantic `BaseModel`** only for external API responses where field aliasing (`alias=`) is needed. See `Exchange`, `Ticker`, `Company` in `turtle/schema/`.
+- **Dataclasses** for all internal domain objects (`Signal`, `Trade`, `Benchmark`, etc.). Use `@property` for computed fields — no setters. All shared domain models live in a single module: `turtlex/model.py` (no per-package `models.py`).
+- **Pydantic `BaseModel`** only for external API responses where field aliasing (`alias=`) is needed. See `Exchange`, `Ticker`, `Company` in `turtlex/schema/`.
 
 ### Configuration (Factory Method)
 
-`Settings.from_toml()` is the single entry point for all config. It loads TOML, validates required env vars (raises `ValueError` if missing — never falls back to TOML values for secrets), builds nested config objects, and creates the connection pool. See `turtle/config/settings.py`.
+`Settings.from_toml()` is the single entry point for all config. It loads TOML, validates required env vars (raises `ValueError` if missing — never falls back to TOML values for secrets), builds nested config objects, and creates the connection pool. See `turtlex/config/settings.py`.
 
 ### Async Boundary
 
 Async is used only in the data-download path; analytical queries are always sync:
 
-- **Async (downloads/writes)**: external API clients (`turtle/client/eodhd.py`, `httpx.AsyncClient`), download-orchestration services (e.g. `turtle/service/eodhd_service.py`, concurrent requests via `asyncio.gather`), and the `turtle/repository/eodhd/` write repositories (`AsyncSession`). Scripts may use `asyncio.run()` as the async entry point.
+- **Async (downloads/writes)**: external API clients (`turtlex/client/eodhd.py`, `httpx.AsyncClient`), download-orchestration services (e.g. `turtlex/service/eodhd_service.py`, concurrent requests via `asyncio.gather`), and the `turtlex/repository/eodhd/` write repositories (`AsyncSession`). Scripts may use `asyncio.run()` as the async entry point.
 - **Sync (analytical reads)**: query repositories (`daily_bars_query.py`, `ticker_query.py`) use a sync `Engine`; strategy, backtesting, and portfolio logic is synchronous. Do not make query repositories or backtest logic async.
 
 ### Naming Conventions
@@ -285,7 +285,7 @@ Async is used only in the data-download path; analytical queries are always sync
 | Private methods | leading underscore | `_get_bars_history_db()` |
 | Constants / enums | UPPER_SNAKE_CASE | `TimeFrameUnit.DAY` |
 | Files | snake_case | `bars_history.py`, `darvas_box.py` |
-| Folders / packages | singular snake_case | `turtle/service/`, `turtle/repository/` |
+| Folders / packages | singular snake_case | `turtlex/service/`, `turtlex/repository/` |
 
 ### Docstrings
 
@@ -305,7 +305,7 @@ Validate preconditions early and return `bool` (for data-collection methods) or 
 
 ### Static Methods
 
-Use `@staticmethod` for pure utility functions that belong logically to a class but require no instance state. See `RankingStrategy._linear_rank()` in `turtle/strategy/ranking/base.py`.
+Use `@staticmethod` for pure utility functions that belong logically to a class but require no instance state. See `RankingStrategy._linear_rank()` in `turtlex/strategy/ranking/base.py`.
 
 ## Testing
 

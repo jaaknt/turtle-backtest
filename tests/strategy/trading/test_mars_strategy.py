@@ -1,12 +1,14 @@
 """Tests for MarsStrategy polars path."""
+
 from datetime import date, timedelta
-from turtle.common.enums import TimeFrameUnit
-from turtle.repository.daily_bars_query import DailyBarsQueryRepository
-from turtle.strategy.ranking.base import RankingStrategy
-from turtle.strategy.trading.mars import MarsStrategy
 from unittest.mock import MagicMock
 
 import polars as pl
+
+from turtlex.common.enums import TimeFrameUnit
+from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.strategy.ranking.base import RankingStrategy
+from turtlex.strategy.trading.mars import MarsStrategy
 
 
 def _build_ohlcv(n: int = 300) -> pl.DataFrame:
@@ -18,10 +20,16 @@ def _build_ohlcv(n: int = 300) -> pl.DataFrame:
     lows = [c * 0.997 for c in closes]
     volumes = [1_000_000.0] * n
     start = date(2019, 1, 1)
-    return pl.DataFrame({
-        "date": [start + timedelta(days=i) for i in range(n)],
-        "open": opens, "high": highs, "low": lows, "close": closes, "volume": volumes,
-    })
+    return pl.DataFrame(
+        {
+            "date": [start + timedelta(days=i) for i in range(n)],
+            "open": opens,
+            "high": highs,
+            "low": lows,
+            "close": closes,
+            "volume": volumes,
+        }
+    )
 
 
 def _make_strategy(pl_df: pl.DataFrame, min_bars: int = 100) -> MarsStrategy:
@@ -42,6 +50,7 @@ def _make_strategy(pl_df: pl.DataFrame, min_bars: int = 100) -> MarsStrategy:
 # calculate_indicators_pl
 # ---------------------------------------------------------------------------
 
+
 def test_calculate_indicators_pl_columns() -> None:
     """All expected indicator columns are present after calculate_indicators_pl()."""
     strategy = _make_strategy(_build_ohlcv())
@@ -49,9 +58,18 @@ def test_calculate_indicators_pl_columns() -> None:
     strategy.calculate_indicators_pl()
 
     expected = [
-        "max_box_4", "min_box_4", "max_close_10", "ema_10", "ema_20",
-        "macd", "ema_volume_4", "macd_signal", "macd_histogram",
-        "consolidation_change", "hard_stoploss", "volume_change",
+        "max_box_4",
+        "min_box_4",
+        "max_close_10",
+        "ema_10",
+        "ema_20",
+        "macd",
+        "ema_volume_4",
+        "macd_signal",
+        "macd_histogram",
+        "consolidation_change",
+        "hard_stoploss",
+        "volume_change",
     ]
     for col in expected:
         assert col in strategy.pl_df.columns, f"Missing column: {col}"
@@ -72,18 +90,19 @@ def test_macd_histogram_is_macd_minus_signal() -> None:
 # is_buy_signal
 # ---------------------------------------------------------------------------
 
+
 def _good_row() -> dict:
     """A row dict that satisfies all buy conditions."""
     return {
         "date": date(2024, 1, 15),
         "close": 100.0,
-        "max_close_10": 99.0,          # close >= max_close_10 ✓
+        "max_close_10": 99.0,  # close >= max_close_10 ✓
         "ema_10": 98.0,
-        "ema_20": 97.0,                 # ema_10 >= ema_20 ✓
+        "ema_20": 97.0,  # ema_10 >= ema_20 ✓
         "macd": 0.5,
-        "macd_signal": 0.3,             # not None ✓
-        "consolidation_change": 0.05,   # <= 0.12 ✓
-        "hard_stoploss": 80.0,          # (100-80)/100 = 0.20 <= 0.25 ✓
+        "macd_signal": 0.3,  # not None ✓
+        "consolidation_change": 0.05,  # <= 0.12 ✓
+        "hard_stoploss": 80.0,  # (100-80)/100 = 0.20 <= 0.25 ✓
         "max_box_4": 90.0,
         "min_box_4": 85.0,
         "volume": 1_000_000.0,
@@ -140,6 +159,7 @@ def test_is_buy_signal_stoploss_too_far() -> None:
 # _get_polars_signals / get_signals
 # ---------------------------------------------------------------------------
 
+
 def test_get_signals_produces_signal() -> None:
     """get_signals returns at least one signal on strongly uptrending data."""
     pl_df = _build_ohlcv(300)
@@ -164,6 +184,7 @@ def test_get_signals_returns_empty_when_start_date_beyond_data() -> None:
 # ---------------------------------------------------------------------------
 # ranking
 # ---------------------------------------------------------------------------
+
 
 def test_ranking_returns_correct_price_bracket() -> None:
     """ranking() returns the correct score for the closing price on a given date."""

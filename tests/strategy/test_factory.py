@@ -1,7 +1,8 @@
-from turtle.strategy.factory import get_trading_strategy
-from turtle.strategy.trading.momentum import MomentumStrategy
-from turtle.strategy.trading.qullamaggie import QullamaggieStrategy
 from unittest.mock import MagicMock
+
+from turtlex.strategy.factory import get_trading_strategy
+from turtlex.strategy.trading.momentum import MomentumStrategy
+from turtlex.strategy.trading.qullamaggie import QullamaggieStrategy
 
 
 def test_factory_creates_momentum_strategy() -> None:

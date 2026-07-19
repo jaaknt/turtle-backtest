@@ -22,7 +22,6 @@ convention.
 References: docs/research/qullamaggie-backtest-v4.md, docs/research/result-qullamaggie-backtest-v4.md
 """
 
-import sys
 import time
 from bisect import bisect_left
 from datetime import date
@@ -32,8 +31,7 @@ import numpy as np
 import polars as pl
 import sqlalchemy as sa
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from turtle.config.settings import Settings
+from turtlex.config.settings import Settings
 
 DISPLAY_START = date(2026, 6, 1)
 DISPLAY_END = date.today()

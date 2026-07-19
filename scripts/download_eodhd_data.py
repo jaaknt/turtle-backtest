@@ -4,14 +4,10 @@ import logging
 import re
 import sys
 from datetime import date, timedelta
-from pathlib import Path
 
-# Add project root to path to import turtle modules
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from turtle.common.cli import iso_date_type
-from turtle.config.settings import Settings
-from turtle.service.eodhd_service import EodhdService
+from turtlex.common.cli import iso_date_type
+from turtlex.config.settings import Settings
+from turtlex.service.eodhd_service import EodhdService
 
 logger = logging.getLogger(__name__)
 

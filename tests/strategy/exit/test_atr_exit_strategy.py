@@ -1,13 +1,14 @@
 """Tests for ATRExitStrategy."""
 
 from datetime import date, datetime
-from turtle.model import Trade
-from turtle.repository.daily_bars_query import DailyBarsQueryRepository
-from turtle.strategy.exit import ATRExitStrategy
 from unittest.mock import Mock
 
 import polars as pl
 import pytest
+
+from turtlex.model import Trade
+from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.strategy.exit import ATRExitStrategy
 
 
 class TestATRExitStrategy:

@@ -49,17 +49,17 @@ The framework composes three independent strategy types into a complete trading 
 | Tight breakout | `mars` | `breakout_quality` | `profit_loss` |
 | Baseline / benchmark | any | any | `buy_and_hold` |
 
-All strategy names used by CLI scripts (`--trading-strategy`, `--ranking-strategy`, `--exit-strategy`) are registered in `turtle/strategy/factory.py`.
+All strategy names used by CLI scripts (`--trading-strategy`, `--ranking-strategy`, `--exit-strategy`) are registered in `turtlex/strategy/factory.py`.
 
 ---
 
 ## Trading Strategies
 
-Trading strategies implement `TradingStrategy` (ABC in `turtle/strategy/trading/base.py`). They scan historical OHLCV data and emit `Signal` objects at breakout or momentum events.
+Trading strategies implement `TradingStrategy` (ABC in `turtlex/strategy/trading/base.py`). They scan historical OHLCV data and emit `Signal` objects at breakout or momentum events.
 
 ### Darvas Box (`darvas_box`)
 
-**File**: `turtle/strategy/trading/darvas_box.py`
+**File**: `turtlex/strategy/trading/darvas_box.py`
 
 Identifies breakouts from price consolidation boxes, inspired by Nicolas Darvas's method.
 
@@ -86,7 +86,7 @@ Identifies breakouts from price consolidation boxes, inspired by Nicolas Darvas'
 
 ### Mars (`mars`)
 
-**File**: `turtle/strategy/trading/mars.py`
+**File**: `turtlex/strategy/trading/mars.py`
 
 Focuses on breakouts from tight price consolidation, attributed to the @marsrides approach.
 
@@ -112,7 +112,7 @@ Focuses on breakouts from tight price consolidation, attributed to the @marsride
 
 ### Momentum (`momentum`)
 
-**File**: `turtle/strategy/trading/momentum.py`
+**File**: `turtlex/strategy/trading/momentum.py`
 
 Identifies weekly momentum breakouts with EMA trend confirmation.
 
@@ -150,11 +150,11 @@ Identifies weekly momentum breakouts with EMA trend confirmation.
 
 ## Ranking Strategies
 
-Ranking strategies implement `RankingStrategy` (ABC in `turtle/strategy/ranking/base.py`). They score signals 0–100 after entry conditions are met. The portfolio backtester uses this score to prioritise which signals to trade and applies a `min_ranking` threshold to filter low-quality signals.
+Ranking strategies implement `RankingStrategy` (ABC in `turtlex/strategy/ranking/base.py`). They score signals 0–100 after entry conditions are met. The portfolio backtester uses this score to prioritise which signals to trade and applies a `min_ranking` threshold to filter low-quality signals.
 
 ### Momentum Ranking (`momentum`)
 
-**File**: `turtle/strategy/ranking/momentum.py`
+**File**: `turtlex/strategy/ranking/momentum.py`
 
 Evaluates price performance relative to EMA(200) over multiple time horizons plus period-high persistence.
 
@@ -174,7 +174,7 @@ Lower-priced stocks score higher on the price component. EMA200 growth component
 
 ### Volume Momentum Ranking (`volume_momentum`)
 
-**File**: `turtle/strategy/ranking/volume_momentum.py`
+**File**: `turtlex/strategy/ranking/volume_momentum.py`
 
 Combines price momentum, volatility adjustment, liquidity, and technical confluence. Uses `SPY` as a market benchmark for relative calculations.
 
@@ -193,7 +193,7 @@ Combines price momentum, volatility adjustment, liquidity, and technical conflue
 
 ### Breakout Quality Ranking (`breakout_quality`)
 
-**File**: `turtle/strategy/ranking/breakout_quality.py`
+**File**: `turtlex/strategy/ranking/breakout_quality.py`
 
 Scores the strength of the breakout event itself at signal time — useful for confirming that an entry has real conviction behind it.
 
@@ -222,13 +222,13 @@ Scores the strength of the breakout event itself at signal time — useful for c
 
 ## Exit Strategies
 
-Exit strategies implement `ExitStrategy` (ABC in `turtle/strategy/exit/base.py`). They receive the entry signal and the subsequent price history, and return a `Trade` with the exact exit date, price, and reason.
+Exit strategies implement `ExitStrategy` (ABC in `turtlex/strategy/exit/base.py`). They receive the entry signal and the subsequent price history, and return a `Trade` with the exact exit date, price, and reason.
 
 All strategies fetch additional historical data before the signal date to warm up their indicators.
 
 ### Buy and Hold (`buy_and_hold`)
 
-**File**: `turtle/strategy/exit/buy_and_hold.py`
+**File**: `turtlex/strategy/exit/buy_and_hold.py`
 
 Holds the position until the end of the analysis period. Use as a baseline to measure what active exits add or cost.
 
@@ -242,7 +242,7 @@ Holds the position until the end of the analysis period. Use as a baseline to me
 
 ### Profit / Loss Target (`profit_loss`)
 
-**File**: `turtle/strategy/exit/profit_loss.py`
+**File**: `turtlex/strategy/exit/profit_loss.py`
 
 Exits as soon as either a profit target or a stop loss is hit. Whichever triggers first wins.
 
@@ -257,7 +257,7 @@ Exits as soon as either a profit target or a stop loss is hit. Whichever trigger
 
 ### EMA Exit (`ema`)
 
-**File**: `turtle/strategy/exit/ema.py`
+**File**: `turtlex/strategy/exit/ema.py`
 
 Exits when the close price drops below the EMA. Useful for trend-following exits that let winners run while cutting losses on trend breaks.
 
@@ -271,7 +271,7 @@ Fetches 40 days of pre-signal data to seed the EMA. **Exit reasons**: `stop_loss
 
 ### MACD Exit (`macd`)
 
-**File**: `turtle/strategy/exit/macd.py`
+**File**: `turtlex/strategy/exit/macd.py`
 
 Exits when the MACD line crosses below the signal line (bearish crossover). Captures the bulk of the move while exiting on momentum deterioration.
 
@@ -287,7 +287,7 @@ Fetches 40 days of pre-signal data for MACD seeding. **Exit reasons**: `below_si
 
 ### ATR Trailing Stop (`atr`)
 
-**File**: `turtle/strategy/exit/atr.py`
+**File**: `turtlex/strategy/exit/atr.py`
 
 Volatility-based trailing stop. The stop is set at `atr_multiplier × ATR` below the running high, and only moves up (never down).
 
@@ -306,7 +306,7 @@ Volatility-based trailing stop. The stop is set at `atr_multiplier × ATR` below
 
 ### Trailing Percentage Loss (`trailing_percentage_loss`)
 
-**File**: `turtle/strategy/exit/trailing_percentage_loss.py`
+**File**: `turtlex/strategy/exit/trailing_percentage_loss.py`
 
 Simpler trailing stop based on a fixed percentage below the running maximum close. No volatility calculation required.
 

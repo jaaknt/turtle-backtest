@@ -18,21 +18,11 @@ REQUIREMENTS:
 """
 
 import logging
-import sys  # noqa: E402
-from pathlib import Path  # noqa: E402
 
-# Add project root to path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
-
-from turtle.model import PortfolioState  # noqa: E402
+from turtlex.model import PortfolioState  # noqa: E402
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 logger = logging.getLogger(__name__)
 
@@ -115,9 +105,9 @@ def print_trade_analysis(results: PortfolioState) -> None:
         print("\nNo completed trades found.")
         return
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("DETAILED TRADE ANALYSIS")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     # Group by ticker
     trades_by_ticker: dict[str, list] = {}
@@ -146,9 +136,9 @@ def print_top_performers(results: PortfolioState) -> None:
     if not results.future_trades:
         return
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("TOP/BOTTOM PERFORMERS")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     # Sort by realized P&L percentage
     sorted_trades = sorted(results.future_trades, key=lambda x: x.realized_pct, reverse=True)

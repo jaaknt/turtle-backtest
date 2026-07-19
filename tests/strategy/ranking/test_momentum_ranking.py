@@ -1,7 +1,8 @@
 from datetime import date
-from turtle.strategy.ranking.momentum import MomentumRanking
 
 import polars as pl
+
+from turtlex.strategy.ranking.momentum import MomentumRanking
 
 
 def _base_row(**overrides) -> dict:
@@ -217,7 +218,7 @@ def test_ranking_col_change_col_param_selects_correct_column() -> None:
     ]
     df = _df(rows)
     assert MomentumRanking._ranking_col_change(df, "ema_200", 21, 0.00, 0.10) == 20
-    assert MomentumRanking._ranking_col_change(df, "close",   21, 0.00, 0.10) == 0
+    assert MomentumRanking._ranking_col_change(df, "close", 21, 0.00, 0.10) == 0
 
 
 def test_ranking_col_change_null_value_returns_0() -> None:
@@ -250,10 +251,9 @@ def test_ranking_period_high_insufficient_data_returns_0() -> None:
 def test_ranking_period_high_not_period_max_returns_0() -> None:
     """Current close below a prior close → 0."""
     r = MomentumRanking()
-    rows = (
-        [_base_row(date=date(2024, 1, 1), close=60.0)]
-        + [_base_row(date=date.fromordinal(date(2024, 1, 1).toordinal() + i + 1), close=50.0) for i in range(10)]
-    )
+    rows = [_base_row(date=date(2024, 1, 1), close=60.0)] + [
+        _base_row(date=date.fromordinal(date(2024, 1, 1).toordinal() + i + 1), close=50.0) for i in range(10)
+    ]
     assert r._ranking_period_high(_df(rows)) == 0
 
 

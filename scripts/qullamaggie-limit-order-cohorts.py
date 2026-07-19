@@ -21,7 +21,6 @@ Period: 2010-01-01 - 2026-06-26  |  Burn-in data from 2008-01-01.
 References: docs/research/qullamaggie-backtest-v4.md, docs/research/result-qullamaggie-backtest-v4.md
 """
 
-import sys
 from datetime import date
 from pathlib import Path
 
@@ -29,8 +28,7 @@ import numpy as np
 import polars as pl
 import sqlalchemy as sa
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from turtle.config.settings import Settings
+from turtlex.config.settings import Settings
 
 _EPOCH = date(1970, 1, 1)
 BAR_LOAD_START = date(2008, 1, 1)

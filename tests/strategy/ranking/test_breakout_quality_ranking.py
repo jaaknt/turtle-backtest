@@ -1,7 +1,8 @@
 from datetime import datetime
-from turtle.strategy.ranking.breakout_quality import BreakoutQualityRanking
 
 import polars as pl
+
+from turtlex.strategy.ranking.breakout_quality import BreakoutQualityRanking
 
 
 def _base_row(**overrides) -> dict:

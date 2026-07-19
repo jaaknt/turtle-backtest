@@ -1,12 +1,14 @@
 """Polars path signal tests for MomentumStrategy."""
+
 from datetime import date, timedelta
-from turtle.common.enums import TimeFrameUnit
-from turtle.strategy.trading.momentum import MomentumStrategy
 from unittest.mock import MagicMock
 
 import numpy as np
 import polars as pl
 import pytest
+
+from turtlex.common.enums import TimeFrameUnit
+from turtlex.strategy.trading.momentum import MomentumStrategy
 
 
 def _build_ohlcv(n: int = 150) -> pl.DataFrame:
@@ -21,7 +23,7 @@ def _build_ohlcv(n: int = 150) -> pl.DataFrame:
     base = 100.0
     growth = 1.006
     closes = np.array([base * (growth**i) for i in range(n)])
-    opens = closes * 0.99       # 1% bullish body → (close-open)/close ≈ 1% > 0.8% ✓
+    opens = closes * 0.99  # 1% bullish body → (close-open)/close ≈ 1% > 0.8% ✓
     highs = closes * 1.01
     lows = closes * 0.98
     volumes = np.full(n, 1_000_000.0)

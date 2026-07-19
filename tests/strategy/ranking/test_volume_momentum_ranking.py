@@ -1,10 +1,11 @@
 import warnings
 from datetime import date, datetime, timedelta
-from turtle.strategy.ranking.base import RankingStrategy
-from turtle.strategy.ranking.volume_momentum import VolumeMomentumRanking
 
 import numpy as np
 import polars as pl
+
+from turtlex.strategy.ranking.base import RankingStrategy
+from turtlex.strategy.ranking.volume_momentum import VolumeMomentumRanking
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning, module="pkg_resources")
@@ -37,10 +38,16 @@ def create_test_data(length: int = 100) -> pl.DataFrame:
     volume_multiplier = 1 + np.abs(price_changes) * 2  # Higher volume on bigger moves
     volumes = volumes * volume_multiplier
 
-    return pl.DataFrame({
-        "date": dates, "open": opens.tolist(), "high": highs.tolist(),
-        "low": lows.tolist(), "close": closes.tolist(), "volume": volumes.tolist(),
-    })
+    return pl.DataFrame(
+        {
+            "date": dates,
+            "open": opens.tolist(),
+            "high": highs.tolist(),
+            "low": lows.tolist(),
+            "close": closes.tolist(),
+            "volume": volumes.tolist(),
+        }
+    )
 
 
 def test_ranking_initialization() -> None:
@@ -94,10 +101,16 @@ def test_volume_weighted_momentum_component() -> None:
         ]
     )
 
-    df = pl.DataFrame({
-        "date": dates, "open": prices.tolist(), "high": (prices * 1.01).tolist(),
-        "low": (prices * 0.99).tolist(), "close": prices.tolist(), "volume": volumes.tolist(),
-    })
+    df = pl.DataFrame(
+        {
+            "date": dates,
+            "open": prices.tolist(),
+            "high": (prices * 1.01).tolist(),
+            "low": (prices * 0.99).tolist(),
+            "close": prices.tolist(),
+            "volume": volumes.tolist(),
+        }
+    )
     momentum_score = ranking._volume_weighted_momentum(df)
 
     assert momentum_score > 0  # Should be positive for uptrending + volume
@@ -116,10 +129,16 @@ def test_volatility_adjusted_strength_component() -> None:
     small_noise = np.random.normal(0, 0.005, 100)  # Very low volatility
     prices = prices + small_noise
 
-    df = pl.DataFrame({
-        "date": dates, "open": prices.tolist(), "high": (prices * 1.005).tolist(),
-        "low": (prices * 0.995).tolist(), "close": prices.tolist(), "volume": [1000000] * 100,
-    })
+    df = pl.DataFrame(
+        {
+            "date": dates,
+            "open": prices.tolist(),
+            "high": (prices * 1.005).tolist(),
+            "low": (prices * 0.995).tolist(),
+            "close": prices.tolist(),
+            "volume": [1000000] * 100,
+        }
+    )
     strength_score = ranking._volatility_adjusted_strength(df)
 
     assert strength_score > 0  # Steady uptrend should score positively
@@ -156,10 +175,16 @@ def test_technical_confluence_component() -> None:
     noise = np.random.normal(0, 0.01, 100)
     prices = base_prices + noise
 
-    df = pl.DataFrame({
-        "date": dates, "open": prices.tolist(), "high": (prices * 1.01).tolist(),
-        "low": (prices * 0.99).tolist(), "close": prices.tolist(), "volume": [1000000] * 100,
-    })
+    df = pl.DataFrame(
+        {
+            "date": dates,
+            "open": prices.tolist(),
+            "high": (prices * 1.01).tolist(),
+            "low": (prices * 0.99).tolist(),
+            "close": prices.tolist(),
+            "volume": [1000000] * 100,
+        }
+    )
     confluence_score = ranking._technical_confluence(df)
 
     assert confluence_score >= 0  # Should be non-negative
@@ -196,8 +221,28 @@ def test_rsi_overbought_score_below_60() -> None:
     ranking = VolumeMomentumRanking()
     dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(20)]
     # 10+ up-days of +2, 3 down-days of -1 in last 14 bars → RSI ~85
-    prices = [100.0, 102.0, 101.0, 103.0, 105.0, 104.0, 106.0, 108.0, 110.0,
-              109.0, 111.0, 113.0, 115.0, 114.0, 116.0, 118.0, 120.0, 119.0, 121.0, 123.0]
+    prices = [
+        100.0,
+        102.0,
+        101.0,
+        103.0,
+        105.0,
+        104.0,
+        106.0,
+        108.0,
+        110.0,
+        109.0,
+        111.0,
+        113.0,
+        115.0,
+        114.0,
+        116.0,
+        118.0,
+        120.0,
+        119.0,
+        121.0,
+        123.0,
+    ]
     df = pl.DataFrame({"date": dates, "close": prices, "open": prices, "high": prices, "low": prices, "volume": [1_000_000] * 20})
     score = ranking._calculate_rsi_score(df)
     assert 0 <= score < 60
@@ -273,10 +318,15 @@ def test_ranking_with_missing_data() -> None:
     """Test ranking behavior with missing/invalid data — uses 200 rows to exercise null-handling code."""
     ranking = VolumeMomentumRanking()
 
-    data = create_test_data(200).with_row_index("_idx").with_columns(
-        pl.when(pl.col("_idx").is_between(100, 110)).then(None).otherwise(pl.col("close")).alias("close"),
-        pl.when(pl.col("_idx").is_between(150, 160)).then(None).otherwise(pl.col("volume")).alias("volume"),
-    ).drop("_idx")
+    data = (
+        create_test_data(200)
+        .with_row_index("_idx")
+        .with_columns(
+            pl.when(pl.col("_idx").is_between(100, 110)).then(None).otherwise(pl.col("close")).alias("close"),
+            pl.when(pl.col("_idx").is_between(150, 160)).then(None).otherwise(pl.col("volume")).alias("volume"),
+        )
+        .drop("_idx")
+    )
 
     target_date = datetime(2024, 8, 1)  # After all 200 rows
 
@@ -304,11 +354,16 @@ def test_ranking_volume_momentum_quality_gate() -> None:
     start = date(2024, 1, 1)
     dates = [start + timedelta(days=i) for i in range(150)]
     prices = [100.0] * 150
-    data = pl.DataFrame({
-        "date": dates,
-        "open": prices, "high": prices, "low": prices, "close": prices,
-        "volume": [1_000_000.0] * 150,
-    })
+    data = pl.DataFrame(
+        {
+            "date": dates,
+            "open": prices,
+            "high": prices,
+            "low": prices,
+            "close": prices,
+            "volume": [1_000_000.0] * 150,
+        }
+    )
     score = ranking.ranking(data, datetime(2024, 5, 1))
     assert score == 1
 

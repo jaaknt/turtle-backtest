@@ -1,7 +1,8 @@
 """Tests for TickerQueryRepository sync ticker list reads."""
 
-from turtle.repository.ticker_query import TickerQueryRepository
 from unittest.mock import MagicMock
+
+from turtlex.repository.ticker_query import TickerQueryRepository
 
 
 def _make_engine_mock(rows: list[MagicMock]) -> MagicMock:

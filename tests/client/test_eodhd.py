@@ -1,10 +1,11 @@
 """Tests for EodhdApiClient response parsing."""
 
-from turtle.client.eodhd import EodhdApiClient
-from turtle.config.model import AppConfig
 from unittest.mock import AsyncMock
 
 import pytest
+
+from turtlex.client.eodhd import EodhdApiClient
+from turtlex.config.model import AppConfig
 
 
 @pytest.fixture

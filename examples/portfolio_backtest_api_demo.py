@@ -114,7 +114,7 @@ def demonstrate_portfolio_api() -> None:
         "✅ Comprehensive performance analytics",
         "✅ Benchmark comparison (SPY, QQQ)",
         "✅ Risk metrics (Sharpe ratio, max drawdown, volatility)",
-        "✅ Trade-level analysis and attribution"
+        "✅ Trade-level analysis and attribution",
     ]
 
     for feature in features:
