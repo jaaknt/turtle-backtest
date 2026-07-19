@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """
-ADR% cohort analysis for bk50d_s20_v1.2_roc100, bk50d_s15_v1.2_roc100, bk50d_s12_v1.2_roc100 (366d hold).
+Tight-range cohort analysis for bk50d_s20_tr10, bk50d_s20_tr20, bk50d_s15_tr15 (366d hold).
 
-All strategy filters applied EXCEPT the adr_pct >= 3.0% floor, so we can see
-performance across the full ADR% range including the sub-3% cohorts.
-adr_pct = mean((high_i - low_i) / low_i, i in last 20 days, shift-1)
+All strategy filters applied EXCEPT the tight_range cap, so we can see
+performance across the full tight_range_ratio range.
+tight_range_ratio = (max(close[-11:-1]) - min(close[-11:-1])) / mean(close[-11:-1])
+
+Note: s20_tr10 and s20_tr20 share the same pct_above_sma50 threshold (20%) and
+differ only in their tight_range cap. With that cap removed, both draw from the
+same underlying candidate pool — only their "current filter" reference row
+differs (<=0.10 vs <=0.20).
 
 Period: 2015-01-01 – 2026-06-26  (burn-in from 2013-01-01)
 """
@@ -30,32 +35,28 @@ MIN_HISTORY = 300
 COOLDOWN = 30
 VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
-RSI_CAP = 70.0
-ADR_MIN = 0.03
-ADR_CHANGE_CAP = 0.90
 ROC_CAP = 1.00
+RSI_CAP = 70.0
+ADR_MIN = 0.025
 MIN_NEG = 5
 
 STRATEGIES = [
-    ("bk50d_s20_v1.2_roc100", 0.20),
-    ("bk50d_s15_v1.2_roc100", 0.15),
-    ("bk50d_s12_v1.2_roc100", 0.12),
+    ("bk50d_s20_tr10_v1.2_roc100", 0.20, 0.10),
+    ("bk50d_s20_tr20_v1.2_roc100", 0.20, 0.20),
+    ("bk50d_s15_tr15_v1.2_roc100", 0.15, 0.15),
 ]
 
 COHORTS: list[tuple[str, float, float]] = [
-    ("[0-1.0)  ", 0.000, 0.010),
-    ("[1.0-2.0)", 0.010, 0.020),
-    ("[2.0-2.5)", 0.020, 0.025),
-    ("[2.5-3.0)", 0.025, 0.030),
-    ("[3.0-3.5)", 0.030, 0.035),
-    ("[3.5-4.0)", 0.035, 0.040),
-    ("[4.0-4.5)", 0.040, 0.045),
-    ("[4.5-5.0)", 0.045, 0.050),
-    ("[5.0-7.0)", 0.050, 0.070),
-    ("(>8.0)   ", 0.080, float("inf")),
+    ("[<0)      ", float("-inf"), 0.0),
+    ("[0.0-0.1) ", 0.0, 0.10),
+    ("[0.1-0.15)", 0.10, 0.15),
+    ("[0.15-0.2)", 0.15, 0.20),
+    ("[0.2-0.25)", 0.20, 0.25),
+    ("[0.25-0.3)", 0.25, 0.30),
+    ("[>0.3)    ", 0.30, float("inf")),
 ]
 
-RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-adr-cohorts.md"
+RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-cohorts-tightrange.md"
 
 
 # ── Data loading ─────────────────────────────────────────────────────────────
@@ -123,7 +124,7 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
         [
             pl.col("close").shift(1).over("symbol").alias("_c1"),
             pl.col("volume").cast(pl.Float64).shift(1).over("symbol").alias("_v1"),
-            ((pl.col("high") - pl.col("low")) / pl.col("low")).shift(1).over("symbol").alias("_rp1"),
+            (pl.col("high") - pl.col("low")).shift(1).over("symbol").alias("_dr1"),
         ]
     )
     df = df.with_columns(pl.col("_c1").diff(1).over("symbol").alias("_diff"))
@@ -148,23 +149,25 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("_v1").rolling_mean(20, min_samples=20).over("symbol").alias("avg_vol_20"),
             pl.col("_v1").rolling_mean(10, min_samples=10).over("symbol").alias("avg_vol_10"),
             pl.col("_c1").rolling_max(50, min_samples=50).over("symbol").alias("max_c_50d"),
-            pl.col("_rp1").rolling_mean(20, min_samples=20).over("symbol").alias("adr_pct"),
-            pl.col("_rp1").rolling_mean(10, min_samples=10).over("symbol").alias("_adr10"),
-            pl.col("_rp1").rolling_mean(50, min_samples=50).over("symbol").alias("_adr50"),
+            pl.col("_c1").rolling_max(10, min_samples=10).over("symbol").alias("_tr_max"),
+            pl.col("_c1").rolling_min(10, min_samples=10).over("symbol").alias("_tr_min"),
+            pl.col("_c1").rolling_mean(10, min_samples=10).over("symbol").alias("_tr_mean"),
+            pl.col("_dr1").rolling_mean(20, min_samples=20).over("symbol").alias("_adr_num"),
             pl.col("_c1").shift(251).over("symbol").alias("_c_252d"),
         ]
     )
     df = df.with_columns(
         [
+            ((pl.col("_tr_max") - pl.col("_tr_min")) / pl.col("_tr_mean")).alias("tight_range_ratio"),
             ((pl.col("close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
-            (pl.col("_adr10") / pl.col("_adr50")).alias("adr_pct_change"),
+            (pl.col("_adr_num") / pl.col("sma50")).alias("adr_pct"),
             (pl.col("close") / pl.col("_c_252d") - 1.0).alias("roc_252d"),
         ]
     )
-    return df.drop(["_c1", "_v1", "_rp1", "_adr10", "_adr50", "_c_252d"])
+    return df.drop(["_c1", "_v1", "_dr1", "_tr_max", "_tr_min", "_tr_mean", "_adr_num", "_c_252d"])
 
 
-# ── Signal generation (no adr_pct floor) ─────────────────────────────────────
+# ── Signal generation (no tight_range cap) ───────────────────────────────────
 
 
 def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
@@ -174,23 +177,22 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("date") <= EVAL_END)
             & pl.col("sma50").is_not_null()
             & pl.col("max_c_50d").is_not_null()
+            & pl.col("tight_range_ratio").is_not_null()
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
-            & pl.col("adr_pct_change").is_not_null()
-            & pl.col("adr_pct").is_not_null()
             & (pl.col("rsi14") < RSI_CAP)
             & (pl.col("close") > MIN_PRICE)
             & (pl.col("close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
-            & (pl.col("roc_252d") < ROC_CAP)
-            & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
+            & (pl.col("adr_pct") >= ADR_MIN)
             & (pl.col("close") > pl.col("max_c_50d"))
-            & (pl.col("pct_vs_sma50") > sma_t)
+            & (pl.col("pct_vs_sma50") >= sma_t)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
+            & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
         )
-        .select(["symbol", "date", "close", "adr_pct"])
+        .select(["symbol", "date", "close", "tight_range_ratio"])
         .sort(["symbol", "date"])
     )
     if cands.is_empty():
@@ -231,7 +233,7 @@ def run_trades(
         if idx_exit >= len(dates):
             continue
         ret = float((closes[idx_exit] - closes[idx_entry]) / closes[idx_entry])
-        records.append({"adr": row["adr_pct"], "ret": ret})
+        records.append({"tr": row["tight_range_ratio"], "ret": ret})
     return records
 
 
@@ -262,34 +264,34 @@ def compute_metrics(rets: np.ndarray) -> dict | None:
 
 # ── Output ────────────────────────────────────────────────────────────────────
 
-_COL_HDR = f"{'Cohort':<10}  {'N':>5}  {'Med%':>7}  {'Mean%':>7}  {'Win%':>6}  {'Sortino':>8}  {'PF':>6}"
+_COL_HDR = f"{'Cohort':<12}  {'N':>5}  {'Med%':>7}  {'Mean%':>7}  {'Win%':>6}  {'Sortino':>8}  {'PF':>6}"
 _COL_SEP = "─" * len(_COL_HDR)
 
 
 def fmt_cohort_row(label: str, m: dict) -> str:
     sr_str = f"{m['sr']:>8.3f}" if not (isinstance(m["sr"], float) and np.isnan(m["sr"])) else "     n/a"
-    return f"{label:<10}  {m['n']:>5}  {m['med']:>+7.2f}  {m['mean']:>+7.2f}  {m['win']:>6.1f}  {sr_str}  {m['pf']:>6.2f}"
+    return f"{label:<12}  {m['n']:>5}  {m['med']:>+7.2f}  {m['mean']:>+7.2f}  {m['win']:>6.1f}  {sr_str}  {m['pf']:>6.2f}"
 
 
-def build_table(label: str, records: list[dict]) -> list[str]:
-    lines = [f"### {label}", "", _COL_HDR, _COL_SEP]
+def build_table(label: str, tr_t: float, records: list[dict]) -> list[str]:
+    lines = [f"### {label}  (current tr cap: <={tr_t:.2f})", "", _COL_HDR, _COL_SEP]
     all_rets = np.array([r["ret"] for r in records])
     for cohort_label, lo, hi in COHORTS:
-        cohort_rets = np.array([r["ret"] for r in records if lo <= r["adr"] < hi])
+        cohort_rets = np.array([r["ret"] for r in records if lo <= r["tr"] < hi])
         m = compute_metrics(cohort_rets)
         if m:
             lines.append(fmt_cohort_row(cohort_label, m))
         else:
             n = len(cohort_rets)
-            lines.append(f"{cohort_label:<10}  {n:>5}  {'—':>7}  {'—':>7}  {'—':>6}  {'—':>8}  {'—':>6}")
+            lines.append(f"{cohort_label:<12}  {n:>5}  {'—':>7}  {'—':>7}  {'—':>6}  {'—':>8}  {'—':>6}")
     lines.append(_COL_SEP)
     m_all = compute_metrics(all_rets)
     if m_all:
         lines.append(fmt_cohort_row("ALL", m_all))
-    ref_rets = np.array([r["ret"] for r in records if r["adr"] >= ADR_MIN])
+    ref_rets = np.array([r["ret"] for r in records if r["tr"] <= tr_t])
     m_ref = compute_metrics(ref_rets)
     if m_ref:
-        lines.append(fmt_cohort_row(">=3% (min)", m_ref))
+        lines.append(fmt_cohort_row(f"<={tr_t:.2f} (cap)", m_ref))
     lines.append("")
     return lines
 
@@ -319,19 +321,22 @@ def main() -> None:
         sym_closes[sym] = g["close"].cast(pl.Float64).to_numpy(allow_copy=True)
 
     header = (
-        f"ADR% cohort analysis | Hold: {HOLD_CAL}d | "
+        f"Tight-range cohort analysis | Hold: {HOLD_CAL}d | "
         f"Period: {EVAL_START} – {EVAL_END}\n"
-        f"Filters: all bk50d fixed filters applied; adr_pct >= 3.0% floor removed for cohort view\n"
+        f"Filters: all bk50d fixed filters applied; tight_range cap removed for cohort view\n"
+        f"Note: s20_tr10 and s20_tr20 share pct_above_sma50=20%, so with the tr cap removed\n"
+        f"they draw from the same candidate pool — only the current-cap reference row differs.\n"
     )
     print("\n" + header)
 
     all_lines: list[str] = [header]
-    for strat_label, sma_t in STRATEGIES:
+
+    for strat_label, sma_t, tr_t in STRATEGIES:
         print(f"  {strat_label} …", flush=True)
         signals = get_signals(df, bull_dates, sma_t)
         print(f"    {len(signals)} signals", flush=True)
         records = run_trades(signals, sym_dates, sym_closes)
-        table_lines = build_table(strat_label, records)
+        table_lines = build_table(strat_label, tr_t, records)
         all_lines.extend(table_lines)
         for line in table_lines:
             print(line)
@@ -340,7 +345,7 @@ def main() -> None:
 
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with RESULT_PATH.open("w") as fh:
-        fh.write("# Qullamaggie ADR% Cohort Analysis\n\n")
+        fh.write("# Qullamaggie Tight-Range Cohort Analysis\n\n")
         fh.write(f"Run date: {date.today()}\n\n")
         fh.write("```text\n")
         fh.write(output)
