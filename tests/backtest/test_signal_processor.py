@@ -252,25 +252,6 @@ class TestSignalProcessor:
         with pytest.raises(ValueError, match="Exit strategy failed"):
             processor.calculate_exit_data(sample_signal, entry_date, entry_price)
 
-    def test_calculate_return_pct(self, mock_bars_history: Mock, exit_strategy: Mock) -> None:
-        """Test return percentage calculation."""
-        processor = SignalProcessor(
-            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
-        )
-
-        assert processor._calculate_return_pct(100.0, 105.0) == 5.0
-        assert processor._calculate_return_pct(100.0, 95.0) == -5.0
-        assert processor._calculate_return_pct(100.0, 100.0) == 0.0
-
-    def test_calculate_return_pct_invalid_entry_price(self, mock_bars_history: Mock, exit_strategy: Mock) -> None:
-        """Test return percentage calculation with invalid entry price."""
-        processor = SignalProcessor(
-            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
-        )
-
-        with pytest.raises(ValueError, match="Invalid entry price"):
-            processor._calculate_return_pct(0.0, 105.0)
-
     def test_calculate_single_benchmark_return_success(
         self,
         sample_spy_data: pl.DataFrame,

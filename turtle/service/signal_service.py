@@ -4,7 +4,6 @@ from datetime import date
 from turtle.common.enums import TimeFrameUnit
 from turtle.model import Signal
 from turtle.repository.daily_bars_query import DailyBarsQueryRepository
-from turtle.service.market import MarketData
 
 # from turtle.strategy.trading.momentum import MomentumStrategy
 # from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
@@ -21,7 +20,6 @@ class SignalService:
         self,
         engine: Engine,
         trading_strategy: TradingStrategy,
-        market_ticker: str,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         warmup_period: int = 730,
     ) -> None:
@@ -31,7 +29,6 @@ class SignalService:
 
         self.engine = engine
         self.bars_history = DailyBarsQueryRepository(self.engine)
-        self.market_data = MarketData(self.bars_history, market_ticker)
 
     def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
         """Wrapper function for TradingStrategy.get_signals."""

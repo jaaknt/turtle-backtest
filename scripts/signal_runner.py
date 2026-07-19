@@ -138,7 +138,6 @@ def main() -> int:
         strategy_runner = SignalService(
             engine=settings.engine,
             trading_strategy=trading_strategy,
-            market_ticker="SPY",
             time_frame_unit=TimeFrameUnit.DAY,
         )
         symbol_repo = TickerQueryRepository(settings.engine)

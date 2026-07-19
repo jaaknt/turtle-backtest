@@ -3,7 +3,6 @@ from datetime import date
 from turtle.common.enums import TimeFrameUnit
 from turtle.repository.tables import daily_bars_table
 
-import pandas as pd
 import polars as pl
 from sqlalchemy import Engine, Select, select
 
@@ -30,18 +29,6 @@ class DailyBarsQueryRepository:
             .where(t.c.date <= end_date)
             .order_by(t.c.date)
         )
-
-    def get_bars_pd(self, ticker: str, start_date: date, end_date: date) -> pd.DataFrame:
-        """Return OHLCV bars as a pandas DataFrame with date as index.
-
-        Columns: open, high, low, close, adjusted_close, volume.
-        Returns empty DataFrame if no data found.
-        """
-        stmt = self._build_stmt(ticker, start_date, end_date)
-        with self._engine.connect() as conn:
-            df = pd.read_sql(stmt, conn, index_col="date")
-        df.index = pd.to_datetime(df.index)
-        return df
 
     def get_bars_pl(
         self,

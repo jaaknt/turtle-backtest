@@ -3,12 +3,10 @@ from __future__ import annotations
 import logging
 from datetime import date, datetime, timedelta
 from turtle.common.enums import TimeFrameUnit
-from turtle.model import Benchmark, FutureTrade, Position, Signal, Trade
+from turtle.model import Benchmark, FutureTrade, Signal, Trade
 from turtle.repository.daily_bars_query import DailyBarsQueryRepository
 from turtle.strategy.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
 from turtle.strategy.exit.atr import ATRExitStrategy
-
-import polars as pl
 
 from .benchmark_utils import calculate_benchmark_list
 
@@ -206,25 +204,6 @@ class SignalProcessor:
 
         return trade
 
-    def _calculate_return_pct(self, entry_price: float, exit_price: float) -> float:
-        """
-        Calculate percentage return between entry and exit prices.
-
-        Args:
-            entry_price: Price at entry
-            exit_price: Price at exit
-
-        Returns:
-            Percentage return
-
-        Raises:
-            ValueError: If entry price is invalid
-        """
-        if entry_price <= 0:
-            raise ValueError(f"Invalid entry price: {entry_price}")
-
-        return ((exit_price - entry_price) / entry_price) * 100.0
-
     def _calculate_benchmark_returns(self, entry_date: datetime, exit_date: datetime) -> list[Benchmark]:
         """
         Calculate benchmark returns for configured tickers over the same period.
@@ -244,80 +223,3 @@ class SignalProcessor:
             self.bars_history,
             self.time_frame_unit,
         )
-
-    def calculate_batch_entry_data(self, signals: list[Signal]) -> dict[str, Trade | None]:
-        """
-        Calculate entry data for multiple signals in batch.
-
-        Args:
-            signals: List of signals to process
-
-        Returns:
-            Dictionary mapping signal ticker to entry Trade or None
-        """
-        entry_data = {}
-
-        for signal in signals:
-            try:
-                entry_data[signal.ticker] = self.calculate_entry_data(signal)
-            except (ValueError, pl.exceptions.PolarsError) as e:
-                logger.error(f"Error calculating entry for {signal.ticker}: {e}")
-                entry_data[signal.ticker] = None
-
-        return entry_data
-
-    def evaluate_exit_conditions(self, positions: dict[str, Position], current_date: datetime) -> list[dict[str, object]]:
-        """
-        Evaluate exit conditions for multiple positions.
-
-        Args:
-            positions: Dictionary of current positions (ticker -> position object)
-            current_date: Current date for evaluation
-
-        Returns:
-            List of exit signals with ticker, price, and reason
-        """
-        exit_signals = []
-
-        for ticker, position in positions.items():
-            try:
-                # Get current price data for exit evaluation
-                search_end = current_date + timedelta(days=1)
-                entry_d = position.entry.date.date() if isinstance(position.entry.date, datetime) else position.entry.date
-                search_end_d = search_end.date() if isinstance(search_end, datetime) else search_end
-                df = self.bars_history.get_bars_pl(ticker, entry_d, search_end_d, self.time_frame_unit)
-
-                if df.is_empty():
-                    logger.warning(f"No price data for exit evaluation: {ticker} on {current_date}")
-                    continue
-
-                # Initialize exit strategy for this position
-                self.exit_strategy.initialize(ticker, position.entry.date, current_date)
-
-                # Calculate indicators and check exit conditions
-                df_with_indicators = self.exit_strategy.calculate_indicators()
-
-                if df_with_indicators.is_empty():
-                    continue
-
-                # Check if we should exit on current date
-                current_row = df_with_indicators.filter(pl.col("date") == current_date.date())
-
-                if not current_row.is_empty():
-                    # Use exit strategy to determine if we should exit
-                    exit_trade = self.exit_strategy.calculate_exit(df_with_indicators)
-
-                    if exit_trade and exit_trade.date.date() == current_date.date():
-                        exit_signals.append(
-                            {
-                                "ticker": ticker,
-                                "exit_price": float(exit_trade.price),
-                                "exit_reason": str(exit_trade.reason),
-                            }
-                        )
-
-            except (ValueError, pl.exceptions.PolarsError) as e:
-                logger.error(f"Error evaluating exit for {ticker}: {e}")
-                continue
-
-        return exit_signals

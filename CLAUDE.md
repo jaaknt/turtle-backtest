@@ -72,7 +72,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 - After non-trivial changes, run pytest and mypy before proposing a commit. Run mypy with no arguments (`uv run mypy`) — scanned paths are defined in `pyproject.toml` `[tool.mypy] files`.
 - Use the PR review subagent workflow (parallel agents) before commit/push on multi-file changes.
-- Polars for all new code. Pandas is intentionally retained in `turtle/repository/daily_bars_query.py`, `turtle/portfolio/analytics.py`, and the Streamlit `app.py`, plus indirectly via `quantstats` and `streamlit`. Don't introduce pandas elsewhere; flag any new pandas import in code review.
+- Polars for all new code. Pandas is intentionally retained in `turtle/portfolio/analytics.py` and the Streamlit `app.py`, plus indirectly via `quantstats` and `streamlit`. Don't introduce pandas elsewhere; flag any new pandas import in code review.
 
 ## Quick Start & Common Commands
 
@@ -136,7 +136,7 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 
 | Command | Purpose |
 | --------- | --------- |
-| `uv sync --extra dev --extra lint` | Install dependencies |
+| `uv sync --extra lint` | Install dependencies |
 | `source ./.venv/bin/activate` | Activate virtual environment |
 | `docker-compose up -d` | Start PostgreSQL database |
 | `uv run pytest` | Run all tests |
@@ -157,9 +157,8 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 - **turtle/strategy/factory.py**: Strategy factories for CLI scripts — canonical string → lambda factory mapping for trading, exit, and ranking strategies (`get_trading_strategy`, `get_exit_strategy`, `get_ranking_strategy`). Each entry is a `Callable[[], StrategyBase]` lambda that closes over the required dependencies, so concrete constructors are called directly rather than through the abstract base type.
 - **turtle/repository/**: All database access (sync Engine reads + async Session writes)
   - `tables.py`: SQLAlchemy Core table definitions
-  - `daily_bars_query.py`: `DailyBarsQueryRepository` — bulk OHLCV reads returning DataFrames (pandas/polars)
+  - `daily_bars_query.py`: `DailyBarsQueryRepository` — bulk OHLCV reads returning polars DataFrames
   - `ticker_query.py`: `TickerQueryRepository` — ticker universe reads (symbol groups, fundamentals-qualified lists)
-  - `symbol_group.py`: `SymbolGroupRepository` — symbol group reads/writes
   - `eodhd/`: `ExchangeRepository`, `TickerRepository`, `DailyBarsRepository`, `CompanyRepository`
 - **turtle/strategy/trading/**: Trading signal implementations
   - `base.py`: TradingStrategy abstract base
@@ -168,7 +167,7 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
   - `base.py`: ExitStrategy abstract base
   - `buy_and_hold.py`, `profit_loss.py`, `ema.py`, `macd.py`, `atr.py`, `trailing_percentage_loss.py`
 - **turtle/backtest/**: Backtesting engine
-  - `processor.py`, `portfolio_processor.py`, `benchmark_utils.py`
+  - `processor.py`, `benchmark_utils.py`
 - **turtle/portfolio/**: Multi-position portfolio management
   - `manager.py`, `selector.py`, `analytics.py`
 - **turtle/strategy/ranking/**: Signal ranking strategies — `momentum.py`, `volume_momentum.py`, `breakout_quality.py` (see [docs/strategy.md](docs/strategy.md))
@@ -178,7 +177,6 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
   - `settings.py`: TOML + environment variable loader
   - `model.py`: Config dataclasses (`DatabaseConfig`, `AppConfig`, `DatabasePoolConfig`)
   - `logging.py`: Logging configuration
-- **turtle/logger/**: JSON structured logging handler
 - **turtle/schema/**: Pydantic models for external API responses
   - `eodhd/`: `exchange.py` → `Exchange`, `ticker.py` → `Ticker`, `company.py` → `Company`, `daily_bars.py` → `DailyBars`
 - **turtle/service/**: Business logic orchestration layer
@@ -247,10 +245,6 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 
 | Example | Purpose | Command |
 | --------- | --------- | --------- |
-| **backtesting.ipynb** | Interactive single-strategy backtesting with visualizations | `uv run jupyter notebook examples/backtesting.ipynb` |
-| **portfolio_backtesting.ipynb** | Portfolio-level backtesting with multiple positions | `uv run jupyter notebook examples/portfolio_backtesting.ipynb` |
-| **symbol_group.ipynb** | Managing custom symbol groups (watchlists) | `uv run jupyter notebook examples/symbol_group.ipynb` |
-| **pandas.ipynb** | Data analysis and exploration | `uv run jupyter notebook examples/pandas.ipynb` |
 | **portfolio_backtest_example.py** | Programmatic portfolio backtesting template | `uv run python examples/portfolio_backtest_example.py` |
 | **portfolio_backtest_api_demo.py** | API-style portfolio backtesting demo | `uv run python examples/portfolio_backtest_api_demo.py` |
 
@@ -282,7 +276,7 @@ All dependencies are passed explicitly through constructors — no globals, no s
 Async is used only in the data-download path; analytical queries are always sync:
 
 - **Async (downloads/writes)**: external API clients (`turtle/client/eodhd.py`, `httpx.AsyncClient`), download-orchestration services (e.g. `turtle/service/eodhd_service.py`, concurrent requests via `asyncio.gather`), and the `turtle/repository/eodhd/` write repositories (`AsyncSession`). Scripts may use `asyncio.run()` as the async entry point.
-- **Sync (analytical reads)**: query repositories (`daily_bars_query.py`, `ticker_query.py`, `symbol_group.py`) use a sync `Engine`; strategy, backtesting, and portfolio logic is synchronous. Do not make query repositories or backtest logic async.
+- **Sync (analytical reads)**: query repositories (`daily_bars_query.py`, `ticker_query.py`) use a sync `Engine`; strategy, backtesting, and portfolio logic is synchronous. Do not make query repositories or backtest logic async.
 
 ### Naming Conventions
 
@@ -313,7 +307,7 @@ Validate preconditions early and return `bool` (for data-collection methods) or 
 
 ### Static Methods
 
-Use `@staticmethod` for pure utility functions that belong logically to a class but require no instance state. See `DarvasBoxStrategy.check_local_max()` in `turtle/strategy/trading/darvas_box.py`.
+Use `@staticmethod` for pure utility functions that belong logically to a class but require no instance state. See `RankingStrategy._linear_rank()` in `turtle/strategy/ranking/base.py`.
 
 ## Testing
 
@@ -332,7 +326,7 @@ Tests mirror the source tree under `tests/`:
 - `strategy/exit/test_profit_loss_exit_strategy.py`: Profit/loss exit strategy logic
 - `strategy/exit/test_trailing_percentage_loss_exit_strategy.py`: Trailing percentage loss exit strategy logic
 - `strategy/test_factory.py`: Strategy factory
-- `repository/test_daily_bars_query_repository.py`: DailyBarsQueryRepository (pandas/polars reads)
+- `repository/test_daily_bars_query_repository.py`: DailyBarsQueryRepository (polars reads)
 - `repository/test_repositories_eodhd.py`: EODHD repository classes (exchange, ticker, daily bars, company)
 - `repository/test_ticker_query_repository.py`: TickerQueryRepository (symbol list and qualified-universe reads)
 - `portfolio/test_portfolio.py`: Portfolio management and analytics
@@ -346,6 +340,6 @@ Run with `uv run pytest` or `uv run pytest tests/strategy/trading/test_darvas_bo
 
 ## Dependencies & Resources
 
-**Core Libraries**: polars (primary DataFrame library), pandas/numpy (retained for quantstats and Streamlit boundaries), pydantic (schema validation), httpx (async HTTP for EODHD client), psycopg (PostgreSQL), backtesting (backtest framework), quantstats (performance analytics), streamlit (web UI), plotly/bokeh (visualization)
+**Core Libraries**: polars (primary DataFrame library), pandas/numpy (retained for quantstats and Streamlit boundaries), pydantic (schema validation), httpx (async HTTP for EODHD client), psycopg (PostgreSQL), quantstats (performance analytics), streamlit (web UI)
 
 **Special Requirements**: Python 3.13+
