@@ -53,6 +53,7 @@ select * from turtle.company;
 
 select type, count(*)  from turtle.ticker t group by 1;
 
+select count(*) from (
 select t.code
    from turtle.ticker t
      inner join turtle.company c
@@ -63,3 +64,4 @@ union
  select t.code 
    from turtle.ticker t 
   where t.code in ('SPY.US', 'QQQ.US', 'XLB.US', 'XLC.US', 'XLE.US', 'XLF.US', 'XLI.US', 'XLK.US', 'XLP.US', 'XLRE.US', 'XLU.US', 'XLV.US', 'XLY.US', 'XBI.US', 'XAR.US')
+  );
