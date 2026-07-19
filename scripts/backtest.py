@@ -25,22 +25,18 @@ Options:
 
 import argparse
 import logging
-import pathlib
 import sys
 
-# Add project root to path to import turtle modules
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
-
-from turtle.backtest.processor import SignalProcessor
-from turtle.common.cli import iso_date_type
-from turtle.common.enums import TimeFrameUnit
-from turtle.config.logging import LogConfig
-from turtle.config.settings import Settings
-from turtle.repository.daily_bars_query import DailyBarsQueryRepository
-from turtle.repository.ticker_query import TickerQueryRepository
-from turtle.service.backtest_service import BacktestService
-from turtle.service.signal_service import SignalService
-from turtle.strategy.factory import get_exit_strategy, get_ranking_strategy, get_trading_strategy
+from turtlex.backtest.processor import SignalProcessor
+from turtlex.common.cli import iso_date_type
+from turtlex.common.enums import TimeFrameUnit
+from turtlex.config.logging import LogConfig
+from turtlex.config.settings import Settings
+from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.repository.ticker_query import TickerQueryRepository
+from turtlex.service.backtest_service import BacktestService
+from turtlex.service.signal_service import SignalService
+from turtlex.strategy.factory import get_exit_strategy, get_ranking_strategy, get_trading_strategy
 
 logger = logging.getLogger(__name__)
 

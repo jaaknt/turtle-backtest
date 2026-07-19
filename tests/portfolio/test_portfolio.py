@@ -1,11 +1,12 @@
 """Tests for portfolio backtesting functionality."""
 
 from datetime import datetime
-from turtle.model import Benchmark, FutureTrade, PortfolioState, Position, Signal, Trade
-from turtle.portfolio.manager import PortfolioManager
-from turtle.portfolio.selector import PortfolioSignalSelector
 
 import pytest
+
+from turtlex.model import Benchmark, FutureTrade, PortfolioState, Position, Signal, Trade
+from turtlex.portfolio.manager import PortfolioManager
+from turtlex.portfolio.selector import PortfolioSignalSelector
 
 
 def create_mock_future_trade(ticker: str, entry_date: datetime, entry_price: float) -> FutureTrade:
@@ -25,7 +26,7 @@ class TestPortfolioModels:
         """Test position price update calculations."""
         entry_date = datetime(2024, 1, 1)
 
-        from turtle.model import Trade
+        from turtlex.model import Trade
 
         entry_trade = Trade(ticker="AAPL", date=entry_date, price=100.0, reason="signal")
         open_exit_trade = Trade(ticker="AAPL", date=entry_date, price=100.0, reason="open")
@@ -132,7 +133,7 @@ class TestPortfolioManager:
         manager.record_daily_snapshot(start_date)
 
         # Create trade entry
-        from turtle.model import Trade
+        from turtlex.model import Trade
 
         trade = Trade(ticker="AAPL", date=datetime(2024, 1, 1), price=100.0, reason="signal")
         shares = manager.calculate_position_size(trade)
@@ -153,7 +154,7 @@ class TestPortfolioManager:
         # Create initial snapshot
         manager.record_daily_snapshot(start_date)
 
-        from turtle.model import Trade
+        from turtlex.model import Trade
 
         entry = Trade(ticker="AAPL", date=datetime(2024, 1, 2), price=100.0, reason="signal")
         exit_trade = Trade(ticker="AAPL", date=datetime(2024, 1, 10), price=110.0, reason="profit_target")
@@ -180,7 +181,7 @@ class TestPortfolioManager:
         # Create initial snapshot and open position
         manager.record_daily_snapshot(start_date)
 
-        from turtle.model import Trade
+        from turtlex.model import Trade
 
         entry = Trade(ticker="AAPL", date=datetime(2024, 1, 2), price=100.0, reason="signal")
         exit_trade = Trade(ticker="AAPL", date=datetime(2024, 1, 10), price=110.0, reason="profit_target")

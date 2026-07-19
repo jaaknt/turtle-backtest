@@ -6,16 +6,12 @@ same day is safe.
 """
 
 import logging
-import sys
 from datetime import date, timedelta
-from pathlib import Path
 
 from sqlalchemy import text
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from turtle.config.logging import LogConfig
-from turtle.config.settings import Settings
+from turtlex.config.logging import LogConfig
+from turtlex.config.settings import Settings
 
 logger = logging.getLogger(__name__)
 

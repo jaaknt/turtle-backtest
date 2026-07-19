@@ -1,8 +1,8 @@
-from turtle.config.model import AppConfig, DatabaseConfig, DatabasePoolConfig
-from turtle.config.settings import Settings
-
 import pytest
 from pytest_mock import MockerFixture
+
+from turtlex.config.model import AppConfig, DatabaseConfig, DatabasePoolConfig
+from turtlex.config.settings import Settings
 
 
 class TestDatabasePoolConfig:
@@ -77,14 +77,14 @@ class TestSettingsFromToml:
             Settings.from_toml("nonexistent/path/settings.toml")
 
     def test_raises_when_env_vars_missing(self, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
-        mocker.patch("turtle.config.settings.load_dotenv")  # prevent .env file from restoring vars
+        mocker.patch("turtlex.config.settings.load_dotenv")  # prevent .env file from restoring vars
         for var in ("DB_APP_PASSWORD", "EODHD_API_KEY"):
             monkeypatch.delenv(var, raising=False)
         with pytest.raises(ValueError, match="Missing required environment variables"):
             Settings.from_toml()
 
     def test_raises_listing_all_missing_vars(self, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
-        mocker.patch("turtle.config.settings.load_dotenv")  # prevent .env file from restoring vars
+        mocker.patch("turtlex.config.settings.load_dotenv")  # prevent .env file from restoring vars
         for var in ("DB_APP_PASSWORD", "EODHD_API_KEY"):
             monkeypatch.delenv(var, raising=False)
         with pytest.raises(ValueError) as exc_info:
@@ -94,13 +94,13 @@ class TestSettingsFromToml:
         assert "EODHD_API_KEY" in message
 
     def test_loads_env_vars_into_config(self, required_env_vars: None, mocker: MockerFixture) -> None:
-        mocker.patch("turtle.config.settings.create_engine", return_value=mocker.Mock())
+        mocker.patch("turtlex.config.settings.create_engine", return_value=mocker.Mock())
         settings = Settings.from_toml()
         assert settings.database.password == "test_password"
         assert settings.app.eodhd["api_key"] == "test_eodhd_key"
 
     def test_database_config_populated(self, required_env_vars: None, mocker: MockerFixture) -> None:
-        mocker.patch("turtle.config.settings.create_engine", return_value=mocker.Mock())
+        mocker.patch("turtlex.config.settings.create_engine", return_value=mocker.Mock())
         settings = Settings.from_toml()
         assert settings.database.host == "localhost"
         assert settings.database.port == 5432
@@ -108,14 +108,14 @@ class TestSettingsFromToml:
         assert settings.database.user == "app_user"
 
     def test_pool_config_populated(self, required_env_vars: None, mocker: MockerFixture) -> None:
-        mocker.patch("turtle.config.settings.create_engine", return_value=mocker.Mock())
+        mocker.patch("turtlex.config.settings.create_engine", return_value=mocker.Mock())
         settings = Settings.from_toml()
         assert settings.database.pool.min_size == 10
         assert settings.database.pool.max_size == 30
         assert settings.database.pool.timeout == 30
 
     def test_app_config_populated(self, required_env_vars: None, mocker: MockerFixture) -> None:
-        mocker.patch("turtle.config.settings.create_engine", return_value=mocker.Mock())
+        mocker.patch("turtlex.config.settings.create_engine", return_value=mocker.Mock())
         settings = Settings.from_toml()
         assert settings.app.name == "turtle-backtest"
         assert settings.app.debug is True

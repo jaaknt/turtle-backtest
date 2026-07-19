@@ -1,13 +1,14 @@
 """Tests for BuyAndHoldExitStrategy."""
 
 from datetime import date, datetime
-from turtle.model import Trade
-from turtle.repository.daily_bars_query import DailyBarsQueryRepository
-from turtle.strategy.exit import BuyAndHoldExitStrategy
 from unittest.mock import Mock
 
 import polars as pl
 import pytest
+
+from turtlex.model import Trade
+from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.strategy.exit import BuyAndHoldExitStrategy
 
 
 class TestBuyAndHoldExitStrategy:
@@ -96,9 +97,7 @@ class TestBuyAndHoldExitStrategy:
         strategy = BuyAndHoldExitStrategy(mock_bars_history)
         strategy.initialize("MSFT", datetime(2024, 6, 1), datetime(2024, 6, 1))
 
-        data = pl.DataFrame(
-            {"date": [date(2024, 6, 1)], "close": [250.0], "open": [248.0], "high": [251.0], "low": [247.0]}
-        )
+        data = pl.DataFrame({"date": [date(2024, 6, 1)], "close": [250.0], "open": [248.0], "high": [251.0], "low": [247.0]})
 
         result = strategy.calculate_exit(data)
 

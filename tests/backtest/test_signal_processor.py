@@ -1,14 +1,15 @@
 from datetime import date, datetime, timedelta
-from turtle.backtest.benchmark_utils import calculate_benchmark
-from turtle.backtest.processor import SignalProcessor
-from turtle.common.enums import TimeFrameUnit
-from turtle.model import FutureTrade, Signal, Trade
-from turtle.strategy.exit import BuyAndHoldExitStrategy
 from typing import Any
 from unittest.mock import Mock
 
 import polars as pl
 import pytest
+
+from turtlex.backtest.benchmark_utils import calculate_benchmark
+from turtlex.backtest.processor import SignalProcessor
+from turtlex.common.enums import TimeFrameUnit
+from turtlex.model import FutureTrade, Signal, Trade
+from turtlex.strategy.exit import BuyAndHoldExitStrategy
 
 
 class TestSignalProcessor:
@@ -371,5 +372,3 @@ class TestSignalProcessor:
         assert result.holding_days == expected_holding_days
         assert isinstance(result.holding_days, int)
         assert result.holding_days >= 0
-
-

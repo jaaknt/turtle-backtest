@@ -9,7 +9,6 @@ Sweep: SMA_THRESH ∈ {12%,15%,17%,20%} × HOLD_CAL ∈ {91,184,366 cal days}  (
 Eval: 2021-01-01 – present  |  Burn-in data from 2020-01-01
 """
 
-import sys
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -17,8 +16,7 @@ import numpy as np
 import polars as pl
 import sqlalchemy as sa
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from turtle.config.settings import Settings
+from turtlex.config.settings import Settings
 
 _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2021, 1, 1)

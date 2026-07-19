@@ -2,7 +2,7 @@
 
 This document describes the command-line scripts that provide convenient interfaces for common operations using the turtle backtest services.
 
-All strategy name → class mappings used by `--trading-strategy`, `--exit-strategy`, and `--ranking-strategy` flags are defined in `turtle/strategy/factory.py`. Add new strategies there to make them available across all scripts.
+All strategy name → class mappings used by `--trading-strategy`, `--exit-strategy`, and `--ranking-strategy` flags are defined in `turtlex/strategy/factory.py`. Add new strategies there to make them available across all scripts.
 
 ## download_eodhd_data.py
 
@@ -84,16 +84,16 @@ The `signal_runner.py` script runs trading strategy signal analysis across the s
 
 ```bash
 # Scan all symbols for signals on a given day
-uv run python scripts/signal_runner.py --start-date 2024-06-01 --end-date 2024-06-01
+uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01
 
 # Check specific tickers
-uv run python scripts/signal_runner.py --start-date 2024-06-01 --end-date 2024-06-01 --mode signal --tickers AAPL MSFT
+uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --mode signal --tickers AAPL MSFT
 
 # Get top 20 signals
-uv run python scripts/signal_runner.py --start-date 2024-06-01 --end-date 2024-06-01 --mode top
+uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --mode top
 
 # Use a different strategy
-uv run python scripts/signal_runner.py --start-date 2024-06-01 --end-date 2024-06-01 --trading-strategy mars
+uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --trading-strategy mars
 ```
 
 **Options:**

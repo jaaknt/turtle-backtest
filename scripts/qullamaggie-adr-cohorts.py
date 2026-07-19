@@ -9,7 +9,6 @@ adr_pct = mean((high_i - low_i) / low_i, i in last 20 days, shift-1)
 Period: 2015-01-01 – 2026-06-26  (burn-in from 2013-01-01)
 """
 
-import sys
 from datetime import date
 from pathlib import Path
 
@@ -17,8 +16,7 @@ import numpy as np
 import polars as pl
 import sqlalchemy as sa
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from turtle.config.settings import Settings
+from turtlex.config.settings import Settings
 
 _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2015, 1, 1)

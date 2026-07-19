@@ -56,8 +56,8 @@ The `SignalService` provides a clean interface for executing trading strategies 
 **Usage:**
 
 ```python
-from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
-from turtle.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.strategy.trading.darvas_box import DarvasBoxStrategy
+from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
 
 bars_history = DailyBarsQueryRepository(engine)
 strategy = DarvasBoxStrategy(bars_history, time_frame_unit=TimeFrameUnit.DAY)
@@ -102,9 +102,9 @@ The `BacktestService` orchestrates complete signal-to-exit backtesting by combin
 **Usage:**
 
 ```python
-from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
-from turtle.strategy.exit.atr import ATRExitStrategy
-from turtle.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.strategy.trading.darvas_box import DarvasBoxStrategy
+from turtlex.strategy.exit.atr import ATRExitStrategy
+from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
 
 bars_history = DailyBarsQueryRepository(engine)
 strategy = DarvasBoxStrategy(bars_history)
@@ -179,8 +179,8 @@ The `PortfolioService` is the most sophisticated backtesting engine that simulat
 **Usage:**
 
 ```python
-from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
-from turtle.strategy.exit.atr import ATRExitStrategy
+from turtlex.strategy.trading.darvas_box import DarvasBoxStrategy
+from turtlex.strategy.exit.atr import ATRExitStrategy
 
 # Initialize strategy components
 strategy = DarvasBoxStrategy(bars_history, time_frame_unit=TimeFrameUnit.DAY)
@@ -280,10 +280,10 @@ Choose the appropriate service based on your analysis needs:
 
 ## Strategy Instantiation
 
-When instantiating strategies from CLI string names (e.g. `--trading-strategy darvas_box`), use the factory functions in `turtle/strategy/factory.py` — they own the canonical name → class mapping:
+When instantiating strategies from CLI string names (e.g. `--trading-strategy darvas_box`), use the factory functions in `turtlex/strategy/factory.py` — they own the canonical name → class mapping:
 
 ```python
-from turtle.strategy.factory import get_trading_strategy, get_exit_strategy, get_ranking_strategy
+from turtlex.strategy.factory import get_trading_strategy, get_exit_strategy, get_ranking_strategy
 
 ranking_strategy = get_ranking_strategy("momentum")
 exit_strategy = get_exit_strategy("atr", bars_history)

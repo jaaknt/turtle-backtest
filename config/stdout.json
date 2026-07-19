@@ -21,7 +21,7 @@
                 "stdout"
             ]
         },
-        "turtle": {
+        "turtlex": {
             "level": "INFO",
             "handlers": [
                 "stdout"

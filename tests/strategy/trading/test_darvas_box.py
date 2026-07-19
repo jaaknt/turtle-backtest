@@ -1,11 +1,12 @@
 from datetime import date, datetime, timedelta
-from turtle.common.enums import TimeFrameUnit
-from turtle.repository.daily_bars_query import DailyBarsQueryRepository
-from turtle.strategy.ranking.momentum import MomentumRanking
-from turtle.strategy.trading.darvas_box import DarvasBoxStrategy
 from unittest.mock import MagicMock
 
 import polars as pl
+
+from turtlex.common.enums import TimeFrameUnit
+from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.strategy.ranking.momentum import MomentumRanking
+from turtlex.strategy.trading.darvas_box import DarvasBoxStrategy
 
 
 def test_collect() -> None:
@@ -26,9 +27,7 @@ def test_collect() -> None:
     assert not strategy.pl_df.is_empty()
 
     # Test with insufficient data
-    bars_history_mock.get_bars_pl.return_value = pl.DataFrame(
-        {"date": [date.today(), date.today()], "close": [1.0, 2.0]}
-    )
+    bars_history_mock.get_bars_pl.return_value = pl.DataFrame({"date": [date.today(), date.today()], "close": [1.0, 2.0]})
     assert strategy.collect_data("GOOG", date.today(), date.today()) is False
 
 
@@ -161,20 +160,27 @@ def test_get_polars_signals_returns_empty_on_downtrend() -> None:
     highs = [c * 1.02 for c in closes]
     lows = [c * 0.98 for c in closes]
     start = date(2020, 1, 2)
-    pl_df = pl.DataFrame({
-        "date": [start + timedelta(days=i) for i in range(n)],
-        "open": opens, "high": highs, "low": lows, "close": closes,
-        "volume": [1_000_000.0] * n,
-    })
+    pl_df = pl.DataFrame(
+        {
+            "date": [start + timedelta(days=i) for i in range(n)],
+            "open": opens,
+            "high": highs,
+            "low": lows,
+            "close": closes,
+            "volume": [1_000_000.0] * n,
+        }
+    )
 
     mock_repo = MagicMock(spec=DailyBarsQueryRepository)
     mock_repo.get_bars_pl.return_value = pl_df
     mock_ranking = MagicMock(spec=MomentumRanking)
 
     strategy = DarvasBoxStrategy(
-        mock_repo, mock_ranking,
+        mock_repo,
+        mock_ranking,
         time_frame_unit=TimeFrameUnit.WEEK,
-        warmup_period=10, min_bars=10,
+        warmup_period=10,
+        min_bars=10,
     )
     last_date = pl_df["date"][-1]
     assert strategy.get_signals("TEST", last_date, last_date) == []
@@ -185,16 +191,22 @@ def test_get_polars_signals_produces_signal() -> None:
     n = 150
     base, growth = 100.0, 1.006
     closes = [base * (growth**i) for i in range(n)]
-    opens = [c * 0.99 for c in closes]    # 1% bullish body → (close-open)/close ≈ 1% > 0.8% ✓
+    opens = [c * 0.99 for c in closes]  # 1% bullish body → (close-open)/close ≈ 1% > 0.8% ✓
     highs = [c * 1.01 for c in closes]
     lows = [c * 0.98 for c in closes]
     volumes = [1_000_000.0] * n
-    volumes[-1] = 1_600_000.0             # last bar: 1.6× EMA ≥ 1.1× ✓
+    volumes[-1] = 1_600_000.0  # last bar: 1.6× EMA ≥ 1.1× ✓
     start = date(2020, 1, 2)
-    pl_df = pl.DataFrame({
-        "date": [start + timedelta(days=i) for i in range(n)],
-        "open": opens, "high": highs, "low": lows, "close": closes, "volume": volumes,
-    })
+    pl_df = pl.DataFrame(
+        {
+            "date": [start + timedelta(days=i) for i in range(n)],
+            "open": opens,
+            "high": highs,
+            "low": lows,
+            "close": closes,
+            "volume": volumes,
+        }
+    )
 
     mock_repo = MagicMock(spec=DailyBarsQueryRepository)
     mock_repo.get_bars_pl.return_value = pl_df
@@ -202,9 +214,11 @@ def test_get_polars_signals_produces_signal() -> None:
     mock_ranking.ranking.return_value = 8
 
     strategy = DarvasBoxStrategy(
-        mock_repo, mock_ranking,
+        mock_repo,
+        mock_ranking,
         time_frame_unit=TimeFrameUnit.WEEK,  # skip EMA-200 condition
-        warmup_period=100, min_bars=100,
+        warmup_period=100,
+        min_bars=100,
     )
     last_date = pl_df["date"][-1]
     signals = strategy.get_signals("TEST", last_date, last_date)
