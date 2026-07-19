@@ -1,6 +1,5 @@
-from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
-from turtlex.repository.eodhd import CompanyRepository, DailyBarsRepository, ExchangeRepository, TickerRepository
-from turtlex.repository.ticker_query import TickerQueryRepository
+from turtlex.repository.ingest import CompanyRepository, DailyBarsRepository, ExchangeRepository, TickerRepository
+from turtlex.repository.query import DailyBarsQueryRepository, TickerQueryRepository
 
 __all__ = [
     "CompanyRepository",

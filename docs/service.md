@@ -52,8 +52,8 @@ The `SignalService` orchestrates trading-signal generation across a ticker unive
 **Usage:**
 
 ```python
-from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
-from turtlex.repository.ticker_query import TickerQueryRepository
+from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
+from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.service.signal_service import SignalService
 from turtlex.strategy.ranking.momentum import MomentumRanking
 from turtlex.strategy.trading.darvas_box import DarvasBoxStrategy
@@ -106,7 +106,7 @@ The `BacktestService` orchestrates complete signal-to-exit backtesting by combin
 ```python
 from turtlex.strategy.trading.darvas_box import DarvasBoxStrategy
 from turtlex.strategy.exit.atr import ATRExitStrategy
-from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 
 bars_history = DailyBarsQueryRepository(engine)
 strategy = DarvasBoxStrategy(bars_history)

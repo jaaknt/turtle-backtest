@@ -155,10 +155,9 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 - **turtlex/model.py**: Core domain dataclasses (`Signal`, `Trade`, `Benchmark`, etc.) — single shared module; do not create per-package `models.py` files
 - **turtlex/strategy/factory.py**: Strategy factories for CLI scripts — canonical string → lambda factory mapping for trading, exit, and ranking strategies (`get_trading_strategy`, `get_exit_strategy`, `get_ranking_strategy`). Each entry is a `Callable[[], StrategyBase]` lambda that closes over the required dependencies, so concrete constructors are called directly rather than through the abstract base type.
 - **turtlex/repository/**: All database access (sync Engine reads + async Session writes)
-  - `tables.py`: SQLAlchemy Core table definitions
-  - `daily_bars_query.py`: `DailyBarsQueryRepository` — bulk OHLCV reads returning polars DataFrames
-  - `ticker_query.py`: `TickerQueryRepository` — ticker universe reads (symbol groups, fundamentals-qualified lists)
-  - `eodhd/`: `ExchangeRepository`, `TickerRepository`, `DailyBarsRepository`, `CompanyRepository`
+  - `tables.py`: SQLAlchemy Core table definitions + shared reference constants (`US_EXCHANGES`, `COMMON_STOCK_TYPE`)
+  - `query/`: sync Engine-based analytical reads — `daily_bars.py` → `DailyBarsQueryRepository` (bulk OHLCV reads returning polars DataFrames), `ticker.py` → `TickerQueryRepository` (symbol groups, fundamentals-qualified lists)
+  - `ingest/`: async Session-based repositories for the EODHD download path — `ExchangeRepository`, `TickerRepository`, `DailyBarsRepository`, `CompanyRepository`
 - **turtlex/strategy/trading/**: Trading signal implementations
   - `base.py`: TradingStrategy abstract base
   - `darvas_box.py`, `mars.py`, `momentum.py`
@@ -176,8 +175,8 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
   - `settings.py`: TOML + environment variable loader
   - `model.py`: Config dataclasses (`DatabaseConfig`, `AppConfig`, `DatabasePoolConfig`)
   - `logging.py`: Logging configuration
-- **turtlex/schema/**: Pydantic models for external API responses
-  - `eodhd/`: `exchange.py` → `Exchange`, `ticker.py` → `Ticker`, `company.py` → `Company`, `daily_bars.py` → `DailyBars`
+- **turtlex/schema/**: Pydantic models for external API responses (EODHD)
+  - `exchange.py` → `Exchange`, `ticker.py` → `Ticker`, `company.py` → `Company`, `daily_bars.py` → `DailyBars`
 - **turtlex/service/**: Business logic orchestration layer
 
 ### Database
@@ -255,7 +254,7 @@ All pluggable behaviours — signals, exits, rankings — share a common ABC int
 
 ### Repository Pattern (Data Access)
 
-All database operations live in `turtlex/repository/`. No SQL outside this directory. Sync `Engine`-based repos handle reads; async `AsyncSession`-based repos handle writes. See `turtlex/repository/daily_bars_query.py` (sync reads) and `turtlex/repository/eodhd/` (async writes).
+All database operations live in `turtlex/repository/`. No SQL outside this directory. Sync `Engine`-based repos handle analytical reads; async `AsyncSession`-based repos serve the download path. See `turtlex/repository/query/` (sync reads) and `turtlex/repository/ingest/` (async writes plus the async ticker reads the download path needs).
 
 ### Dependency Injection (Constructor Injection)
 
@@ -274,7 +273,7 @@ All dependencies are passed explicitly through constructors — no globals, no s
 
 Async is used only in the data-download path; analytical queries are always sync:
 
-- **Async (downloads/writes)**: external API clients (`turtlex/client/eodhd.py`, `httpx.AsyncClient`), download-orchestration services (e.g. `turtlex/service/eodhd_service.py`, concurrent requests via `asyncio.gather`), and the `turtlex/repository/eodhd/` write repositories (`AsyncSession`). Scripts may use `asyncio.run()` as the async entry point.
+- **Async (downloads/writes)**: external API clients (`turtlex/client/eodhd.py`, `httpx.AsyncClient`), download-orchestration services (e.g. `turtlex/service/eodhd_service.py`, concurrent requests via `asyncio.gather`), and the `turtlex/repository/ingest/` write repositories (`AsyncSession`). Scripts may use `asyncio.run()` as the async entry point.
 - **Sync (analytical reads)**: query repositories (`daily_bars_query.py`, `ticker_query.py`) use a sync `Engine`; strategy, backtesting, and portfolio logic is synchronous. Do not make query repositories or backtest logic async.
 
 ### Naming Conventions
@@ -325,9 +324,9 @@ Tests mirror the source tree under `tests/`:
 - `strategy/exit/test_profit_loss_exit_strategy.py`: Profit/loss exit strategy logic
 - `strategy/exit/test_trailing_percentage_loss_exit_strategy.py`: Trailing percentage loss exit strategy logic
 - `strategy/test_factory.py`: Strategy factory
-- `repository/test_daily_bars_query_repository.py`: DailyBarsQueryRepository (polars reads)
-- `repository/test_repositories_eodhd.py`: EODHD repository classes (exchange, ticker, daily bars, company)
-- `repository/test_ticker_query_repository.py`: TickerQueryRepository (symbol list and qualified-universe reads)
+- `repository/query/test_daily_bars.py`: DailyBarsQueryRepository (polars reads)
+- `repository/query/test_ticker.py`: TickerQueryRepository (symbol list and qualified-universe reads)
+- `repository/ingest/test_exchange.py`, `test_ticker.py`, `test_daily_bars.py`, `test_company.py`: async ingest repository classes
 - `portfolio/test_portfolio.py`: Portfolio management and analytics
 - `backtest/test_signal_processor.py`: Signal processing pipeline
 - `config/test_settings.py`: Configuration loading

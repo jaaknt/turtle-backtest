@@ -11,7 +11,7 @@ from turtlex.model import FutureTrade, Signal
 from turtlex.portfolio.analytics import PortfolioAnalytics
 from turtlex.portfolio.manager import PortfolioManager
 from turtlex.portfolio.selector import PortfolioSignalSelector
-from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.strategy.exit.base import ExitStrategy
 from turtlex.strategy.trading.base import TradingStrategy
 

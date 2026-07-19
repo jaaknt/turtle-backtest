@@ -7,7 +7,7 @@ import polars as pl
 import pytest
 
 from turtlex.model import Trade
-from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.strategy.exit import EMAExitStrategy
 
 

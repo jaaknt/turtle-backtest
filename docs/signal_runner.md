@@ -110,5 +110,5 @@ The `signal` command bypasses `SignalService.scan()` and the universe: for each 
 | Concrete trading strategies | `turtlex/strategy/trading/*.py` |
 | Ranking strategies | `turtlex/strategy/ranking/*.py` |
 | Name → class factories | `turtlex/strategy/factory.py` |
-| OHLCV / universe repositories | `turtlex/repository/daily_bars_query.py`, `turtlex/repository/ticker_query.py` |
+| OHLCV / universe repositories | `turtlex/repository/query/daily_bars.py`, `turtlex/repository/query/ticker.py` |
 | Compatibility wrapper | `scripts/signal_runner.py` |

@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock
 
-from turtlex.repository.ticker_query import TickerQueryRepository
+from turtlex.repository.query.ticker import TickerQueryRepository
 
 
 def _make_engine_mock(rows: list[MagicMock]) -> MagicMock:

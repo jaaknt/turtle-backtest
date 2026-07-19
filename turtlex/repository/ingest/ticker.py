@@ -6,13 +6,10 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Row
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from turtlex.repository.tables import ticker_table
+from turtlex.repository.tables import COMMON_STOCK_TYPE, US_EXCHANGES, ticker_table
 from turtlex.schema import Ticker
 
 logger = logging.getLogger(__name__)
-
-US_EXCHANGES = ["NASDAQ", "NYSE", "NYSE ARCA", "NYSE MKT"]
-COMMON_STOCK_TYPE = "Common Stock"
 
 
 class TickerRepository:

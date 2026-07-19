@@ -6,7 +6,7 @@ from datetime import datetime
 import polars as pl
 
 from turtlex.model import Trade
-from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 
 
 class ExitStrategy(ABC):
