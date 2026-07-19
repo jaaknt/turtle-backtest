@@ -147,7 +147,7 @@ uv run python scripts/backtest.py --start-date 2024-01-15 --end-date 2024-01-15 
   - `mars` - Mars momentum strategy (@marsrides)
   - `momentum` - Traditional momentum strategy
 - `--exit-strategy` - Exit timing strategy (default: buy_and_hold)
-  - `buy_and_hold` - Hold until period end
+  - `buy_and_hold` - Hold for a fixed number of calendar days (default 30)
   - `profit_loss` - Exit on profit target or stop loss
   - `ema` - Exit when price closes below EMA
   - `macd` - Exit on MACD bearish signals
@@ -164,7 +164,7 @@ uv run python scripts/backtest.py --start-date 2024-01-15 --end-date 2024-01-15 
 
 **Exit Strategy Details:**
 
-- **Buy and Hold**: Simple hold until analysis period end
+- **Buy and Hold**: Hold for a fixed holding period (default 30 calendar days), selling at the first bar on/after the cutoff
 - **Profit/Loss**: Configurable profit targets and stop losses with early exit
 - **EMA**: Technical analysis exit when price closes below exponential moving average
 - **MACD**: Exit based on MACD indicator bearish crossovers
@@ -202,7 +202,7 @@ The `portfolio_runner.py` script provides sophisticated portfolio-level backtest
 
 **Exit Strategies:**
 
-- `buy_and_hold` (default) - Hold until portfolio period end
+- `buy_and_hold` (default) - Hold for a fixed number of calendar days (default 30)
 - `profit_loss` - Exit on profit targets or stop losses
 - `ema` - Exit when price closes below exponential moving average
 - `macd` - Exit on MACD bearish signals
