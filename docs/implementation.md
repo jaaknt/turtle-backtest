@@ -9,7 +9,7 @@ turtle-backtest runs locally today. This guide covers moving it to a Hetzner VPS
 - PostgreSQL 17 (primary data store, ~1–2GB of OHLCV data)
 - Python 3.14 runtime with `uv`
 - Outbound HTTPS to `eodhd.com` for data downloads
-- Scheduled daily data downloads
+- Scheduled data downloads (Mon-Sat incremental history, Sunday full refresh)
 
 ---
 
@@ -194,7 +194,7 @@ uv run alembic upgrade head
 loginctl enable-linger turtle
 ```
 
-No changes to `config/settings.toml` required — the app already reads `DB_PASSWORD` and `EODHD_API_KEY` from environment variables.
+No changes to `config/settings.toml` required — the app already reads `DB_APP_PASSWORD` and `EODHD_API_KEY` from environment variables.
 
 ### Phase 4: Data Migration
 
@@ -217,7 +217,7 @@ uv run download-eodhd-data --data company
 # set active group that is needed for stocks history download
 PGPASSWORD=$DB_APP_PASSWORD psql -h localhost -p 5432 -U app_user -d trading -f examples/active_symbol_goup_setup.sql
 
-uv run download-eodhd-data --data history 
+uv run download-eodhd-data --data history --start-date 2000-01-03
 ```
 
 ### Phase 5: Systemd Services
@@ -227,16 +227,21 @@ Unit files live in `deploy/`. Symlink them so updates from `git pull` take effec
 ```bash
 mkdir -p ~/.config/systemd/user
 
-# Daily EODHD data download
-ln -s ~/turtle-backtest/deploy/eodhd-download.service ~/.config/systemd/user/eodhd-download.service
-ln -s ~/turtle-backtest/deploy/eodhd-download.timer   ~/.config/systemd/user/eodhd-download.timer
+# Daily EODHD history download (Mon-Sat)
+ln -s ~/turtle-backtest/deploy/eodhd-download-daily.service ~/.config/systemd/user/eodhd-download-daily.service
+ln -s ~/turtle-backtest/deploy/eodhd-download-daily.timer   ~/.config/systemd/user/eodhd-download-daily.timer
+
+# Weekly EODHD full download: tickers + company + history (Sun)
+ln -s ~/turtle-backtest/deploy/eodhd-download-weekly.service ~/.config/systemd/user/eodhd-download-weekly.service
+ln -s ~/turtle-backtest/deploy/eodhd-download-weekly.timer   ~/.config/systemd/user/eodhd-download-weekly.timer
 
 # Monthly company snapshot (fires at 01:00 on the 1st; idempotent if re-run)
 ln -s ~/turtle-backtest/deploy/snapshot_company.service ~/.config/systemd/user/snapshot_company.service
 ln -s ~/turtle-backtest/deploy/snapshot_company.timer   ~/.config/systemd/user/snapshot_company.timer
 
 systemctl --user daemon-reload
-systemctl --user enable --now eodhd-download.timer
+systemctl --user enable --now eodhd-download-daily.timer
+systemctl --user enable --now eodhd-download-weekly.timer
 systemctl --user enable --now snapshot_company.timer
 ```
 
@@ -262,15 +267,16 @@ systemctl --user enable --now turtle-backup.timer
 
 ```bash
 # 1. Confirm signals generate correctly
-uv run python scripts/signal_runner.py --start-date 2024-01-01 --end-date 2024-01-02 --mode analyze
+uv run signal-runner list --start-date 2024-01-01 --end-date 2024-01-02
 
 # 2. Confirm portfolio backtest runs end-to-end
 uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-01-31 --output-file /tmp/test.html
 
 # 3. Check timers are registered
-systemctl --user list-timers eodhd-download.timer snapshot_company.timer
+systemctl --user list-timers eodhd-download-daily.timer eodhd-download-weekly.timer snapshot_company.timer
 
 # 4. Review logs after first timer runs
-journalctl --user -u eodhd-download.service
+journalctl --user -u eodhd-download-daily.service
+journalctl --user -u eodhd-download-weekly.service
 journalctl --user -u snapshot_company.service
 ```

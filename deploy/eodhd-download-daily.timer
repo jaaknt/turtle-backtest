@@ -1,0 +1,36 @@
+# Daily EODHD history download timer (Mon-Sat) — user-level systemd timer (no sudo required)
+#
+# The Sunday run (eodhd-download-weekly.timer) also refreshes tickers and
+# company fundamentals; this timer covers the remaining weekdays with an
+# incremental history download only.
+#
+# DEPLOY
+#   mkdir -p ~/.config/systemd/user
+#   ln -s ~/turtle-backtest/deploy/eodhd-download-daily.service ~/.config/systemd/user/eodhd-download-daily.service
+#   ln -s ~/turtle-backtest/deploy/eodhd-download-daily.timer   ~/.config/systemd/user/eodhd-download-daily.timer
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now eodhd-download-daily.timer
+#
+# PREREQUISITES
+#   secrets file must exist at ~/.config/turtle-backtest/secrets.env (see Phase 3 of docs/implementation.md)
+#   loginctl enable-linger <username>   # allows timer to fire without an active login session
+#
+# STATUS / LOGS
+#   systemctl --user status eodhd-download-daily.timer
+#   systemctl --user list-timers eodhd-download-daily.timer
+#   journalctl --user -u eodhd-download-daily.service
+#
+# REMOVE
+#   systemctl --user disable --now eodhd-download-daily.timer
+#   rm ~/.config/systemd/user/eodhd-download-daily.{service,timer}
+#   systemctl --user daemon-reload
+
+[Unit]
+Description=Daily EODHD History Download (Mon-Sat)
+
+[Timer]
+OnCalendar=Mon..Sat *-*-* 05:00:00 Europe/Tallinn
+Persistent=true
+
+[Install]
+WantedBy=timers.target
