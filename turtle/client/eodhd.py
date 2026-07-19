@@ -6,6 +6,7 @@ from typing import Any
 
 import httpx
 from httpx import URL, AsyncClient
+from pydantic import ValidationError
 from tenacity import (
     before_sleep_log,
     retry,
@@ -79,11 +80,24 @@ class EodhdApiClient:
     async def get_tickers_for_exchange(self, ticker_code: str) -> list[Ticker]:
         """
         Fetches the list of all available tickers for a given exchange.
+
+        Records that fail schema validation (e.g. a null Name) are logged and
+        skipped so one malformed upstream record does not fail the whole download.
         """
         response_data = await self._get(f"exchange-symbol-list/{ticker_code}")
-        if isinstance(response_data, list):
-            return [Ticker(**data) for data in response_data]
-        raise TypeError("Unexpected response format from EODHD API for tickers")
+        if not isinstance(response_data, list):
+            raise TypeError("Unexpected response format from EODHD API for tickers")
+        tickers: list[Ticker] = []
+        skipped = 0
+        for data in response_data:
+            try:
+                tickers.append(Ticker(**data))
+            except ValidationError as e:
+                skipped += 1
+                logger.warning(f"Skipping invalid ticker record {data.get('Code')!r}: {e.error_count()} validation error(s)")
+        if skipped:
+            logger.warning(f"Skipped {skipped}/{len(response_data)} invalid ticker records from EODHD")
+        return tickers
 
     async def get_eod_historical_data(self, ticker: str, from_date: str, to_date: str) -> list[DailyBars]:
         """
