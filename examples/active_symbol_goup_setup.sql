@@ -14,6 +14,8 @@ union all
 select 'daily_bars', count(*) from turtle.daily_bars
 ;
 
+select 'daily_bars', count(*), count(distinct symbol), min(date), max(date) from turtle.daily_bars;
+
 insert into turtle.ticker_group 
   (select 'active'   as code
         , t.code     as ticker_code
