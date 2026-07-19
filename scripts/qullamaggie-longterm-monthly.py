@@ -348,7 +348,7 @@ def main() -> None:
     with RESULT_PATH.open("w") as fh:
         fh.write("# Qullamaggie Long-Term Monthly Analysis (2007-2026)\n\n")
         fh.write(f"Run date: {date.today()}\n\n")
-        fh.write("```\n")
+        fh.write("```text\n")
         fh.write(output)
         fh.write("\n```\n")
     print(f"\nResults saved to {RESULT_PATH}", flush=True)

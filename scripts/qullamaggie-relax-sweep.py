@@ -418,7 +418,7 @@ def main() -> None:
             "Variant key: `cd15` cooldown 30→15d; `p3` min price $5→$3; `mcap1.0B` market-cap floor "
             "$1.5B→$1.0B; `sect+CommRE` re-admit Communication Services/Real Estate.\n\n"
         )
-        fh.write("## Results\n\n```\n")
+        fh.write("## Results\n\n```text\n")
         fh.write(table)
         fh.write("\n```\n\n")
         fh.write("## F/mo gain per unit of Sortino given up\n\n")

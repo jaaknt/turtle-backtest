@@ -341,7 +341,7 @@ def build_calendar_table(records: list[dict], label: str) -> str:
 
     hdr = f"{'Year':>5} |" + "".join(f"{m:>8}" for m in MONTHS) + f" | {'Mean%':>7} {'N':>5}"
     sep = "-" * len(hdr)
-    lines = [f"### {label} — Monthly Mean% / N (EOD, entry month/year)\n", "```", hdr, sep]
+    lines = [f"### {label} — Monthly Mean% / N (EOD, entry month/year)\n", "```text", hdr, sep]
 
     if not by_ym:
         lines += ["(no trades)", "```\n"]
@@ -403,7 +403,7 @@ def main() -> None:
         signals = get_signals(df, bull_dates, sma_t)
         print(f"  {len(signals)} raw signals", flush=True)
 
-        lines = [f"### {label} — 366d\n", "```", _HDR, _SEP]
+        lines = [f"### {label} — 366d\n", "```text", _HDR, _SEP]
 
         eod_records = run_trades_eod(signals, sym_dates, sym_closes)
         eod_m = compute_metrics(eod_records)
