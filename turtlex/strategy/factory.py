@@ -25,6 +25,7 @@ from turtlex.strategy.exit.trailing_percentage_loss import TrailingPercentageLos
 from turtlex.strategy.ranking.base import RankingStrategy
 from turtlex.strategy.ranking.breakout_quality import BreakoutQualityRanking
 from turtlex.strategy.ranking.momentum import MomentumRanking
+from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 from turtlex.strategy.ranking.volume_momentum import VolumeMomentumRanking
 from turtlex.strategy.trading.base import TradingStrategy
 from turtlex.strategy.trading.darvas_box import DarvasBoxStrategy
@@ -55,6 +56,7 @@ RANKING_STRATEGIES: dict[str, Callable[[], RankingStrategy]] = {
     "momentum": MomentumRanking,
     "volume_momentum": VolumeMomentumRanking,
     "breakout_quality": BreakoutQualityRanking,
+    "qullamaggie": QullamaggieRanking,
 }
 
 

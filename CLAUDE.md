@@ -168,7 +168,7 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
   - `processor.py`, `benchmark_utils.py`
 - **turtlex/portfolio/**: Multi-position portfolio management
   - `manager.py`, `selector.py`, `analytics.py`
-- **turtlex/strategy/ranking/**: Signal ranking strategies — `momentum.py`, `volume_momentum.py`, `breakout_quality.py` (see [docs/strategy.md](docs/strategy.md))
+- **turtlex/strategy/ranking/**: Signal ranking strategies — `momentum.py`, `volume_momentum.py`, `breakout_quality.py`, `qullamaggie.py` (see [docs/strategy.md](docs/strategy.md))
 - **turtlex/client/**: External API clients
   - `eodhd.py`: EODHD API wrapper
 - **turtlex/config/**: Configuration management

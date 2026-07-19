@@ -100,7 +100,7 @@ uv run signal-runner list --start-date 2024-06-01 --end-date 2024-06-01 --tradin
 
 - `--start-date` / `--end-date` — Date range (required)
 - `--trading-strategy` — `darvas_box`, `mars`, `momentum`, `qullamaggie` (default: `darvas_box`)
-- `--ranking-strategy` — `momentum`, `volume_momentum`, `breakout_quality` (default: `momentum`)
+- `--ranking-strategy` — `momentum`, `volume_momentum`, `breakout_quality`, `qullamaggie` (default: `momentum`)
 - `--max-tickers` — Maximum symbols to scan (`list` and `top` only, default: 10000)
 - `--verbose` — Enable detailed logging
 
@@ -158,6 +158,7 @@ uv run python scripts/backtest.py --start-date 2024-01-15 --end-date 2024-01-15 
   - `momentum` - Momentum-based ranking
   - `volume_momentum` - Volume-weighted momentum ranking
   - `breakout_quality` - Breakout event strength ranking
+  - `qullamaggie` - Cohort-derived Sortino ranking for Qullamaggie breakouts
 - `--max-tickers` - Maximum number of tickers to test (default: 10000)
 - `--mode` - Analysis mode (default: list)
   - `list` - Get all tickers with signals in date range
@@ -218,6 +219,7 @@ The `portfolio-runner` console script provides sophisticated portfolio-level bac
 - `momentum` (default) - Momentum-based signal ranking
 - `volume_momentum` - Volume-weighted momentum ranking
 - `breakout_quality` - Breakout event strength ranking
+- `qullamaggie` - Cohort-derived Sortino ranking for Qullamaggie breakouts
 
 **Usage:**
 
