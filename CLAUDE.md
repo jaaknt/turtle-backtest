@@ -84,6 +84,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | **Portfolio backtest** | `uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31` | Test multi-position strategy |
 | **Single backtest** | `uv run python scripts/backtest.py --ticker AAPL --start-date 2024-01-01` | Test specific ticker |
 | **Run tests** | `uv run pytest` | Verify code changes |
+| **Test coverage** | `uv run pytest --cov=turtlex --cov-report=term-missing` | Find untested code paths |
 | **Lint markdown docs** | `npx markdownlint-cli2` | Check README/CLAUDE.md/docs before committing (`--fix` to auto-fix) |
 | **Run Bruno API smoke tests** | `uv run pytest -m bruno` | Verify live EODHD endpoints still match expectations (requires `npm install -g @usebruno/cli` + real `EODHD_API_KEY` in `bruno/eodhd/.env`) |
 | **Start database** | `docker-compose up -d` | Before any data operations |

@@ -81,7 +81,7 @@ class QullamaggieStrategy(TradingStrategy):
             list[str]: US common stocks with market cap >= 1.5B, excluding
             Communication Services and Real Estate sectors
         """
-        return ticker_repo.get_qualified_symbols(limit=limit)
+        return ticker_repo.get_qullamaggie_qualified_symbols(limit=limit)
 
     def collect_data(self, ticker: str, start_date: date, end_date: date) -> bool:
         """
