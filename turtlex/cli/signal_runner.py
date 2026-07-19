@@ -8,7 +8,6 @@ signals, or check signals for specific tickers.
 
 Usage:
     uv run signal-runner <command> [options]
-    (or the compatibility wrapper: uv run python scripts/signal_runner.py <command> [options])
 
 Commands:
     list                         List all signals in the strategy's ticker universe

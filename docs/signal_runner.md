@@ -4,10 +4,7 @@ How the `signal-runner` CLI turns a command line into printed trading signals. C
 
 ## Entry points
 
-There are two equivalent ways to invoke the runner; both end up in the same `main()`:
-
-- `uv run signal-runner ...` — console script installed via `[project.scripts]` in `pyproject.toml`, pointing at `turtlex.cli.signal_runner:main`
-- `uv run python scripts/signal_runner.py ...` — thin compatibility wrapper that imports the same `main()`
+The runner is invoked as `uv run signal-runner ...` — a console script installed via `[project.scripts]` in `pyproject.toml`, pointing at `turtlex.cli.signal_runner:main`.
 
 ## Component composition
 
@@ -111,4 +108,3 @@ The `signal` command bypasses `SignalService.scan()` and the universe: for each 
 | Ranking strategies | `turtlex/strategy/ranking/*.py` |
 | Name → class factories | `turtlex/strategy/factory.py` |
 | OHLCV / universe repositories | `turtlex/repository/query/daily_bars.py`, `turtlex/repository/query/ticker.py` |
-| Compatibility wrapper | `scripts/signal_runner.py` |

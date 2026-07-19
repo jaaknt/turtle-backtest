@@ -4,9 +4,9 @@ This document describes the command-line scripts that provide convenient interfa
 
 All strategy name → class mappings used by `--trading-strategy`, `--exit-strategy`, and `--ranking-strategy` flags are defined in `turtlex/strategy/factory.py`. Add new strategies there to make them available across all scripts.
 
-## download_eodhd_data.py
+## download-eodhd-data
 
-The `download_eodhd_data.py` script downloads bulk data from the EODHD API and stores it in the database. It covers four datasets: exchanges, US ticker lists, company fundamentals, and full historical price data. Use this for initial database population or large historical backfills.
+The `download-eodhd-data` console script downloads bulk data from the EODHD API and stores it in the database. It covers four datasets: exchanges, US ticker lists, company fundamentals, and full historical price data. Use this for initial database population or large historical backfills.
 
 **Key Features:**
 
@@ -70,9 +70,9 @@ uv run download-eodhd-data --data history --start-date 2020-01-01 --end-date 202
 - Requires `EODHD_API_KEY` environment variable
 - Historical download is rate-limited (configurable batch size and delay)
 
-## signal_runner.py
+## signal-runner
 
-The `signal_runner.py` script runs trading strategy signal analysis across the symbol universe or a specific ticker list. Architecture and flow diagrams are in [signal_runner.md](signal_runner.md).
+The `signal-runner` console script runs trading strategy signal analysis across the symbol universe or a specific ticker list. Architecture and flow diagrams are in [signal_runner.md](signal_runner.md).
 
 **Commands:**
 

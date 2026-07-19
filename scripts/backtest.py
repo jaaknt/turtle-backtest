@@ -7,7 +7,7 @@ It can get ticker lists, ticker counts, check individual ticker signals, or coun
 for specific tickers using different trading strategies.
 
 Usage:
-    python scripts/signal_runner.py [options]
+    python scripts/backtest.py [options]
 
 Options:
     --start-date YYYY-MM-DD  Start date for analysis (required for count mode)
