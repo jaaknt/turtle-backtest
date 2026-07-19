@@ -340,4 +340,4 @@ Run with `uv run pytest` or `uv run pytest tests/strategy/trading/test_darvas_bo
 
 **Core Libraries**: polars (primary DataFrame library), pandas/numpy (retained for quantstats boundary), pydantic (schema validation), httpx (async HTTP for EODHD client), psycopg (PostgreSQL), quantstats (performance analytics)
 
-**Special Requirements**: Python 3.13+
+**Special Requirements**: Python 3.14+
