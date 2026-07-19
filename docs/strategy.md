@@ -235,15 +235,34 @@ Scores the strength of the breakout event itself at signal time — useful for c
 
 ---
 
+### Qullamaggie Ranking (`qullamaggie`)
+
+**File**: `turtlex/strategy/ranking/qullamaggie.py`
+
+Cohort-derived ranking for Qullamaggie-style breakout signals. Scores each signal by the four entry-time parameters with the strongest positive Sortino gradients in the cohort research (`docs/research/result-qullamaggie-*-cohorts.md`, `bk50d_s15_v1.2_roc100` tables). Each dimension's bands mimic the cohort buckets, with points equal to the bucket's Sortino rescaled to 0–25 within the dimension.
+
+**Score breakdown** (max 100):
+
+| Component | Column | Best cohort | Max score |
+| ----------- | -------- | ------------- | ----------- |
+| ADR%(20) | `adr_pct` | ≥8% daily range | 25 |
+| ADR compression | `adr_pct_change` | ADR10/ADR50 < 0.7 | 25 |
+| ROC252 | `roc_252d` | 40–60% 12-month ROC | 25 |
+| Entry price | `close` | $5–$10 raw close | 25 |
+
+Expects the shift-1 indicator columns produced by `QullamaggieStrategy`; a missing column or null value scores that component 0. Note: per `result-qullamaggie-cohort-ranking.md`, composite cohort scores separate already-filtered signals only weakly — this ranking orders surviving signals, it is not a substitute for the entry filters.
+
+---
+
 ### Ranking Strategy Comparison
 
-| | Momentum | Volume Momentum | Breakout Quality |
-| -- | ---------- | ---------------- | ----------------- |
-| **Primary focus** | EMA(200) trend strength | Risk-adjusted momentum + liquidity | Breakout event conviction |
-| **Lookback** | 1/3/6 months | 20–60 days | At signal bar |
-| **Volume factor** | No | Yes (30 pts) | Yes (30 pts) |
-| **Quality gates** | No | Yes (returns 1 if below thresholds) | No |
-| **Best paired with** | Trend-following strategies | High-volume momentum setups | Darvas Box, Mars breakouts |
+| | Momentum | Volume Momentum | Breakout Quality | Qullamaggie |
+| -- | ---------- | ---------------- | ----------------- | ------------- |
+| **Primary focus** | EMA(200) trend strength | Risk-adjusted momentum + liquidity | Breakout event conviction | Cohort Sortino mimicry |
+| **Lookback** | 1/3/6 months | 20–60 days | At signal bar | At signal bar (shift-1 indicators) |
+| **Volume factor** | No | Yes (30 pts) | Yes (30 pts) | No |
+| **Quality gates** | No | Yes (returns 1 if below thresholds) | No | No |
+| **Best paired with** | Trend-following strategies | High-volume momentum setups | Darvas Box, Mars breakouts | Qullamaggie breakouts |
 
 ---
 

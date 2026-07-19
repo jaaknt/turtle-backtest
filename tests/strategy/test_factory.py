@@ -20,6 +20,7 @@ from turtlex.strategy.factory import (
 from turtlex.strategy.ranking.base import RankingStrategy
 from turtlex.strategy.ranking.breakout_quality import BreakoutQualityRanking
 from turtlex.strategy.ranking.momentum import MomentumRanking
+from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 from turtlex.strategy.ranking.volume_momentum import VolumeMomentumRanking
 from turtlex.strategy.trading.darvas_box import DarvasBoxStrategy
 from turtlex.strategy.trading.momentum import MomentumStrategy
@@ -77,6 +78,7 @@ def test_unknown_exit_strategy_raises_value_error() -> None:
         ("momentum", MomentumRanking),
         ("volume_momentum", VolumeMomentumRanking),
         ("breakout_quality", BreakoutQualityRanking),
+        ("qullamaggie", QullamaggieRanking),
     ],
 )
 def test_factory_creates_ranking_strategy(name: str, expected_class: type[RankingStrategy]) -> None:
