@@ -146,7 +146,7 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 
 ### Repo Layout
 
-Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `docs/` (project docs), `tasks/` (issue files used by `/new-task`), `examples/` (see [Examples Directory](#examples-directory)), `scripts/` (CLI entry points), `tests/` (mirrors source tree).
+Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `docs/` (project docs), `examples/` (see [Examples Directory](#examples-directory)), `scripts/` (CLI entry points), `tests/` (mirrors source tree).
 
 ### Core Components
 
