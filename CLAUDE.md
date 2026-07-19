@@ -96,7 +96,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - **Portfolio**: `/turtlex/portfolio/*.py` - Multi-position management
 - **Services**: `/turtlex/service/*.py` - Business logic orchestration
 - **Domain models**: `/turtlex/model.py` - `Signal`, `Trade`, `Benchmark` dataclasses
-- **Project docs**: `/docs/*.md` - `implementation.md`, `scripts.md`, `service.md`, `strategy.md`, `troubleshooting.md`
+- **Project docs**: `/docs/*.md` - `implementation.md`, `scripts.md`, `service.md`, `signal_runner.md`, `strategy.md`, `troubleshooting.md`
 - **Database init & migrations**: `/db/init.sql`, `/db/init.sh`, `/db/migrations/`
 
 ### Development Decision Tree

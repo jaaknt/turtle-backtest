@@ -72,7 +72,7 @@ uv run python scripts/download_eodhd_data.py --data history --start-date 2020-01
 
 ## signal_runner.py
 
-The `signal_runner.py` script runs trading strategy signal analysis across the symbol universe or a specific ticker list.
+The `signal_runner.py` script runs trading strategy signal analysis across the symbol universe or a specific ticker list. Architecture and flow diagrams are in [signal_runner.md](signal_runner.md).
 
 **Commands:**
 
