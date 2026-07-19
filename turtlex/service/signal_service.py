@@ -1,36 +1,42 @@
-# from typing import List, Tuple
 import logging
 from datetime import date
 
-from sqlalchemy import Engine
-
-from turtlex.common.enums import TimeFrameUnit
 from turtlex.model import Signal
-from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
-
-# from turtlex.strategy.trading.momentum import MomentumStrategy
-# from turtlex.strategy.trading.darvas_box import DarvasBoxStrategy
-# from turtlex.strategy.trading.mars import MarsStrategy
+from turtlex.repository.ticker_query import TickerQueryRepository
 from turtlex.strategy.trading.base import TradingStrategy
 
 logger = logging.getLogger(__name__)
 
 
 class SignalService:
-    def __init__(
-        self,
-        engine: Engine,
-        trading_strategy: TradingStrategy,
-        time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
-        warmup_period: int = 730,
-    ) -> None:
+    """Orchestrates trading-signal generation across a ticker universe."""
+
+    def __init__(self, trading_strategy: TradingStrategy, ticker_repo: TickerQueryRepository) -> None:
+        """
+        Initialize the signal service.
+
+        Args:
+            trading_strategy: Strategy that generates signals and defines its own ticker universe
+            ticker_repo: Repository used to resolve the strategy's ticker universe
+        """
         self.trading_strategy = trading_strategy
-        self.time_frame_unit = time_frame_unit
-        self.warmup_period = warmup_period
+        self.ticker_repo = ticker_repo
 
-        self.engine = engine
-        self.bars_history = DailyBarsQueryRepository(self.engine)
+    def scan(self, start_date: date, end_date: date, max_tickers: int | None = None) -> list[Signal]:
+        """
+        Generate signals for every ticker in the strategy's universe.
 
-    def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
-        """Wrapper function for TradingStrategy.get_signals."""
-        return self.trading_strategy.get_signals(ticker, start_date, end_date)
+        Args:
+            start_date: The start date of the analysis period
+            end_date: The end date of the analysis period
+            max_tickers: Optional maximum number of universe tickers to scan
+
+        Returns:
+            list[Signal]: Signals from all scanned tickers, in universe order
+        """
+        universe = self.trading_strategy.get_universe(self.ticker_repo, limit=max_tickers)
+        logger.info(f"Scanning {len(universe)} tickers for signals")
+        signals: list[Signal] = []
+        for ticker in universe:
+            signals.extend(self.trading_strategy.get_signals(ticker, start_date, end_date))
+        return signals

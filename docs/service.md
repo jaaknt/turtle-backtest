@@ -33,38 +33,40 @@ asyncio.run(service.download_historical_data(start_date="2024-01-01", end_date="
 
 ## SignalService
 
-The `SignalService` provides a clean interface for executing trading strategies against historical market data. It acts as a wrapper around trading strategy implementations.
+The `SignalService` orchestrates trading-signal generation across a ticker universe. The trading strategy defines its own universe (symbol group or custom query); the service resolves it and collects signals from every ticker in it.
 
 **Key Features:**
 
-- Executes any TradingStrategy implementation on US stock symbols
-- Integrates with data repositories for market data access
-- Supports configurable time frame units and warmup periods
+- Executes any TradingStrategy implementation across the strategy's ticker universe
+- Resolves the universe through TickerQueryRepository with an optional ticker limit
 
 **Constructor Parameters:**
 
-- `engine` - SQLAlchemy `Engine` instance
 - `trading_strategy` - TradingStrategy instance to execute
-- `market_ticker` - Market index ticker for regime filter (e.g. `"SPY"`)
-- `time_frame_unit` - Time frame for analysis (default: DAY)
-- `warmup_period` - Historical data warmup period in days (default: 730)
+- `ticker_repo` - TickerQueryRepository instance used to resolve the strategy's universe
 
 **Primary Methods:**
 
-- `get_signals(ticker, start_date, end_date)` - Gets list of Signal objects for ticker over date range
+- `scan(start_date, end_date, max_tickers)` - Gets list of Signal objects across the whole universe
 
 **Usage:**
 
 ```python
-from turtlex.strategy.trading.darvas_box import DarvasBoxStrategy
 from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.repository.ticker_query import TickerQueryRepository
+from turtlex.service.signal_service import SignalService
+from turtlex.strategy.ranking.momentum import MomentumRanking
+from turtlex.strategy.trading.darvas_box import DarvasBoxStrategy
 
 bars_history = DailyBarsQueryRepository(engine)
-strategy = DarvasBoxStrategy(bars_history, time_frame_unit=TimeFrameUnit.DAY)
-signal_service = SignalService(engine, strategy, market_ticker="SPY")
+strategy = DarvasBoxStrategy(bars_history, MomentumRanking())
+signal_service = SignalService(trading_strategy=strategy, ticker_repo=TickerQueryRepository(engine))
 
-# Get signals for specific ticker
-signals = signal_service.get_signals("AAPL", start_date, end_date)
+# Scan the strategy's universe for signals
+signals = signal_service.scan(start_date, end_date, max_tickers=500)
+
+# Signals for a single ticker come straight from the strategy
+signals = strategy.get_signals("AAPL.US", start_date, end_date)
 ```
 
 ## BacktestService
@@ -83,7 +85,7 @@ The `BacktestService` orchestrates complete signal-to-exit backtesting by combin
 
 **Constructor Parameters:**
 
-- `signal_service` - SignalService instance for signal generation
+- `trading_strategy` - TradingStrategy instance for signal generation
 - `signal_processor` - SignalProcessor instance for converting signals to trade results
 - `symbol_repo` - TickerQueryRepository instance for fetching the symbol universe
 

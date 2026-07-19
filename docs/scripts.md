@@ -74,36 +74,34 @@ uv run python scripts/download_eodhd_data.py --data history --start-date 2020-01
 
 The `signal_runner.py` script runs trading strategy signal analysis across the symbol universe or a specific ticker list.
 
-**Modes:**
+**Commands:**
 
-- `list` (default) — Scan all symbols and print those with signals in the date range
-- `signal` — Check specific tickers (requires `--tickers`)
-- `top` — Print the top 20 signals by ranking
+- `list` — Scan all symbols and print those with signals in the date range
+- `signal TICKER [TICKER ...]` — Check specific tickers
+- `top` — Print the top-ranked signals (`--limit`, default 20)
 
 **Usage:**
 
 ```bash
 # Scan all symbols for signals on a given day
-uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01
+uv run signal-runner list --start-date 2024-06-01 --end-date 2024-06-01
 
 # Check specific tickers
-uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --mode signal --tickers AAPL MSFT
+uv run signal-runner signal AAPL MSFT --start-date 2024-06-01 --end-date 2024-06-01
 
-# Get top 20 signals
-uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --mode top
+# Get top 10 signals
+uv run signal-runner top --start-date 2024-06-01 --end-date 2024-06-01 --limit 10
 
 # Use a different strategy
-uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --trading-strategy mars
+uv run signal-runner list --start-date 2024-06-01 --end-date 2024-06-01 --trading-strategy mars
 ```
 
-**Options:**
+**Options (all commands):**
 
 - `--start-date` / `--end-date` — Date range (required)
-- `--mode` — `list`, `signal`, or `top` (default: `list`)
-- `--tickers` — Space-separated ticker list (required for `signal` mode)
-- `--trading-strategy` — `darvas_box`, `mars`, `momentum` (default: `darvas_box`)
-- `--ranking-strategy` — `momentum`, `volume_momentum` (default: `momentum`)
-- `--max-tickers` — Maximum symbols to scan (default: 10000)
+- `--trading-strategy` — `darvas_box`, `mars`, `momentum`, `qullamaggie` (default: `darvas_box`)
+- `--ranking-strategy` — `momentum`, `volume_momentum`, `breakout_quality` (default: `momentum`)
+- `--max-tickers` — Maximum symbols to scan (`list` and `top` only, default: 10000)
 - `--verbose` — Enable detailed logging
 
 ## backtest.py
