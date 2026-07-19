@@ -3,8 +3,8 @@
 Qullamaggie-style breakout backtest v4.
 Spec: docs/research/qullamaggie-backtest-v4.md
 
-Fixed filters: vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%,
-               ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K
+Fixed filters: vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70 or RSI>80,
+               ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K
 Sweep: SMA_THRESH ∈ {12%,15%,17%,20%} × HOLD_CAL ∈ {91,184,366 cal days}  (tight_range and sma_alignment disabled)
 Eval: 2021-01-01 – present  |  Burn-in data from 2020-01-01
 """
@@ -30,6 +30,7 @@ VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
+RSI_REENTRY = 80.0  # spec: RSI(14) < 70 OR RSI(14) > 80 — only the 70-80 band is excluded
 ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 MIN_TRADES = 30
@@ -176,7 +177,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
             & pl.col("adr_pct_change").is_not_null()
-            & (pl.col("rsi14") < RSI_CAP)
+            & ((pl.col("rsi14") < RSI_CAP) | (pl.col("rsi14") > RSI_REENTRY))
             & (pl.col("raw_close") > MIN_PRICE)
             & (pl.col("raw_close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
@@ -406,7 +407,7 @@ def main() -> None:
     results_by_cap: dict[int, list[tuple[str, int, dict, list[dict]]]] = {cap: [] for cap in CAPACITY_LIMITS}
 
     for sma_t in SMA_THRESHS:
-        lbl = f"bk50d_s{int(sma_t * 100)}_v1.2_roc100"
+        lbl = f"bk50d_s{int(sma_t * 100)}_v1.3_roc100"
         print(f"  {lbl} …", flush=True)
         signals = get_signals(df, bull_dates, sma_t)
         if signals.is_empty():
@@ -430,7 +431,7 @@ def main() -> None:
     header_lines = [
         f"Period: {EVAL_START} – {date.today()}  |  HOLD_MAX_CAL={HOLD_MAX_CAL}d",
         f"Fixed: vol_dry_up<{int(VOL_DRY_UP * 100)}%, roc_12m<{int(ROC_CAP * 100)}%, "
-        f"vol_surge<{VOL_SURGE_MAX}x (no lower bound), RSI<{int(RSI_CAP)}, ADR>={ADR_MIN * 100:.1f}%, "
+        f"vol_surge<{VOL_SURGE_MAX}x (no lower bound), RSI<{int(RSI_CAP)} or >{int(RSI_REENTRY)}, ADR>={ADR_MIN * 100:.1f}%, "
         f"ADR_change<{int(ADR_CHANGE_CAP * 100)}%, SPY>200d SMA, "
         f"close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K",
         "",
@@ -478,7 +479,7 @@ def main() -> None:
         fh.write(f"| vol_dry_up | avg_vol_10 < {int(VOL_DRY_UP * 100)}% × avg_vol_50 |\n")
         fh.write(f"| vol_surge | volume/avg_vol_50 < {VOL_SURGE_MAX}× (no lower bound) |\n")
         fh.write(f"| roc_12m_cap | 12m ROC < {int(ROC_CAP * 100)}% |\n")
-        fh.write(f"| RSI | RSI(14) < {int(RSI_CAP)} |\n")
+        fh.write(f"| RSI | RSI(14) < {int(RSI_CAP)} or > {int(RSI_REENTRY)} (70-80 band excluded) |\n")
         fh.write(f"| ADR | mean((high-low)/low, last 20d, shift-1) ≥ {ADR_MIN * 100:.1f}% |\n")
         fh.write(f"| ADR change | ADR%(10d) / ADR%(50d) < {int(ADR_CHANGE_CAP * 100)}% |\n")
         fh.write("| SMA alignment | disabled (commented out) |\n")
@@ -505,6 +506,12 @@ def main() -> None:
             fh.write("\n```\n\n")
             fh.write(consistent_md(f"Consistent Combinations (Max {cap} Concurrent)", cons_rows))
         fh.write("\n## Findings & Caveats\n\n")
+        fh.write(
+            "**Changed in v1.3**: the RSI filter now follows the spec formula `RSI(14) < 70 OR RSI(14) > 80` — "
+            "only the 70-80 band is excluded, re-admitting extreme-momentum entries. All v1.2 artifacts "
+            "(cohort docs, QullamaggieStrategy) used plain RSI < 70, so v1.3 numbers are not directly "
+            "comparable to them.\n\n"
+        )
         fh.write(
             "**Fixed**: `close`/`high`/`low` are now split/dividend-adjusted (scaled by `adjusted_close/close`). "
             "The prior version used raw `close`, which shows a fake ~90% one-day move on a stock's split date "
