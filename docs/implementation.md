@@ -7,7 +7,7 @@ turtle-backtest runs locally today. This guide covers moving it to a Hetzner VPS
 **Services required:**
 
 - PostgreSQL 17 (primary data store, ~1–2GB of OHLCV data)
-- Python 3.13 runtime with `uv`
+- Python 3.14 runtime with `uv`
 - Outbound HTTPS to `eodhd.com` for data downloads
 - Scheduled daily data downloads
 
@@ -121,9 +121,9 @@ usermod -aG sudo turtle
 # Switch to turtle user for the rest
 su - turtle
 
-# Install uv and Python 3.13
+# Install uv and Python 3.14
 curl -LsSf https://astral.sh/uv/install.sh | sh
-uv python install 3.13
+uv python install 3.14
 
 # Install PostgreSQL 17
 sudo apt install -y curl ca-certificates
