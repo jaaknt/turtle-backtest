@@ -5,14 +5,14 @@ from turtlex.backtest.benchmark_utils import calculate_benchmark_list
 from turtlex.backtest.processor import SignalProcessor
 from turtlex.model import FutureTrade
 from turtlex.repository.ticker_query import TickerQueryRepository
-from turtlex.service.signal_service import SignalService
+from turtlex.strategy.trading.base import TradingStrategy
 
 logger = logging.getLogger(__name__)
 
 
 class BacktestService:
-    def __init__(self, signal_service: SignalService, signal_processor: SignalProcessor, symbol_repo: TickerQueryRepository) -> None:
-        self.signal_service = signal_service
+    def __init__(self, trading_strategy: TradingStrategy, signal_processor: SignalProcessor, symbol_repo: TickerQueryRepository) -> None:
+        self.trading_strategy = trading_strategy
         self.signal_processor = signal_processor
         self.symbol_repo = symbol_repo
 
@@ -30,12 +30,12 @@ class BacktestService:
         signals: list = []
         if tickers:
             for ticker in tickers:
-                signals.extend(self.signal_service.get_signals(ticker, start_date, end_date))
+                signals.extend(self.trading_strategy.get_signals(ticker, start_date, end_date))
         else:
             tickers = self.symbol_repo.get_symbol_list("USA")
             logger.info(f"Running backtest for {len(tickers)} tickers")
             for ticker in tickers:
-                signals.extend(self.signal_service.get_signals(ticker, start_date, end_date))
+                signals.extend(self.trading_strategy.get_signals(ticker, start_date, end_date))
 
         # raise value error if no signals found
         if not signals:

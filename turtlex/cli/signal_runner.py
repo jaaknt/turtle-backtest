@@ -3,32 +3,35 @@
 Signal Runner Script
 
 This script runs trading strategy analysis using the SignalService class.
-It can get ticker lists, ticker counts, check individual ticker signals, or count signals
-for specific tickers using different trading strategies.
+It can list signals across the strategy's ticker universe, show the top-ranked
+signals, or check signals for specific tickers.
 
 Usage:
-    uv run signal-runner [options]
-    (or via the compatibility wrapper: uv run python scripts/signal_runner.py [options])
+    uv run signal-runner <command> [options]
+    (or the compatibility wrapper: uv run python scripts/signal_runner.py <command> [options])
 
-Options:
-    --start-date YYYY-MM-DD      Start date for analysis (required for count mode)
-    --end-date YYYY-MM-DD        End date for analysis (required for count mode)
-    --tickers TICKER             Space separated list of specific tickers to test
-    --trading-strategy STRATEGY  Trading strategy: darvas_box, mars, momentum, qullamaggie (default: darvas_box)
-    --ranking-strategy STRATEGY  Ranking strategy: momentum, volume_momentum (default: momentum)
-    --max-tickers NUM            Maximum number of tickers to test (default: 10000)
-    --mode MODE                  Analysis mode: signal, list, top (default: signal)
+Commands:
+    list                         List all signals in the strategy's ticker universe
+    top                          Show the top-ranked signals (--limit, default 20)
+    signal TICKER [TICKER ...]   Check signals for specific tickers
+
+Common options (every command):
+    --start-date YYYY-MM-DD      Start date for analysis (required)
+    --end-date YYYY-MM-DD        End date for analysis (required)
+    --trading-strategy STRATEGY  darvas_box, mars, momentum, qullamaggie (default: darvas_box)
+    --ranking-strategy STRATEGY  momentum, volume_momentum, breakout_quality (default: momentum)
     --verbose                    Enable verbose logging
-    --help                       Show this help message
+
+Run `signal-runner <command> --help` for command-specific options.
 """
 
 import argparse
 import logging
 import sys
 import time
+from datetime import date
 
 from turtlex.common.cli import iso_date_type
-from turtlex.common.enums import TimeFrameUnit
 from turtlex.config.logging import LogConfig
 from turtlex.config.settings import Settings
 from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
@@ -39,62 +42,87 @@ from turtlex.strategy.factory import get_ranking_strategy, get_trading_strategy
 logger = logging.getLogger(__name__)
 
 
-def create_argument_parser() -> argparse.ArgumentParser:
-    """Create and configure the argument parser."""
-    parser = argparse.ArgumentParser(
-        description="Run trading strategy analysis",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__,
-    )
+def print_signal(ticker: str, signal_date: date, ranking: int) -> None:
+    """Print a single signal line in the standard format."""
+    print(f"  ✓ Signal {ticker} on {signal_date} ranking: {ranking} ")
 
-    parser.add_argument(
+
+def run_list(service: SignalService, args: argparse.Namespace) -> int:
+    """List all signals in the strategy's universe, sorted by date and ticker."""
+    signals = service.scan(args.start_date, args.end_date, max_tickers=args.max_tickers)
+    for signal in sorted(signals, key=lambda s: (s.date, s.ticker)):
+        print_signal(signal.ticker, signal.date, signal.ranking)
+    return 0
+
+
+def run_top(service: SignalService, args: argparse.Namespace) -> int:
+    """Show the top-ranked signals in the strategy's universe."""
+    logger.info(f"Getting top {args.limit} signals...")
+    signals = service.scan(args.start_date, args.end_date, max_tickers=args.max_tickers)
+    for signal in sorted(signals, key=lambda s: s.ranking, reverse=True)[: args.limit]:
+        print_signal(signal.ticker, signal.date, signal.ranking)
+    return 0
+
+
+def run_signal(service: SignalService, args: argparse.Namespace) -> int:
+    """Check signals for the specified tickers."""
+    for ticker in args.tickers:
+        for signal in service.trading_strategy.get_signals(ticker, args.start_date, args.end_date):
+            print_signal(ticker, signal.date, signal.ranking)
+    return 0
+
+
+def create_argument_parser() -> argparse.ArgumentParser:
+    """Create and configure the argument parser with one subcommand per analysis mode."""
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument(
         "--start-date",
         type=iso_date_type,
         required=True,
-        help="Start date for ticker count analysis (YYYY-MM-DD format)",
+        help="Start date for analysis (YYYY-MM-DD format)",
     )
-
-    parser.add_argument(
+    common.add_argument(
         "--end-date",
         type=iso_date_type,
         required=True,
-        help="End date for ticker count analysis (YYYY-MM-DD format)",
+        help="End date for analysis (YYYY-MM-DD format)",
     )
-
-    parser.add_argument(
-        "--tickers",
-        nargs="*",  # Zero or more arguments
-        help="Stock ticker symbols (required for signal mode)",
-    )
-
-    parser.add_argument(
+    common.add_argument(
         "--trading-strategy",
         type=str,
         default="darvas_box",
         choices=["darvas_box", "mars", "momentum", "qullamaggie"],
         help="Trading strategy to use (default: darvas_box)",
     )
-
-    parser.add_argument(
+    common.add_argument(
         "--ranking-strategy",
         type=str,
         default="momentum",
         choices=["momentum", "volume_momentum", "breakout_quality"],
         help="Ranking strategy to use (default: momentum)",
     )
+    common.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
 
-    parser.add_argument("--max-tickers", type=int, default=10000, help="Maximum number of tickers to test")
+    universe = argparse.ArgumentParser(add_help=False)
+    universe.add_argument("--max-tickers", type=int, default=10000, help="Maximum number of universe tickers to scan")
 
-    parser.add_argument(
-        "--mode",
-        type=str,
-        default="list",
-        choices=["list", "signal", "top"],
-        help="Analysis mode: list (get tickers list signals), signal (check single ticker signal), "
-        "top (get top 20 signals) (default: list)",
+    parser = argparse.ArgumentParser(
+        description="Run trading strategy analysis",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
     )
+    subparsers = parser.add_subparsers(dest="mode", required=True)
 
-    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    list_parser = subparsers.add_parser("list", parents=[common, universe], help="List all signals in the ticker universe")
+    list_parser.set_defaults(handler=run_list)
+
+    top_parser = subparsers.add_parser("top", parents=[common, universe], help="Show the top-ranked signals")
+    top_parser.add_argument("--limit", type=int, default=20, help="Number of top signals to show (default: 20)")
+    top_parser.set_defaults(handler=run_top)
+
+    signal_parser = subparsers.add_parser("signal", parents=[common], help="Check signals for specific tickers")
+    signal_parser.add_argument("tickers", nargs="+", help="Stock ticker symbols")
+    signal_parser.set_defaults(handler=run_signal)
 
     return parser
 
@@ -112,73 +140,23 @@ def main() -> int:
     logger.info(f"Starting strategy analysis with {args.trading_strategy} strategy and {args.ranking_strategy} ranking")
 
     try:
-        # Parse and validate dates
-        start_date, end_date = (args.start_date, args.end_date)
-
-        # Get the ranking strategy first
         try:
             ranking_strategy = get_ranking_strategy(args.ranking_strategy)
-        except ValueError as e:
-            logger.error(str(e))
-            return 1
-
-        # Get the trading strategy (we need it for service initialization)
-        try:
             bars_history = DailyBarsQueryRepository(engine=settings.engine)
             trading_strategy = get_trading_strategy(args.trading_strategy, ranking_strategy, bars_history)
         except ValueError as e:
             logger.error(str(e))
             return 1
 
-        # Initialize strategy runner with the trading strategy
-        logger.info("Initializing strategy runner...")
-        strategy_runner = SignalService(
-            engine=settings.engine,
+        service = SignalService(
             trading_strategy=trading_strategy,
-            time_frame_unit=TimeFrameUnit.DAY,
+            ticker_repo=TickerQueryRepository(settings.engine),
         )
-        symbol_repo = TickerQueryRepository(settings.engine)
-        # each strategy defines its own universe (symbol group or custom query)
-        universe = trading_strategy.get_universe(symbol_repo, limit=args.max_tickers)
 
-        # Run analysis based on mode
-        if args.mode == "list":
-            if args.tickers:
-                logger.warning("Tickers parameter is ignored in list mode")
-            signal_list = []
-            for ticker in universe:
-                signal_list.extend(strategy_runner.get_signals(ticker, start_date, end_date))
-
-            for signal in sorted(signal_list, key=lambda s: (s.date, s.ticker)):
-                print(f"  ✓ Signal {signal.ticker} on {signal.date} ranking: {signal.ranking} ")
-
-        elif args.mode == "top":
-            logger.info("Getting top 20 signals...")
-            signal_list = []
-            for ticker in universe:
-                signal_list.extend(strategy_runner.get_signals(ticker, start_date, end_date))
-
-            # Flatten the list and get top 20 signals
-            if not signal_list:
-                top_signals = []
-            else:
-                top_signals = sorted(signal_list, key=lambda s: s.ranking, reverse=True)[:20]
-                for signal in top_signals:
-                    print(f"  ✓ Signal {signal.ticker} on {signal.date} ranking: {signal.ranking} ")
-
-        elif args.mode == "signal":
-            if not args.tickers:
-                logger.error("Tickers is required for signal mode")
-                return 1
-            for ticker in args.tickers:
-                signals = strategy_runner.get_signals(ticker, start_date, end_date)
-
-                if len(signals) > 0:
-                    for signal in signals:
-                        print(f"  ✓ Signal {ticker} on {signal.date} ranking: {signal.ranking} ")
+        result: int = args.handler(service, args)
 
         logger.info(f"Strategy analysis completed successfully in {time.perf_counter() - run_start:.1f}s")
-        return 0
+        return result
 
     except KeyboardInterrupt:
         logger.warning("Analysis interrupted by user")

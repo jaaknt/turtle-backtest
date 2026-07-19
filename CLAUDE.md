@@ -80,7 +80,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 | Task | Command | Use When |
 | ------ | --------- | ---------- |
-| **Generate signals** | `uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --mode analyze` | Analyze trading opportunities |
+| **Generate signals** | `uv run signal-runner list --start-date 2024-06-01 --end-date 2024-06-01` | Analyze trading opportunities |
 | **Portfolio backtest** | `uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31` | Test multi-position strategy |
 | **Single backtest** | `uv run python scripts/backtest.py --ticker AAPL --start-date 2024-01-01` | Test specific ticker |
 | **Run tests** | `uv run pytest` | Verify code changes |
@@ -101,7 +101,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ### Development Decision Tree
 
-**Want to analyze market signals?** → Use `uv run signal-runner --mode analyze`
+**Want to analyze market signals?** → Use `uv run signal-runner list` (or `top` / `signal`)
 
 **Want to test a strategy on one ticker?** → Use `scripts/backtest.py --ticker SYMBOL`
 
@@ -237,7 +237,7 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 
 3. **Add tests**: `tests/strategy/trading/test_my_strategy.py` (mirror the source tree)
 4. **Wire via dependency injection**: Instantiate your strategy and pass it to the service constructor — see `turtlex/cli/signal_runner.py` (`get_trading_strategy`) for the canonical wiring pattern
-5. **Test**: `uv run signal-runner --strategy my_strategy --mode analyze`
+5. **Test**: `uv run signal-runner list --trading-strategy my_strategy --start-date 2024-06-01 --end-date 2024-06-01`
 
 ## Examples Directory
 

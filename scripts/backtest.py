@@ -29,13 +29,11 @@ import sys
 
 from turtlex.backtest.processor import SignalProcessor
 from turtlex.common.cli import iso_date_type
-from turtlex.common.enums import TimeFrameUnit
 from turtlex.config.logging import LogConfig
 from turtlex.config.settings import Settings
 from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
 from turtlex.repository.ticker_query import TickerQueryRepository
 from turtlex.service.backtest_service import BacktestService
-from turtlex.service.signal_service import SignalService
 from turtlex.strategy.factory import get_exit_strategy, get_ranking_strategy, get_trading_strategy
 
 logger = logging.getLogger(__name__)
@@ -143,19 +141,14 @@ def main() -> int:
 
         # Initialize strategy runner with the trading strategy
         logger.info("Initializing strategy runner...")
-        signal_service = SignalService(
-            engine=settings.engine,
-            trading_strategy=trading_strategy,
-            time_frame_unit=TimeFrameUnit.DAY,
-        )
+        symbol_repo = TickerQueryRepository(settings.engine)
         signal_processor = SignalProcessor(
             max_holding_period=60,
-            bars_history=signal_service.bars_history,
+            bars_history=bars_history,
             exit_strategy=exit_strategy,
             benchmark_tickers=["SPY.US", "QQQ.US"],
         )
-        symbol_repo = TickerQueryRepository(settings.engine)
-        backtest_service = BacktestService(signal_service=signal_service, signal_processor=signal_processor, symbol_repo=symbol_repo)
+        backtest_service = BacktestService(trading_strategy=trading_strategy, signal_processor=signal_processor, symbol_repo=symbol_repo)
 
         # Run analysis based on mode
         if args.mode == "list":
