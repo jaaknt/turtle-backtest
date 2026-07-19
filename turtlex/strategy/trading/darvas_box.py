@@ -5,7 +5,7 @@ import polars as pl
 
 from turtlex.common.enums import TimeFrameUnit
 from turtlex.model import Signal
-from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.strategy.ranking.base import RankingStrategy
 
 from .base import TradingStrategy

@@ -87,3 +87,7 @@ exchange_table = Table(
     Column("country_iso3", Text),
     schema="turtle",
 )
+
+# Reference values for ticker-table contents, shared by query and ingest repos
+US_EXCHANGES = ["NASDAQ", "NYSE", "NYSE ARCA", "NYSE MKT"]
+COMMON_STOCK_TYPE = "Common Stock"

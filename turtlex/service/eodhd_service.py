@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from turtlex.client.eodhd import EodhdApiClient
 from turtlex.config.settings import Settings
-from turtlex.repository.eodhd import CompanyRepository, DailyBarsRepository, ExchangeRepository, TickerRepository
+from turtlex.repository.ingest import CompanyRepository, DailyBarsRepository, ExchangeRepository, TickerRepository
 from turtlex.schema import Company, DailyBars
 
 logger = logging.getLogger(__name__)

@@ -2,7 +2,7 @@ import logging
 from datetime import date
 
 from turtlex.model import Signal
-from turtlex.repository.ticker_query import TickerQueryRepository
+from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.strategy.trading.base import TradingStrategy
 
 logger = logging.getLogger(__name__)

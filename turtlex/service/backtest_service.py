@@ -4,7 +4,7 @@ from datetime import date, datetime
 from turtlex.backtest.benchmark_utils import calculate_benchmark_list
 from turtlex.backtest.processor import SignalProcessor
 from turtlex.model import FutureTrade
-from turtlex.repository.ticker_query import TickerQueryRepository
+from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.strategy.trading.base import TradingStrategy
 
 logger = logging.getLogger(__name__)

@@ -2,8 +2,13 @@ import logging
 
 from sqlalchemy import Engine, and_, select
 
-from turtlex.repository.eodhd.ticker import COMMON_STOCK_TYPE, US_EXCHANGES
-from turtlex.repository.tables import company_table, ticker_group_table, ticker_table
+from turtlex.repository.tables import (
+    COMMON_STOCK_TYPE,
+    US_EXCHANGES,
+    company_table,
+    ticker_group_table,
+    ticker_table,
+)
 
 logger = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import polars as pl
 
 from turtlex.common.enums import TimeFrameUnit
-from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.strategy.ranking.base import RankingStrategy
 from turtlex.strategy.trading.mars import MarsStrategy
 

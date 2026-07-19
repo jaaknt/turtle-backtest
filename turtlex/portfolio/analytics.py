@@ -11,7 +11,7 @@ import polars as pl
 import quantstats as qs  # type: ignore[import-untyped]
 
 from turtlex.model import PortfolioState
-from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 
 # Suppress font warnings
 warnings.filterwarnings("ignore", message=".*findfont.*")

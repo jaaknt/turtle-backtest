@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 
 from turtlex.common.enums import TimeFrameUnit
 from turtlex.model import Benchmark, FutureTrade, Signal, Trade
-from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.strategy.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
 from turtlex.strategy.exit.atr import ATRExitStrategy
 

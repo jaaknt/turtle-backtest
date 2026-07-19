@@ -5,7 +5,7 @@ import polars as pl
 import pytest
 
 from turtlex.common.enums import TimeFrameUnit
-from turtlex.repository.daily_bars_query import DailyBarsQueryRepository
+from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 
 
 @pytest.fixture
@@ -35,7 +35,7 @@ def _sample_pl_df() -> pl.DataFrame:
 
 
 def test_get_bars_pl_returns_polars_dataframe(mock_engine: MagicMock) -> None:
-    with patch("turtlex.repository.daily_bars_query.pl.read_database", return_value=_sample_pl_df()):
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=_sample_pl_df()):
         result = _make_repo(mock_engine).get_bars_pl("AAPL", date(2024, 1, 2), date(2024, 1, 3))
 
     assert isinstance(result, pl.DataFrame)
@@ -47,7 +47,7 @@ def test_get_bars_pl_returns_polars_dataframe(mock_engine: MagicMock) -> None:
 def test_get_bars_pl_returns_empty_dataframe_when_no_data(mock_engine: MagicMock) -> None:
     empty_df = pl.DataFrame({"date": [], "open": [], "high": [], "low": [], "close": [], "adjusted_close": [], "volume": []})
 
-    with patch("turtlex.repository.daily_bars_query.pl.read_database", return_value=empty_df):
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=empty_df):
         result = _make_repo(mock_engine).get_bars_pl("AAPL", date(2024, 1, 2), date(2024, 1, 3))
 
     assert isinstance(result, pl.DataFrame)
@@ -62,7 +62,7 @@ def test_get_bars_pl_passes_correct_date_range(mock_engine: MagicMock) -> None:
         captured.append(query)
         return pl.DataFrame()
 
-    with patch("turtlex.repository.daily_bars_query.pl.read_database", side_effect=capture):
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", side_effect=capture):
         _make_repo(mock_engine).get_bars_pl("AAPL", date(2024, 1, 1), date(2024, 12, 31))
 
     assert len(captured) == 1
@@ -73,14 +73,14 @@ def test_get_bars_pl_passes_correct_date_range(mock_engine: MagicMock) -> None:
 
 
 def test_get_bars_pl_uses_engine_connection(mock_engine: MagicMock) -> None:
-    with patch("turtlex.repository.daily_bars_query.pl.read_database", return_value=pl.DataFrame()):
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=pl.DataFrame()):
         _make_repo(mock_engine).get_bars_pl("AAPL", date(2024, 1, 1), date(2024, 1, 31))
 
     mock_engine.connect.assert_called_once()
 
 
 def test_get_bars_pl_day_returns_daily_data(mock_engine: MagicMock) -> None:
-    with patch("turtlex.repository.daily_bars_query.pl.read_database", return_value=_sample_pl_df()):
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=_sample_pl_df()):
         result = _make_repo(mock_engine).get_bars_pl("AAPL", date(2024, 1, 2), date(2024, 1, 3), TimeFrameUnit.DAY)
 
     assert len(result) == 2
@@ -100,7 +100,7 @@ def test_get_bars_pl_week_resamples(mock_engine: MagicMock) -> None:
             "volume": [1_000_000, 1_100_000, 1_200_000, 1_300_000],
         }
     )
-    with patch("turtlex.repository.daily_bars_query.pl.read_database", return_value=two_weeks):
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=two_weeks):
         result = _make_repo(mock_engine).get_bars_pl("AAPL", date(2024, 1, 8), date(2024, 1, 16), TimeFrameUnit.WEEK)
 
     assert len(result) == 2
@@ -118,13 +118,13 @@ def test_get_bars_pl_week_resamples(mock_engine: MagicMock) -> None:
 
 def test_get_bars_pl_week_returns_empty_for_empty_input(mock_engine: MagicMock) -> None:
     empty = pl.DataFrame({"date": [], "open": [], "high": [], "low": [], "close": [], "adjusted_close": [], "volume": []})
-    with patch("turtlex.repository.daily_bars_query.pl.read_database", return_value=empty):
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=empty):
         result = _make_repo(mock_engine).get_bars_pl("AAPL", date(2024, 1, 1), date(2024, 1, 31), TimeFrameUnit.WEEK)
 
     assert result.is_empty()
 
 
 def test_get_bars_pl_raises_for_unsupported_time_frame_unit(mock_engine: MagicMock) -> None:
-    with patch("turtlex.repository.daily_bars_query.pl.read_database", return_value=_sample_pl_df()):
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=_sample_pl_df()):
         with pytest.raises(ValueError, match="Unsupported time_frame_unit"):
             _make_repo(mock_engine).get_bars_pl("AAPL", date(2024, 1, 1), date(2024, 1, 31), "month")  # type: ignore[arg-type]
