@@ -27,6 +27,7 @@ lint = ["ruff>=0.15.22", "mypy>=2.3.0"]
 [project.scripts]
 signal-runner = "turtlex.cli.signal_runner:main"
 download-eodhd-data = "turtlex.cli.download_eodhd_data:main"
+snapshot-company = "turtlex.cli.snapshot_company:main"
 
 [build-system]
 requires = ["hatchling"]
