@@ -9,23 +9,24 @@ from turtlex.strategy.ranking.base import RankingStrategy
 # Band tables mimic the bk50d_s15_v1.2_roc100 cohort tables in
 # docs/research/result-qullamaggie-cohorts-*.md (run 2026-07-16): each bucket's
 # points are that cohort's Sortino linearly rescaled to 0-<weight> within its
-# dimension (min Sortino -> 0, max -> weight). Dimension weights (32/23/23/22,
-# summing to 100) are proportional to each dimension's Sortino spread within
-# its filter-surviving domain — price has the widest spread, so it weighs most.
-# Entries are (upper_bound, points), first match wins; values >= the last
-# bound score the trailing constant.
+# dimension (min Sortino -> 0, max -> weight). Distance above SMA50 carries a
+# fixed weight of 50 by design; the remaining 50 points are split across
+# price/ADR/compression proportionally to each dimension's Sortino spread
+# within its filter-surviving domain (21/15/14, total 100). Entries are
+# (upper_bound, points), first match wins; values >= the last bound score
+# the trailing constant.
 
-# ADR%(20) as a fraction — result-qullamaggie-cohorts-adr.md (higher is better, weight 23)
-_ADR_BANDS = [(0.02, 0), (0.025, 3), (0.03, 4), (0.035, 6), (0.04, 7), (0.045, 12), (0.05, 14), (0.08, 19)]
-_ADR_TOP = 23
-# ADR compression ADR10/ADR50 — result-qullamaggie-cohorts-adr-compression.md (lower is better, weight 22)
-_COMPRESSION_BANDS = [(0.7, 22), (0.8, 7), (0.9, 7), (1.0, 4)]
+# ADR%(20) as a fraction — result-qullamaggie-cohorts-adr.md (higher is better, weight 15)
+_ADR_BANDS = [(0.02, 0), (0.025, 2), (0.03, 3), (0.035, 4), (0.04, 4), (0.045, 8), (0.05, 9), (0.08, 13)]
+_ADR_TOP = 15
+# ADR compression ADR10/ADR50 — result-qullamaggie-cohorts-adr-compression.md (lower is better, weight 14)
+_COMPRESSION_BANDS = [(0.7, 14), (0.8, 4), (0.9, 4), (1.0, 2)]
 _COMPRESSION_TOP = 0
-# Distance above SMA50 as a fraction — result-qullamaggie-cohorts-pct-above-sma50.md (higher is better, weight 23)
-_PCT_SMA50_BANDS = [(0.10, 0), (0.12, 6), (0.15, 10), (0.17, 14), (0.20, 8), (0.30, 20)]
-_PCT_SMA50_TOP = 23
-# Raw close price in dollars — result-qullamaggie-cohorts-price.md (lower is better, weight 32)
-_PRICE_BANDS = [(5.0, 28), (10.0, 32), (20.0, 16), (50.0, 14), (100.0, 13), (250.0, 10)]
+# Distance above SMA50 as a fraction — result-qullamaggie-cohorts-pct-above-sma50.md (higher is better, weight 50)
+_PCT_SMA50_BANDS = [(0.10, 0), (0.12, 12), (0.15, 22), (0.17, 31), (0.20, 17), (0.30, 44)]
+_PCT_SMA50_TOP = 50
+# Raw close price in dollars — result-qullamaggie-cohorts-price.md (lower is better, weight 21)
+_PRICE_BANDS = [(5.0, 19), (10.0, 21), (20.0, 11), (50.0, 9), (100.0, 9), (250.0, 6)]
 _PRICE_TOP = 0
 
 logger = logging.getLogger(__name__)
@@ -38,13 +39,14 @@ class QullamaggieRanking(RankingStrategy):
     Scores each signal by the four entry-time parameters with the strongest
     positive Sortino gradients in the cohort research
     (docs/research/result-qullamaggie-cohorts-*.md, bk50d_s15_v1.2_roc100).
-    Dimension weights are proportional to each dimension's Sortino spread
-    within its filter-surviving cohort domain:
+    Distance above SMA50 carries half the weight by design; the rest is split
+    proportionally to each dimension's Sortino spread within its
+    filter-surviving cohort domain:
 
-    - Entry price         (0-32 pts): cheaper entries carry higher Sortino
-    - ADR%(20)            (0-23 pts): higher daily range -> higher Sortino
-    - Distance above SMA50 (0-23 pts): further above the 50-day SMA outperforms
-    - ADR compression     (0-22 pts): ADR10/ADR50 < 0.7 is the strongest cohort
+    - Distance above SMA50 (0-50 pts): further above the 50-day SMA outperforms
+    - Entry price         (0-21 pts): cheaper entries carry higher Sortino
+    - ADR%(20)            (0-15 pts): higher daily range -> higher Sortino
+    - ADR compression     (0-14 pts): ADR10/ADR50 < 0.7 is the strongest cohort
 
     Total: 0-100. Expects the shift-1 indicator columns produced by
     ``QullamaggieStrategy.calculate_indicators_pl`` (``adr_pct``,

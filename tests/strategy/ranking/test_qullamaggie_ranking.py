@@ -40,7 +40,7 @@ class TestQullamaggieRanking:
 
     @pytest.mark.parametrize(
         ("adr_pct", "expected"),
-        [(0.019, 0), (0.02, 3), (0.025, 4), (0.03, 6), (0.035, 7), (0.04, 12), (0.045, 14), (0.05, 19), (0.08, 23)],
+        [(0.019, 0), (0.02, 2), (0.025, 3), (0.03, 4), (0.035, 4), (0.04, 8), (0.045, 9), (0.05, 13), (0.08, 15)],
     )
     def test_adr_band_edges(self, adr_pct: float, expected: int) -> None:
         df = _df([_row(close=300.0, adr_pct=adr_pct, adr_pct_change=1.1, pct_vs_sma50=0.05)])
@@ -48,7 +48,7 @@ class TestQullamaggieRanking:
 
     @pytest.mark.parametrize(
         ("adr_pct_change", "expected"),
-        [(0.69, 22), (0.7, 7), (0.8, 7), (0.9, 4), (1.0, 0)],
+        [(0.69, 14), (0.7, 4), (0.8, 4), (0.9, 2), (1.0, 0)],
     )
     def test_compression_band_edges(self, adr_pct_change: float, expected: int) -> None:
         df = _df([_row(close=300.0, adr_pct=0.015, adr_pct_change=adr_pct_change, pct_vs_sma50=0.05)])
@@ -56,7 +56,7 @@ class TestQullamaggieRanking:
 
     @pytest.mark.parametrize(
         ("pct_vs_sma50", "expected"),
-        [(0.05, 0), (0.10, 6), (0.12, 10), (0.15, 14), (0.17, 8), (0.20, 20), (0.30, 23)],
+        [(0.05, 0), (0.10, 12), (0.12, 22), (0.15, 31), (0.17, 17), (0.20, 44), (0.30, 50)],
     )
     def test_pct_sma50_band_edges(self, pct_vs_sma50: float, expected: int) -> None:
         df = _df([_row(close=300.0, adr_pct=0.015, adr_pct_change=1.1, pct_vs_sma50=pct_vs_sma50)])
@@ -64,7 +64,7 @@ class TestQullamaggieRanking:
 
     @pytest.mark.parametrize(
         ("close", "expected"),
-        [(4.0, 28), (5.0, 32), (10.0, 16), (20.0, 14), (50.0, 13), (100.0, 10), (250.0, 0)],
+        [(4.0, 19), (5.0, 21), (10.0, 11), (20.0, 9), (50.0, 9), (100.0, 6), (250.0, 0)],
     )
     def test_price_band_edges(self, close: float, expected: int) -> None:
         df = _df([_row(close=close, adr_pct=0.015, adr_pct_change=1.1, pct_vs_sma50=0.05)])
@@ -73,12 +73,12 @@ class TestQullamaggieRanking:
     def test_null_values_score_component_zero(self) -> None:
         """Null indicator values drop only that component, no exception."""
         df = _df([_row(close=7.5, adr_pct=None, adr_pct_change=None, pct_vs_sma50=None)])
-        assert self.strategy.ranking(df, date(2024, 6, 3)) == 32  # price component only
+        assert self.strategy.ranking(df, date(2024, 6, 3)) == 21  # price component only
 
     def test_missing_columns_score_zero(self) -> None:
         """A df without the Qullamaggie indicator columns scores price only."""
         df = pl.DataFrame({"date": [date(2024, 6, 3)], "close": [7.5]})
-        assert self.strategy.ranking(df, date(2024, 6, 3)) == 32
+        assert self.strategy.ranking(df, date(2024, 6, 3)) == 21
 
     def test_rows_after_signal_date_are_ignored(self) -> None:
         """Only the last row at/before the signal date is scored."""
