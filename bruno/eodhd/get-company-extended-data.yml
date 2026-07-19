@@ -36,7 +36,7 @@ runtime:
           expect(res.body).to.have.property('data');
           expect(res.body.data).to.have.property('AMZN.US');
         });
-        test("AMZN.US entry has all fields turtle/schema/eodhd/company.py uses", function() {
+        test("AMZN.US entry has all fields turtlex/schema/eodhd/company.py uses", function() {
           const company = res.body.data['AMZN.US'];
           const fields = [
             'symbol', 'type', 'name', 'sector', 'industry',

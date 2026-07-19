@@ -44,7 +44,7 @@ runtime:
         test("returns a non-empty array of daily bars", function() {
           expect(res.body).to.be.an('array').that.is.not.empty;
         });
-        test("each bar has all fields turtle/schema/eodhd/daily_bars.py uses", function() {
+        test("each bar has all fields turtlex/schema/eodhd/daily_bars.py uses", function() {
           const bar = res.body[0];
           const fields = ['date', 'open', 'high', 'low', 'close', 'adjusted_close', 'volume'];
           fields.forEach(function(field) {

@@ -32,7 +32,7 @@ runtime:
         test("returns a non-empty array of exchanges", function() {
           expect(res.body).to.be.an('array').that.is.not.empty;
         });
-        test("each exchange has all fields turtle/schema/eodhd/exchange.py uses", function() {
+        test("each exchange has all fields turtlex/schema/eodhd/exchange.py uses", function() {
           const exchange = res.body[0];
           const fields = ['Name', 'Code', 'Country', 'Currency', 'CountryISO3'];
           fields.forEach(function(field) {
