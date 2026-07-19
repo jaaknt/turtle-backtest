@@ -230,13 +230,13 @@ All strategies fetch additional historical data before the signal date to warm u
 
 **File**: `turtlex/strategy/exit/buy_and_hold.py`
 
-Holds the position until the end of the analysis period. Use as a baseline to measure what active exits add or cost.
+Holds the position for a fixed number of calendar days, selling at the first bar on/after the cutoff. Use as a baseline to measure what active exits add or cost.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| — | — | No configurable parameters |
+| `holding_days` | 30 | Calendar days to hold before selling (sell at first bar on/after the cutoff) |
 
-**Exit reason**: `period_end`
+**Exit reasons**: `holding_period` (cutoff reached), `period_end` (data ended before the cutoff)
 
 ---
 
