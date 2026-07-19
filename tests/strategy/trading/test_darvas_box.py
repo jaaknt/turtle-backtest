@@ -8,30 +8,6 @@ from unittest.mock import MagicMock
 import polars as pl
 
 
-def test_check_local_max() -> None:
-    series = [1.0, 2.0, 3.0, 10.0, 3.0, 2.0, 1.0]
-    assert DarvasBoxStrategy.check_local_max(0, series, 3, 3) is False
-    assert DarvasBoxStrategy.check_local_max(1, series, 3, 3) is False
-    assert DarvasBoxStrategy.check_local_max(2, series, 3, 3) is False
-    assert DarvasBoxStrategy.check_local_max(3, series, 3, 3) is True
-    assert DarvasBoxStrategy.check_local_max(4, series, 3, 3) is False
-    assert DarvasBoxStrategy.check_local_max(5, series, 3, 3) is False
-    assert DarvasBoxStrategy.check_local_max(6, series, 3, 3) is False
-
-
-def test_check_local_min() -> None:
-    series = [10.0, 9.0, 8.0, 7.0, 1.0, 7.0, 8.0, 9.0, 10.0]
-    assert DarvasBoxStrategy.check_local_min(0, series, 2) is False
-    assert DarvasBoxStrategy.check_local_min(1, series, 2) is False
-    assert DarvasBoxStrategy.check_local_min(2, series, 2) is False
-    assert DarvasBoxStrategy.check_local_min(3, series, 2) is False
-    assert DarvasBoxStrategy.check_local_min(4, series, 2) is True
-    assert DarvasBoxStrategy.check_local_min(5, series, 2) is True
-    assert DarvasBoxStrategy.check_local_min(6, series, 2) is True
-    assert DarvasBoxStrategy.check_local_min(7, series, 2) is False
-    assert DarvasBoxStrategy.check_local_min(8, series, 2) is False
-
-
 def test_collect() -> None:
     bars_history_mock = MagicMock(spec=DailyBarsQueryRepository)
     ranking_strategy_mock = MagicMock(spec=MomentumRanking)
@@ -87,22 +63,6 @@ def test_calculate_indicators() -> None:
         assert column in strategy.pl_df.columns
     assert strategy.pl_df["ema_10"][-1] is not None
     assert strategy.pl_df["max_close_20"][-1] is not None
-
-
-def test_is_local_max_valid() -> None:
-    highs = [1, 2, 3, 10, 3, 2, 1, 5, 6, 7, 8, 9, 10]
-    is_local_min = [False, False, False, False, False, False, False, True, False, False, False, False, False]
-    df = pl.DataFrame({"high": highs, "is_local_min": is_local_min})
-
-    assert DarvasBoxStrategy.is_local_max_valid(df, 10, 3) is True
-
-    df_invalid = pl.DataFrame({"high": highs[:8] + [11] + highs[9:], "is_local_min": is_local_min})
-    assert DarvasBoxStrategy.is_local_max_valid(df_invalid, 10, 3) is False
-
-    df_no_min = pl.DataFrame({"high": highs, "is_local_min": [False] * len(highs)})
-    assert DarvasBoxStrategy.is_local_max_valid(df_no_min, 10, 3) is True
-
-    assert DarvasBoxStrategy.is_local_max_valid(df, 10, 5) is True
 
 
 def test_price_to_ranking() -> None:

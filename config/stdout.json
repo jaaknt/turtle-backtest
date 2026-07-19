@@ -28,13 +28,6 @@
             ],
             "propagate": false
         },
-        "yfinance": {
-            "level": "WARNING",
-            "handlers": [
-                "stdout"
-            ],
-            "propagate": false
-        },
         "urllib3": {
             "level": "INFO",
             "handlers": [

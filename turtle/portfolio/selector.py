@@ -113,53 +113,6 @@ class PortfolioSignalSelector:
         """
         return sorted(signals, key=lambda x: x.ranking, reverse=True)
 
-    def get_diversification_scores(
-        self,
-        signals: list[Signal],
-        sector_info: dict[str, str] | None = None,
-    ) -> dict[str, float]:
-        """
-        Calculate diversification scores for signal selection.
-
-        This is a placeholder for future sector-based diversification logic.
-        Currently returns uniform scores.
-
-        Args:
-            signals: Signals to score
-            sector_info: Optional sector information for each ticker
-
-        Returns:
-            Dictionary mapping ticker to diversification score
-        """
-        # Placeholder implementation - could be enhanced with sector data
-        return {signal.ticker: 1.0 for signal in signals}
-
-    def apply_position_limits(
-        self,
-        signals: list[Signal],
-        current_positions_count: int,
-    ) -> list[Signal]:
-        """
-        Apply position count limits to signal selection.
-
-        Args:
-            signals: Input signals
-            current_positions_count: Number of currently open positions
-
-        Returns:
-            Signals limited by available position slots
-        """
-        available_slots = max(0, self.max_positions - current_positions_count)
-        limited_signals = signals[:available_slots]
-
-        if len(signals) > available_slots:
-            logger.debug(
-                f"Position limit applied: {len(signals)} signals -> {len(limited_signals)} "
-                f"(current: {current_positions_count}, max: {self.max_positions})"
-            )
-
-        return limited_signals
-
     def validate_signal_quality(self, signal: Signal) -> bool:
         """
         Validate individual signal meets quality criteria.
