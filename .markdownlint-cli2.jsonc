@@ -1,5 +1,5 @@
 {
-  "globs": ["README.md", "CLAUDE.md", "docs/**/*.md", ".claude/commands/*.md"],
+  "globs": ["README.md", "CLAUDE.md", "docs/**/*.md", ".claude/commands/*.md", ".github/**/*.md"],
   "config": {
     // Line length — prose docs shouldn't hard-wrap
     "MD013": false,
