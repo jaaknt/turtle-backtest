@@ -135,6 +135,15 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Results:** `docs/research/result-qullamaggie-cohorts-tightrange.md`
 - **Note:** implemented as s20_tr10, s20_tr20, s15_tr15 variants (not s12/s17).
 
+### pct-above-sma50 cohorts
+
+**Goal:** How `pct_above_sma50`: `close / mean(close[-51:-1]) − 1 > X` affects results.
+
+- **Algorithms:** `bk50d_<X>_v1.2_roc100-366d`
+- **Cohorts:** (<10), [10-12), [12-15), [15-17), [17-20), [20-30), (>30)
+- **Script:** `scripts/qullamaggie-cohorts-pct-above-sma50.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-pct-above-sma50.md`.
+
 ### SMA(200) analyze
 
 **Goal:** How `signal above sma(200)` (`SMA(200)` on entry) affects performance.

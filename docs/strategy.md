@@ -239,16 +239,16 @@ Scores the strength of the breakout event itself at signal time — useful for c
 
 **File**: `turtlex/strategy/ranking/qullamaggie.py`
 
-Cohort-derived ranking for Qullamaggie-style breakout signals. Scores each signal by the four entry-time parameters with the strongest positive Sortino gradients in the cohort research (`docs/research/result-qullamaggie-cohorts-*.md`, `bk50d_s15_v1.2_roc100` tables). Each dimension's bands mimic the cohort buckets, with points equal to the bucket's Sortino rescaled to 0–25 within the dimension.
+Cohort-derived ranking for Qullamaggie-style breakout signals. Scores each signal by the four entry-time parameters with the strongest positive Sortino gradients in the cohort research (`docs/research/result-qullamaggie-cohorts-*.md`, `bk50d_s15_v1.2_roc100` tables). Each dimension's bands mimic the cohort buckets, with points equal to the bucket's Sortino rescaled to 0–weight within the dimension. Dimension weights are proportional to each dimension's Sortino spread within its filter-surviving cohort domain — entry price has the widest spread, so it weighs most.
 
 **Score breakdown** (max 100):
 
 | Component | Column | Best cohort | Max score |
 | ----------- | -------- | ------------- | ----------- |
-| ADR%(20) | `adr_pct` | ≥8% daily range | 25 |
-| ADR compression | `adr_pct_change` | ADR10/ADR50 < 0.7 | 25 |
-| ROC252 | `roc_252d` | 40–60% 12-month ROC | 25 |
-| Entry price | `close` | $5–$10 raw close | 25 |
+| Entry price | `close` | $5–$10 raw close | 32 |
+| ADR%(20) | `adr_pct` | ≥8% daily range | 23 |
+| Distance above SMA50 | `pct_vs_sma50` | >30% above SMA50 | 23 |
+| ADR compression | `adr_pct_change` | ADR10/ADR50 < 0.7 | 22 |
 
 Expects the shift-1 indicator columns produced by `QullamaggieStrategy`; a missing column or null value scores that component 0. Note: per `result-qullamaggie-cohort-ranking.md`, composite cohort scores separate already-filtered signals only weakly — this ranking orders surviving signals, it is not a substitute for the entry filters.
 
