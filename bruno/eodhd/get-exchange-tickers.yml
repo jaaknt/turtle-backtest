@@ -32,7 +32,7 @@ runtime:
         test("returns a non-empty array of tickers", function() {
           expect(res.body).to.be.an('array').that.is.not.empty;
         });
-        test("each ticker has all fields turtle/schema/eodhd/ticker.py uses", function() {
+        test("each ticker has all fields turtlex/schema/eodhd/ticker.py uses", function() {
           const ticker = res.body[0];
           const fields = ['Code', 'Name', 'Country', 'Exchange', 'Currency', 'Type', 'Isin'];
           fields.forEach(function(field) {
