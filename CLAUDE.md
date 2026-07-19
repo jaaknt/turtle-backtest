@@ -210,7 +210,7 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 | `uv run alembic downgrade -1` | Rollback one migration |
 | `uv run alembic revision -m "description"` | Create new migration |
 
-**Architecture**: Alembic standalone mode with raw SQL. Migrations in `db/migrations/versions/`. Version table in `turtle.alembic_version`.
+**Architecture**: Alembic standalone mode with raw SQL. Migrations in `db/migrations/versions/`. Version table in `public.alembic_version`. Target database selected via `DB_ENV` (`local` default, `hetzner` for the VPS).
 
 ## Development Workflows
 
