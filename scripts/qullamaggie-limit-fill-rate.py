@@ -13,7 +13,7 @@ Filters match scripts/qullamaggie-signals-v4.py exactly (RSI<70, ADR mean-of-rat
 >=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA,
 close>$5&<$250, avg_vol>=500K, no tight_range, cooldown 30d, mcap>=1.5B excl Comm/RE).
 close/high/low are split/dividend-adjusted; the fill test uses adjusted prices — same
-convention as scripts/qullamaggie-limit-order-cohorts.py's run_trades_limit.
+convention as scripts/qullamaggie-cohorts-limit-order.py's run_trades_limit.
 
 Period: 2010-06-01 - today  |  Burn-in data from 2008-01-01.
 
@@ -351,7 +351,7 @@ def main() -> None:
         fh.write(
             "| Fill rule | resting limit at signal_day_close x (1 - X%), eligible from the day after the signal; "
             "fills on the first trading day whose low <= limit price within Y calendar days, else expires unfilled "
-            "(adjusted prices, same convention as scripts/qullamaggie-limit-order-cohorts.py) |\n"
+            "(adjusted prices, same convention as scripts/qullamaggie-cohorts-limit-order.py) |\n"
         )
         fh.write("| Fixed filters | RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, no tight_range |\n")
         fh.write("| Market regime | SPY close > 200d SMA |\n")
@@ -377,7 +377,7 @@ def main() -> None:
             "- **Truncated windows near the end of data**: signals in the last 90 calendar days of the period "
             "have fewer forward bars than the window nominally allows, so Fill% for the longer windows is "
             "slightly understated for those signals (denominator counts every signal with at least one "
-            "following bar, matching scripts/qullamaggie-limit-order-cohorts.py).\n\n"
+            "following bar, matching scripts/qullamaggie-cohorts-limit-order.py).\n\n"
         )
         fh.write(
             "- **First-touch convention**: a fill is the first day the low touches the limit; MedD/MeanD "

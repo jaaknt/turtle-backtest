@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-Vol-surge cohort analysis for bk50d_s20_v1.2_roc100 and bk50d_s15_v1.2_roc100, bk50d_s12_v1.2_roc100 (366d hold).
+Entry-price cohort analysis for bk50d_s20_v1.2_roc100, bk50d_s15_v1.2_roc100, bk50d_s12_v1.2_roc100 (366d hold).
 
-All strategy filters applied EXCEPT the vol_surge_max cap, so we can see
-performance across the full vol_surge_ratio range including >2x bands.
-vol_surge_ratio = volume / avg_vol_50
+All strategy filters applied EXCEPT the close>$5&<$250 price bounds, so we can see
+performance across the full entry-price range including sub-$5 and $250+ cohorts.
 
 Period: 2015-01-01 – 2026-06-26  (burn-in from 2013-01-01)
 """
@@ -29,6 +28,10 @@ MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
 VOL_DRY_UP = 0.90
+VOL_SURGE_MAX = 2.0
+RSI_CAP = 70.0
+ADR_MIN = 0.03
+ADR_CHANGE_CAP = 0.90
 ROC_CAP = 1.00
 MIN_NEG = 5
 
@@ -39,23 +42,18 @@ STRATEGIES = [
 ]
 
 COHORTS: list[tuple[str, float, float]] = [
-    ("[<0.70)    ", 0.00, 0.70),
-    ("[0.70-0.80)", 0.70, 0.80),
-    ("[0.80-0.90)", 0.80, 0.90),
-    ("[0.90-1.00)", 0.90, 1.00),
-    ("[1.00-1.10)", 1.00, 1.10),
-    ("[1.10-1.20)", 1.10, 1.20),
-    ("[1.20-1.30)", 1.20, 1.30),
-    ("[1.30-1.40)", 1.30, 1.40),
-    ("[1.40-1.60)", 1.40, 1.60),
-    ("[1.60-2.00)", 1.60, 2.00),
-    ("[2.00-3.00)", 2.00, 3.00),
-    ("[3.00-4.00)", 3.00, 4.00),
-    ("[4.00-6.00)", 4.00, 6.00),
-    ("[6.00+    )", 6.00, float("inf")),
+    ("[0-5)      ", 0.0, 5.0),
+    ("[5-10)     ", 5.0, 10.0),
+    ("[10-20)    ", 10.0, 20.0),
+    ("[20-50)    ", 20.0, 50.0),
+    ("[50-100)   ", 50.0, 100.0),
+    ("[100-250)  ", 100.0, 250.0),
+    ("[250-700)  ", 250.0, 700.0),
+    ("[700-2000) ", 700.0, 2000.0),
+    ("[>2000]    ", 2000.0, float("inf")),
 ]
 
-RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-volsurge-cohorts.md"
+RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-cohorts-price.md"
 
 
 # ── Data loading ─────────────────────────────────────────────────────────────
@@ -123,7 +121,7 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
         [
             pl.col("close").shift(1).over("symbol").alias("_c1"),
             pl.col("volume").cast(pl.Float64).shift(1).over("symbol").alias("_v1"),
-            (pl.col("high") - pl.col("low")).shift(1).over("symbol").alias("_dr1"),
+            ((pl.col("high") - pl.col("low")) / pl.col("low")).shift(1).over("symbol").alias("_rp1"),
         ]
     )
     df = df.with_columns(pl.col("_c1").diff(1).over("symbol").alias("_diff"))
@@ -148,22 +146,23 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("_v1").rolling_mean(20, min_samples=20).over("symbol").alias("avg_vol_20"),
             pl.col("_v1").rolling_mean(10, min_samples=10).over("symbol").alias("avg_vol_10"),
             pl.col("_c1").rolling_max(50, min_samples=50).over("symbol").alias("max_c_50d"),
-            pl.col("_dr1").rolling_mean(20, min_samples=20).over("symbol").alias("_adr_num"),
+            pl.col("_rp1").rolling_mean(20, min_samples=20).over("symbol").alias("adr_pct"),
+            pl.col("_rp1").rolling_mean(10, min_samples=10).over("symbol").alias("_adr10"),
+            pl.col("_rp1").rolling_mean(50, min_samples=50).over("symbol").alias("_adr50"),
             pl.col("_c1").shift(251).over("symbol").alias("_c_252d"),
         ]
     )
     df = df.with_columns(
         [
             ((pl.col("close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
-            (pl.col("_adr_num") / pl.col("sma50")).alias("adr_pct"),
+            (pl.col("_adr10") / pl.col("_adr50")).alias("adr_pct_change"),
             (pl.col("close") / pl.col("_c_252d") - 1.0).alias("roc_252d"),
-            (pl.col("volume").cast(pl.Float64) / pl.col("avg_vol_50")).alias("vol_surge_ratio"),
         ]
     )
-    return df.drop(["_c1", "_v1", "_dr1", "_adr_num", "_c_252d"])
+    return df.drop(["_c1", "_v1", "_rp1", "_adr10", "_adr50", "_c_252d"])
 
 
-# ── Signal generation (no vol_surge_max cap) ─────────────────────────────────
+# ── Signal generation (no price bounds) ───────────────────────────────────────
 
 
 def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
@@ -175,18 +174,20 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & pl.col("max_c_50d").is_not_null()
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
-            & (pl.col("rsi14") < 80.0)
-            & (pl.col("close") > MIN_PRICE)
-            & (pl.col("close") < MAX_PRICE)
+            & pl.col("adr_pct_change").is_not_null()
+            & pl.col("adr_pct").is_not_null()
+            & (pl.col("rsi14") < RSI_CAP)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
-            & (pl.col("adr_pct") >= 0.025)
+            & (pl.col("adr_pct") >= ADR_MIN)
+            & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
             & (pl.col("close") > pl.col("max_c_50d"))
-            & (pl.col("pct_vs_sma50") >= sma_t)
+            & (pl.col("pct_vs_sma50") > sma_t)
+            & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
         )
-        .select(["symbol", "date", "close", "vol_surge_ratio"])
+        .select(["symbol", "date", "close"])
         .sort(["symbol", "date"])
     )
     if cands.is_empty():
@@ -227,7 +228,7 @@ def run_trades(
         if idx_exit >= len(dates):
             continue
         ret = float((closes[idx_exit] - closes[idx_entry]) / closes[idx_entry])
-        records.append({"vsr": row["vol_surge_ratio"], "ret": ret})
+        records.append({"price": row["close"], "ret": ret})
     return records
 
 
@@ -258,35 +259,34 @@ def compute_metrics(rets: np.ndarray) -> dict | None:
 
 # ── Output ────────────────────────────────────────────────────────────────────
 
-_COL_HDR = f"{'Cohort':<16}  {'N':>5}  {'Med%':>7}  {'Mean%':>7}  {'Win%':>6}  {'Sortino':>8}  {'PF':>6}"
+_COL_HDR = f"{'Cohort':<12}  {'N':>5}  {'Med%':>7}  {'Mean%':>7}  {'Win%':>6}  {'Sortino':>8}  {'PF':>6}"
 _COL_SEP = "─" * len(_COL_HDR)
 
 
 def fmt_cohort_row(label: str, m: dict) -> str:
     sr_str = f"{m['sr']:>8.3f}" if not (isinstance(m["sr"], float) and np.isnan(m["sr"])) else "     n/a"
-    return f"{label:<16}  {m['n']:>5}  {m['med']:>+7.2f}  {m['mean']:>+7.2f}  {m['win']:>6.1f}  {sr_str}  {m['pf']:>6.2f}"
+    return f"{label:<12}  {m['n']:>5}  {m['med']:>+7.2f}  {m['mean']:>+7.2f}  {m['win']:>6.1f}  {sr_str}  {m['pf']:>6.2f}"
 
 
 def build_table(label: str, records: list[dict]) -> list[str]:
     lines = [f"### {label}", "", _COL_HDR, _COL_SEP]
     all_rets = np.array([r["ret"] for r in records])
     for cohort_label, lo, hi in COHORTS:
-        cohort_rets = np.array([r["ret"] for r in records if lo <= r["vsr"] < hi])
+        cohort_rets = np.array([r["ret"] for r in records if lo <= r["price"] < hi])
         m = compute_metrics(cohort_rets)
         if m:
             lines.append(fmt_cohort_row(cohort_label, m))
         else:
             n = len(cohort_rets)
-            lines.append(f"{cohort_label:<16}  {n:>5}  {'—':>7}  {'—':>7}  {'—':>6}  {'—':>8}  {'—':>6}")
+            lines.append(f"{cohort_label:<12}  {n:>5}  {'—':>7}  {'—':>7}  {'—':>6}  {'—':>8}  {'—':>6}")
     lines.append(_COL_SEP)
     m_all = compute_metrics(all_rets)
     if m_all:
         lines.append(fmt_cohort_row("ALL", m_all))
-    # reference: original strategy cap [1.0-2.0)
-    ref_rets = np.array([r["ret"] for r in records if 1.0 <= r["vsr"] < 2.0])
+    ref_rets = np.array([r["ret"] for r in records if MIN_PRICE < r["price"] < MAX_PRICE])
     m_ref = compute_metrics(ref_rets)
     if m_ref:
-        lines.append(fmt_cohort_row("[1.00-2.00) cap", m_ref))
+        lines.append(fmt_cohort_row("$5-$250 (cap)", m_ref))
     lines.append("")
     return lines
 
@@ -316,14 +316,13 @@ def main() -> None:
         sym_closes[sym] = g["close"].cast(pl.Float64).to_numpy(allow_copy=True)
 
     header = (
-        f"Vol-surge cohort analysis | Hold: {HOLD_CAL}d | "
+        f"Entry-price cohort analysis | Hold: {HOLD_CAL}d | "
         f"Period: {EVAL_START} – {EVAL_END}\n"
-        f"Filters: all bk50d fixed filters applied; vol_surge_max cap removed for cohort view\n"
+        f"Filters: all bk50d fixed filters applied; close>$5&<$250 bounds removed for cohort view\n"
     )
     print("\n" + header)
 
     all_lines: list[str] = [header]
-
     for strat_label, sma_t in STRATEGIES:
         print(f"  {strat_label} …", flush=True)
         signals = get_signals(df, bull_dates, sma_t)
@@ -338,7 +337,7 @@ def main() -> None:
 
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with RESULT_PATH.open("w") as fh:
-        fh.write("# Qullamaggie Vol-Surge Cohort Analysis\n\n")
+        fh.write("# Qullamaggie Entry-Price Cohort Analysis\n\n")
         fh.write(f"Run date: {date.today()}\n\n")
         fh.write("```text\n")
         fh.write(output)

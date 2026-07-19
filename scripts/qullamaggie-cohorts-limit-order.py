@@ -54,7 +54,7 @@ MIN_NEG = 10
 LIMIT_PCTS = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05]
 SMA_THRESHS = [(0.20, "bk50d_s20_v1.2_roc100"), (0.15, "bk50d_s15_v1.2_roc100"), (0.12, "bk50d_s12_v1.2_roc100")]
 
-RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-limit-order-cohorts.md"
+RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-cohorts-limit-order.md"
 
 
 # ── Data loading (identical to qullamaggie-backtest-v4.py) ────────────────────

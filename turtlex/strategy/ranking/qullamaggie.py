@@ -7,21 +7,21 @@ import polars as pl
 from turtlex.strategy.ranking.base import RankingStrategy
 
 # Band tables mimic the bk50d_s15_v1.2_roc100 cohort tables in
-# docs/research/result-qullamaggie-*-cohorts.md (run 2026-07-16): each bucket's
+# docs/research/result-qullamaggie-cohorts-*.md (run 2026-07-16): each bucket's
 # points are that cohort's Sortino linearly rescaled to 0-25 within its
 # dimension (min Sortino -> 0, max -> 25). Entries are (upper_bound, points),
 # first match wins; values >= the last bound score the trailing constant.
 
-# ADR%(20) as a fraction — result-qullamaggie-adr-cohorts.md (higher is better)
+# ADR%(20) as a fraction — result-qullamaggie-cohorts-adr.md (higher is better)
 _ADR_BANDS = [(0.02, 0), (0.025, 3), (0.03, 5), (0.035, 7), (0.04, 7), (0.045, 13), (0.05, 15), (0.08, 21)]
 _ADR_TOP = 25
-# ADR compression ADR10/ADR50 — result-qullamaggie-adr-compression-cohorts.md (lower is better)
+# ADR compression ADR10/ADR50 — result-qullamaggie-cohorts-adr-compression.md (lower is better)
 _COMPRESSION_BANDS = [(0.7, 25), (0.8, 8), (0.9, 8), (1.0, 4)]
 _COMPRESSION_TOP = 0
-# 12-month ROC as a fraction — result-qullamaggie-roc-cohorts.md (domain < 1.0 under the strategy cap)
+# 12-month ROC as a fraction — result-qullamaggie-cohorts-roc.md (domain < 1.0 under the strategy cap)
 _ROC_BANDS = [(-0.2, 22), (0.0, 17), (0.2, 13), (0.4, 18), (0.6, 25), (0.8, 4)]
 _ROC_TOP = 0
-# Raw close price in dollars — result-qullamaggie-price-cohorts.md (lower is better)
+# Raw close price in dollars — result-qullamaggie-cohorts-price.md (lower is better)
 _PRICE_BANDS = [(5.0, 22), (10.0, 25), (20.0, 13), (50.0, 11), (100.0, 10), (250.0, 7)]
 _PRICE_TOP = 0
 
@@ -34,7 +34,7 @@ class QullamaggieRanking(RankingStrategy):
 
     Scores each signal by the four entry-time parameters with the strongest
     positive Sortino gradients in the cohort research
-    (docs/research/result-qullamaggie-*-cohorts.md, bk50d_s15_v1.2_roc100):
+    (docs/research/result-qullamaggie-cohorts-*.md, bk50d_s15_v1.2_roc100):
 
     - ADR%(20)            (0-25 pts): higher daily range -> higher Sortino
     - ADR compression     (0-25 pts): ADR10/ADR50 < 0.7 is the strongest cohort

@@ -17,8 +17,8 @@ sect+CommRE (re-admit Comm Services/Real Estate).
 Eval: 2015-01-01 – 2026-06-26 | 366d calendar hold | bars loaded from 2013-01-01
 References: docs/research/qullamaggie-backtest-v4.md,
             docs/research/result-qullamaggie-backtest-v4.md,
-            docs/research/result-qullamaggie-tightrange-cohorts.md,
-            docs/research/result-qullamaggie-price-cohorts.md
+            docs/research/result-qullamaggie-cohorts-tightrange.md,
+            docs/research/result-qullamaggie-cohorts-price.md
 """
 
 from datetime import date

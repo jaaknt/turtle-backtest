@@ -10,14 +10,14 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 | -------- | -------- | --------- |
 | [Validate & run backtest v4](#validate--run-backtest-v4) | `scripts/qullamaggie-backtest-v4.py` | `result-qullamaggie-backtest-v4.md` |
 | [Long-term monthly analysis](#long-term-monthly-analysis) | `scripts/qullamaggie-longterm-monthly.py` | `result-qullamaggie-longterm-monthly.md` |
-| [ROC 12m cohorts](#roc-12m-cohorts) | `scripts/qullamaggie-roc-cohorts.py` | `result-qullamaggie-roc-cohorts.md` |
-| [ADR% cohorts](#adr-cohorts) | `scripts/qullamaggie-adr-cohorts.py` | `result-qullamaggie-adr-cohorts.md` |
-| [ADR compression cohorts](#adr-compression-cohorts) | `scripts/qullamaggie-adr-compression-cohorts.py` | `result-qullamaggie-adr-compression-cohorts.md` |
-| [RSI(14) cohorts](#rsi14-cohorts) | `scripts/qullamaggie-rsi-cohorts.py` | `result-qullamaggie-rsi-cohorts.md` |
-| [Entry price cohorts](#entry-price-cohorts) | `scripts/qullamaggie-price-cohorts.py` | `result-qullamaggie-price-cohorts.md` |
-| [Volume surge cohorts](#volume-surge-cohorts) | `scripts/qullamaggie-volsurge-cohorts.py` | `result-qullamaggie-volsurge-cohorts.md` |
-| [Tight range cohorts](#tight-range-cohorts) | `scripts/qullamaggie-tightrange-cohorts.py` | `result-qullamaggie-tightrange-cohorts.md` |
-| [Limit-order entry cohorts](#limit-order-entry-cohorts) | `scripts/qullamaggie-limit-order-cohorts.py` | `result-qullamaggie-limit-order-cohorts.md` |
+| [ROC 12m cohorts](#roc-12m-cohorts) | `scripts/qullamaggie-cohorts-roc.py` | `result-qullamaggie-cohorts-roc.md` |
+| [ADR% cohorts](#adr-cohorts) | `scripts/qullamaggie-cohorts-adr.py` | `result-qullamaggie-cohorts-adr.md` |
+| [ADR compression cohorts](#adr-compression-cohorts) | `scripts/qullamaggie-cohorts-adr-compression.py` | `result-qullamaggie-cohorts-adr-compression.md` |
+| [RSI(14) cohorts](#rsi14-cohorts) | `scripts/qullamaggie-cohorts-rsi.py` | `result-qullamaggie-cohorts-rsi.md` |
+| [Entry price cohorts](#entry-price-cohorts) | `scripts/qullamaggie-cohorts-price.py` | `result-qullamaggie-cohorts-price.md` |
+| [Volume surge cohorts](#volume-surge-cohorts) | `scripts/qullamaggie-cohorts-volsurge.py` | `result-qullamaggie-cohorts-volsurge.md` |
+| [Tight range cohorts](#tight-range-cohorts) | `scripts/qullamaggie-cohorts-tightrange.py` | `result-qullamaggie-cohorts-tightrange.md` |
+| [Limit-order entry cohorts](#limit-order-entry-cohorts) | `scripts/qullamaggie-cohorts-limit-order.py` | `result-qullamaggie-cohorts-limit-order.md` |
 | [Limit-order fill rate](#limit-order-fill-rate) | `scripts/qullamaggie-limit-fill-rate.py` | `result-qullamaggie-limit-fill-rate.md` |
 | [Relaxation brainstorm (s15)](#relaxation-brainstorm-s15) | — | — |
 | [Relaxation sweep (s20)](#relaxation-sweep-s20) | `scripts/qullamaggie-relax-sweep.py` | `result-qullamaggie-relax-sweep.md` |
@@ -80,17 +80,17 @@ All cohort studies below share the same setup unless stated otherwise:
 **Goal:** How `roc_12m_cap` (`close / close[-252] − 1 < 100%`) affects performance.
 
 - **Cohorts:** (<-20), [-20-0), [0-20), [20-40), [40-60), [60-80), [80-100), [100-120), [120-140), [140-160), (>160)
-- **Script:** `scripts/qullamaggie-roc-cohorts.py`
-- **Results:** `docs/research/result-qullamaggie-roc-cohorts.md`
+- **Script:** `scripts/qullamaggie-cohorts-roc.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-roc.md`
 
 ### ADR% cohorts
 
 **Goal:** How `adr_pct` (`mean((high_i − low_i)/low_i, i in last 20 days, shift-1)`) affects performance.
 
 - **Cohorts:** [0-1.0), [1.0-2.0), [2.0-2.5), [2.5-3.0), [3.0-3.5), [3.5-4.0), [4.0-4.5), [4.5-5.0), [5.0-7.0), (>8.0)
-- **Script:** `scripts/qullamaggie-adr-cohorts.py`
-- **Results:** `docs/research/result-qullamaggie-adr-cohorts.md`
-- **Note:** the script was recreated 2026-07-16 with the standardized v1.2 filters (vol_dry_up<90%, no tight_range); an earlier run with tr20 variants and vol_dry_up<80% had overwritten it with the ROC study, which now lives in `scripts/qullamaggie-roc-cohorts.py`.
+- **Script:** `scripts/qullamaggie-cohorts-adr.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-adr.md`
+- **Note:** the script was recreated 2026-07-16 with the standardized v1.2 filters (vol_dry_up<90%, no tight_range); an earlier run with tr20 variants and vol_dry_up<80% had overwritten it with the ROC study, which now lives in `scripts/qullamaggie-cohorts-roc.py`.
 
 ### ADR compression cohorts
 
@@ -98,32 +98,32 @@ All cohort studies below share the same setup unless stated otherwise:
 
 - **Metric:** `ADR%(N) = mean((high − low) / low)` over previous N days × 100 (exclude current day); `compression = ADR%(10) / ADR%(50)`
 - **Cohorts:** (<0.5), [0.5-0.7), [0.7-0.8), [0.8-0.9), [0.9-1.0), [1.0-1.3), (>1.3)
-- **Script:** `scripts/qullamaggie-adr-compression-cohorts.py`
-- **Results:** `docs/research/result-qullamaggie-adr-compression-cohorts.md`
+- **Script:** `scripts/qullamaggie-cohorts-adr-compression.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-adr-compression.md`
 
 ### RSI(14) cohorts
 
 **Goal:** How `rsi_filter` (`RSI(14)` on entry) affects performance.
 
 - **Cohorts:** [0-20), [20-40), [40-60), [40-50), [50-60), [60-70), [70-75), [75-80), [80-90), [90-100]
-- **Script:** `scripts/qullamaggie-rsi-cohorts.py`
-- **Results:** `docs/research/result-qullamaggie-rsi-cohorts.md`
+- **Script:** `scripts/qullamaggie-cohorts-rsi.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-rsi.md`
 
 ### Entry price cohorts
 
 **Goal:** How the close price on entry affects results.
 
 - **Cohorts:** [0-5), [5-10), [10-20), [20-50), [50-100), [100-250), [250-700), [700-2000), (>2000)
-- **Script:** `scripts/qullamaggie-price-cohorts.py`
-- **Results:** `docs/research/result-qullamaggie-price-cohorts.md`
+- **Script:** `scripts/qullamaggie-cohorts-price.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-price.md`
 
 ### Volume surge cohorts
 
 **Goal:** How `vol_surge_ratio = volume / mean(volume[-51:-1])` affects results.
 
 - **Cohorts:** (<0.7), [0.7-0.8), [0.8-0.9), [0.9-1.0), [1.0-1.1), [1.1-1.2), [1.2-1.3), [1.3-1.4), [1.4-1.6), [1.6-2.0), [2.0-3.0), [3.0-4.0), [4.0-6.0), (>6.0)
-- **Script:** `scripts/qullamaggie-volsurge-cohorts.py`
-- **Results:** `docs/research/result-qullamaggie-volsurge-cohorts.md`
+- **Script:** `scripts/qullamaggie-cohorts-volsurge.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-volsurge.md`
 
 ### Tight range cohorts
 
@@ -131,8 +131,8 @@ All cohort studies below share the same setup unless stated otherwise:
 
 - **Algorithms:** `bk50d_s12_v1.2_roc100-366d`, `bk50d_s15_v1.2_roc100-366d`, `bk50d_s17_v1.2_roc100-366d`, `bk50d_s20_v1.2_roc100-366d`
 - **Cohorts:** (<0), [0.0-0.1), [0.1-0.15), [0.15-0.2), [0.2-0.25), [0.25-0.3), (>0.3)
-- **Script:** `scripts/qullamaggie-tightrange-cohorts.py`
-- **Results:** `docs/research/result-qullamaggie-tightrange-cohorts.md`
+- **Script:** `scripts/qullamaggie-cohorts-tightrange.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-tightrange.md`
 - **Note:** implemented as s20_tr10, s20_tr20, s15_tr15 variants (not s12/s17).
 
 ### SMA(200) analyze
@@ -148,8 +148,8 @@ All cohort studies below share the same setup unless stated otherwise:
 **Goal:** How company `sector` affects performance.
 
 - **Cohorts:** different company sectors
-- **Script:** `scripts/qullamaggie-sector-cohorts.py`
-- **Results:** `docs/research/result-qullamaggie-sector-cohorts.md`
+- **Script:** `scripts/qullamaggie-cohorts-sector.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-sector.md`
 
 ## Entry-timing / limit-order studies
 
@@ -169,8 +169,8 @@ All cohort studies below share the same setup unless stated otherwise:
    2010 |  +22.3|2   -4.5|1      ·      ·  +46.4|5      ·      ·  -31.4|2  -28.6|4  -39.1|2      ·      · |    -4.4|3   19
   ```
 
-- **Script:** `scripts/qullamaggie-limit-order-cohorts.py`
-- **Results:** `docs/research/result-qullamaggie-limit-order-cohorts.md`
+- **Script:** `scripts/qullamaggie-cohorts-limit-order.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-limit-order.md`
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`
 - **Note:** vol_dry_up<90%, no tight_range (standardized 2026-07-15); saved results were generated earlier with tr20 variants and vol_dry_up<80%.
 
@@ -181,7 +181,7 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Filters:** same as `scripts/qullamaggie-signals-v4.py` (RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, no tight_range, cooldown 30d, mcap>=1.5B excl Comm/RE)
 - **Limit order price:** signal-day close × (1 − X%), X = 0%, 1%, 2%, 3%, 4%, 5%
 - **Window:** order effective for Y calendar days after the signal day, Y = 30, 60, 90
-- **Fill rule:** order is eligible from the day after the signal; fills on the first trading day whose low <= limit price, else expires unfilled (adjusted prices, same convention as `scripts/qullamaggie-limit-order-cohorts.py`)
+- **Fill rule:** order is eligible from the day after the signal; fills on the first trading day whose low <= limit price, else expires unfilled (adjusted prices, same convention as `scripts/qullamaggie-cohorts-limit-order.py`)
 - **Period:** 2010-06-01 : today
 - **Output format:**
 
@@ -194,7 +194,7 @@ All cohort studies below share the same setup unless stated otherwise:
 
 - **Script:** `scripts/qullamaggie-limit-fill-rate.py` (created new)
 - **Results:** `docs/research/result-qullamaggie-limit-fill-rate.md`
-- **References:** `scripts/qullamaggie-signals-v4.py`, `scripts/qullamaggie-limit-order-cohorts.py`, `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`
+- **References:** `scripts/qullamaggie-signals-v4.py`, `scripts/qullamaggie-cohorts-limit-order.py`, `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`
 
 ## Filter relaxation
 
@@ -225,7 +225,7 @@ All cohort studies below share the same setup unless stated otherwise:
 - Share your findings: which single relaxation has the best F/mo gain per unit of Sortino given up.
 - **Script:** `scripts/qullamaggie-backtest-v4.py` (new: `scripts/qullamaggie-relax-sweep.py`)
 - **Results:** `docs/research/result-qullamaggie-relax-sweep.md`
-- **References:** `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-tightrange-cohorts.md`, `docs/research/result-qullamaggie-price-cohorts.md`
+- **References:** `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-cohorts-tightrange.md`, `docs/research/result-qullamaggie-cohorts-price.md`
 
 ## Ranking
 
@@ -254,7 +254,7 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Script:** `scripts/qullamaggie-cohort-ranking.py` (create new; reuse the shared harness of the cohort scripts)
 - **Results:** `docs/research/result-qullamaggie-cohort-ranking.md`
 - **Note:** implementation adds a second, regime-neutral decile table (score minus running pool log-odds) because the raw walk-forward P proved anti-calibrated — dominated by pool-win-rate time drift; see Findings in the result doc. RSI uses the fine partition ([40-50), [50-60)) so bins are disjoint; values in cohort gaps (e.g. ADR [7-8)) fall back to the pool win rate via n=0 shrinkage.
-- **Important files:** `scripts/qullamaggie-adr-cohorts.py`, `scripts/qullamaggie-roc-cohorts.py`, `docs/research/result-qullamaggie-adr-cohorts.md`, `docs/research/result-qullamaggie-adr-compression-cohorts.md`, `docs/research/result-qullamaggie-rsi-cohorts.md`, `docs/research/result-qullamaggie-price-cohorts.md`, `docs/research/result-qullamaggie-volsurge-cohorts.md`, `docs/research/result-qullamaggie-roc-cohorts.md`, `docs/research/qullamaggie-backtest-v4.md`
+- **Important files:** `scripts/qullamaggie-cohorts-adr.py`, `scripts/qullamaggie-cohorts-roc.py`, `docs/research/result-qullamaggie-cohorts-adr.md`, `docs/research/result-qullamaggie-cohorts-adr-compression.md`, `docs/research/result-qullamaggie-cohorts-rsi.md`, `docs/research/result-qullamaggie-cohorts-price.md`, `docs/research/result-qullamaggie-cohorts-volsurge.md`, `docs/research/result-qullamaggie-cohorts-roc.md`, `docs/research/qullamaggie-backtest-v4.md`
 
 ## Portfolio simulation
 
