@@ -93,7 +93,7 @@ sequenceDiagram
 Notes on the flow:
 
 - **Warmup** — each strategy fetches `warmup_period` days of history before `start_date` (e.g. 730 days for qullamaggie) so indicators like SMA200 or 252-day ROC are warm on day one. Tickers with fewer than `min_bars` rows are silently skipped (logged at DEBUG).
-- **Universe ownership** — the strategy, not the CLI, decides its universe. The default (`TradingStrategy.get_universe`) reads the `active` symbol group; `QullamaggieStrategy` overrides it with a fundamentals query (`get_qualified_symbols`: US common stocks, market cap ≥ 1.5B, sector exclusions).
+- **Universe ownership** — the strategy, not the CLI, decides its universe. The default (`TradingStrategy.get_universe`) reads the `active` symbol group; `QullamaggieStrategy` overrides it with a fundamentals query (`get_qullamaggie_qualified_symbols`: US common stocks, market cap ≥ 1.5B, sector exclusions).
 - **Ranking** — every emitted `Signal` carries a 1-100 ranking computed by the injected `RankingStrategy`; `top` sorts on it.
 
 ## Signal flow (`signal` command)

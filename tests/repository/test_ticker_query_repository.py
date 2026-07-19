@@ -49,15 +49,15 @@ def test_ticker_query_get_symbol_list_limit() -> None:
     assert repo.get_symbol_list("USA", limit=None) == ["AAPL.US", "AMZN.US", "TSLA.US"]
 
 
-def test_ticker_query_get_qualified_symbols_returns_codes() -> None:
+def test_ticker_query_get_qullamaggie_qualified_symbols_returns_codes() -> None:
     rows = [MagicMock(code=c) for c in ["AAPL.US", "NVDA.US"]]
     engine = _make_engine_mock(rows)
     repo = TickerQueryRepository(engine)
-    assert repo.get_qualified_symbols() == ["AAPL.US", "NVDA.US"]
+    assert repo.get_qullamaggie_qualified_symbols() == ["AAPL.US", "NVDA.US"]
 
 
-def test_ticker_query_get_qualified_symbols_limit() -> None:
+def test_ticker_query_get_qullamaggie_qualified_symbols_limit() -> None:
     rows = [MagicMock(code=c) for c in ["AAPL.US", "AMZN.US", "NVDA.US"]]
     engine = _make_engine_mock(rows)
     repo = TickerQueryRepository(engine)
-    assert repo.get_qualified_symbols(limit=2) == ["AAPL.US", "AMZN.US"]
+    assert repo.get_qullamaggie_qualified_symbols(limit=2) == ["AAPL.US", "AMZN.US"]

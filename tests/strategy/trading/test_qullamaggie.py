@@ -133,10 +133,19 @@ def test_returns_empty_when_insufficient_data() -> None:
     assert strategy.get_signals("TEST.US", last_date, last_date) == []
 
 
+def test_missing_spy_data_blocks_all_signals() -> None:
+    # empty SPY frame (e.g. empty/wrong database): regime filter blocks every signal
+    ohlcv = _build_ohlcv(breakouts={N - 1: 120.0})
+    last_date = ohlcv["date"][-1]
+    strategy = _make_strategy(ohlcv, pl.DataFrame())
+    assert strategy.get_signals("TEST.US", last_date, last_date) == []
+    assert strategy._regime_dates == set()
+
+
 def test_universe_uses_qualified_symbols() -> None:
     ohlcv = _build_ohlcv()
     strategy = _make_strategy(ohlcv, _build_spy(ohlcv["date"][-1]))
     mock_ticker_repo = MagicMock()
-    mock_ticker_repo.get_qualified_symbols.return_value = ["AAA.US", "BBB.US"]
+    mock_ticker_repo.get_qullamaggie_qualified_symbols.return_value = ["AAA.US", "BBB.US"]
     assert strategy.get_universe(mock_ticker_repo, limit=100) == ["AAA.US", "BBB.US"]
-    mock_ticker_repo.get_qualified_symbols.assert_called_once_with(limit=100)
+    mock_ticker_repo.get_qullamaggie_qualified_symbols.assert_called_once_with(limit=100)
