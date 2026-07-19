@@ -367,11 +367,11 @@ def main() -> None:
             "Fill% = n_filled / N attempted. MedD/MeanD = median/mean trading days from the signal day to the "
             "fill day, filled orders only (1 = fills on the first trading day after the signal).\n\n"
         )
-        fh.write("```\n")
+        fh.write("```text\n")
         fh.write(grid)
         fh.write("\n```\n\n")
         fh.write("### n_filled per cell\n\n")
-        fh.write("```\n")
+        fh.write("```text\n")
         fh.write(counts)
         fh.write("\n```\n\n")
         fh.write("## Findings & Caveats\n\n")

@@ -476,7 +476,7 @@ def main() -> None:
             key = (ed.year, ed.month)
             entry_counts[key] = entry_counts.get(key, 0) + 1
 
-        out("```")
+        out("```text")
         header = f"{'Year':>5} | " + " ".join(f"{m:>9}" for m in MONTHS) + f" | {'Year%':>7} {'Txns':>5}"
         out(header)
         out("-" * len(header))
