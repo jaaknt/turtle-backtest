@@ -17,7 +17,7 @@ jobs:
         uses: astral-sh/setup-uv@v8.3.2
 
       - name: Install dependencies
-        run: uv sync --extra dev --extra lint
+        run: uv sync --extra lint
 
       - name: Run ruff linter
         run: uv run ruff check turtlex/ scripts/
