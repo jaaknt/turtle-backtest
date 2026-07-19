@@ -111,7 +111,7 @@ The `backtest.py` script provides comprehensive backtesting capabilities by comb
 **Key Features:**
 
 - Complete signal-to-exit backtesting workflow
-- Multiple trading strategies (Darvas Box, Mars, Momentum)
+- Multiple trading strategies (Darvas Box, Mars, Momentum, Qullamaggie)
 - Multiple exit strategies (Buy and Hold, Profit/Loss, EMA, MACD, ATR, Trailing Percentage Loss)
 - Configurable ranking strategies
 - Flexible ticker selection and limiting
@@ -146,6 +146,7 @@ uv run python scripts/backtest.py --start-date 2024-01-15 --end-date 2024-01-15 
   - `darvas_box` - Darvas Box trend-following strategy
   - `mars` - Mars momentum strategy (@marsrides)
   - `momentum` - Traditional momentum strategy
+  - `qullamaggie` - Qullamaggie-style 50-day-high breakout strategy
 - `--exit-strategy` - Exit timing strategy (default: buy_and_hold)
   - `buy_and_hold` - Hold for a fixed number of calendar days (default 30)
   - `profit_loss` - Exit on profit target or stop loss
@@ -155,6 +156,8 @@ uv run python scripts/backtest.py --start-date 2024-01-15 --end-date 2024-01-15 
   - `trailing_percentage_loss` - Trailing stop set as a fixed percentage below the running max close
 - `--ranking-strategy` - Signal ranking method (default: momentum)
   - `momentum` - Momentum-based ranking
+  - `volume_momentum` - Volume-weighted momentum ranking
+  - `breakout_quality` - Breakout event strength ranking
 - `--max-tickers` - Maximum number of tickers to test (default: 10000)
 - `--mode` - Analysis mode (default: list)
   - `list` - Get all tickers with signals in date range
@@ -178,9 +181,9 @@ uv run python scripts/backtest.py --start-date 2024-01-15 --end-date 2024-01-15 
 - Benchmark comparisons against QQQ and SPY indices
 - Detailed logging of signal analysis workflow
 
-## portfolio_runner.py
+## portfolio-runner
 
-The `portfolio_runner.py` script provides sophisticated portfolio-level backtesting using the PortfolioService class. It simulates realistic trading with capital constraints, position sizing, and daily portfolio management across multiple strategies and time periods.
+The `portfolio-runner` console script provides sophisticated portfolio-level backtesting using the PortfolioService class. It simulates realistic trading with capital constraints, position sizing, and daily portfolio management across multiple strategies and time periods.
 
 **Key Features:**
 
@@ -199,6 +202,7 @@ The `portfolio_runner.py` script provides sophisticated portfolio-level backtest
 - `darvas_box` (default) - Darvas Box trend-following strategy
 - `mars` - Mars momentum strategy (@marsrides)
 - `momentum` - Traditional momentum strategy
+- `qullamaggie` - Qullamaggie-style 50-day-high breakout strategy
 
 **Exit Strategies:**
 
@@ -213,29 +217,30 @@ The `portfolio_runner.py` script provides sophisticated portfolio-level backtest
 
 - `momentum` (default) - Momentum-based signal ranking
 - `volume_momentum` - Volume-weighted momentum ranking
+- `breakout_quality` - Breakout event strength ranking
 
 **Usage:**
 
 ```bash
 # Basic portfolio backtest with default settings
-uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31
 
 # Advanced backtest with custom parameters
-uv run python scripts/portfolio_runner.py \
+uv run portfolio-runner \
     --start-date 2024-01-01 --end-date 2024-12-31 \
     --trading-strategy mars --exit-strategy profit_loss \
     --initial-capital 50000 --min-signal-ranking 80 \
     --output-file mars_strategy_results.html --verbose
 
 # Test specific ticker universe
-uv run python scripts/portfolio_runner.py \
+uv run portfolio-runner \
     --start-date 2024-01-01 --end-date 2024-06-30 \
     --tickers AAPL MSFT GOOGL AMZN NVDA \
     --trading-strategy darvas_box --exit-strategy atr \
     --position-max-amount 5000 --verbose
 
 # High-ranking signals only with custom benchmarks
-uv run python scripts/portfolio_runner.py \
+uv run portfolio-runner \
     --start-date 2024-01-01 --end-date 2024-12-31 \
     --min-signal-ranking 85 --max-tickers 500 \
     --benchmark-tickers SPY QQQ IWM \
@@ -305,24 +310,24 @@ uv run python scripts/portfolio_runner.py \
 
 ```bash
 # Test different trading strategies with same exit logic
-uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31 --trading-strategy darvas_box --output-file darvas_results.html
-uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31 --trading-strategy mars --output-file mars_results.html
-uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31 --trading-strategy momentum --output-file momentum_results.html
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --trading-strategy darvas_box --output-file darvas_results.html
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --trading-strategy mars --output-file mars_results.html
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --trading-strategy momentum --output-file momentum_results.html
 ```
 
 **Exit Strategy Analysis:**
 
 ```bash
 # Compare exit strategies with same trading approach
-uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31 --exit-strategy buy_and_hold --output-file bah_exits.html
-uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31 --exit-strategy atr --output-file atr_exits.html
-uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31 --exit-strategy ema --output-file ema_exits.html
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --exit-strategy buy_and_hold --output-file bah_exits.html
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --exit-strategy atr --output-file atr_exits.html
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --exit-strategy ema --output-file ema_exits.html
 ```
 
 **Risk Management Testing:**
 
 ```bash
 # Test different position sizing and signal quality thresholds
-uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31 --min-signal-ranking 60 --position-max-amount 2000 --output-file conservative.html
-uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-12-31 --min-signal-ranking 90 --position-max-amount 5000 --output-file aggressive.html
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --min-signal-ranking 60 --position-max-amount 2000 --output-file conservative.html
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --min-signal-ranking 90 --position-max-amount 5000 --output-file aggressive.html
 ```

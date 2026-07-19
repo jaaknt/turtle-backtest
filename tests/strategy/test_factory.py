@@ -9,7 +9,14 @@ from turtlex.strategy.exit.ema import EMAExitStrategy
 from turtlex.strategy.exit.macd import MACDExitStrategy
 from turtlex.strategy.exit.profit_loss import ProfitLossExitStrategy
 from turtlex.strategy.exit.trailing_percentage_loss import TrailingPercentageLossExitStrategy
-from turtlex.strategy.factory import get_exit_strategy, get_ranking_strategy, get_trading_strategy
+from turtlex.strategy.factory import (
+    EXIT_STRATEGIES,
+    RANKING_STRATEGIES,
+    TRADING_STRATEGIES,
+    get_exit_strategy,
+    get_ranking_strategy,
+    get_trading_strategy,
+)
 from turtlex.strategy.ranking.base import RankingStrategy
 from turtlex.strategy.ranking.breakout_quality import BreakoutQualityRanking
 from turtlex.strategy.ranking.momentum import MomentumRanking
@@ -80,3 +87,13 @@ def test_factory_creates_ranking_strategy(name: str, expected_class: type[Rankin
 def test_unknown_ranking_strategy_raises_value_error() -> None:
     with pytest.raises(ValueError, match="Unknown ranking strategy 'nope'.*Available"):
         get_ranking_strategy("nope")
+
+
+def test_every_registry_name_constructs() -> None:
+    """Every registry key must be constructible through its factory function."""
+    for name in TRADING_STRATEGIES:
+        get_trading_strategy(name, MagicMock(), MagicMock())
+    for name in EXIT_STRATEGIES:
+        get_exit_strategy(name, MagicMock())
+    for name in RANKING_STRATEGIES:
+        get_ranking_strategy(name)

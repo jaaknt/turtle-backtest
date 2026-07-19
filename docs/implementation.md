@@ -270,7 +270,7 @@ systemctl --user enable --now turtle-backup.timer
 uv run signal-runner list --start-date 2024-01-01 --end-date 2024-01-02
 
 # 2. Confirm portfolio backtest runs end-to-end
-uv run python scripts/portfolio_runner.py --start-date 2024-01-01 --end-date 2024-01-31 --output-file /tmp/test.html
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-01-31 --output-file /tmp/test.html
 
 # 3. Check timers are registered
 systemctl --user list-timers eodhd-download-daily.timer eodhd-download-weekly.timer snapshot_company.timer

@@ -36,7 +36,7 @@ from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.service.signal_service import SignalService
-from turtlex.strategy.factory import get_ranking_strategy, get_trading_strategy
+from turtlex.strategy.factory import RANKING_STRATEGIES, TRADING_STRATEGIES, get_ranking_strategy, get_trading_strategy
 
 logger = logging.getLogger(__name__)
 
@@ -90,14 +90,14 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--trading-strategy",
         type=str,
         default="darvas_box",
-        choices=["darvas_box", "mars", "momentum", "qullamaggie"],
+        choices=list(TRADING_STRATEGIES),
         help="Trading strategy to use (default: darvas_box)",
     )
     common.add_argument(
         "--ranking-strategy",
         type=str,
         default="momentum",
-        choices=["momentum", "volume_momentum", "breakout_quality"],
+        choices=list(RANKING_STRATEGIES),
         help="Ranking strategy to use (default: momentum)",
     )
     common.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")

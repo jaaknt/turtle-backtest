@@ -85,7 +85,7 @@ For comprehensive strategy analysis and performance testing, use the command-lin
 
 - **`signal-runner`** (console script) - Signal analysis with multiple modes (list/signal/top)
 - **`scripts/backtest.py`** - Complete signal-to-exit backtesting with configurable strategies
-- **`scripts/portfolio_runner.py`** - Portfolio-level backtesting with capital constraints
+- **`portfolio-runner`** (console script) - Portfolio-level backtesting with capital constraints
 
 See [docs/scripts.md](docs/scripts.md) for complete documentation, usage examples, and all available options.
 
