@@ -72,7 +72,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 - After non-trivial changes, run pytest and mypy before proposing a commit. Run mypy with no arguments (`uv run mypy`) — scanned paths are defined in `pyproject.toml` `[tool.mypy] files`.
 - Use the PR review subagent workflow (parallel agents) before commit/push on multi-file changes.
-- Polars for all new code. Pandas is intentionally retained in `turtle/portfolio/analytics.py` and the Streamlit `app.py`, plus indirectly via `quantstats` and `streamlit`. Don't introduce pandas elsewhere; flag any new pandas import in code review.
+- Polars for all new code. Pandas is intentionally retained in `turtle/portfolio/analytics.py`, plus indirectly via `quantstats`. Don't introduce pandas elsewhere; flag any new pandas import in code review.
 
 ## Quick Start & Common Commands
 
@@ -87,7 +87,6 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | **Lint markdown docs** | `npx markdownlint-cli2` | Check README/CLAUDE.md/docs before committing (`--fix` to auto-fix) |
 | **Run Bruno API smoke tests** | `uv run pytest -m bruno` | Verify live EODHD endpoints still match expectations (requires `npm install -g @usebruno/cli` + real `EODHD_API_KEY` in `bruno/eodhd/.env`) |
 | **Start database** | `docker-compose up -d` | Before any data operations |
-| **Run Streamlit app** | `uv run streamlit run app.py` | Explore signals interactively |
 
 ### Critical File Paths
 
@@ -97,7 +96,6 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - **Portfolio**: `/turtle/portfolio/*.py` - Multi-position management
 - **Services**: `/turtle/service/*.py` - Business logic orchestration
 - **Domain models**: `/turtle/model.py` - `Signal`, `Trade`, `Benchmark` dataclasses
-- **Streamlit app**: `/app.py` - Interactive signal explorer (`uv run streamlit run app.py`)
 - **Project docs**: `/docs/*.md` - `implementation.md`, `scripts.md`, `service.md`, `strategy.md`, `troubleshooting.md`
 - **Database init & migrations**: `/db/init.sql`, `/db/init.sh`, `/db/migrations/`
 
@@ -340,6 +338,6 @@ Run with `uv run pytest` or `uv run pytest tests/strategy/trading/test_darvas_bo
 
 ## Dependencies & Resources
 
-**Core Libraries**: polars (primary DataFrame library), pandas/numpy (retained for quantstats and Streamlit boundaries), pydantic (schema validation), httpx (async HTTP for EODHD client), psycopg (PostgreSQL), quantstats (performance analytics), streamlit (web UI)
+**Core Libraries**: polars (primary DataFrame library), pandas/numpy (retained for quantstats boundary), pydantic (schema validation), httpx (async HTTP for EODHD client), psycopg (PostgreSQL), quantstats (performance analytics)
 
 **Special Requirements**: Python 3.13+

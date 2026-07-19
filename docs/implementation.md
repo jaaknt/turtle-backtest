@@ -2,7 +2,7 @@
 
 ## Context
 
-turtle-backtest runs locally today. This guide covers moving it to a Hetzner VPS so the database and scheduled jobs persist without a local machine, and the Streamlit UI is optionally accessible remotely.
+turtle-backtest runs locally today. This guide covers moving it to a Hetzner VPS so the database and scheduled jobs persist without a local machine.
 
 **Services required:**
 
@@ -35,18 +35,7 @@ turtle-backtest runs locally today. This guide covers moving it to a Hetzner VPS
 
 **Recommended: Native PostgreSQL 17.** Alternative: keep Docker Compose if you prefer parity with local — zero behaviour difference.
 
-### 3. Streamlit UI Access
-
-| Option | Pros | Cons |
-| -------- | ------ | ------ |
-| SSH tunnel only | Zero exposure, free | Must have SSH session open |
-| **Tailscale** | Private network, no open ports, free | Requires Tailscale on client machines |
-| nginx + Let's Encrypt TLS | Secure, persistent browser access | Needs a domain name |
-| Cloudflare Tunnel | No open ports, free tier | Adds Cloudflare dependency |
-
-**Recommended: Tailscale** for personal use (zero attack surface). Use **nginx + Let's Encrypt** if you need to share access with others.
-
-### 4. Scheduled Tasks
+### 3. Scheduled Tasks
 
 | Option | Pros | Cons |
 | -------- | ------ | ------ |
@@ -56,7 +45,7 @@ turtle-backtest runs locally today. This guide covers moving it to a Hetzner VPS
 
 **Recommended: systemd timers** — pairs with `journalctl` for log review.
 
-### 5. Secrets Management
+### 4. Secrets Management
 
 | Option | Pros | Cons |
 |--------|------|------|
@@ -65,7 +54,7 @@ turtle-backtest runs locally today. This guide covers moving it to a Hetzner VPS
 
 **Recommended: systemd EnvironmentFile** at `/etc/turtle-backtest/secrets.env` (chmod 600, owned by app user).
 
-### 6. Data Migration (local → VPS)
+### 5. Data Migration (local → VPS)
 
 | Option | Pros | Cons |
 | -------- | ------ | ------ |
@@ -75,7 +64,7 @@ turtle-backtest runs locally today. This guide covers moving it to a Hetzner VPS
 
 **Recommended**: Re-download from EODHD
 
-### 7. Backups
+### 6. Backups
 
 | Option | Pros | Cons |
 |--------|------|------|
@@ -84,7 +73,7 @@ turtle-backtest runs locally today. This guide covers moving it to a Hetzner VPS
 
 **Recommended: Daily pg_dump → Hetzner Object Storage** (~€0.023/GB/mo). Weekly Hetzner Server Snapshots as a safety net.
 
-### 8. Code Deployment
+### 7. Code Deployment
 
 | Option | Pros | Cons |
 |--------|------|------|
@@ -114,7 +103,6 @@ turtle-backtest runs locally today. This guide covers moving it to a Hetzner VPS
 2. Add your SSH public key during creation
 3. Assign a Hetzner Firewall:
    - Allow TCP 22 (SSH) from your IP only
-   - Allow TCP 8501 (Streamlit) only if NOT using Tailscale
    - Block all else inbound
 4. (Optional) Install Tailscale:
 
@@ -254,13 +242,6 @@ systemctl --user enable --now snapshot_company.timer
 
 Full deploy steps including prerequisites and removal are in the comments at the top of each timer file.
 
-Access Streamlit via SSH tunnel: `ssh -L 8501:127.0.0.1:8501 turtle@<vps-ip>` then open `http://localhost:8501`.
-
-```bash
-# Start Streamlit manually when needed
-uv run streamlit run app.py --server.port 8501 --server.address 127.0.0.1
-```
-
 ### Phase 6: Backups
 
 **Backup service** (`deploy/turtle-backup.service` + `deploy/turtle-backup.timer`):
@@ -273,21 +254,6 @@ ln -s ~/turtle-backtest/deploy/turtle-backup.service ~/.config/systemd/user/turt
 ln -s ~/turtle-backtest/deploy/turtle-backup.timer   ~/.config/systemd/user/turtle-backup.timer
 systemctl --user daemon-reload
 systemctl --user enable --now turtle-backup.timer
-```
-
-### Phase 7: nginx + TLS (only if exposing Streamlit publicly)
-
-```bash
-sudo apt install -y nginx certbot python3-certbot-nginx
-
-# /etc/nginx/sites-available/turtle
-# server {
-#     listen 80;
-#     server_name <your-domain>;
-#     location / { proxy_pass http://127.0.0.1:8501; }
-# }
-
-sudo certbot --nginx -d <your-domain>
 ```
 
 ---
@@ -307,8 +273,4 @@ systemctl --user list-timers eodhd-download.timer snapshot_company.timer
 # 4. Review logs after first timer runs
 journalctl --user -u eodhd-download.service
 journalctl --user -u snapshot_company.service
-
-# 5. Streamlit (via SSH tunnel)
-ssh -L 8501:127.0.0.1:8501 turtle@<vps-ip>
-# open http://localhost:8501
 ```
