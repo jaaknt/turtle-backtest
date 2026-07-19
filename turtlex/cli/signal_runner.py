@@ -130,11 +130,11 @@ def main() -> int:
     """Main entry point for strategy runner."""
     parser = create_argument_parser()
     args = parser.parse_args()
-    settings = Settings.from_toml()
     run_start = time.perf_counter()
 
-    # Setup logging
+    # Setup logging before loading settings so the DB connection log is visible
     LogConfig.setup(args.verbose)
+    settings = Settings.from_toml()
 
     logger.info(f"Starting strategy analysis with {args.trading_strategy} strategy and {args.ranking_strategy} ranking")
 

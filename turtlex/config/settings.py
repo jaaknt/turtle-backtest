@@ -1,3 +1,4 @@
+import logging
 import os
 import tomllib
 from dataclasses import dataclass
@@ -7,6 +8,8 @@ from dotenv import load_dotenv
 from sqlalchemy import Engine, create_engine
 
 from turtlex.config.model import AppConfig, DatabaseConfig
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -49,6 +52,7 @@ class Settings:
             pool=data["database"].get("pool", {}),
             password=os.environ["DB_APP_PASSWORD"],
         )
+        logger.info(f"Database connection: DB_ENV={db_env} ({db_config.host}:{db_config.port}/{db_config.dbname})")
 
         data["app"]["eodhd"]["api_key"] = os.environ["EODHD_API_KEY"]
 
