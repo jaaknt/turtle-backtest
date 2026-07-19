@@ -50,27 +50,27 @@ To download exchange data from EODHD, you first need to configure your EODHD API
     ```
 
 2. **Run the Download Script:**
-    Execute the `scripts/download_eodhd_data.py` script to fetch and store exchange data in your local PostgreSQL database:
+    Run the `download-eodhd-data` command to fetch and store exchange data in your local PostgreSQL database:
 
     ```bash
-    uv run python scripts/download_eodhd_data.py --data exchange
+    uv run download-eodhd-data --data exchange
     ```
 
     This script will fetch the latest list of exchanges and upsert them into the `turtle.exchange` table.
 
 ### Downloading Data
 
-Use the `scripts/download_eodhd_data.py` script for bulk data downloads:
+Use the `download-eodhd-data` command for bulk data downloads:
 
 ```bash
 # Download US ticker list
-uv run python scripts/download_eodhd_data.py --data us_ticker
+uv run download-eodhd-data --data us_ticker
 
 # Download historical data with a ticker limit (useful for testing)
-uv run python scripts/download_eodhd_data.py --data history --ticker-limit 10
+uv run download-eodhd-data --data history --ticker-limit 10
 
 # Download historical data for a specific date range
-uv run python scripts/download_eodhd_data.py --data history --start-date 2024-01-01 --end-date 2024-12-31
+uv run download-eodhd-data --data history --start-date 2024-01-01 --end-date 2024-12-31
 ```
 
 **Data Sources:**
