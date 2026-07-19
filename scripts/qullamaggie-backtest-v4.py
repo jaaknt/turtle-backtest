@@ -491,7 +491,7 @@ def main() -> None:
         fh.write(f"| Cooldown | {COOLDOWN} calendar days |\n")
         fh.write(f"| Eval period | {EVAL_START} – {date.today()} |\n")
         fh.write("| Universe | US common stocks, market_cap ≥ 1.5B, excl. Comm/RE |\n\n")
-        fh.write("## Rankings\n\n```\n")
+        fh.write("## Rankings\n\n```text\n")
         fh.write(output)
         fh.write("\n```\n\n")
         fh.write(consistent_md("Consistent Combinations", consistent_rows))
@@ -501,7 +501,7 @@ def main() -> None:
             fh.write(f"\n## Rankings — Max {cap} Concurrent Positions\n\n")
             fh.write(
                 f"Same signals, but a trade is skipped if {cap} positions are already open on its entry "
-                "date (FIFO, ties broken alphabetically by symbol; no queueing for a freed-up slot later).\n\n```\n"
+                "date (FIFO, ties broken alphabetically by symbol; no queueing for a freed-up slot later).\n\n```text\n"
             )
             fh.write(out)
             fh.write("\n```\n\n")
