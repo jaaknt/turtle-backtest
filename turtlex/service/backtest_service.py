@@ -1,4 +1,6 @@
 import logging
+import math
+from dataclasses import dataclass
 from datetime import date
 
 from turtlex.backtest.benchmark_utils import calculate_benchmark_list
@@ -8,6 +10,19 @@ from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.strategy.trading.base import TradingStrategy
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class GroupMetrics:
+    """Aggregate return/risk metrics for a group of trades (a ranking bucket, or all trades)."""
+
+    n: int
+    mean_pct: float
+    ann_mean_pct: float
+    win_pct: float
+    pf: float
+    sortino: float
+    cvar95: float
 
 
 class BacktestService:
@@ -47,21 +62,21 @@ class BacktestService:
             if signal_result is not None:
                 signal_results.append(signal_result)
         self._print_summary(signal_results, start_date, end_date)
-        self._print_top_signals(signal_results)
+        self._print_trade_listing(signal_results)
         return signal_results
 
     def _print_summary(self, signal_results: list[FutureTrade], start_date: date, end_date: date) -> None:
         """
-        Print average(return_pct), average benchmark returns
-        Print total trades and winning trades and win rate
+        Print the benchmark comparison and the ranking-bucket comparison table.
 
-        Print average returns by ranking buckets 1-20, 21-40, 41-60, 61-80, 81-100
+        Args:
+            signal_results: FutureTrade objects to summarize
+            start_date: Backtest start date, used for the benchmark period
+            end_date: Backtest end date, used for the benchmark period
         """
         if not signal_results:
             logger.warning("No signal results to summarize.")
             return
-
-        avg_return_pct = sum(result.realized_pct for result in signal_results) / len(signal_results)
 
         # Calculate full-period benchmark returns (start_date to end_date)
         benchmarks = calculate_benchmark_list(
@@ -80,104 +95,126 @@ class BacktestService:
         spy_return = spy.return_pct if spy else 0.0
         spy_annual = spy.annualized_pct if spy else 0.0
 
-        avg_days_held = sum((result.exit.date - result.entry.date).days for result in signal_results) / len(signal_results)
+        trading_strategy_name = type(self.trading_strategy).__name__
+        exit_strategy_name = type(self.signal_processor.exit_strategy).__name__
         print(
-            f"Backtest Summary:"
-            f" Average Return (Ticker): {avg_return_pct:.2f}% count: {len(signal_results)}"
-            f" Average Days Held: {avg_days_held:.2f}"
-            f"\n QQQ: Period: {qqq_return:.2f}% Annual: {qqq_annual:.2f}%"
-            f"\n SPY: Period: {spy_return:.2f}% Annual: {spy_annual:.2f}%"
+            f"Backtest Summary: {trading_strategy_name} / {exit_strategy_name} | Period: {start_date} - {end_date}"
+            f"\n QQQ: Period: {qqq_return:+.2f}% Annual: {qqq_annual:+.2f}%"
+            f"\n SPY: Period: {spy_return:+.2f}% Annual: {spy_annual:+.2f}%"
         )
-        self._print_pnl_distribution(signal_results, rank_label="All")
-        for i in range(0, 100, 20):
-            ranked_results = [result for result in signal_results if i < result.signal.ranking < i + 21]
-            if ranked_results:
-                avg_ranked_return_pct = sum(result.realized_pct for result in ranked_results) / len(ranked_results)
-                avg_ranked_annual_pct = sum(min(result.annualized_pct, 9999.0) for result in ranked_results) / len(ranked_results)
-                print(
-                    f" Average Return Rank [{i + 1}-{i + 20}]: {avg_ranked_return_pct:.2f}%"
-                    f" Annual: {avg_ranked_annual_pct:,.0f}%"
-                    f" count: {len(ranked_results)}"
-                )
-                if i in (60, 80):
-                    self._print_pnl_distribution(ranked_results, rank_label=f"{i + 1}-{i + 20}")
+        self._print_bucket_table(signal_results)
 
-    def _print_pnl_distribution(self, results: list[FutureTrade], rank_label: str = "") -> None:
-        """Print PnL distribution across fixed return buckets."""
-        buckets: list[tuple[str, float, float]] = [
-            ("<-5%", float("-inf"), -5.0),
-            ("-5%:-3%", -5.0, -3.0),
-            ("-3%:-1%", -3.0, -1.0),
-            ("-1%:0%", -1.0, 0.0),
-            ("0%:1%", 0.0, 1.0),
-            ("1%:3%", 1.0, 3.0),
-            ("3%:5%", 3.0, 5.0),
-            ("5%:10%", 5.0, 10.0),
-            (">10%", 10.0, float("inf")),
-        ]
-        n = len(results)
-        label_suffix = " (all signals)" if rank_label == "All" else f" (rank {rank_label})" if rank_label else ""
-        print(f"   PnL Distribution{label_suffix}:")
-        for label, lo, hi in buckets:
-            count = sum(1 for r in results if lo <= r.realized_pct < hi)
-            pct = count / n * 100 if n else 0.0
-            bar = "#" * int(pct / 2)
-            print(f"   {label:>10}  {count:>4} ({pct:>5.1f}%)  {bar}")
-
-        sorted_results = sorted(results, key=lambda r: r.realized_pct, reverse=True)
-        header = f"   {'Ticker':<10} {'Return%':>8}  {'Annual%':>9}  {'Entry':>10}  {'Exit':>10}  {'Days':>5}"
-        sep = "   " + "-" * 60
-
-        top_n = sorted_results[:10]
-        print(f"\n   Top {len(top_n)}{label_suffix}:")
-        print(header)
-        print(sep)
-        for r in top_n:
-            days = (r.exit.date - r.entry.date).days
-            annual_str = f"{min(r.annualized_pct, 9999.0):>8.0f}%"
-            print(
-                f"   {r.signal.ticker:<10} {r.realized_pct:>7.2f}%  {annual_str}  "
-                f"{r.entry.date.strftime('%Y-%m-%d')}  {r.exit.date.strftime('%Y-%m-%d')}  {days:>5}"
-            )
-
-        bottom_n = sorted_results[-10:][::-1]
-        print(f"\n   Bottom {len(bottom_n)}{label_suffix}:")
-        print(header)
-        print(sep)
-        for r in bottom_n:
-            days = (r.exit.date - r.entry.date).days
-            annual_str = f"{min(r.annualized_pct, 9999.0):>8.0f}%"
-            print(
-                f"   {r.signal.ticker:<10} {r.realized_pct:>7.2f}%  {annual_str}  "
-                f"{r.entry.date.strftime('%Y-%m-%d')}  {r.exit.date.strftime('%Y-%m-%d')}  {days:>5}"
-            )
-
-    def _print_top_signals(self, signal_results: list[FutureTrade]) -> None:
+    @staticmethod
+    def _compute_group_metrics(results: list[FutureTrade]) -> GroupMetrics | None:
         """
-        Print the top 20 performing signals by return percentage.
+        Compute aggregate return/risk metrics for a group of trades.
 
         Args:
-            signal_results: List of FutureTrade objects to analyze
+            results: FutureTrade objects to aggregate
+
+        Returns:
+            GroupMetrics, or None if results is empty
+        """
+        if not results:
+            return None
+
+        n = len(results)
+        returns = [r.realized_pct for r in results]
+        ann_returns = [min(r.annualized_pct, 9999.0) for r in results]
+
+        mean_pct = sum(returns) / n
+        ann_mean_pct = sum(ann_returns) / n
+        win_pct = sum(1 for r in returns if r > 0) / n * 100.0
+
+        gross_win = sum(r for r in returns if r > 0)
+        gross_loss = -sum(r for r in returns if r < 0)
+        pf = gross_win / gross_loss if gross_loss > 0 else float("inf")
+
+        downside_dev = math.sqrt(sum(min(a, 0.0) ** 2 for a in ann_returns) / n)
+        sortino = ann_mean_pct / downside_dev if downside_dev > 0 else float("nan")
+
+        k = max(1, math.floor(0.05 * n))
+        cvar95 = sum(sorted(returns)[:k]) / k
+
+        return GroupMetrics(
+            n=n,
+            mean_pct=mean_pct,
+            ann_mean_pct=ann_mean_pct,
+            win_pct=win_pct,
+            pf=pf,
+            sortino=sortino,
+            cvar95=cvar95,
+        )
+
+    def _print_bucket_table(self, signal_results: list[FutureTrade]) -> None:
+        """
+        Print per-ranking-bucket group metrics plus an ALL row.
+
+        Buckets a strategy never scores into still print (N=0, dashes) rather
+        than being omitted, since that's informative when comparing runs.
+
+        Args:
+            signal_results: FutureTrade objects to bucket by signal.ranking
+        """
+        header = f"{'Bucket':<10}  {'N':>4}  {'Mean%':>8}  {'AnnMean%':>9}  {'Win%':>6}  {'PF':>6}  {'Sortino':>7}  {'CVaR95%':>8}"
+        sep = "─" * len(header)
+        print("\nRank Bucket Comparison (higher bucket should trend better = ranking validates itself):")
+        print(header)
+        print(sep)
+        for i in range(0, 100, 20):
+            bucket_results = [r for r in signal_results if i < r.signal.ranking < i + 21]
+            print(self._format_bucket_row(f"[{i + 1}-{i + 20}]", self._compute_group_metrics(bucket_results)))
+        print(sep)
+        print(self._format_bucket_row("ALL", self._compute_group_metrics(signal_results)))
+
+    @staticmethod
+    def _format_bucket_row(label: str, m: GroupMetrics | None) -> str:
+        """Format one bucket-table row; dashes when the bucket has no trades."""
+        if m is None:
+            return f"{label:<10}  {0:>4}  {'—':>8}  {'—':>9}  {'—':>6}  {'—':>6}  {'—':>7}  {'—':>8}"
+        pf_str = f"{m.pf:>6.2f}" if math.isfinite(m.pf) else f"{'inf':>6}"
+        sortino_str = f"{m.sortino:>7.2f}" if not math.isnan(m.sortino) else f"{'n/a':>7}"
+        return (
+            f"{label:<10}  {m.n:>4}  {m.mean_pct:>+7.2f}%  {m.ann_mean_pct:>+8.2f}%  "
+            f"{m.win_pct:>5.1f}%  {pf_str}  {sortino_str}  {m.cvar95:>+7.2f}%"
+        )
+
+    def _print_trade_listing(self, signal_results: list[FutureTrade]) -> None:
+        """
+        Print every trade if there are fewer than 30, otherwise the top 20 and bottom 20 by return.
+
+        Args:
+            signal_results: FutureTrade objects to list
         """
         if not signal_results:
-            logger.warning("No signal results to display top performers.")
+            logger.warning("No signal results to list.")
             return
 
-        # Sort by return percentage in descending order and take top 20
-        top_signals = sorted(signal_results, key=lambda x: x.realized_pct, reverse=True)[:20]
+        sorted_results = sorted(signal_results, key=lambda r: r.realized_pct, reverse=True)
+        header = f"{'Ticker':<10} {'Return%':>8}  {'Annual%':>8}  {'Ranking':>7}  {'Entry':>10}  {'Exit':>10}  {'Days':>5}"
+        sep = "─" * len(header)
 
-        print("\nTop 20 Performing Signals:")
-        print("-" * 100)
-        print(f"{'Rank':<4} {'Ticker':<10} {'Return%':<9} {'Annual%':<10} {'Ranking':<8} {'Entry Date':<12} {'Exit Date':<12} {'Days':<5}")
-        print("-" * 100)
+        def print_rows(rows: list[FutureTrade]) -> None:
+            for r in rows:
+                annual_str = f"{min(r.annualized_pct, 9999.0):>7.0f}%"
+                print(
+                    f"{r.signal.ticker:<10} {r.realized_pct:>+7.2f}%  {annual_str}  {r.signal.ranking:>7}  "
+                    f"{r.entry.date.strftime('%Y-%m-%d')}  {r.exit.date.strftime('%Y-%m-%d')}  {r.holding_days:>5}"
+                )
 
-        for i, result in enumerate(top_signals, 1):
-            days_held = (result.exit.date - result.entry.date).days
-            annual_str = f"{min(result.annualized_pct, 9999.0):>8.0f}%"
-            print(
-                f"{i:<4} {result.signal.ticker:<10} {result.realized_pct:>7.2f}%  "
-                f"{annual_str:<10}"
-                f"{result.signal.ranking:<8} {result.entry.date.strftime('%Y-%m-%d'):<12} "
-                f"{result.exit.date.strftime('%Y-%m-%d'):<12} {days_held:<5}"
-            )
-        print("-" * 100)
+        n = len(sorted_results)
+        if n < 30:
+            print(f"\nAll Trades (N={n}):")
+            print(header)
+            print(sep)
+            print_rows(sorted_results)
+        else:
+            print(f"\nTop 20 (N={n} ≥ 30):")
+            print(header)
+            print(sep)
+            print_rows(sorted_results[:20])
+
+            print(f"\nBottom 20 (N={n} ≥ 30):")
+            print(header)
+            print(sep)
+            print_rows(sorted_results[-20:][::-1])
