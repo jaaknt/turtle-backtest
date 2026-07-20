@@ -1,6 +1,6 @@
 """Buy and hold exit strategy."""
 
-from datetime import datetime, timedelta
+from datetime import date, timedelta
 
 import polars as pl
 
@@ -18,7 +18,7 @@ class BuyAndHoldExitStrategy(ExitStrategy):
     days, or at the last available bar if the data ends before the cutoff.
     """
 
-    def initialize(self, ticker: str, start_date: datetime, end_date: datetime, holding_days: int = 30) -> None:
+    def initialize(self, ticker: str, start_date: date, end_date: date, holding_days: int = 30) -> None:
         """Initialize the strategy for one exit calculation.
 
         Args:
@@ -39,7 +39,7 @@ class BuyAndHoldExitStrategy(ExitStrategy):
         if data.is_empty():
             raise ValueError("No valid data available for exit calculation.")
 
-        cutoff = (self.start_date + timedelta(days=self.holding_days)).date()
+        cutoff = self.start_date + timedelta(days=self.holding_days)
         eligible = data.filter(pl.col("date") >= cutoff)
         if not eligible.is_empty():
             row = eligible.row(0, named=True)
@@ -47,5 +47,4 @@ class BuyAndHoldExitStrategy(ExitStrategy):
         else:
             row = data.row(-1, named=True)
             reason = "period_end"
-        d = row["date"]
-        return Trade(ticker=self.ticker, date=datetime(d.year, d.month, d.day), price=row["close"], reason=reason)
+        return Trade(ticker=self.ticker, date=row["date"], price=row["close"], reason=reason)

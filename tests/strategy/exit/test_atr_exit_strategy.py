@@ -1,6 +1,6 @@
 """Tests for ATRExitStrategy."""
 
-from datetime import date, datetime
+from datetime import date
 from unittest.mock import Mock
 
 import polars as pl
@@ -41,8 +41,8 @@ class TestATRExitStrategy:
         strategy = ATRExitStrategy(mock_bars_history)
 
         ticker = "AAPL"
-        start_date = datetime(2024, 1, 1)
-        end_date = datetime(2024, 1, 31)
+        start_date = date(2024, 1, 1)
+        end_date = date(2024, 1, 31)
 
         strategy.initialize(ticker, start_date, end_date)
         assert strategy.ticker == ticker
@@ -72,7 +72,7 @@ class TestATRExitStrategy:
         )
         mock_bars_history.get_bars_pl.return_value = mock_data
 
-        strategy.initialize("AAPL", datetime(2024, 1, 15), datetime(2024, 1, 31))
+        strategy.initialize("AAPL", date(2024, 1, 15), date(2024, 1, 31))
         result = strategy.calculate_indicators()
 
         assert isinstance(result, pl.DataFrame)
@@ -101,7 +101,7 @@ class TestATRExitStrategy:
         """Test calculate_exit when ATR stop loss is hit."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = ATRExitStrategy(mock_bars_history)
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5), atr_period=14, atr_multiplier=2.0)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5), atr_period=14, atr_multiplier=2.0)
 
         # With entry open=100, ATR=1.0, multiplier=2.0: initial_stop = 100 - 2.0 = 98.0
         # cummax_high: [101, 101, 101, 101, 101]; potential_stop: [99, 99, 99, 99, 99]
@@ -122,14 +122,14 @@ class TestATRExitStrategy:
 
         assert isinstance(result, Trade)
         assert result.reason == "atr_trailing_stop"
-        assert result.date == datetime(2024, 1, 2)
+        assert result.date == date(2024, 1, 2)
         assert result.price < 100.0
 
     def test_calculate_exit_period_end(self) -> None:
         """Test calculate_exit when no stop is hit."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = ATRExitStrategy(mock_bars_history)
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5), atr_period=14, atr_multiplier=2.0)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5), atr_period=14, atr_multiplier=2.0)
 
         # With entry=100, ATR=1.0, multiplier=2.0: stop = 98.0; lowest close is 101 → never hit
         data = pl.DataFrame(
@@ -147,7 +147,7 @@ class TestATRExitStrategy:
 
         assert isinstance(result, Trade)
         assert result.reason == "period_end"
-        assert result.date == datetime(2024, 1, 5)
+        assert result.date == date(2024, 1, 5)
         assert result.price == 105.0
 
     def test_different_atr_multipliers(self) -> None:
@@ -155,10 +155,10 @@ class TestATRExitStrategy:
         mock_bars_history = self.create_mock_bars_history()
 
         strategy_loose = ATRExitStrategy(mock_bars_history)
-        strategy_loose.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 3), atr_period=14, atr_multiplier=3.0)
+        strategy_loose.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 3), atr_period=14, atr_multiplier=3.0)
 
         strategy_tight = ATRExitStrategy(mock_bars_history)
-        strategy_tight.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 3), atr_period=14, atr_multiplier=1.0)
+        strategy_tight.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 3), atr_period=14, atr_multiplier=1.0)
 
         data = pl.DataFrame(
             {

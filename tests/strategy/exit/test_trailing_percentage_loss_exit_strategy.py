@@ -1,6 +1,6 @@
 """Tests for TrailingPercentageLossExitStrategy."""
 
-from datetime import date, datetime
+from datetime import date
 from unittest.mock import Mock
 
 import polars as pl
@@ -29,7 +29,7 @@ class TestTrailingPercentageLossExitStrategy:
         mock_bars_history = self.create_mock_bars_history()
         strategy = TrailingPercentageLossExitStrategy(mock_bars_history)
 
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 31))
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 31))
 
         assert strategy.ticker == "AAPL"
         assert strategy.percentage_loss == 10.0
@@ -38,7 +38,7 @@ class TestTrailingPercentageLossExitStrategy:
         mock_bars_history = self.create_mock_bars_history()
         strategy = TrailingPercentageLossExitStrategy(mock_bars_history)
 
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 31), percentage_loss=5.0)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 31), percentage_loss=5.0)
 
         assert strategy.percentage_loss == 5.0
 
@@ -65,7 +65,7 @@ class TestTrailingPercentageLossExitStrategy:
         )
         mock_bars_history.get_bars_pl.return_value = mock_data
 
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 10))
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 10))
         result = strategy.calculate_indicators()
 
         assert isinstance(result, pl.DataFrame)
@@ -76,7 +76,7 @@ class TestTrailingPercentageLossExitStrategy:
         mock_bars_history = self.create_mock_bars_history()
         strategy = TrailingPercentageLossExitStrategy(mock_bars_history)
         # Entry open=100, percentage_loss=10% → initial stop=90
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5), percentage_loss=10.0)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5), percentage_loss=10.0)
 
         data = pl.DataFrame(
             {
@@ -91,14 +91,14 @@ class TestTrailingPercentageLossExitStrategy:
 
         assert isinstance(result, Trade)
         assert result.reason == "trailing_percentage_stop"
-        assert result.date == datetime(2024, 1, 5)
+        assert result.date == date(2024, 1, 5)
         assert result.price == pytest.approx(100.0)
 
     def test_calculate_exit_period_end(self) -> None:
         """No exit when close never drops below trailing stop."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = TrailingPercentageLossExitStrategy(mock_bars_history)
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5), percentage_loss=10.0)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5), percentage_loss=10.0)
 
         # Steadily rising — close never drops 10% from its running max
         data = pl.DataFrame(
@@ -113,7 +113,7 @@ class TestTrailingPercentageLossExitStrategy:
 
         assert isinstance(result, Trade)
         assert result.reason == "period_end"
-        assert result.date == datetime(2024, 1, 5)
+        assert result.date == date(2024, 1, 5)
         assert result.price == pytest.approx(105.0)
 
     def test_initial_stop_acts_as_floor(self) -> None:
@@ -123,7 +123,7 @@ class TestTrailingPercentageLossExitStrategy:
         # Entry open=100, 10% → initial stop=90
         # If close[0]=85 (a gap-down open), cummax_close=85, 85*0.9=76.5 < 90 → floor clips to 90
         # close[0]=85 < 90 → stop triggered on day 0
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 3), percentage_loss=10.0)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 3), percentage_loss=10.0)
 
         data = pl.DataFrame(
             {
@@ -136,7 +136,7 @@ class TestTrailingPercentageLossExitStrategy:
         result = strategy.calculate_exit(data)
 
         assert result.reason == "trailing_percentage_stop"
-        assert result.date == datetime(2024, 1, 1)
+        assert result.date == date(2024, 1, 1)
 
     def test_trailing_stop_only_moves_up(self) -> None:
         """After a price peak, the stop stays at the peak-derived level even as price falls."""
@@ -144,7 +144,7 @@ class TestTrailingPercentageLossExitStrategy:
         strategy = TrailingPercentageLossExitStrategy(mock_bars_history)
         # Entry open=100, 20% loss → initial stop=80
         # After close of 150, stop rises to 150*0.8=120 and stays there
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5), percentage_loss=20.0)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5), percentage_loss=20.0)
 
         data = pl.DataFrame(
             {
@@ -159,7 +159,7 @@ class TestTrailingPercentageLossExitStrategy:
         result = strategy.calculate_exit(data)
 
         assert result.reason == "trailing_percentage_stop"
-        assert result.date == datetime(2024, 1, 5)
+        assert result.date == date(2024, 1, 5)
         assert result.price == pytest.approx(119.0)
 
     def test_tighter_percentage_exits_sooner(self) -> None:
@@ -175,10 +175,10 @@ class TestTrailingPercentageLossExitStrategy:
         )
 
         strategy_tight = TrailingPercentageLossExitStrategy(mock_bars_history)
-        strategy_tight.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5), percentage_loss=5.0)
+        strategy_tight.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5), percentage_loss=5.0)
 
         strategy_loose = TrailingPercentageLossExitStrategy(mock_bars_history)
-        strategy_loose.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5), percentage_loss=20.0)
+        strategy_loose.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5), percentage_loss=20.0)
 
         result_tight = strategy_tight.calculate_exit(data)
         result_loose = strategy_loose.calculate_exit(data)

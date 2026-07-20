@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any
 from unittest.mock import Mock
 
@@ -23,7 +23,7 @@ class TestSignalProcessor:
     @pytest.fixture
     def sample_signal(self) -> Signal:
         """Create a sample signal for testing."""
-        return Signal(ticker="TEST", date=datetime(2024, 1, 15), ranking=75)
+        return Signal(ticker="TEST", date=date(2024, 1, 15), ranking=75)
 
     @pytest.fixture
     def sample_ticker_data(self) -> pl.DataFrame:
@@ -122,7 +122,7 @@ class TestSignalProcessor:
         entry = processor.calculate_entry_data(sample_signal)
 
         assert entry is not None
-        assert entry.date == datetime(2024, 1, 16)
+        assert entry.date == date(2024, 1, 16)
         assert entry.price == 100.0
         assert entry.reason == "next_day_open"
 
@@ -171,16 +171,16 @@ class TestSignalProcessor:
             max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
-        mock_result = Trade(ticker="AAPL", date=datetime(2024, 1, 20), price=105.0, reason="period_end")
+        mock_result = Trade(ticker="AAPL", date=date(2024, 1, 20), price=105.0, reason="period_end")
         exit_strategy.calculate_exit.return_value = mock_result
         mock_bars_history.get_bars_pl.return_value = sample_ticker_data
 
-        entry_date = datetime(2024, 1, 16)
+        entry_date = date(2024, 1, 16)
         entry_price = 100.0
 
         exit = processor.calculate_exit_data(sample_signal, entry_date, entry_price)
 
-        assert exit.date == datetime(2024, 1, 20)
+        assert exit.date == date(2024, 1, 20)
         assert exit.price == 105.0
         assert exit.reason == "period_end"
 
@@ -198,7 +198,7 @@ class TestSignalProcessor:
         mock_bars_history.get_bars_pl.return_value = pl.DataFrame()
 
         with pytest.raises(ValueError, match="No historical data available"):
-            processor.calculate_exit_data(sample_signal, datetime(2024, 1, 16), 100.0)
+            processor.calculate_exit_data(sample_signal, date(2024, 1, 16), 100.0)
 
     def test_calculate_benchmark_empty_after_entry_filter(self) -> None:
         """Test benchmark returns None when all data precedes entry date."""
@@ -213,7 +213,7 @@ class TestSignalProcessor:
                 "volume": [1000000] * 10,
             }
         )
-        result = calculate_benchmark(past_df, "SPY", datetime(2024, 2, 1), datetime(2024, 2, 5))
+        result = calculate_benchmark(past_df, "SPY", date(2024, 2, 1), date(2024, 2, 5))
         assert result is None
 
     def test_calculate_benchmark_empty_after_exit_filter(self) -> None:
@@ -229,7 +229,7 @@ class TestSignalProcessor:
                 "volume": [1000000] * 10,
             }
         )
-        result = calculate_benchmark(future_df, "SPY", datetime(2024, 1, 1), datetime(2024, 1, 10))
+        result = calculate_benchmark(future_df, "SPY", date(2024, 1, 1), date(2024, 1, 10))
         assert result is None
 
     def test_calculate_exit_data_strategy_fails(
@@ -247,7 +247,7 @@ class TestSignalProcessor:
         exit_strategy.calculate_exit.return_value = None
         mock_bars_history.get_bars_pl.return_value = sample_ticker_data
 
-        entry_date = datetime(2024, 1, 16)
+        entry_date = date(2024, 1, 16)
         entry_price = 100.0
 
         with pytest.raises(ValueError, match="Exit strategy failed"):
@@ -258,8 +258,8 @@ class TestSignalProcessor:
         sample_spy_data: pl.DataFrame,
     ) -> None:
         """Test single benchmark return calculation."""
-        entry_date = datetime(2024, 1, 16)
-        exit_date = datetime(2024, 1, 20)
+        entry_date = date(2024, 1, 16)
+        exit_date = date(2024, 1, 20)
 
         benchmark = calculate_benchmark(sample_spy_data, "SPY", entry_date, exit_date)
 
@@ -272,7 +272,7 @@ class TestSignalProcessor:
 
     def test_calculate_single_benchmark_return_empty_data(self) -> None:
         """Test benchmark return calculation with empty data."""
-        benchmark = calculate_benchmark(pl.DataFrame(), "SPY", datetime(2024, 1, 16), datetime(2024, 1, 20))
+        benchmark = calculate_benchmark(pl.DataFrame(), "SPY", date(2024, 1, 16), date(2024, 1, 20))
 
         assert benchmark is None
 
@@ -297,8 +297,8 @@ class TestSignalProcessor:
 
         mock_bars_history.get_bars_pl.side_effect = mock_get_bars_pl
 
-        entry_date = datetime(2024, 1, 16)
-        exit_date = datetime(2024, 1, 20)
+        entry_date = date(2024, 1, 16)
+        exit_date = date(2024, 1, 20)
 
         benchmarks = processor._calculate_benchmark_returns(entry_date, exit_date)
 

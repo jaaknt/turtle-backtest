@@ -1,6 +1,6 @@
 """Tests for MACDExitStrategy."""
 
-from datetime import date, datetime
+from datetime import date
 from unittest.mock import Mock
 
 import polars as pl
@@ -41,8 +41,8 @@ class TestMACDExitStrategy:
         strategy = MACDExitStrategy(mock_bars_history)
 
         ticker = "AAPL"
-        start_date = datetime(2024, 1, 1)
-        end_date = datetime(2024, 1, 31)
+        start_date = date(2024, 1, 1)
+        end_date = date(2024, 1, 31)
 
         strategy.initialize(ticker, start_date, end_date, fastperiod=8, slowperiod=21, signalperiod=5)
 
@@ -70,7 +70,7 @@ class TestMACDExitStrategy:
         )
         mock_bars_history.get_bars_pl.return_value = mock_data
 
-        strategy.initialize("AAPL", datetime(2024, 1, 15), datetime(2024, 1, 31))
+        strategy.initialize("AAPL", date(2024, 1, 15), date(2024, 1, 31))
         result = strategy.calculate_indicators()
 
         assert isinstance(result, pl.DataFrame)
@@ -82,7 +82,7 @@ class TestMACDExitStrategy:
         """Test calculate_exit method with MACD signal data."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = MACDExitStrategy(mock_bars_history)
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 10))
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 10))
 
         data = pl.DataFrame(
             {
@@ -98,14 +98,14 @@ class TestMACDExitStrategy:
         assert isinstance(result, Trade)
         assert result.reason == "below_signal"
         # Should exit when macd_line first goes below macd_signal (at index 4)
-        assert result.date == datetime(2024, 1, 5)
+        assert result.date == date(2024, 1, 5)
         assert result.price == 100.5
 
     def test_calculate_exit_period_end(self) -> None:
         """Test calculate_exit when no signal is triggered."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = MACDExitStrategy(mock_bars_history)
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5))
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5))
 
         data = pl.DataFrame(
             {
@@ -120,7 +120,7 @@ class TestMACDExitStrategy:
 
         assert isinstance(result, Trade)
         assert result.reason == "period_end"
-        assert result.date == datetime(2024, 1, 5)
+        assert result.date == date(2024, 1, 5)
         assert result.price == 104.0
 
     def test_default_initialization_parameters(self) -> None:
@@ -128,7 +128,7 @@ class TestMACDExitStrategy:
         mock_bars_history = self.create_mock_bars_history()
         strategy = MACDExitStrategy(mock_bars_history)
 
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 31))
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 31))
 
         assert strategy.fastperiod == 12
         assert strategy.slowperiod == 26

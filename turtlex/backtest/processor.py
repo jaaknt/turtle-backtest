@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 from turtlex.common.enums import TimeFrameUnit
 from turtlex.model import Benchmark, FutureTrade, Signal, Trade
@@ -56,7 +56,7 @@ class SignalProcessor:
         self.time_frame_unit = time_frame_unit
         self.exit_strategy_kwargs = exit_strategy_kwargs or {}
 
-    def run(self, signal: Signal, end_date: date | datetime | None = None) -> FutureTrade | None:
+    def run(self, signal: Signal, end_date: date | None = None) -> FutureTrade | None:
         """
         Process a Signal object to create a complete ClosedTrade.
 
@@ -84,13 +84,7 @@ class SignalProcessor:
         logger.debug(f"Entry calculated: {entry.date} at ${entry.price}")
 
         # Step 2: Calculate exit data using strategy
-        if isinstance(end_date, datetime):
-            end_datetime: datetime | None = end_date
-        elif isinstance(end_date, date):
-            end_datetime = datetime.combine(end_date, datetime.min.time())
-        else:
-            end_datetime = None
-        exit: Trade | None = self.calculate_exit_data(signal, entry.date, entry.price, end_datetime)
+        exit: Trade | None = self.calculate_exit_data(signal, entry.date, entry.price, end_date)
         if exit is None:  # No trading data available for exit
             logger.warning(f"Skipping signal for {signal.ticker} on {signal.date}: No exit data")
             return None
@@ -143,7 +137,7 @@ class SignalProcessor:
 
         # Get first available trading day
         row = df.row(0, named=True)
-        entry_date = datetime.combine(row["date"], datetime.min.time())
+        entry_date = row["date"]
 
         if row["open"] is None or float(row["open"]) <= 0:
             raise ValueError(f"Invalid entry price for {signal.ticker}: {row['open']}")
@@ -151,7 +145,7 @@ class SignalProcessor:
 
         return Trade(ticker=signal.ticker, date=entry_date, price=entry_price, reason="next_day_open")
 
-    def calculate_exit_data(self, signal: Signal, entry_date: datetime, entry_price: float, end_date: datetime | None = None) -> Trade:
+    def calculate_exit_data(self, signal: Signal, entry_date: date, entry_price: float, end_date: date | None = None) -> Trade:
         """
         Calculate exit date, price, and reason using the configured exit strategy.
 
@@ -174,12 +168,7 @@ class SignalProcessor:
         effective_end_date = min(end_date, max_holding_end_date) if end_date is not None else max_holding_end_date
 
         # Get historical data for the ticker from entry date onwards
-        df = self.bars_history.get_bars_pl(
-            signal.ticker,
-            entry_date.date() if isinstance(entry_date, datetime) else entry_date,
-            effective_end_date.date() if isinstance(effective_end_date, datetime) else effective_end_date,
-            self.time_frame_unit,
-        )
+        df = self.bars_history.get_bars_pl(signal.ticker, entry_date, effective_end_date, self.time_frame_unit)
 
         if df.is_empty():
             raise ValueError(f"No historical data available for {signal.ticker} from {entry_date}")
@@ -196,7 +185,7 @@ class SignalProcessor:
 
         return trade
 
-    def _calculate_benchmark_returns(self, entry_date: datetime, exit_date: datetime) -> list[Benchmark]:
+    def _calculate_benchmark_returns(self, entry_date: date, exit_date: date) -> list[Benchmark]:
         """
         Calculate benchmark returns for configured tickers over the same period.
         Uses opening price at entry date and closing price at exit date.

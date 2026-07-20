@@ -1,5 +1,5 @@
 import logging
-from datetime import date, datetime
+from datetime import date
 
 from turtlex.backtest.benchmark_utils import calculate_benchmark_list
 from turtlex.backtest.processor import SignalProcessor
@@ -64,11 +64,9 @@ class BacktestService:
         avg_return_pct = sum(result.realized_pct for result in signal_results) / len(signal_results)
 
         # Calculate full-period benchmark returns (start_date to end_date)
-        start_dt = datetime.combine(start_date, datetime.min.time())
-        end_dt = datetime.combine(end_date, datetime.min.time())
         benchmarks = calculate_benchmark_list(
-            start_dt,
-            end_dt,
+            start_date,
+            end_date,
             self.signal_processor.benchmark_tickers,
             self.signal_processor.bars_history,
             self.signal_processor.time_frame_unit,

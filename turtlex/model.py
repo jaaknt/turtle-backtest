@@ -1,7 +1,7 @@
 """Domain model dataclasses shared across the turtle package."""
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date
 
 
 @dataclass
@@ -26,13 +26,13 @@ class Trade:
 
     Attributes:
         ticker: Stock symbol for the trade
-        date: Trade date and time
+        date: Trade date
         price: Price at which the trade was executed
         reason: Reason for entry or exit
     """
 
     ticker: str
-    date: datetime
+    date: date
     price: float
     reason: str
 
@@ -51,8 +51,8 @@ class Benchmark:
 
     ticker: str
     return_pct: float
-    entry_date: datetime
-    exit_date: datetime
+    entry_date: date
+    exit_date: date
 
     @property
     def annualized_pct(self) -> float:
