@@ -6,8 +6,7 @@ from datetime import date, datetime, timedelta
 from turtlex.common.enums import TimeFrameUnit
 from turtlex.model import Benchmark, FutureTrade, Signal, Trade
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
-from turtlex.strategy.exit import EMAExitStrategy, ExitStrategy, MACDExitStrategy, ProfitLossExitStrategy
-from turtlex.strategy.exit.atr import ATRExitStrategy
+from turtlex.strategy.exit import ExitStrategy
 
 from .benchmark_utils import calculate_benchmark_list
 
@@ -33,6 +32,7 @@ class SignalProcessor:
         exit_strategy: ExitStrategy,
         benchmark_tickers: list[str],
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
+        exit_strategy_kwargs: dict[str, int | float | str] | None = None,
     ):
         """
         Initialize SignalProcessor with required dependencies.
@@ -43,12 +43,18 @@ class SignalProcessor:
             exit_strategy: Strategy for determining exit conditions
             benchmark_tickers: List of benchmark ticker symbols (e.g., ['SPY', 'QQQ'])
             time_frame_unit: Time frame for data (default: DAY)
+            exit_strategy_kwargs: Extra keyword arguments forwarded to
+                `exit_strategy.initialize()` (e.g. `{"profit_target": 15.0}`).
+                Parameters left unspecified fall back to that strategy's own
+                defaults. See `strategy.factory.resolve_exit_strategy_kwargs`
+                for building this from CLI arguments.
         """
         self.max_holding_period = max_holding_period
         self.bars_history = bars_history
         self.exit_strategy = exit_strategy
         self.benchmark_tickers = benchmark_tickers
         self.time_frame_unit = time_frame_unit
+        self.exit_strategy_kwargs = exit_strategy_kwargs or {}
 
     def run(self, signal: Signal, end_date: date | datetime | None = None) -> FutureTrade | None:
         """
@@ -178,24 +184,9 @@ class SignalProcessor:
         if df.is_empty():
             raise ValueError(f"No historical data available for {signal.ticker} from {entry_date}")
 
-        # Use exit strategy to calculate return
-        if isinstance(self.exit_strategy, ProfitLossExitStrategy):
-            self.exit_strategy.initialize(signal.ticker, entry_date, effective_end_date, profit_target=10.0, stop_loss=5.0)
-        elif isinstance(self.exit_strategy, EMAExitStrategy):
-            self.exit_strategy.initialize(signal.ticker, entry_date, effective_end_date, ema_period=20)
-        elif isinstance(self.exit_strategy, ATRExitStrategy):
-            self.exit_strategy.initialize(signal.ticker, entry_date, effective_end_date, atr_period=14, atr_multiplier=2.0)
-        elif isinstance(self.exit_strategy, MACDExitStrategy):
-            self.exit_strategy.initialize(
-                signal.ticker,
-                entry_date,
-                effective_end_date,
-                fastperiod=12,
-                slowperiod=26,
-                signalperiod=9,
-            )
-        else:
-            self.exit_strategy.initialize(signal.ticker, entry_date, effective_end_date)
+        # Exit strategies own their default parameters (see each ExitStrategy
+        # subclass's `initialize()`); exit_strategy_kwargs only carries overrides.
+        self.exit_strategy.initialize(signal.ticker, entry_date, effective_end_date, **self.exit_strategy_kwargs)
 
         indicators = self.exit_strategy.calculate_indicators()
         trade: Trade = self.exit_strategy.calculate_exit(data=indicators)

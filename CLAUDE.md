@@ -82,7 +82,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | ------ | --------- | ---------- |
 | **Generate signals** | `uv run signal-runner list --start-date 2024-06-01 --end-date 2024-06-01` | Analyze trading opportunities |
 | **Portfolio backtest** | `uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31` | Test multi-position strategy |
-| **Single backtest** | `uv run python scripts/backtest.py --ticker AAPL --start-date 2024-01-01` | Test specific ticker |
+| **Single backtest** | `uv run backtest-runner --tickers AAPL --start-date 2024-01-01 --end-date 2024-01-01` | Test specific ticker |
 | **Run tests** | `uv run pytest` | Verify code changes |
 | **Test coverage** | `uv run pytest --cov=turtlex --cov-report=term-missing` | Find untested code paths |
 | **Lint markdown docs** | `npx markdownlint-cli2` | Check README/CLAUDE.md/docs before committing (`--fix` to auto-fix) |
@@ -104,7 +104,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **Want to analyze market signals?** → Use `uv run signal-runner list` (or `top` / `signal`)
 
-**Want to test a strategy on one ticker?** → Use `scripts/backtest.py --ticker SYMBOL`
+**Want to test a strategy on one ticker?** → Use `uv run backtest-runner --tickers SYMBOL`
 
 **Want to test portfolio performance?** → Use `uv run portfolio-runner` with date range
 

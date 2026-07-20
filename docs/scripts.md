@@ -104,9 +104,9 @@ uv run signal-runner list --start-date 2024-06-01 --end-date 2024-06-01 --tradin
 - `--max-tickers` — Maximum symbols to scan (`list` and `top` only, default: 10000)
 - `--verbose` — Enable detailed logging
 
-## backtest.py
+## backtest-runner
 
-The `backtest.py` script provides comprehensive backtesting capabilities by combining signal generation with exit strategy analysis. It runs complete signal-to-exit backtests using configurable trading and exit strategies.
+The `backtest-runner` console script provides comprehensive backtesting capabilities by combining signal generation with exit strategy analysis. It runs complete signal-to-exit backtests using configurable trading and exit strategies.
 
 **Key Features:**
 
@@ -122,16 +122,16 @@ The `backtest.py` script provides comprehensive backtesting capabilities by comb
 
 ```bash
 # Basic backtest with Darvas Box strategy and EMA exit
-uv run python scripts/backtest.py --start-date 2024-01-01 --end-date 2024-01-31 --trading-strategy darvas_box --exit-strategy ema
+uv run backtest-runner --start-date 2024-01-01 --end-date 2024-01-31 --trading-strategy darvas_box --exit-strategy ema
 
 # Test specific tickers with ATR exit strategy
-uv run python scripts/backtest.py --start-date 2024-01-01 --end-date 2024-01-31 --tickers AAPL MSFT NVDA --exit-strategy atr --verbose
+uv run backtest-runner --start-date 2024-01-01 --end-date 2024-01-31 --tickers AAPL MSFT NVDA --exit-strategy atr --verbose
 
 # Mars strategy with profit/loss exits and limited ticker count
-uv run python scripts/backtest.py --start-date 2024-02-01 --end-date 2024-02-29 --trading-strategy mars --exit-strategy profit_loss --max-tickers 50
+uv run backtest-runner --start-date 2024-02-01 --end-date 2024-02-29 --trading-strategy mars --exit-strategy profit_loss --max-tickers 50
 
 # Top 20 signals mode with MACD exits
-uv run python scripts/backtest.py --start-date 2024-01-15 --end-date 2024-01-15 --mode top --exit-strategy macd
+uv run backtest-runner --start-date 2024-01-15 --end-date 2024-01-15 --mode top --exit-strategy macd
 ```
 
 **Required Options:**
@@ -154,6 +154,7 @@ uv run python scripts/backtest.py --start-date 2024-01-15 --end-date 2024-01-15 
   - `macd` - Exit on MACD bearish signals
   - `atr` - Volatility-based stop losses using ATR
   - `trailing_percentage_loss` - Trailing stop set as a fixed percentage below the running max close
+- `--exit-param KEY=VALUE` - Override an exit-strategy parameter, e.g. `--exit-param profit_target=15` (repeatable)
 - `--ranking-strategy` - Signal ranking method (default: momentum)
   - `momentum` - Momentum-based ranking
   - `volume_momentum` - Volume-weighted momentum ranking

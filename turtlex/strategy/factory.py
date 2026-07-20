@@ -12,6 +12,7 @@ For programmatic use where the concrete class is already known, instantiate
 the strategy directly instead of going through the factory.
 """
 
+import inspect
 from collections.abc import Callable
 
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
@@ -77,6 +78,42 @@ def get_exit_strategy(strategy_name: str, bars_history: DailyBarsQueryRepository
         raise ValueError(f"Unknown exit strategy '{strategy_name}'. Available strategies: {available}")
 
     return strategy_class(bars_history)
+
+
+def resolve_exit_strategy_kwargs(exit_strategy: ExitStrategy, exit_params: list[tuple[str, str]]) -> dict[str, int | float | str]:
+    """Coerce ``--exit-param key=value`` CLI pairs into kwargs for `exit_strategy.initialize()`.
+
+    Each value is cast to the type annotation of the matching `initialize()` parameter
+    (int/float/str). Parameters left unspecified are omitted so the strategy's own
+    defaults apply.
+
+    Args:
+        exit_strategy: The concrete exit strategy instance to resolve parameters against.
+        exit_params: (key, raw_value) pairs, typically from a repeatable CLI flag.
+
+    Returns:
+        Keyword arguments ready to forward to `exit_strategy.initialize(...)`.
+
+    Raises:
+        ValueError: If a key isn't a parameter of this exit strategy's `initialize()`,
+            or a value can't be coerced to its annotated type.
+    """
+    params = {
+        name: param
+        for name, param in inspect.signature(exit_strategy.initialize).parameters.items()
+        if name not in ("ticker", "start_date", "end_date")
+    }
+    kwargs: dict[str, int | float | str] = {}
+    for key, raw_value in exit_params:
+        param = params.get(key)
+        if param is None:
+            available = ", ".join(sorted(params)) or "(none)"
+            raise ValueError(f"Unknown parameter '{key}' for {type(exit_strategy).__name__}. Available: {available}")
+        try:
+            kwargs[key] = param.annotation(raw_value) if param.annotation in (int, float, str) else raw_value
+        except ValueError as e:
+            raise ValueError(f"Invalid value for '{key}': {raw_value!r} ({e})") from e
+    return kwargs
 
 
 def get_ranking_strategy(strategy_name: str) -> RankingStrategy:
