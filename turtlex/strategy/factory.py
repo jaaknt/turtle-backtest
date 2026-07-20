@@ -33,7 +33,6 @@ from turtlex.strategy.trading.mars import MarsStrategy
 from turtlex.strategy.trading.momentum import MomentumStrategy
 from turtlex.strategy.trading.qullamaggie import QullamaggieStrategy
 
-
 # Canonical name → class registries. Constructors within each category share a
 # uniform signature, so CLIs derive argparse choices from the registry keys.
 TRADING_STRATEGIES: dict[str, Callable[[DailyBarsQueryRepository, RankingStrategy], TradingStrategy]] = {
