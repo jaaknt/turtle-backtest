@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Current-period signal report for bk50d_s12_v1.2_roc100 vs bk50d_s15_v1.2_roc100 and
-bk50d_s20_v1.2_roc100 (signals marked when also present in the stricter variants).
+Current-period signal report for bk50d_s12_v1.3_roc100 vs bk50d_s15_v1.3_roc100 and
+bk50d_s20_v1.3_roc100 (signals marked when also present in the stricter variants).
 0.97*Entry is the 3%-below-entry-close resting-limit level from the portfolio study;
 "Reached?" marks whether any daily low touched that level within LIMIT_WINDOW_CAL calendar
 days after the signal (fill eligible from the day after the signal, adjusted-price space —
 same convention as scripts/qullamaggie-portfolio-sim.py's run_sim_limit).
 
-Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
+Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70 or >80, ADR mean-of-ratios>=3.0%,
 ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA,
 close>$5&<$250, avg_vol>=500K; tight_range and sma_alignment disabled — TR% is shown for
 information only, not filtered). Display window: 2026-06-01 - today.
@@ -47,15 +47,16 @@ VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
+RSI_REENTRY = 80.0  # spec: RSI(14) < 70 OR RSI(14) > 80 — only the 70-80 band is excluded
 ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 SUSPICIOUS_DAY_MOVE = 0.50  # exclude signals with a >50% single-day raw-close move between entry and latest date
 
-BASE_LABEL = "bk50d_s12_v1.2_roc100"
+BASE_LABEL = "bk50d_s12_v1.3_roc100"
 BASE_SMA_T = 0.12
-COMPARE_LABEL = "bk50d_s20_v1.2_roc100"
+COMPARE_LABEL = "bk50d_s20_v1.3_roc100"
 COMPARE_SMA_T = 0.20
-COMPARE15_LABEL = "bk50d_s15_v1.2_roc100"
+COMPARE15_LABEL = "bk50d_s15_v1.3_roc100"
 COMPARE15_SMA_T = 0.15
 LIMIT_DISCOUNT = 0.03  # 0.97*Entry column: resting-limit level 3% below the entry-day close
 LIMIT_WINDOW_CAL = 30  # "Reached?" checks lows for this many calendar days after the signal
@@ -214,7 +215,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
             & pl.col("adr_pct_change").is_not_null()
-            & (pl.col("rsi14") < RSI_CAP)
+            & ((pl.col("rsi14") < RSI_CAP) | (pl.col("rsi14") > RSI_REENTRY))
             & (pl.col("raw_close") > MIN_PRICE)
             & (pl.col("raw_close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
