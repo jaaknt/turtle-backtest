@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Vol-surge cohort analysis for bk50d_s20_v1.2_roc100 and bk50d_s15_v1.2_roc100, bk50d_s12_v1.2_roc100 (366d hold).
+Vol-surge cohort analysis for bk50d_s20_v1.3_roc100 and bk50d_s15_v1.3_roc100, bk50d_s12_v1.3_roc100 (366d hold).
 
 All strategy filters applied EXCEPT the vol_surge_max cap, so we can see
 performance across the full vol_surge_ratio range including >2x bands.
@@ -33,9 +33,9 @@ ROC_CAP = 1.00
 MIN_NEG = 5
 
 STRATEGIES = [
-    ("bk50d_s20_v1.2_roc100", 0.20),
-    ("bk50d_s15_v1.2_roc100", 0.15),
-    ("bk50d_s12_v1.2_roc100", 0.12),
+    ("bk50d_s20_v1.3_roc100", 0.20),
+    ("bk50d_s15_v1.3_roc100", 0.15),
+    ("bk50d_s12_v1.3_roc100", 0.12),
 ]
 
 COHORTS: list[tuple[str, float, float]] = [
@@ -175,7 +175,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & pl.col("max_c_50d").is_not_null()
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
-            & (pl.col("rsi14") < 80.0)
+            & ((pl.col("rsi14") < 70.0) | (pl.col("rsi14") > 80.0))
             & (pl.col("close") > MIN_PRICE)
             & (pl.col("close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)

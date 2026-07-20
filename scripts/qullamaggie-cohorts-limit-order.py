@@ -2,8 +2,8 @@
 """
 Limit-order fill sensitivity test for the 366d-hold cohorts of qullamaggie-backtest-v4.
 
-Cohorts: bk50d_s20_v1.2_roc100, bk50d_s15_v1.2_roc100, bk50d_s12_v1.2_roc100 (all 366d hold).
-Filters/indicators match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
+Cohorts: bk50d_s20_v1.3_roc100, bk50d_s15_v1.3_roc100, bk50d_s12_v1.3_roc100 (all 366d hold).
+Filters/indicators match scripts/qullamaggie-backtest-v4.py exactly (RSI<70 or >80, ADR mean-of-ratios>=3.0%,
 ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, no tight_range, SPY>200d SMA,
 close>$5&<$250, avg_vol>=500K). close/high/low are split/dividend-adjusted.
 
@@ -47,12 +47,13 @@ VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
+RSI_REENTRY = 80.0  # spec: RSI(14) < 70 OR RSI(14) > 80 — only the 70-80 band is excluded
 ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 MIN_NEG = 10
 
 LIMIT_PCTS = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05]
-SMA_THRESHS = [(0.20, "bk50d_s20_v1.2_roc100"), (0.15, "bk50d_s15_v1.2_roc100"), (0.12, "bk50d_s12_v1.2_roc100")]
+SMA_THRESHS = [(0.20, "bk50d_s20_v1.3_roc100"), (0.15, "bk50d_s15_v1.3_roc100"), (0.12, "bk50d_s12_v1.3_roc100")]
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-cohorts-limit-order.md"
 
@@ -180,7 +181,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
             & pl.col("adr_pct_change").is_not_null()
-            & (pl.col("rsi14") < RSI_CAP)
+            & ((pl.col("rsi14") < RSI_CAP) | (pl.col("rsi14") > RSI_REENTRY))
             & (pl.col("raw_close") > MIN_PRICE)
             & (pl.col("raw_close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
@@ -430,14 +431,16 @@ def main() -> None:
         fh.write(f"Period: {EVAL_START} – {EVAL_END}  |  Hold: {HOLD_CAL}d (calendar)\n\n")
         fh.write("## Configuration\n\n")
         fh.write("| Parameter | Value |\n|---|---|\n")
-        fh.write("| Cohorts | bk50d_s20_v1.2_roc100, bk50d_s15_v1.2_roc100, bk50d_s12_v1.2_roc100 (366d) |\n")
+        fh.write("| Cohorts | bk50d_s20_v1.3_roc100, bk50d_s15_v1.3_roc100, bk50d_s12_v1.3_roc100 (366d) |\n")
         fh.write(f"| Limit sweep | X% = {', '.join(f'{int(lp * 100)}%' for lp in LIMIT_PCTS)} |\n")
         fh.write(
             f"| Limit order rule | resting limit at signal_day_close x (1 - X%), good for {LIMIT_WINDOW_CAL} calendar days; "
             "fills on the first day in that window whose low <= limit price, else expires unfilled |\n"
         )
         fh.write("| Baseline | EOD — buy at signal-day close (backtest-v4 default) |\n")
-        fh.write("| Fixed filters | RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90% (no tight_range) |\n")
+        fh.write(
+            "| Fixed filters | RSI<70|>80, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90% (no tight_range) |\n"
+        )
         fh.write("| Market regime | SPY close > 200d SMA |\n")
         fh.write(f"| Price range | > ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f} |\n")
         fh.write(f"| Min avg vol (20d) | >= {MIN_AVG_VOL // 1000}K |\n")

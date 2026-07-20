@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-RSI(14) cohort analysis for bk50d_s20_v1.2_roc100, bk50d_s15_v1.2_roc100, bk50d_s12_v1.2_roc100 (366d hold).
+RSI(14) cohort analysis for bk50d_s20_v1.3_roc100, bk50d_s15_v1.3_roc100, bk50d_s12_v1.3_roc100 (366d hold).
 
-All strategy filters applied EXCEPT the rsi14 < 70 cap, so we can see
+All strategy filters applied EXCEPT the RSI band filter (< 70 or > 80), so we can see
 performance across the full RSI(14) range including the 70-100 band.
 
 Period: 2015-01-01 – 2026-06-26  (burn-in from 2013-01-01)
@@ -33,12 +33,13 @@ ROC_CAP = 1.00
 ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 RSI_CAP = 70.0
+RSI_REENTRY = 80.0  # spec: RSI(14) < 70 OR RSI(14) > 80 — only the 70-80 band is excluded
 MIN_NEG = 5
 
 STRATEGIES = [
-    ("bk50d_s20_v1.2_roc100", 0.20),
-    ("bk50d_s15_v1.2_roc100", 0.15),
-    ("bk50d_s12_v1.2_roc100", 0.12),
+    ("bk50d_s20_v1.3_roc100", 0.20),
+    ("bk50d_s15_v1.3_roc100", 0.15),
+    ("bk50d_s12_v1.3_roc100", 0.12),
 ]
 
 COHORTS: list[tuple[str, float, float]] = [
@@ -163,7 +164,7 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
     return df.drop(["_c1", "_v1", "_rp1", "_adr10", "_adr50", "_c_252d"])
 
 
-# ── Signal generation (no rsi14 < 70 cap) ─────────────────────────────────────
+# ── Signal generation (no RSI band filter) ─────────────────────────────────────
 
 
 def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
@@ -285,10 +286,10 @@ def build_table(label: str, records: list[dict]) -> list[str]:
     m_all = compute_metrics(all_rets)
     if m_all:
         lines.append(fmt_cohort_row("ALL", m_all))
-    ref_rets = np.array([r["ret"] for r in records if r["rsi"] < RSI_CAP])
+    ref_rets = np.array([r["ret"] for r in records if r["rsi"] < RSI_CAP or r["rsi"] > RSI_REENTRY])
     m_ref = compute_metrics(ref_rets)
     if m_ref:
-        lines.append(fmt_cohort_row(f"<{int(RSI_CAP)} (cap)", m_ref))
+        lines.append(fmt_cohort_row(f"<{int(RSI_CAP)}|>{int(RSI_REENTRY)}", m_ref))
     lines.append("")
     return lines
 
@@ -320,7 +321,7 @@ def main() -> None:
     header = (
         f"RSI(14) cohort analysis | Hold: {HOLD_CAL}d | "
         f"Period: {EVAL_START} – {EVAL_END}\n"
-        f"Filters: all bk50d fixed filters applied; rsi14 < {int(RSI_CAP)} cap removed for cohort view\n"
+        f"Filters: all bk50d fixed filters applied; RSI band filter (<{int(RSI_CAP)} or >{int(RSI_REENTRY)}) removed for cohort view\n"
     )
     print("\n" + header)
 

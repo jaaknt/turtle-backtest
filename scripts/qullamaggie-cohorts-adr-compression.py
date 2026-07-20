@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ADR compression cohort analysis for bk50d_s20_v1.2_roc100, bk50d_s15_v1.2_roc100, bk50d_s12_v1.2_roc100 (366d hold).
+ADR compression cohort analysis for bk50d_s20_v1.3_roc100, bk50d_s15_v1.3_roc100, bk50d_s12_v1.3_roc100 (366d hold).
 
 New metric, not currently used as a filter — all standard bk50d filters (no tight_range)
 apply as-is; compression is only measured, not filtered.
@@ -37,13 +37,14 @@ VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
+RSI_REENTRY = 80.0  # spec: RSI(14) < 70 OR RSI(14) > 80 — only the 70-80 band is excluded
 ADR_MIN = 0.025
 MIN_NEG = 5
 
 STRATEGIES = [
-    ("bk50d_s20_v1.2_roc100", 0.20),
-    ("bk50d_s15_v1.2_roc100", 0.15),
-    ("bk50d_s12_v1.2_roc100", 0.12),
+    ("bk50d_s20_v1.3_roc100", 0.20),
+    ("bk50d_s15_v1.3_roc100", 0.15),
+    ("bk50d_s12_v1.3_roc100", 0.12),
 ]
 
 COHORTS: list[tuple[str, float, float]] = [
@@ -180,7 +181,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
             & pl.col("compression").is_not_null()
-            & (pl.col("rsi14") < RSI_CAP)
+            & ((pl.col("rsi14") < RSI_CAP) | (pl.col("rsi14") > RSI_REENTRY))
             & (pl.col("close") > MIN_PRICE)
             & (pl.col("close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
