@@ -7,7 +7,7 @@ It can get ticker lists, ticker counts, check individual ticker signals, or coun
 for specific tickers using different trading strategies.
 
 Usage:
-    python scripts/backtest.py [options]
+    uv run backtest-runner [options]
 
 Options:
     --start-date YYYY-MM-DD  Start date for analysis (required for count mode)
@@ -16,6 +16,8 @@ Options:
     --trading-strategy STRATEGY      Trading strategy: darvas_box, mars, momentum, qullamaggie (default: darvas_box)
     --exit-strategy STRATEGY         Exit strategy: buy_and_hold, profit_loss, ema, macd, atr,
                                      trailing_percentage_loss (default: buy_and_hold)
+    --exit-param KEY=VALUE    Override an exit-strategy parameter, e.g. --exit-param
+                              profit_target=15 (repeatable)
     --ranking-strategy STRATEGY      Ranking strategy: momentum, volume_momentum, breakout_quality (default: momentum)
     --max-tickers NUM        Maximum number of tickers to test (default: 10000)
     --mode MODE              Analysis mode: list (default: list)
@@ -28,7 +30,7 @@ import logging
 import sys
 
 from turtlex.backtest.processor import SignalProcessor
-from turtlex.common.cli import iso_date_type
+from turtlex.common.cli import iso_date_type, key_value_type
 from turtlex.config.logging import LogConfig
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
@@ -41,6 +43,7 @@ from turtlex.strategy.factory import (
     get_exit_strategy,
     get_ranking_strategy,
     get_trading_strategy,
+    resolve_exit_strategy_kwargs,
 )
 
 logger = logging.getLogger(__name__)
@@ -88,6 +91,15 @@ def create_argument_parser() -> argparse.ArgumentParser:
         default="buy_and_hold",
         choices=list(EXIT_STRATEGIES),
         help="Exit strategy to use (default: buy_and_hold)",
+    )
+
+    parser.add_argument(
+        "--exit-param",
+        action="append",
+        default=[],
+        type=key_value_type,
+        metavar="KEY=VALUE",
+        help="Override an exit-strategy parameter, e.g. --exit-param profit_target=15 (repeatable)",
     )
 
     parser.add_argument(
@@ -142,6 +154,7 @@ def main() -> int:
             ranking_strategy = get_ranking_strategy(args.ranking_strategy)
             exit_strategy = get_exit_strategy(args.exit_strategy, bars_history)
             trading_strategy = get_trading_strategy(args.trading_strategy, ranking_strategy, bars_history)
+            exit_strategy_kwargs = resolve_exit_strategy_kwargs(exit_strategy, args.exit_param)
         except ValueError as e:
             logger.error(str(e))
             return 1
@@ -154,6 +167,7 @@ def main() -> int:
             bars_history=bars_history,
             exit_strategy=exit_strategy,
             benchmark_tickers=["SPY.US", "QQQ.US"],
+            exit_strategy_kwargs=exit_strategy_kwargs,
         )
         backtest_service = BacktestService(trading_strategy=trading_strategy, signal_processor=signal_processor, symbol_repo=symbol_repo)
 
