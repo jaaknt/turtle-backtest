@@ -88,6 +88,7 @@ class BacktestService:
             f"\n QQQ: Period: {qqq_return:.2f}% Annual: {qqq_annual:.2f}%"
             f"\n SPY: Period: {spy_return:.2f}% Annual: {spy_annual:.2f}%"
         )
+        self._print_pnl_distribution(signal_results, rank_label="All")
         for i in range(0, 100, 20):
             ranked_results = [result for result in signal_results if i < result.signal.ranking < i + 21]
             if ranked_results:
@@ -115,7 +116,8 @@ class BacktestService:
             (">10%", 10.0, float("inf")),
         ]
         n = len(results)
-        print("   PnL Distribution:")
+        label_suffix = " (all signals)" if rank_label == "All" else f" (rank {rank_label})" if rank_label else ""
+        print(f"   PnL Distribution{label_suffix}:")
         for label, lo, hi in buckets:
             count = sum(1 for r in results if lo <= r.realized_pct < hi)
             pct = count / n * 100 if n else 0.0
@@ -125,8 +127,6 @@ class BacktestService:
         sorted_results = sorted(results, key=lambda r: r.realized_pct, reverse=True)
         header = f"   {'Ticker':<10} {'Return%':>8}  {'Annual%':>9}  {'Entry':>10}  {'Exit':>10}  {'Days':>5}"
         sep = "   " + "-" * 60
-
-        label_suffix = f" (rank {rank_label})" if rank_label else ""
 
         top_n = sorted_results[:10]
         print(f"\n   Top {len(top_n)}{label_suffix}:")
