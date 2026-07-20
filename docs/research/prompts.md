@@ -55,16 +55,16 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 - **Output format** (yearly summary):
 
   ```text
-   Year     N   Win%   Mean%    Med%  Sortino  CVaR95%
-  ----------------------------------------------------
-   2007    10   40.0   -4.45   -5.48   -0.093   -80.13
-   2008    61   73.8  +20.26  +17.01    0.977   -33.40
+   Year     N   Win%   Mean% QQQ%   SPY%   Med%  Sortino  CVaR95%
+  ----------------------------------------------------------------
+   2007    10   40.0   -4.45 +20.1  +10.1 -5.48   -0.093   -80.13
+   2008    61   73.8  +20.26 +20.1  +10.1 +17.01   0.977   -33.40
    ...
   ```
 
 - **Script:** `scripts/qullamaggie-longterm-monthly.py`
 - **Results:** `docs/research/result-qullamaggie-longterm-monthly.md`
-- **Note:** script uses ADR>=2.5% (looser than the v4 canonical 3.0%); no tight_range.
+- **Note:** script must follow alogrithm parameters in `docs/research/qullamaggie-backtest-v4.md`.
 
 ## Filter cohort studies
 
