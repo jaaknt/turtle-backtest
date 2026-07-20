@@ -1,7 +1,7 @@
 """Trailing percentage loss exit strategy."""
 
 import logging
-from datetime import datetime
+from datetime import date
 
 import polars as pl
 
@@ -25,7 +25,7 @@ class TrailingPercentageLossExitStrategy(ExitStrategy):
     - Exit triggers: when close price drops below current trailing stop
     """
 
-    def initialize(self, ticker: str, start_date: datetime, end_date: datetime, percentage_loss: float = 10.0) -> None:
+    def initialize(self, ticker: str, start_date: date, end_date: date, percentage_loss: float = 10.0) -> None:
         super().initialize(ticker, start_date, end_date)
         self.percentage_loss = percentage_loss
 
@@ -48,13 +48,11 @@ class TrailingPercentageLossExitStrategy(ExitStrategy):
         exit_rows = df.filter(pl.col("close") < pl.col("trailing_stop"))
         if not exit_rows.is_empty():
             row = exit_rows.row(0, named=True)
-            d = row["date"]
-            exit_date = datetime(d.year, d.month, d.day)
+            exit_date = row["date"]
             logger.debug(f"Trailing stop triggered on {exit_date}: Close {row['close']:.2f} < Stop {row['trailing_stop']:.2f}")
             return Trade(ticker=self.ticker, date=exit_date, price=row["close"], reason="trailing_percentage_stop")
 
         row = df.row(-1, named=True)
-        d = row["date"]
-        final_date = datetime(d.year, d.month, d.day)
+        final_date = row["date"]
         logger.debug(f"Period end: Final close {row['close']:.2f}")
         return Trade(ticker=self.ticker, date=final_date, price=row["close"], reason="period_end")

@@ -1,7 +1,7 @@
 """ATR-based exit strategy."""
 
 import logging
-from datetime import datetime, timedelta
+from datetime import date, timedelta
 
 import polars as pl
 
@@ -27,7 +27,7 @@ class ATRExitStrategy(ExitStrategy):
     - Exit triggers: When close price drops below current trailing stop
     """
 
-    def initialize(self, ticker: str, start_date: datetime, end_date: datetime, atr_period: int = 14, atr_multiplier: float = 2.0) -> None:
+    def initialize(self, ticker: str, start_date: date, end_date: date, atr_period: int = 14, atr_multiplier: float = 2.0) -> None:
         super().initialize(ticker, start_date, end_date)
         self.atr_period = atr_period
         self.atr_multiplier = atr_multiplier
@@ -45,7 +45,7 @@ class ATRExitStrategy(ExitStrategy):
                 ).alias("tr")
             )
             .with_columns(pl.col("tr").ewm_mean(alpha=1.0 / self.atr_period, adjust=False).alias("atr"))
-            .filter(pl.col("date") >= self.start_date.date())
+            .filter(pl.col("date") >= self.start_date)
         )
 
     def calculate_exit(self, data: pl.DataFrame) -> Trade:
@@ -76,13 +76,11 @@ class ATRExitStrategy(ExitStrategy):
         exit_rows = df.filter(pl.col("close") < pl.col("trailing_stop"))
         if not exit_rows.is_empty():
             row = exit_rows.row(0, named=True)
-            d = row["date"]
-            exit_date = datetime(d.year, d.month, d.day)
+            exit_date = row["date"]
             logger.debug(f"Stop loss triggered on {exit_date}: Close {row['close']:.2f} < Stop {row['trailing_stop']:.2f}")
             return Trade(ticker=self.ticker, date=exit_date, price=row["close"], reason="atr_trailing_stop")
 
         row = df.row(-1, named=True)
-        d = row["date"]
-        final_date = datetime(d.year, d.month, d.day)
+        final_date = row["date"]
         logger.debug(f"Period end: Final close {row['close']:.2f}, Final stop {row['trailing_stop']:.2f}")
         return Trade(ticker=self.ticker, date=final_date, price=row["close"], reason="period_end")

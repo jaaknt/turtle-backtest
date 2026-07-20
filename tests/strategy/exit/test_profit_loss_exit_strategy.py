@@ -1,6 +1,6 @@
 """Tests for ProfitLossExitStrategy."""
 
-from datetime import date, datetime
+from datetime import date
 from unittest.mock import Mock
 
 import polars as pl
@@ -29,7 +29,7 @@ class TestProfitLossExitStrategy:
         mock_bars_history = self.create_mock_bars_history()
         strategy = ProfitLossExitStrategy(mock_bars_history)
 
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 31))
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 31))
 
         assert strategy.ticker == "AAPL"
         assert strategy.profit_target == 10.0
@@ -39,7 +39,7 @@ class TestProfitLossExitStrategy:
         mock_bars_history = self.create_mock_bars_history()
         strategy = ProfitLossExitStrategy(mock_bars_history)
 
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 31), profit_target=20.0, stop_loss=8.0)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 31), profit_target=20.0, stop_loss=8.0)
 
         assert strategy.profit_target == 20.0
         assert strategy.stop_loss == 8.0
@@ -67,7 +67,7 @@ class TestProfitLossExitStrategy:
         )
         mock_bars_history.get_bars_pl.return_value = mock_data
 
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 10))
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 10))
         result = strategy.calculate_indicators()
 
         assert isinstance(result, pl.DataFrame)
@@ -78,7 +78,7 @@ class TestProfitLossExitStrategy:
         mock_bars_history = self.create_mock_bars_history()
         strategy = ProfitLossExitStrategy(mock_bars_history)
         # Entry open = 100, profit_target=10% → profit price = 110
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5), profit_target=10.0, stop_loss=5.0)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5), profit_target=10.0, stop_loss=5.0)
 
         data = pl.DataFrame(
             {
@@ -94,7 +94,7 @@ class TestProfitLossExitStrategy:
 
         assert isinstance(result, Trade)
         assert result.reason == "profit_target"
-        assert result.date == datetime(2024, 1, 3)
+        assert result.date == date(2024, 1, 3)
         assert result.price == pytest.approx(110.0)
 
     def test_calculate_exit_stop_loss(self) -> None:
@@ -102,7 +102,7 @@ class TestProfitLossExitStrategy:
         mock_bars_history = self.create_mock_bars_history()
         strategy = ProfitLossExitStrategy(mock_bars_history)
         # Entry open = 100, stop_loss=5% → stop price = 95
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5), profit_target=10.0, stop_loss=5.0)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5), profit_target=10.0, stop_loss=5.0)
 
         data = pl.DataFrame(
             {
@@ -118,7 +118,7 @@ class TestProfitLossExitStrategy:
 
         assert isinstance(result, Trade)
         assert result.reason == "stop_loss"
-        assert result.date == datetime(2024, 1, 3)
+        assert result.date == date(2024, 1, 3)
         assert result.price == pytest.approx(95.0)
 
     def test_calculate_exit_profit_before_loss(self) -> None:
@@ -126,7 +126,7 @@ class TestProfitLossExitStrategy:
         mock_bars_history = self.create_mock_bars_history()
         strategy = ProfitLossExitStrategy(mock_bars_history)
         # Entry open = 100, profit=10% → 110, stop=5% → 95
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 3), profit_target=10.0, stop_loss=5.0)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 3), profit_target=10.0, stop_loss=5.0)
 
         data = pl.DataFrame(
             {
@@ -142,13 +142,13 @@ class TestProfitLossExitStrategy:
 
         # Both hit on dates[1]; profit_date == loss_date → profit wins
         assert result.reason == "profit_target"
-        assert result.date == datetime(2024, 1, 2)
+        assert result.date == date(2024, 1, 2)
 
     def test_calculate_exit_loss_before_profit(self) -> None:
         """When stop hits before profit target, stop loss is used."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = ProfitLossExitStrategy(mock_bars_history)
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5), profit_target=10.0, stop_loss=5.0)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5), profit_target=10.0, stop_loss=5.0)
 
         data = pl.DataFrame(
             {
@@ -163,13 +163,13 @@ class TestProfitLossExitStrategy:
         result = strategy.calculate_exit(data)
 
         assert result.reason == "stop_loss"
-        assert result.date == datetime(2024, 1, 3)
+        assert result.date == date(2024, 1, 3)
 
     def test_calculate_exit_period_end(self) -> None:
         """Neither target is hit — exit at period end."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = ProfitLossExitStrategy(mock_bars_history)
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5), profit_target=10.0, stop_loss=5.0)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5), profit_target=10.0, stop_loss=5.0)
 
         # Entry open=100, profit=110, stop=95; lows stay above 95, highs stay below 110
         data = pl.DataFrame(
@@ -186,5 +186,5 @@ class TestProfitLossExitStrategy:
 
         assert isinstance(result, Trade)
         assert result.reason == "period_end"
-        assert result.date == datetime(2024, 1, 5)
+        assert result.date == date(2024, 1, 5)
         assert result.price == 101.0

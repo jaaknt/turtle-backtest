@@ -98,7 +98,7 @@ class PortfolioManager:
         self.current_snapshot.add_position(position)
 
         logger.info(
-            f"Opened position: {entry.date.date()} {entry.ticker} x{position_size} "
+            f"Opened position: {entry.date} {entry.ticker} x{position_size} "
             f"@ ${entry.price:.2f} cost=${cost:.2f} cash=${self.current_snapshot.cash:.2f}"
         )
 
@@ -125,9 +125,7 @@ class PortfolioManager:
         # Update portfolio state
         self.current_snapshot.remove_position(ticker, price=exit.price)
 
-        logger.info(
-            f"Closed position: {exit.date.date()} {exit.ticker} ${exit.price:.2f} cost=${cost:.2f} cash=${self.current_snapshot.cash:.2f}"
-        )
+        logger.info(f"Closed position: {exit.date} {exit.ticker} ${exit.price:.2f} cost=${cost:.2f} cash=${self.current_snapshot.cash:.2f}")
 
         return None
 

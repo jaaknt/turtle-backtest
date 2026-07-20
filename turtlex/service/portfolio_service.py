@@ -171,11 +171,11 @@ class PortfolioService:
 
         for position in positions_to_process:
             # Check if this position's scheduled exit date matches current date
-            if position.exit.date.date() <= current_date:
-                logger.info(f"Exiting position for {position.ticker} on {position.exit.date.date()}")
+            if position.exit.date <= current_date:
+                logger.info(f"Exiting position for {position.ticker} on {position.exit.date}")
                 self.portfolio_manager.close_position(exit=position.exit, position_size=position.position_size)
             else:
-                logger.debug(f"Holding position for {position.ticker}, scheduled exit on {position.exit.date.date()}")
+                logger.debug(f"Holding position for {position.ticker}, scheduled exit on {position.exit.date}")
 
         logger.info(f"positions after exits: {len(self.portfolio_manager.current_snapshot.positions)}")
 
@@ -236,10 +236,7 @@ class PortfolioService:
             # Open the position in the portfolio
             self.portfolio_manager.open_position(future_trade.entry, future_trade.exit, position_size)
 
-            logger.info(
-                f"Opened position for {signal.ticker} on {future_trade.entry.date.date()}, "
-                f"scheduled exit on {future_trade.exit.date.date()}"
-            )
+            logger.info(f"Opened position for {signal.ticker} on {future_trade.entry.date}, scheduled exit on {future_trade.exit.date}")
             if self.portfolio_manager.current_snapshot.cash < self.portfolio_manager.position_min_amount:
                 break
 

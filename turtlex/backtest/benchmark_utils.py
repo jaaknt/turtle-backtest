@@ -1,7 +1,7 @@
 """Shared benchmark calculation utilities."""
 
 import logging
-from datetime import datetime
+from datetime import date
 
 import polars as pl
 
@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 def calculate_benchmark_list(
-    start_date: datetime,
-    end_date: datetime,
+    start_date: date,
+    end_date: date,
     benchmark_tickers: list[str],
     bars_history: DailyBarsQueryRepository,
     time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
@@ -34,12 +34,9 @@ def calculate_benchmark_list(
     """
     benchmarks = []
 
-    start_d = start_date.date() if isinstance(start_date, datetime) else start_date
-    end_d = end_date.date() if isinstance(end_date, datetime) else end_date
-
     for ticker in benchmark_tickers:
         try:
-            df = bars_history.get_bars_pl(ticker, start_d, end_d, time_frame_unit)
+            df = bars_history.get_bars_pl(ticker, start_date, end_date, time_frame_unit)
 
             if not df.is_empty():
                 benchmark = calculate_benchmark(df, ticker, start_date, end_date)
@@ -56,8 +53,8 @@ def calculate_benchmark_list(
 def calculate_benchmark(
     df: pl.DataFrame,
     ticker: str,
-    entry_date: datetime,
-    exit_date: datetime,
+    entry_date: date,
+    exit_date: date,
 ) -> Benchmark | None:
     """
     Calculate benchmark for a single benchmark ticker.
@@ -76,15 +73,12 @@ def calculate_benchmark(
             logger.warning(f"No {ticker} data available for benchmark calculation")
             return None
 
-        entry_d = entry_date.date() if isinstance(entry_date, datetime) else entry_date
-        exit_d = exit_date.date() if isinstance(exit_date, datetime) else exit_date
-
-        entry_data = df.filter(pl.col("date") >= entry_d)
+        entry_data = df.filter(pl.col("date") >= entry_date)
         if entry_data.is_empty():
             logger.warning(f"No {ticker} entry data available on or after {entry_date}")
             return None
 
-        exit_data = df.filter(pl.col("date") <= exit_d)
+        exit_data = df.filter(pl.col("date") <= exit_date)
         if exit_data.is_empty():
             logger.warning(f"No {ticker} exit data available on or before {exit_date}")
             return None

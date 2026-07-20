@@ -1,6 +1,6 @@
 """Tests for EMAExitStrategy."""
 
-from datetime import date, datetime
+from datetime import date
 from unittest.mock import Mock
 
 import polars as pl
@@ -29,7 +29,7 @@ class TestEMAExitStrategy:
         mock_bars_history = self.create_mock_bars_history()
         strategy = EMAExitStrategy(mock_bars_history)
 
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 31))
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 31))
 
         assert strategy.ticker == "AAPL"
         assert strategy.ema_period == 20
@@ -38,7 +38,7 @@ class TestEMAExitStrategy:
         mock_bars_history = self.create_mock_bars_history()
         strategy = EMAExitStrategy(mock_bars_history)
 
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 31), ema_period=50)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 31), ema_period=50)
 
         assert strategy.ema_period == 50
 
@@ -65,7 +65,7 @@ class TestEMAExitStrategy:
         )
         mock_bars_history.get_bars_pl.return_value = mock_data
 
-        strategy.initialize("AAPL", datetime(2024, 1, 15), datetime(2024, 1, 31))
+        strategy.initialize("AAPL", date(2024, 1, 15), date(2024, 1, 31))
         result = strategy.calculate_indicators()
 
         assert isinstance(result, pl.DataFrame)
@@ -76,7 +76,7 @@ class TestEMAExitStrategy:
         """Exit when close drops below EMA."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = EMAExitStrategy(mock_bars_history)
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5))
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5))
 
         # close drops below ema on day 2 (index 2)
         data = pl.DataFrame(
@@ -91,14 +91,14 @@ class TestEMAExitStrategy:
 
         assert isinstance(result, Trade)
         assert result.reason == "stop_loss"
-        assert result.date == datetime(2024, 1, 3)
+        assert result.date == date(2024, 1, 3)
         assert result.price == 98.0
 
     def test_calculate_exit_period_end(self) -> None:
         """No exit when close stays above EMA throughout."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = EMAExitStrategy(mock_bars_history)
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5))
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5))
 
         data = pl.DataFrame(
             {
@@ -112,14 +112,14 @@ class TestEMAExitStrategy:
 
         assert isinstance(result, Trade)
         assert result.reason == "period_end"
-        assert result.date == datetime(2024, 1, 5)
+        assert result.date == date(2024, 1, 5)
         assert result.price == 109.0
 
     def test_calculate_exit_first_day_stop(self) -> None:
         """Exit triggers on the very first day if close is already below EMA."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = EMAExitStrategy(mock_bars_history)
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5))
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5))
 
         data = pl.DataFrame(
             {
@@ -132,5 +132,5 @@ class TestEMAExitStrategy:
         result = strategy.calculate_exit(data)
 
         assert result.reason == "stop_loss"
-        assert result.date == datetime(2024, 1, 1)
+        assert result.date == date(2024, 1, 1)
         assert result.price == 95.0

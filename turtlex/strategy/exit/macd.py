@@ -1,6 +1,6 @@
 """MACD-based exit strategy."""
 
-from datetime import datetime, timedelta
+from datetime import date, timedelta
 
 import polars as pl
 
@@ -19,7 +19,7 @@ class MACDExitStrategy(ExitStrategy):
     """
 
     def initialize(
-        self, ticker: str, start_date: datetime, end_date: datetime, fastperiod: int = 12, slowperiod: int = 26, signalperiod: int = 9
+        self, ticker: str, start_date: date, end_date: date, fastperiod: int = 12, slowperiod: int = 26, signalperiod: int = 9
     ) -> None:
         super().initialize(ticker, start_date, end_date)
         self.fastperiod = fastperiod
@@ -38,7 +38,7 @@ class MACDExitStrategy(ExitStrategy):
                 ).alias("macd_line")
             )
             .with_columns(pl.col("macd_line").ewm_mean(span=self.signalperiod, adjust=False).alias("macd_signal"))
-            .filter(pl.col("date") >= self.start_date.date())
+            .filter(pl.col("date") >= self.start_date)
         )
 
     def calculate_exit(self, data: pl.DataFrame) -> Trade:
@@ -49,9 +49,7 @@ class MACDExitStrategy(ExitStrategy):
         below_signal = data.filter(pl.col("macd_line") < pl.col("macd_signal"))
         if not below_signal.is_empty():
             row = below_signal.row(0, named=True)
-            d = row["date"]
-            return Trade(ticker=self.ticker, date=datetime(d.year, d.month, d.day), price=row["close"], reason="below_signal")
+            return Trade(ticker=self.ticker, date=row["date"], price=row["close"], reason="below_signal")
 
         row = data.row(-1, named=True)
-        d = row["date"]
-        return Trade(ticker=self.ticker, date=datetime(d.year, d.month, d.day), price=row["close"], reason="period_end")
+        return Trade(ticker=self.ticker, date=row["date"], price=row["close"], reason="period_end")

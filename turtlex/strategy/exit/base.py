@@ -1,7 +1,7 @@
 """Base exit strategy class."""
 
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import date
 
 import polars as pl
 
@@ -15,7 +15,7 @@ class ExitStrategy(ABC):
     def __init__(self, bars_history: DailyBarsQueryRepository):
         self.bars_history = bars_history
 
-    def initialize(self, ticker: str, start_date: datetime, end_date: datetime) -> None:
+    def initialize(self, ticker: str, start_date: date, end_date: date) -> None:
         self.ticker = ticker
         self.start_date = start_date
         self.end_date = end_date

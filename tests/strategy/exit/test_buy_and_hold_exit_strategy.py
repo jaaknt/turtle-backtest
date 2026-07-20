@@ -1,6 +1,6 @@
 """Tests for BuyAndHoldExitStrategy."""
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from unittest.mock import Mock
 
 import polars as pl
@@ -30,8 +30,8 @@ class TestBuyAndHoldExitStrategy:
         strategy = BuyAndHoldExitStrategy(mock_bars_history)
 
         ticker = "AAPL"
-        start_date = datetime(2024, 1, 1)
-        end_date = datetime(2024, 1, 31)
+        start_date = date(2024, 1, 1)
+        end_date = date(2024, 1, 31)
 
         strategy.initialize(ticker, start_date, end_date)
 
@@ -44,7 +44,7 @@ class TestBuyAndHoldExitStrategy:
         mock_bars_history = self.create_mock_bars_history()
         strategy = BuyAndHoldExitStrategy(mock_bars_history)
 
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 12, 31), holding_days=5)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 12, 31), holding_days=5)
 
         assert strategy.holding_days == 5
 
@@ -71,7 +71,7 @@ class TestBuyAndHoldExitStrategy:
         )
         mock_bars_history.get_bars_pl.return_value = mock_data
 
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 10))
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 10))
         result = strategy.calculate_indicators()
 
         assert isinstance(result, pl.DataFrame)
@@ -80,7 +80,7 @@ class TestBuyAndHoldExitStrategy:
     def test_calculate_exit_returns_last_close(self) -> None:
         mock_bars_history = self.create_mock_bars_history()
         strategy = BuyAndHoldExitStrategy(mock_bars_history)
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5))
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5))
 
         data = pl.DataFrame(
             {
@@ -97,28 +97,28 @@ class TestBuyAndHoldExitStrategy:
         assert isinstance(result, Trade)
         assert result.ticker == "AAPL"
         assert result.reason == "period_end"
-        assert result.date == datetime(2024, 1, 5)
+        assert result.date == date(2024, 1, 5)
         assert result.price == 104.0
 
     def test_calculate_exit_single_row(self) -> None:
         """Exit on a single-row DataFrame returns that row's close."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = BuyAndHoldExitStrategy(mock_bars_history)
-        strategy.initialize("MSFT", datetime(2024, 6, 1), datetime(2024, 6, 1))
+        strategy.initialize("MSFT", date(2024, 6, 1), date(2024, 6, 1))
 
         data = pl.DataFrame({"date": [date(2024, 6, 1)], "close": [250.0], "open": [248.0], "high": [251.0], "low": [247.0]})
 
         result = strategy.calculate_exit(data)
 
         assert result.price == 250.0
-        assert result.date == datetime(2024, 6, 1)
+        assert result.date == date(2024, 6, 1)
         assert result.reason == "period_end"
 
     def test_calculate_exit_after_holding_days(self) -> None:
         """Data spanning past the cutoff exits at the first bar on/after start + holding_days."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = BuyAndHoldExitStrategy(mock_bars_history)
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 3, 31))
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 3, 31))
 
         # Daily bars from 2024-01-01 to 2024-02-14; cutoff is 2024-01-31
         days = [date(2024, 1, 1) + timedelta(days=i) for i in range(45)]
@@ -134,7 +134,7 @@ class TestBuyAndHoldExitStrategy:
 
         result = strategy.calculate_exit(data)
 
-        assert result.date == datetime(2024, 1, 31)
+        assert result.date == date(2024, 1, 31)
         assert result.price == 130.0
         assert result.reason == "holding_period"
 
@@ -142,7 +142,7 @@ class TestBuyAndHoldExitStrategy:
         """A cutoff falling in a bar gap exits at the next available bar."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = BuyAndHoldExitStrategy(mock_bars_history)
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 3, 31), holding_days=10)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 3, 31), holding_days=10)
 
         # Cutoff 2024-01-11 has no bar; next bar is 2024-01-13
         data = pl.DataFrame(
@@ -157,7 +157,7 @@ class TestBuyAndHoldExitStrategy:
 
         result = strategy.calculate_exit(data)
 
-        assert result.date == datetime(2024, 1, 13)
+        assert result.date == date(2024, 1, 13)
         assert result.price == 103.0
         assert result.reason == "holding_period"
 
@@ -165,7 +165,7 @@ class TestBuyAndHoldExitStrategy:
         """A short holding_days exits early instead of at period end."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = BuyAndHoldExitStrategy(mock_bars_history)
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 10), holding_days=5)
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 10), holding_days=5)
 
         data = pl.DataFrame(
             {
@@ -179,7 +179,7 @@ class TestBuyAndHoldExitStrategy:
 
         result = strategy.calculate_exit(data)
 
-        assert result.date == datetime(2024, 1, 6)
+        assert result.date == date(2024, 1, 6)
         assert result.price == 105.0
         assert result.reason == "holding_period"
 
@@ -187,7 +187,7 @@ class TestBuyAndHoldExitStrategy:
         """Data ending before the cutoff exits at the last bar with reason period_end."""
         mock_bars_history = self.create_mock_bars_history()
         strategy = BuyAndHoldExitStrategy(mock_bars_history)
-        strategy.initialize("AAPL", datetime(2024, 1, 1), datetime(2024, 1, 5))
+        strategy.initialize("AAPL", date(2024, 1, 1), date(2024, 1, 5))
 
         data = pl.DataFrame(
             {
@@ -201,6 +201,6 @@ class TestBuyAndHoldExitStrategy:
 
         result = strategy.calculate_exit(data)
 
-        assert result.date == datetime(2024, 1, 5)
+        assert result.date == date(2024, 1, 5)
         assert result.price == 104.0
         assert result.reason == "period_end"
