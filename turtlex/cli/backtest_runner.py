@@ -18,6 +18,7 @@ Options:
                                      trailing_percentage_loss (default: buy_and_hold)
     --exit-param KEY=VALUE    Override an exit-strategy parameter, e.g. --exit-param
                               profit_target=15 (repeatable)
+    --max-holding-days NUM    Maximum calendar days a position may stay open (default: 60)
     --ranking-strategy STRATEGY      Ranking strategy: momentum, volume_momentum, breakout_quality (default: momentum)
     --max-tickers NUM        Maximum number of tickers to test (default: 10000)
     --mode MODE              Analysis mode: list (default: list)
@@ -103,6 +104,13 @@ def create_argument_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        "--max-holding-days",
+        type=int,
+        default=60,
+        help="Maximum calendar days a position may stay open (default: 60)",
+    )
+
+    parser.add_argument(
         "--ranking-strategy",
         type=str,
         default="momentum",
@@ -163,7 +171,7 @@ def main() -> int:
         logger.info("Initializing strategy runner...")
         symbol_repo = TickerQueryRepository(settings.engine)
         signal_processor = SignalProcessor(
-            max_holding_period=60,
+            max_holding_period=args.max_holding_days,
             bars_history=bars_history,
             exit_strategy=exit_strategy,
             benchmark_tickers=["SPY.US", "QQQ.US"],
