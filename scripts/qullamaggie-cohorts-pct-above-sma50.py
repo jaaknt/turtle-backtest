@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-pct_above_sma50 cohort analysis for bk50d_<X>_v1.2_roc100 (366d hold).
+pct_above_sma50 cohort analysis for bk50d_<X>_v1.3_roc100 (366d hold).
 
 All strategy filters applied EXCEPT the pct_vs_sma50 > X threshold itself, so
 we can see performance across the full distance-above-SMA50 range. Removing
@@ -33,6 +33,7 @@ COOLDOWN = 30
 VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 RSI_CAP = 70.0
+RSI_REENTRY = 80.0  # spec: RSI(14) < 70 OR RSI(14) > 80 — only the 70-80 band is excluded
 ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 ROC_CAP = 1.00
@@ -174,7 +175,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date]) -> pl.DataFrame:
             & pl.col("roc_252d").is_not_null()
             & pl.col("adr_pct_change").is_not_null()
             & pl.col("adr_pct").is_not_null()
-            & (pl.col("rsi14") < RSI_CAP)
+            & ((pl.col("rsi14") < RSI_CAP) | (pl.col("rsi14") > RSI_REENTRY))
             & (pl.col("close") > MIN_PRICE)
             & (pl.col("close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
@@ -268,7 +269,7 @@ def fmt_cohort_row(label: str, m: dict) -> str:
 
 
 def build_table(records: list[dict]) -> list[str]:
-    lines = ["### bk50d_<X>_v1.2_roc100 (pct_vs_sma50 threshold removed)", "", _COL_HDR, _COL_SEP]
+    lines = ["### bk50d_<X>_v1.3_roc100 (pct_vs_sma50 threshold removed)", "", _COL_HDR, _COL_SEP]
     all_rets = np.array([r["ret"] for r in records])
     for cohort_label, lo, hi in COHORTS:
         cohort_rets = np.array([r["ret"] for r in records if lo <= r["pct"] < hi])
