@@ -12,7 +12,7 @@ Period: 2010-01-01 – 2026-06-26  |  Hold: 366d (calendar)
 | Limit sweep | X% = 0%, 1%, 2%, 3%, 4%, 5% |
 | Limit order rule | resting limit at signal_day_close x (1 - X%), good for 30 calendar days; fills on the first day in that window whose low <= limit price, else expires unfilled |
 | Baseline | EOD — buy at signal-day close (backtest-v4 default) |
-| Fixed filters | RSI<70|>80, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90% (no tight_range) |
+| Fixed filters | RSI<70 or >80, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90% (no tight_range) |
 | Market regime | SPY close > 200d SMA |
 | Price range | > $5 and < $250 |
 | Min avg vol (20d) | >= 500K |

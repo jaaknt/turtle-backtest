@@ -439,7 +439,7 @@ def main() -> None:
         )
         fh.write("| Baseline | EOD — buy at signal-day close (backtest-v4 default) |\n")
         fh.write(
-            "| Fixed filters | RSI<70|>80, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90% (no tight_range) |\n"
+            "| Fixed filters | RSI<70 or >80, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90% (no tight_range) |\n"
         )
         fh.write("| Market regime | SPY close > 200d SMA |\n")
         fh.write(f"| Price range | > ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f} |\n")
