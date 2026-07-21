@@ -437,9 +437,7 @@ def main() -> None:
             "fills on the first day in that window whose low <= limit price, else expires unfilled |\n"
         )
         fh.write("| Baseline | EOD — buy at signal-day close (backtest-v4 default) |\n")
-        fh.write(
-            "| Fixed filters | RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90% (no tight_range) |\n"
-        )
+        fh.write("| Fixed filters | RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90% (no tight_range) |\n")
         fh.write("| Market regime | SPY close > 200d SMA |\n")
         fh.write(f"| Price range | > ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f} |\n")
         fh.write(f"| Min avg vol (20d) | >= {MIN_AVG_VOL // 1000}K |\n")
