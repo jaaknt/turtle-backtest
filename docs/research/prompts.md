@@ -267,11 +267,12 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ## Portfolio simulation
 
-**Goal:** Portfolio simulation over `bk50d_s20_v1.2_roc100-366d`, `bk50d_s15_v1.2_roc100-366d`, `bk50d_s12_v1.2_roc100-366d` signals.
+**Goal:** Portfolio simulation over `bk50d_s20_v1.3_roc100-366d`, `bk50d_s17_v1.3_roc100-366d`, `bk50d_s15_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d` signals.
 
 - **Period:** 2020-01-01 : 2026-06-26
 - **Initial portfolio:** $30,000
-- **Position sizing:** invest {3%, 4%, 5%, 6%, 7%, 8%} of portfolio at a time per trade; if there is no liquidity, skip the trade.
+- **Position sizing:** invest {3%, 4%, 5%} of portfolio at a time per trade; if there is no liquidity, skip the trade.
+- **Algotithm:** RSI < 70
 - **Output format:**
 
   ```text
@@ -290,7 +291,10 @@ All cohort studies below share the same setup unless stated otherwise:
    2010 |    -3.2|7    +3.8|1    +2.6|1    -0.4|2    -2.4|0    -3.9|0    +2.9|0    -3.1|4    +5.5|2    +1.0|2    -0.3|2    +8.3|6 |   +10.5    27
   ```
 
-- Provide a comparison with an alternative approach where a limit order is added to buy the stock 3% below closing price during the next 30 days (instead of buying on closing price).
+- Compare what would by result if whole amount would be invested to SPY or QQQ in first day of period and sold on last day of period
+- <!-- Provide a comparison with an alternative approach where a limit order is added to buy the stock 
+    3% below closing price during the next 30 days (instead of buying on closing price). -->
+- Provide comparison with an alternative holding lengths (90d, 120d, 180d, 240d, 360d)
 - Add your findings on how to improve the portfolio performance (Mean%, Sortino, Calmar).
 - **Deferred/considered ideas** (commented out in the original prompt):
   - Prefer always bk50d_s20_tr10_v1.2_roc100 signals, but if there is liquidity use bk50d_s15_tr15_v1.2_roc100 signals to reduce uninvested amounts.
@@ -298,7 +302,7 @@ All cohort studies below share the same setup unless stated otherwise:
   - Sell the position if the stock closes below the 200-day SMA for 3 consecutive trades.
 - **Script:** `scripts/qullamaggie-portfolio-sim.py`
 - **Results:** `docs/research/result-qullamaggie-portfolio-v4.md`
-- **References:** `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`
+- **References:** `docs/research/qullamaggie-backtest-v4.md`, `scripts/qullamaggie-backtest-v4.py`
 
 ## Live signal generation
 
