@@ -2,7 +2,7 @@
 """
 Long-term monthly analysis for multiple bk50d configs (366d hold).
 
-Same fixed filters as scripts/qullamaggie-backtest-v4.py (RSI<70 or >80,
+Same fixed filters as scripts/qullamaggie-backtest-v4.py (RSI<70,
 roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, ADR>=3.0%, ADR_change<90%,
 SPY>200d SMA, close>$5&<$250, avg_vol>=500K), extended back to 2007-01-01 to
 cover the 2008 GFC, 2011/2015/2018 corrections, 2020 COVID crash and 2022
@@ -40,7 +40,6 @@ VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
-RSI_REENTRY = 80.0  # spec: RSI(14) < 70 OR RSI(14) > 80 — only the 70-80 band is excluded
 ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 MIN_NEG = 3
@@ -202,7 +201,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
             & pl.col("adr_pct_change").is_not_null()
-            & ((pl.col("rsi14") < RSI_CAP) | (pl.col("rsi14") > RSI_REENTRY))
+            & (pl.col("rsi14") < RSI_CAP)
             & (pl.col("raw_close") > MIN_PRICE)
             & (pl.col("raw_close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
@@ -368,7 +367,7 @@ def main() -> None:
     fixed_hdr = (
         f"Hold: {HOLD_CAL}d | Period: {EVAL_START} – {EVAL_END}\n"
         f"Fixed: vol_dry_up<{int(VOL_DRY_UP * 100)}%, roc_12m<{int(ROC_CAP * 100)}%, "
-        f"vol_surge<{VOL_SURGE_MAX}x (no lower bound), RSI<{int(RSI_CAP)} or >{int(RSI_REENTRY)}, ADR>={ADR_MIN * 100:.1f}%, "
+        f"vol_surge<{VOL_SURGE_MAX}x (no lower bound), RSI<{int(RSI_CAP)}, ADR>={ADR_MIN * 100:.1f}%, "
         f"ADR_change<{int(ADR_CHANGE_CAP * 100)}%, "
         f"SPY>200d SMA, close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K\n"
     )
