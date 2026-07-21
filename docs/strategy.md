@@ -239,18 +239,20 @@ Scores the strength of the breakout event itself at signal time — useful for c
 
 **File**: `turtlex/strategy/ranking/qullamaggie.py`
 
-Cohort-derived ranking for Qullamaggie-style breakout signals. Scores each signal by the four entry-time parameters with the strongest positive Sortino gradients in the cohort research (`docs/research/result-qullamaggie-cohorts-*.md`, `bk50d_s15_v1.2_roc100` tables). Each dimension's bands mimic the cohort buckets, with points equal to the bucket's Sortino rescaled to 0–weight within the dimension. Distance above SMA50 carries half the total weight by design; the remaining 50 points are split across the other dimensions proportionally to their Sortino spread within the filter-surviving cohort domain.
+Cohort-derived ranking for Qullamaggie-style breakout signals. Scores each signal by six entry-time parameters against the Sortino gradients in the cohort research (`docs/research/result-qullamaggie-cohorts-*.md`, `bk50d_s15_v1.3_roc100` tables, 2026-07-22 run). Each dimension's bands mimic the cohort buckets, with points equal to the bucket's Sortino rescaled to 0–weight within the dimension, using only the *reachable* buckets a candidate can actually land in given that dimension's own entry filter. Distance above SMA50 carries half the total weight by design; the remaining 50 points are split across the other five dimensions proportionally to their Sortino spread within the reachable cohort domain.
 
 **Score breakdown** (max 100):
 
 | Component | Column | Best cohort | Max score |
 | ----------- | -------- | ------------- | ----------- |
 | Distance above SMA50 | `pct_vs_sma50` | >30% above SMA50 | 50 |
-| Entry price | `close` | $5–$10 raw close | 21 |
-| ADR%(20) | `adr_pct` | ≥8% daily range | 15 |
-| ADR compression | `adr_pct_change` | ADR10/ADR50 < 0.7 | 14 |
+| Entry price | `close` | $5–$10 raw close | 13 |
+| ADR%(20) | `adr_pct` | ≥8% daily range | 12 |
+| ADR compression | `adr_pct_change` | ADR10/ADR50 < 0.7 | 12 |
+| 12-month ROC | `roc_252d` | <-20% or 40-60% (non-monotonic) | 10 |
+| RSI(14) | `rsi14` | <50, within the qualifying <70 pool | 3 |
 
-Expects the shift-1 indicator columns produced by `QullamaggieStrategy`; a missing column or null value scores that component 0. Note: per `result-qullamaggie-cohort-ranking.md`, composite cohort scores separate already-filtered signals only weakly — this ranking orders surviving signals, it is not a substitute for the entry filters.
+Expects the shift-1 indicator columns produced by `QullamaggieStrategy`; a missing column or null value scores that component 0. Note: per `result-qullamaggie-cohort-ranking.md`, a differently-constructed composite (walk-forward log-odds) separates already-filtered signals only weakly; `result-qullamaggie-ranking-validation.md` walk-forward validates this exact weighted-points scheme. This ranking orders surviving signals, it is not a substitute for the entry filters.
 
 ---
 
