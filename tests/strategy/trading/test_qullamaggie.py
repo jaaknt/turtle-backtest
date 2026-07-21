@@ -114,25 +114,15 @@ def test_roc_cap_blocks_signal() -> None:
     assert strategy.get_signals("TEST.US", last_date, last_date) == []
 
 
-# 14 diffs: 12 gains of +0.5 and 2 losses of 1.0 → avg_gain/avg_loss = 3 → RSI = 75 (in the excluded 70-80 band)
+# 14 diffs: 12 gains of +0.5 and 2 losses of 1.0 → avg_gain/avg_loss = 3 → RSI = 75 (>= 70, blocked)
 _RSI_75_CLOSES = [100.0, 100.5, 101.0, 101.5, 102.0, 102.5, 103.0, 102.0, 102.5, 103.0, 103.5, 104.0, 104.5, 105.0, 104.0]
-# 14 diffs: 12 gains of +0.5 and 2 losses of 0.5 → avg_gain/avg_loss = 6 → RSI ≈ 85.7 (> 80, re-admitted)
-_RSI_86_CLOSES = [100.0, 100.5, 101.0, 101.5, 102.0, 102.5, 103.0, 102.5, 103.0, 103.5, 104.0, 104.5, 105.0, 105.5, 105.0]
 
 
-def test_rsi_70_80_band_blocks_signal() -> None:
+def test_rsi_above_70_blocks_signal() -> None:
     ohlcv = _build_ohlcv(breakouts={N - 1: 120.0}, pre_breakout_closes=_RSI_75_CLOSES)
     last_date = ohlcv["date"][-1]
     strategy = _make_strategy(ohlcv, _build_spy(last_date))
     assert strategy.get_signals("TEST.US", last_date, last_date) == []
-
-
-def test_rsi_above_80_allows_signal() -> None:
-    ohlcv = _build_ohlcv(breakouts={N - 1: 120.0}, pre_breakout_closes=_RSI_86_CLOSES)
-    last_date = ohlcv["date"][-1]
-    strategy = _make_strategy(ohlcv, _build_spy(last_date))
-    signals = strategy.get_signals("TEST.US", last_date, last_date)
-    assert [s.date for s in signals] == [last_date]
 
 
 def test_cooldown_suppresses_second_trigger() -> None:

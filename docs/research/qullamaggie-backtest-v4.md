@@ -11,7 +11,7 @@ Using the `turtle.daily_bars`, `turtle.company` and `turtle.ticker` PostgreSQL t
 - Universe: US common stocks (`turtle.ticker` where `country = 'USA'` and `type = 'Common Stock'`)
 - Minimum filters: `close > 5` and `close < 250` and `mean(volume[-21:-1]) >= 500_000` at entry
 - Market cap is ≥ 1.5B (`turtle.company` where `market_cap >= 1500000000` and `company.ticker_code = ticker.code`)
-- Historical range: Jan 2021 onward in `turtle.daily_bars`
+- Historical range: Jan 2020 onward in `turtle.daily_bars`
 - Exclude tickers with fewer than 300 trading days of history
 - Exclude tickers in sectors: Communication Services, Real Estate (`turtle.company` where `company.sector not in ('Communication Services', 'Real Estate')` and `company.ticker_code = ticker.code`)
 
@@ -33,7 +33,7 @@ For each trading day, compute the following metrics per ticker. Actual entry sig
 
 - `adr_pct`: `mean((high_i − low_i)/low_i, i in last 20 days, shift-1) >= 3.0%` — average daily range as a percent of price over the prior 20 trading days > 3.0%
 - `adr_pct_change`: `adr_pct(10 days) / adr_pct(50 days) < 0.9` - average daily range of 10 days divided by average daily range of 50 days < 0.9
-- `rsi_filter`: `RSI(14) < 70 OR RSI(14) > 80` — 14-period RSI computed on prior closes (shift-1 convention, no look-ahead). Excludes already-overbought entries (fixed, not swept)
+- `rsi_filter`: `RSI(14) < 70` — 14-period RSI computed on prior closes (shift-1 convention, no look-ahead). Excludes already-overbought entries (fixed, not swept)
 - `roc_12m_cap`: `close / close[-252] − 1 < 100%` — 12-month return of stock. Excludes stocks that have already more than doubled in the past year, filtering out overextended breakouts that are likely in a late stage of their move.
 
 **Volume signals:**

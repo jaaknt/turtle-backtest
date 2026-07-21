@@ -154,7 +154,7 @@ Qullamaggie-style 50-day-high breakout (bk50d_s15_v1.3_roc100), ported from the 
 | Breakout | Adjusted close > max of prior 50 closes |
 | Trend distance | Close more than 15% above the 50-day SMA |
 | Volume | Average volume ≥ 500k; dry-up < 0.90 of average; surge capped at 2.0× |
-| Momentum caps | 12-month ROC < 100%; RSI(14) < 70 or > 80 (70–80 band excluded) |
+| Momentum caps | 12-month ROC < 100%; RSI(14) < 70 |
 | Volatility | ADR(20) ≥ 3%; ADR change ≤ 0.90 |
 | Price band | Raw close between $5 and $250 |
 | Market regime | SPY above its 200-day SMA |
