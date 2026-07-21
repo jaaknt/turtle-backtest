@@ -421,8 +421,7 @@ def decile_table_text(deciles: list[dict], label: str) -> tuple[str, dict]:
     for i, d in enumerate(deciles, 1):
         sr_str = f"{d['sortino']:>8.3f}" if not np.isnan(d["sortino"]) else f"{'n/a':>8}"
         lines.append(
-            f"D{i:<7} {d['score']:>7.1f} {d['n']:>5} {d['med']:>+7.2f} "
-            f"{d['mean']:>+7.2f} {d['win']:>6.1f} {sr_str} {d['pf']:>6.2f}"
+            f"D{i:<7} {d['score']:>7.1f} {d['n']:>5} {d['med']:>+7.2f} {d['mean']:>+7.2f} {d['win']:>6.1f} {sr_str} {d['pf']:>6.2f}"
         )
     sortino_steps, sortino_n = _monotonic_nondecreasing([d["sortino"] for d in deciles])
     mean_steps, mean_n = _monotonic_nondecreasing([d["mean"] for d in deciles])
@@ -545,10 +544,7 @@ def main() -> None:
         "2015-2026 period, so not strictly out-of-sample here, but shows real-world behavior on "
         "the most recent slice)"
     )
-    out(
-        "3. **Legacy (pre-change)** — the old 4-dimension bands (ADR/compression/price/SMA50 only, "
-        "no ROC252/RSI), as the baseline to beat"
-    )
+    out("3. **Legacy (pre-change)** — the old 4-dimension bands (ADR/compression/price/SMA50 only, no ROC252/RSI), as the baseline to beat")
 
     refit_deciles = compute_deciles(test, dyn_scores)
     prod_deciles = compute_deciles(test, prod_scores)
@@ -646,10 +642,7 @@ def main() -> None:
         key = max(avg_weights, key=lambda k: abs(50.0 * avg_weights[k] / total_avg - stabilized_weights[k]))
         stabilized_weights[key] += drift
     out("")
-    out(
-        "Cross-fold average weight (renormalized to sum 50): "
-        + ", ".join(f"{name}={stabilized_weights[name]}" for name in SECONDARY_DIMS)
-    )
+    out("Cross-fold average weight (renormalized to sum 50): " + ", ".join(f"{name}={stabilized_weights[name]}" for name in SECONDARY_DIMS))
 
     out("")
     out("### Multi-fold out-of-sample comparison")
@@ -673,9 +666,7 @@ def main() -> None:
     for _cutoff, fold_train, fold_test, fb in per_fold_data:
         stab_bands = bands_with_weights(fold_train, stabilized_weights)
         scheme_fold_results["refit_per_fold"].append(compute_deciles(fold_test, [score_dynamic(r, fb) for r in fold_test]))
-        scheme_fold_results["stabilized"].append(
-            compute_deciles(fold_test, [score_dynamic(r, stab_bands) for r in fold_test])
-        )
+        scheme_fold_results["stabilized"].append(compute_deciles(fold_test, [score_dynamic(r, stab_bands) for r in fold_test]))
         scheme_fold_results["production"].append(compute_deciles(fold_test, [score_production(r) for r in fold_test]))
         scheme_fold_results["legacy"].append(compute_deciles(fold_test, [score_legacy(r) for r in fold_test]))
 
