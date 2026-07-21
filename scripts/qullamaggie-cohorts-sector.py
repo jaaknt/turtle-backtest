@@ -31,7 +31,6 @@ COOLDOWN = 30
 VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 RSI_CAP = 70.0
-RSI_REENTRY = 80.0  # spec: RSI(14) < 70 OR RSI(14) > 80 — only the 70-80 band is excluded
 ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 ROC_CAP = 1.00
@@ -182,7 +181,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & pl.col("roc_252d").is_not_null()
             & pl.col("adr_pct_change").is_not_null()
             & pl.col("adr_pct").is_not_null()
-            & ((pl.col("rsi14") < RSI_CAP) | (pl.col("rsi14") > RSI_REENTRY))
+            & (pl.col("rsi14") < RSI_CAP)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
             & (pl.col("adr_pct") >= ADR_MIN)
             & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)

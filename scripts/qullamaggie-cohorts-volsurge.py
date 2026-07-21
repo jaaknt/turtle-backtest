@@ -175,7 +175,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & pl.col("max_c_50d").is_not_null()
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
-            & ((pl.col("rsi14") < 70.0) | (pl.col("rsi14") > 80.0))
+            & (pl.col("rsi14") < 70.0)
             & (pl.col("close") > MIN_PRICE)
             & (pl.col("close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
