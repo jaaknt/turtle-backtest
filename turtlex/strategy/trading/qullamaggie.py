@@ -20,10 +20,9 @@ class QullamaggieStrategy(TradingStrategy):
     Port of the validated signal from scripts/qullamaggie-backtest-v4.py:
     adjusted close breaks above the max of the prior 50 closes while sitting
     more than 15% above the 50-day SMA, with volume dry-up, a volume-surge cap,
-    a 12-month ROC cap, an RSI band exclusion (RSI(14) < 70 or > 80), ADR
-    filters, a $5-$250 raw-close band, and a SPY > 200d SMA market-regime gate.
-    Signals within 30 calendar days of the previous accepted trigger are
-    suppressed.
+    a 12-month ROC cap, RSI/ADR filters, a $5-$250 raw-close band, and a
+    SPY > 200d SMA market-regime gate. Signals within 30 calendar days of the
+    previous accepted trigger are suppressed.
 
     All rolling indicators are computed on shift-1 (prior-day) values so every
     filter only uses information available at the prior close; the breakout and
@@ -41,7 +40,6 @@ class QullamaggieStrategy(TradingStrategy):
     VOL_SURGE_MAX = 2.0
     ROC_CAP = 1.00
     RSI_CAP = 70.0
-    RSI_REENTRY = 80.0  # spec: RSI(14) < 70 OR RSI(14) > 80 — only the 70-80 band is excluded
     ADR_MIN = 0.03
     ADR_CHANGE_CAP = 0.90
     MARKET_TICKER = "SPY.US"
@@ -197,7 +195,7 @@ class QullamaggieStrategy(TradingStrategy):
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
             & pl.col("adr_pct_change").is_not_null()
-            & ((pl.col("rsi14") < self.RSI_CAP) | (pl.col("rsi14") > self.RSI_REENTRY))
+            & (pl.col("rsi14") < self.RSI_CAP)
             & (pl.col("close") > self.MIN_PRICE)
             & (pl.col("close") < self.MAX_PRICE)
             & (pl.col("avg_vol_20") >= self.MIN_AVG_VOL)
