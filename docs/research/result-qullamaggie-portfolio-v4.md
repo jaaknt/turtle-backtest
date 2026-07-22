@@ -1,7 +1,7 @@
-# Portfolio Simulation — size sweep + holding-length comparison
+# Portfolio Simulation — size sweep + ranking deciles
 
-Run date: 2026-07-21
-Period: 2020-01-01 – 2026-06-26  |  Initial: $30,000  |  algorithm: RSI<70  |  sizes: 3%, 4%, 5%  |  baseline hold: 366d
+Run date: 2026-07-22
+Period: 2020-01-01 – 2026-06-26  |  Initial: $30,000  |  algorithm: RSI<70  |  sizes: 3%, 4%, 5%  |  hold: 366d
 
 ## Buy & Hold Benchmarks
 
@@ -16,6 +16,8 @@ QQQ         98,055  +20.04   -35.62   0.563    0.812
 
 ## s20  (bk50d_s20_v1.3_roc100 / 366d)
 
+Parameters: %abv_SMA50>20%, breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal
+
 ```text
 size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 --------------------------------------------------------------------------
@@ -24,32 +26,9 @@ size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 5%         180,219  +31.85   -33.95   0.938    1.113    122    780   16.7%
 ```
 
-### Holding-length comparison (90d, 120d, 180d, 240d, 360d, 366d)
-
-```text
-size   hold      Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
--------------------------------------------------------------------------------
-3%      90d      92,625  +18.99   -19.73   0.962    1.039    431    471   52.8%
-3%     120d      87,879  +18.03   -22.15   0.814    0.986    358    544   48.1%
-3%     180d     130,421  +25.43   -25.80   0.986    1.120    308    594   33.2%
-3%     240d     177,739  +31.57   -31.89   0.990    1.296    246    656   32.4%
-3%     360d     201,881  +34.18   -26.69   1.280    1.311    193    709   23.1%
-3%     366d     227,027  +36.63   -23.79   1.540    1.391    178    724   23.9%
-4%      90d      94,712  +19.40   -22.62   0.857    0.988    353    549   48.2%
-4%     120d     110,591  +22.28   -26.21   0.850    1.109    289    613   43.8%
-4%     180d     129,326  +25.27   -30.54   0.828    1.086    243    659   30.8%
-4%     240d     181,734  +32.02   -33.52   0.955    1.211    194    708   28.4%
-4%     360d     141,782  +27.06   -31.92   0.848    1.006    154    748   17.8%
-4%     366d     232,152  +37.10   -29.69   1.249    1.320    146    756   19.0%
-5%      90d      93,567  +19.17   -27.99   0.685    0.929    297    605   45.4%
-5%     120d     134,035  +25.96   -30.80   0.843    1.191    243    659   40.5%
-5%     180d     140,212  +26.84   -37.46   0.717    1.099    202    700   28.7%
-5%     240d     169,516  +30.61   -34.87   0.878    1.149    159    743   26.3%
-5%     360d     155,467  +28.88   -34.89   0.828    1.014    126    776   15.6%
-5%     366d     180,219  +31.85   -33.95   0.938    1.113    122    780   16.7%
-```
-
 ## s17  (bk50d_s17_v1.3_roc100 / 366d)
+
+Parameters: %abv_SMA50>17%, breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal
 
 ```text
 size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
@@ -59,32 +38,9 @@ size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 5%         156,897  +29.06   -32.70   0.889    1.065    124   1107   14.8%
 ```
 
-### Holding-length comparison (90d, 120d, 180d, 240d, 360d, 366d)
-
-```text
-size   hold      Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
--------------------------------------------------------------------------------
-3%      90d      85,243  +17.47   -22.00   0.794    0.913    506    725   43.9%
-3%     120d      87,684  +17.99   -28.55   0.630    0.926    406    825   40.4%
-3%     180d     140,454  +26.88   -28.73   0.936    1.178    336    895   28.5%
-3%     240d     184,144  +32.29   -25.65   1.259    1.349    271    960   25.0%
-3%     360d     132,100  +25.68   -29.57   0.869    1.001    207   1024   15.9%
-3%     366d     180,866  +31.92   -29.75   1.073    1.195    206   1025   16.2%
-4%      90d      81,116  +16.58   -27.68   0.599    0.830    401    830   40.6%
-4%     120d      89,697  +18.40   -30.25   0.608    0.900    324    907   36.5%
-4%     180d     155,657  +28.90   -36.29   0.796    1.156    263    968   24.5%
-4%     240d     180,185  +31.84   -30.14   1.057    1.246    212   1019   21.1%
-4%     360d     120,353  +23.89   -31.28   0.764    0.910    156   1075   13.9%
-4%     366d     160,582  +29.52   -32.71   0.903    1.080    154   1077   14.7%
-5%      90d      82,079  +16.79   -32.71   0.513    0.777    336    895   37.5%
-5%     120d      91,111  +18.68   -35.82   0.522    0.844    275    956   32.4%
-5%     180d     155,929  +28.94   -42.68   0.678    1.074    216   1015   21.3%
-5%     240d     191,351  +33.07   -35.75   0.925    1.204    174   1057   18.3%
-5%     360d     132,409  +25.73   -28.72   0.896    0.959    123   1108   13.9%
-5%     366d     156,897  +29.06   -32.70   0.889    1.065    124   1107   14.8%
-```
-
 ## s15  (bk50d_s15_v1.3_roc100 / 366d)
+
+Parameters: %abv_SMA50>15%, breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal
 
 ```text
 size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
@@ -94,32 +50,9 @@ size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 5%         183,695  +32.24   -25.51   1.264    1.119    128   1409   10.7%
 ```
 
-### Holding-length comparison (90d, 120d, 180d, 240d, 360d, 366d)
-
-```text
-size   hold      Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
--------------------------------------------------------------------------------
-3%      90d      92,370  +18.94   -29.05   0.652    0.919    558    979   37.8%
-3%     120d      91,342  +18.73   -26.52   0.706    0.921    452   1085   33.4%
-3%     180d     113,676  +22.80   -34.15   0.668    0.968    368   1169   21.2%
-3%     240d     143,988  +27.36   -28.80   0.950    1.099    290   1247   19.0%
-3%     360d     128,199  +25.10   -29.25   0.858    0.983    210   1327   13.3%
-3%     366d     173,587  +31.09   -27.97   1.112    1.158    212   1325   12.8%
-4%      90d      86,435  +17.72   -33.31   0.532    0.810    446   1091   33.5%
-4%     120d      94,593  +19.37   -29.42   0.658    0.894    357   1180   29.7%
-4%     180d     130,083  +25.38   -38.68   0.656    0.978    285   1252   18.1%
-4%     240d     159,364  +29.37   -31.99   0.918    1.128    224   1313   15.9%
-4%     360d     138,104  +26.55   -28.32   0.937    0.995    159   1378   11.8%
-4%     366d     199,190  +33.90   -25.00   1.356    1.218    157   1380   12.4%
-5%      90d      86,586  +17.76   -36.48   0.487    0.763    374   1163   30.4%
-5%     120d      96,099  +19.66   -32.63   0.603    0.866    298   1239   26.6%
-5%     180d     115,172  +23.05   -41.96   0.549    0.885    229   1308   16.7%
-5%     240d     111,651  +22.46   -38.45   0.584    0.884    183   1354   13.8%
-5%     360d     148,282  +27.94   -28.36   0.985    1.025    128   1409   11.0%
-5%     366d     183,695  +32.24   -25.51   1.264    1.119    128   1409   10.7%
-```
-
 ## s12  (bk50d_s12_v1.3_roc100 / 366d)
+
+Parameters: %abv_SMA50>12%, breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal
 
 ```text
 size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
@@ -127,31 +60,6 @@ size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 3%         172,492  +30.96   -25.34   1.222    1.168    212   1807   11.1%
 4%         200,246  +34.01   -28.87   1.178    1.232    163   1856    9.4%
 5%         181,554  +32.00   -36.00   0.889    1.106    132   1887    8.0%
-```
-
-### Holding-length comparison (90d, 120d, 180d, 240d, 360d, 366d)
-
-```text
-size   hold      Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
--------------------------------------------------------------------------------
-3%      90d      69,318  +13.79   -34.13   0.404    0.674    623   1396   30.5%
-3%     120d      88,749  +18.21   -30.33   0.600    0.831    507   1512   25.6%
-3%     180d     108,931  +22.00   -35.87   0.613    0.894    383   1636   16.5%
-3%     240d     153,454  +28.62   -34.39   0.832    1.135    300   1719   15.6%
-3%     360d     132,265  +25.71   -33.12   0.776    1.010    213   1806   11.0%
-3%     366d     172,492  +30.96   -25.34   1.222    1.168    212   1807   11.1%
-4%      90d      63,976  +12.39   -36.30   0.341    0.598    493   1526   26.8%
-4%     120d      89,575  +18.37   -31.62   0.581    0.819    399   1620   22.0%
-4%     180d     105,415  +21.38   -43.77   0.489    0.823    292   1727   14.5%
-4%     240d     139,015  +26.67   -37.31   0.715    1.028    233   1786   12.9%
-4%     360d     148,003  +27.90   -31.30   0.892    1.045    163   1856    9.5%
-4%     366d     200,246  +34.01   -28.87   1.178    1.232    163   1856    9.4%
-5%      90d      72,249  +14.51   -36.00   0.403    0.647    402   1617   25.5%
-5%     120d     104,938  +21.30   -36.00   0.592    0.862    329   1690   20.0%
-5%     180d     107,592  +21.77   -45.71   0.476    0.789    239   1780   12.9%
-5%     240d     137,365  +26.44   -36.04   0.734    0.954    194   1825   10.0%
-5%     360d     146,467  +27.70   -36.00   0.769    0.988    132   1887    8.5%
-5%     366d     181,554  +32.00   -36.00   0.889    1.106    132   1887    8.0%
 ```
 
 ## Monthly returns/transactions — top 5 by Calmar
@@ -298,50 +206,81 @@ size   hold      Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
  2026 |    +7.1|0    +0.4|4    -4.4|2    +5.8|0    +1.6|9    +8.3|0         ·         ·         ·         ·         ·         · |   +19.6    15
 ```
 
-## Findings (2026-07-21 run — tables above regenerate on re-run)
+## Ranking Deciles (QullamaggieRanking)
 
-1. **Every config/size cell beats both buy & hold benchmarks, decisively.** SPY's $30k lump-sum
-   grows to $67,318 (Calmar 0.389, Sortino 0.677); QQQ to $98,055 (Calmar 0.563, Sortino 0.812).
-   The *worst* of the 12 strategy cells (s17 @5%: Final $156,897, Calmar 0.889, Sortino 1.065)
-   still beats QQQ's Final$ by 60% and its Calmar by 58%. Every cell clears both benchmarks on
-   every metric — there is no config/size combination in this sweep that isn't worth running over
-   a passive SPY/QQQ hold.
-2. **s20 is the standout config** — it holds the best Calmar of any cell (3%: 1.540) and the best
-   Final$ of any cell (4%: $232,152), the only config to lead both leaderboards. s15 is the
-   runner-up on Calmar (4%: 1.356) and s12 the runner-up on Final$ (4%: $200,246). If forced to
-   pick one config, s20 @3-4% is the best-supported default.
-3. **3-4% sizing is the risk-adjusted sweet spot for s20/s17/s12; s15 is the exception.** Calmar
-   falls from 3%/4% to 5% for s20 (1.540→1.249→0.938), s17 (1.073→0.903→0.889), and s12
-   (1.222→1.178→0.889) — MaxDD grows faster than CAGR as size increases, the same concentration
-   effect noted in earlier runs. s15 instead *peaks* at 4% (Calmar 1.356, beating its own 3% of
-   1.112) and stays strong at 5% (1.264) — its wider %-above-SMA50 threshold admits enough
-   candidates that 4-5% sizing doesn't crowd capital into as few names as it does for the other
-   three configs.
-4. **Shortening the hold below 366 days is a net loss for s20, s15, and s12 at every size** —
-   e.g. s15 @4%: Calmar falls from 1.356 (366d) to 0.918 (240d) to 0.532 (90d), and Final$ falls
-   from $199,190 to $159,364 to $86,435 over the same steps. These three configs need the full
-   cycle to realize their gains; cutting the hold early gives back the tail of the move that
-   drives most of the return.
-5. **s17 is the one config where a shorter hold beats the 366d baseline, at every size.** Exiting
-   at 240 calendar days instead of 366d raises Calmar (3%: 1.259 vs 1.073; 4%: 1.057 vs 0.903;
-   5%: 0.925 vs 0.889), Sortino (3%: 1.349 vs 1.195; 4%: 1.246 vs 1.080; 5%: 1.204 vs 1.065), and
-   Final$ (3%: $184,144 vs $180,866; 4%: $180,185 vs $160,582; 5%: $191,351 vs $156,897) — while
-   *also* taking more trades (e.g. @3%: 271 vs 206) because capital recycles faster. That's a rare
-   combination of better return, better risk-adjustment, and more diversification at once, and it
-   holds across all three sizes rather than being a single lucky cell — worth a config-specific
-   240d exit rule for s17, though the neighborhood around 240d (e.g. 220d/260d) should be checked
-   before adopting it, since finding #6 shows this strategy's payoff is not smooth in hold length.
-6. **The 360d-vs-366d gap is a caution about over-fitting to the exact hold length.** For s20 @3%,
-   six fewer days of holding costs $25k of Final$ (360d: $201,881 vs 366d: $227,027) and 0.26 of
-   Calmar (1.280 vs 1.540) — a change smaller than typical execution slack produces a large swing
-   in outcome. This means some of the 366d figure's edge comes from a handful of trades whose
-   payoff window happens to line up with that specific cutoff, not from a smoothly increasing
-   function of hold length. Treat 366d (and the s17 240d recommendation above) as regime-specific
-   estimates to re-validate periodically, not as a permanently fixed optimum.
-7. **Uninvested cash (11-24% depending on config/size) is a real drag but is a capital-rotation
-   problem, not a signal-supply one** — skip counts run into the hundreds/thousands at every
-   config, so candidates are never scarce; every position simply ties up its slice of capital for
-   up to a year. The already-deferred ideas on file — blending s20 with a looser fallback only
-   when it's idle, or rank-based funding when multiple signals compete same-day — remain the more
-   promising levers for closing this gap than further sizing changes, and pair naturally with
-   finding #5's shorter s17 hold (faster recycling directly reduces idle cash too).
+Every taken trade for s20/s12 (at 4% sizing, the middle of the 3%/4%/5% sweep) is scored 0-100 with turtlex/strategy/ranking/qullamaggie.py at entry, split into 10 equal-count deciles (D1=lowest score .. D10=highest), and each decile's own signal subset is re-simulated in isolation (same sizing, same universe) to report that decile's standalone portfolio metrics — this tests whether higher-ranked signals produce a better standalone portfolio, not just a higher per-trade return.
+
+### s20  (bk50d_s20_v1.3_roc100)
+
+Trades scored: 146  |  size: 4%
+
+```text
+Decile     Ranking     N   CAGR%   MaxDD%  Calmar  Sortino
+----------------------------------------------------------
+D1        49-52       14   +2.35    -7.84   0.299    0.490
+D2        53-55       15   +5.31    -4.45   1.195    1.269
+D3        56-58       14   +3.85    -6.40   0.602    0.687
+D4        58-61       15   +0.60    -6.83   0.088    0.146
+D5        61-64       15   +5.55    -6.40   0.867    1.120
+D6        64-65       14   +1.38   -10.16   0.136    0.342
+D7        65-70       15   +2.20    -7.56   0.291    0.505
+D8        70-74       14   +8.38   -11.64   0.720    1.195
+D9        74-80       15   +4.11   -10.02   0.410    0.730
+D10       81-95       15   +7.12    -8.38   0.850    1.009
+```
+
+### s12  (bk50d_s12_v1.3_roc100)
+
+Trades scored: 163  |  size: 4%
+
+```text
+Decile     Ranking     N   CAGR%   MaxDD%  Calmar  Sortino
+----------------------------------------------------------
+D1        19-29       16   +3.16    -7.15   0.442    0.761
+D2        29-32       16   +0.69    -4.61   0.149    0.208
+D3        32-35       16   +2.48    -3.93   0.632    0.715
+D4        35-41       17   +8.57   -13.47   0.636    1.336
+D5        41-43       16   +4.82    -8.07   0.598    0.944
+D6        43-46       16   +0.47    -9.65   0.049    0.123
+D7        46-54       17   +1.38    -7.16   0.193    0.366
+D8        54-58       16   +3.85    -6.22   0.619    0.793
+D9        59-69       16   +1.23   -10.97   0.112    0.256
+D10       70-93       17   +9.38    -9.45   0.993    1.148
+```
+
+## Findings (2026-07-22 run — tables above regenerate on re-run)
+
+1. **Every config/size cell still beats both buy & hold benchmarks decisively.** SPY's $30k
+   lump-sum grows to $67,318 (Calmar 0.389, Sortino 0.677); QQQ to $98,055 (Calmar 0.563,
+   Sortino 0.812). The worst of the 12 strategy cells (s17 @5%: Final $156,897, Calmar 0.889)
+   still beats QQQ's Calmar by 58% and its Final$ by 60%.
+2. **3-4% sizing remains the risk-adjusted sweet spot for s20/s17/s12; s15 still peaks at
+   4-5%.** Unchanged from the prior run since the core simulation logic didn't change — see
+   the per-config tables above.
+3. **Ranking deciles show a real but noisy relationship between QullamaggieRanking and
+   standalone portfolio performance, cleaner for s12 than for s20.** For s12, D10 (ranking
+   70-93) is unambiguously the best decile on every metric (CAGR +9.38%, Calmar 0.993, Sortino
+   1.148 — all decile maxima), while D1 (ranking 19-29) is middling rather than the worst. For
+   s20, the picture is messier: D10 (ranking 81-95, Calmar 0.850) is solidly above-average but
+   is *not* the single best decile — D2 (ranking 53-55, Calmar 1.195) is — and D1 (Calmar 0.299)
+   is clearly weak but not the single worst (D4 at 0.088 and D6 at 0.136 are lower). Both
+   configs' bottom deciles cluster among the weaker performers and both top deciles cluster
+   among the stronger ones, so the ranking is directionally useful, but it is not a clean
+   monotonic cardinal ordering at this sample size.
+4. **The noise in finding #3 is a sample-size artifact, not evidence the ranking doesn't
+   work.** Each decile here holds only 14-17 trades scattered across 6.5 years — effectively
+   its own sparse mini-portfolio with long stretches of idle cash, so a single well- or
+   badly-timed trade can swing that decile's Calmar by 0.5+ on its own. This is consistent with
+   `docs/research/result-qullamaggie-ranking-validation.md`'s own finding that even with ~700
+   held-out trades, Sortino monotonicity across deciles was only 6/9 (not 9/9) — slicing a
+   146-163 trade sample ten ways should be expected to be noisier still, not cleaner.
+5. **Practical takeaway: use the ranking as a coarse filter (e.g. avoid the bottom ~20-30%,
+   prefer the top ~20-30%), not as a precise cardinal position-sizing input.** The tails are
+   where the signal is strongest and most reproducible across configs; the middle deciles carry
+   too much idiosyncratic noise at real-world trade counts to trust fine-grained distinctions
+   between, say, D5 and D7.
+6. **Uninvested cash (11-24% depending on config/size) remains a capital-rotation problem, not
+   a signal-supply one** — skip counts run into the hundreds/thousands at every config. The
+   already-deferred ideas on file (blending s20 with a looser fallback only when idle, or
+   rank-based funding when multiple signals compete same-day — now with an actual ranking score
+   available to do so) remain the most promising levers for closing this gap.

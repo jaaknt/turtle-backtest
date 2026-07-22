@@ -19,9 +19,11 @@ Rules:
     (open positions at period end are marked to market, not force-closed).
   - Fractional shares, no commission/slippage.
 
-Two things are compared per config, on top of the main 366d/3-5% sweep: (1) alternative
-holding lengths (90/120/180/240/360d, vs. the 366d baseline) at each position size, and (2)
-SPY/QQQ buy & hold benchmarks ($INIT_EQUITY lump-sum, first close to last close of the period).
+SPY/QQQ buy & hold benchmarks ($INIT_EQUITY lump-sum, first close to last close of the period)
+are reported alongside the main sweep. Each taken trade for the s20/s12 configs is also scored
+with QullamaggieRanking (turtlex/strategy/ranking/qullamaggie.py); trades are split into 10
+equal-count ranking deciles and each decile's signal subset is re-simulated in isolation (same
+position sizing) to report that decile's own standalone CAGR/MaxDD/Calmar/Sortino.
 
 Outputs: monthly portfolio return + transaction-count grid (year x month), Max DD, Calmar,
 Sortino, signals taken/skipped, average uninvested capital.
@@ -35,6 +37,7 @@ import polars as pl
 import sqlalchemy as sa
 
 from turtlex.config.settings import Settings
+from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2020, 1, 1)
@@ -43,7 +46,8 @@ DATA_START = "2000-01-01"
 INIT_EQUITY = 30_000.0
 POS_FRACTIONS = [0.03, 0.04, 0.05]  # position-size sweep
 HOLD_CAL = 366
-ALT_HOLD_CAL = [90, 120, 180, 240, 360]  # alternative holding lengths compared against HOLD_CAL
+DECILE_POS_FRACTION = 0.04  # representative size used for the ranking-decile mini-simulations
+N_DECILES = 10
 BELOW_DAYS = 3  # consecutive days below 200d SMA to trigger trend exit
 STOP_DD = 0.30  # fixed stop: close <= (1-STOP_DD) * entry price
 TRAIL_DD = 0.25  # trailing stop: close <= (1-TRAIL_DD) * peak-since-entry
@@ -213,7 +217,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
         )
-        .select(["symbol", "date", "close", "adr_pct"])
+        .select(["symbol", "date", "close", "raw_close", "adr_pct", "adr_pct_change", "pct_vs_sma50", "roc_252d", "rsi14"])
         .sort(["symbol", "date"])
     )
     if cands.is_empty():
@@ -227,6 +231,29 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             rows_out.append(row)
             last_trigger[sym] = d
     return pl.DataFrame(rows_out).sort("date") if rows_out else cands.clear()
+
+
+_ranker = QullamaggieRanking()
+
+
+def compute_ranking(s: dict) -> int:
+    """Score a signal row with QullamaggieRanking. Uses raw_close (not the adjusted close
+    used for position sizing elsewhere in this script) since that's the column the live
+    QullamaggieStrategy/QullamaggieRanking pairing scores against."""
+    row_df = pl.DataFrame(
+        [
+            {
+                "date": s["date"],
+                "close": s["raw_close"],
+                "adr_pct": s["adr_pct"],
+                "adr_pct_change": s["adr_pct_change"],
+                "pct_vs_sma50": s["pct_vs_sma50"],
+                "roc_252d": s["roc_252d"],
+                "rsi14": s["rsi14"],
+            }
+        ]
+    )
+    return _ranker.ranking(row_df, s["date"])
 
 
 def main() -> None:
@@ -295,6 +322,7 @@ def main() -> None:
         equity_curve: list[tuple[date, float]] = []
         cash_curve: list[float] = []
         entry_dates: list[date] = []
+        trades: list[dict] = []
         n_taken = n_skipped = n_exit_rule = 0
 
         for d, dint in zip(cal, cal_int, strict=False):
@@ -304,6 +332,14 @@ def main() -> None:
                 if dint >= p["exit_int"]:  # time cap (always)
                     if px is not None:
                         cash += p["shares"] * px
+                        trades.append(
+                            {
+                                "entry_date": p["entry_date"],
+                                "symbol": p["sym"],
+                                "ret": px / p["entry_px"] - 1.0,
+                                "ranking": p["ranking"],
+                            }
+                        )
                     continue
                 rule_hit = False
                 if px is not None:
@@ -318,6 +354,14 @@ def main() -> None:
                 if rule_hit:
                     cash += p["shares"] * px
                     n_exit_rule += 1
+                    trades.append(
+                        {
+                            "entry_date": p["entry_date"],
+                            "symbol": p["sym"],
+                            "ret": px / p["entry_px"] - 1.0,
+                            "ranking": p["ranking"],
+                        }
+                    )
                 else:
                     still_open.append(p)
             positions = still_open
@@ -341,9 +385,11 @@ def main() -> None:
                         "sym": s["symbol"],
                         "shares": target / entry_px,
                         "entry_px": entry_px,
+                        "entry_date": d,
                         "exit_int": dint + hold_cal,
                         "below_cnt": 0,
                         "peak": entry_px,
+                        "ranking": compute_ranking(s),
                     }
                 )
                 n_taken += 1
@@ -352,6 +398,13 @@ def main() -> None:
             equity = cash + sum(p["shares"] * (price_on(p["sym"], dint) or 0.0) for p in positions)
             equity_curve.append((d, equity))
             cash_curve.append(cash)
+
+        for p in positions:  # still open at period end -- mark-to-market, not force-closed
+            px = price_on(p["sym"], cal_int[-1])
+            if px is not None:
+                trades.append(
+                    {"entry_date": p["entry_date"], "symbol": p["sym"], "ret": px / p["entry_px"] - 1.0, "ranking": p["ranking"]}
+                )
 
         dates = [e[0] for e in equity_curve]
         eq = np.array([e[1] for e in equity_curve])
@@ -391,6 +444,7 @@ def main() -> None:
             "avg_uninv_usd": avg_uninv_usd,
             "eom": eom,
             "entries": entry_dates,
+            "trades": trades,
         }
 
     def monthly_grid(eom: pl.DataFrame, entries: list[date]) -> None:
@@ -416,6 +470,36 @@ def main() -> None:
                 parts.append(f"{cell:>9}")
             rows.append(f"{yr:>5} | " + " ".join(parts) + f" | {(comp - 1) * 100:>+7.1f} {year_txns:>5}")
         table(header, rows)
+
+    def ranking_decile_table(name: str, signals_by_day: dict[int, list[dict]], pos_fraction: float) -> None:
+        """Score every taken trade with QullamaggieRanking, split into N_DECILES equal-count
+        buckets (D1=lowest ranking .. D10=highest), and re-simulate each decile's own signal
+        subset in isolation (same sizing) to report that decile's standalone portfolio metrics."""
+        base = run_sim(signals_by_day, "time", pos_fraction)
+        trades = sorted(base["trades"], key=lambda t: t["ranking"])
+        n = len(trades)
+        edges = np.linspace(0, n, N_DECILES + 1).astype(int)
+
+        hdr = f"{'Decile':<8} {'Ranking':>9} {'N':>5} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} {'Sortino':>8}"
+        rows: list[str] = []
+        for d in range(N_DECILES):
+            subset = trades[edges[d] : edges[d + 1]]
+            if not subset:
+                continue
+            keys = {(t["symbol"], t["entry_date"]) for t in subset}
+            sub_by_day: dict[int, list[dict]] = {}
+            for dint, sigs in signals_by_day.items():
+                kept = [s for s in sigs if (s["symbol"], s["date"]) in keys]
+                if kept:
+                    sub_by_day[dint] = kept
+            res = run_sim(sub_by_day, "time", pos_fraction)
+            rankings = [t["ranking"] for t in subset]
+            rows.append(
+                f"D{d + 1:<7} {min(rankings):>3}-{max(rankings):<5} {len(subset):>5} {res['cagr'] * 100:>+7.2f} "
+                f"{res['max_dd'] * 100:>8.2f} {res['calmar']:>7.3f} {res['sortino']:>8.3f}"
+            )
+        out(f"Trades scored: {n}  |  size: {pos_fraction:.0%}")
+        table(hdr, rows)
 
     def run_blend(s20_by_day: dict, s15_by_day: dict, pos_fraction: float) -> dict:
         """One cash pool. Each day fund s20 signals first, then s15 with leftover
@@ -495,13 +579,13 @@ def main() -> None:
             "eom": eom,
         }
 
-    out("# Portfolio Simulation — size sweep + holding-length comparison")
+    out("# Portfolio Simulation — size sweep + ranking deciles")
     out("")
     out(f"Run date: {date.today()}")
     out(
         f"Period: {EVAL_START} – {EVAL_END}  |  Initial: ${INIT_EQUITY:,.0f}  |  "
         f"algorithm: RSI<70  |  sizes: {', '.join(f'{f:.0%}' for f in POS_FRACTIONS)}  |  "
-        f"baseline hold: {HOLD_CAL}d"
+        f"hold: {HOLD_CAL}d"
     )
 
     out("")
@@ -520,11 +604,8 @@ def main() -> None:
 
     # collect all baseline (366d) results first, then rank for monthly grids
     all_results: list[tuple[str, float, dict]] = []  # (name, pos_fraction, result)
+    signals_by_day_by_config: dict[str, dict[int, list[dict]]] = {}
     hdr = f"{'size':<6} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} {'Sortino':>8} {'taken':>6} {'skip':>6} {'Uninv%':>7}"
-    hold_hdr = (
-        f"{'size':<5} {'hold':>5} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} {'Sortino':>8} "
-        f"{'taken':>6} {'skip':>6} {'Uninv%':>7}"
-    )
 
     for name, sma_t in CONFIGS:
         print(f"Simulating {name} …", flush=True)
@@ -532,9 +613,18 @@ def main() -> None:
         signals_by_day: dict[int, list[dict]] = {}
         for r in sig.iter_rows(named=True):
             signals_by_day.setdefault((r["date"] - _EPOCH).days, []).append(r)
+        signals_by_day_by_config[name] = signals_by_day
 
         out("")
         out(f"## {name}  (bk50d_{name}_v1.3_roc100 / {HOLD_CAL}d)")
+        out("")
+        out(
+            f"Parameters: %abv_SMA50>{sma_t * 100:.0f}%, breakout>50d high, RSI(14)<{RSI_CAP:.0f}, "
+            f"ADR%(20)>={ADR_FLOOR * 100:.1f}%, ADR_change<{ADR_CHANGE_CAP * 100:.0f}%, "
+            f"vol_surge<{VOL_SURGE_MAX:.1f}x, vol_dry_up<{VOL_DRY_UP * 100:.0f}%, roc_12m<{ROC_CAP * 100:.0f}%, "
+            f"SPY>200d SMA, close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K, "
+            f"cooldown={COOLDOWN}d, hold={HOLD_CAL}d cal"
+        )
         results: dict[float, dict] = {}
         rows: list[str] = []
         for pf in POS_FRACTIONS:
@@ -547,19 +637,6 @@ def main() -> None:
                 f"{r['avg_uninv_pct']:>6.1f}%"
             )
         table(hdr, rows)
-
-        out("")
-        out(f"### Holding-length comparison ({', '.join(f'{h}d' for h in [*ALT_HOLD_CAL, HOLD_CAL])})")
-        hold_rows: list[str] = []
-        for pf in POS_FRACTIONS:
-            for hc in [*ALT_HOLD_CAL, HOLD_CAL]:
-                r = results[pf] if hc == HOLD_CAL else run_sim(signals_by_day, "time", pf, hold_cal=hc)
-                hold_rows.append(
-                    f"{pf:<5.0%} {hc:>4}d {r['final']:>11,.0f} {r['cagr'] * 100:>+7.2f} {r['max_dd'] * 100:>8.2f} "
-                    f"{r['calmar']:>7.3f} {r['sortino']:>8.3f} {r['taken']:>6} {r['skipped']:>6} "
-                    f"{r['avg_uninv_pct']:>6.1f}%"
-                )
-        table(hold_hdr, hold_rows)
 
     # monthly grids for top 5 by Calmar, and separately top 5 by Final$ (366d baseline, RSI<70)
     ranked_calmar = sorted(all_results, key=lambda x: x[2]["calmar"], reverse=True)
@@ -577,6 +654,25 @@ def main() -> None:
         out("")
         out(f"### #{rank}  {name} — size {pf:.0%}  (Final ${r['final']:,.0f})")
         monthly_grid(r["eom"], r["entries"])
+
+    out("")
+    out("## Ranking Deciles (QullamaggieRanking)")
+    out("")
+    out(
+        f"Every taken trade for s20/s12 (at {DECILE_POS_FRACTION:.0%} sizing, the middle of the "
+        f"{'/'.join(f'{f:.0%}' for f in POS_FRACTIONS)} sweep) is scored 0-100 with "
+        "turtlex/strategy/ranking/qullamaggie.py at entry, split into "
+        f"{N_DECILES} equal-count deciles (D1=lowest score .. D{N_DECILES}=highest), and each "
+        "decile's own signal subset is re-simulated in isolation (same sizing, same universe) "
+        "to report that decile's standalone portfolio metrics — this tests whether higher-ranked "
+        "signals produce a better standalone portfolio, not just a higher per-trade return."
+    )
+    for name in ["s20", "s12"]:
+        print(f"Scoring ranking deciles for {name} …", flush=True)
+        out("")
+        out(f"### {name}  (bk50d_{name}_v1.3_roc100)")
+        out("")
+        ranking_decile_table(name, signals_by_day_by_config[name], DECILE_POS_FRACTION)
 
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
     RESULT_PATH.write_text("\n".join(lines) + "\n")
