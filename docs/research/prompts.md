@@ -272,10 +272,12 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Period:** 2020-01-01 : 2026-06-26
 - **Initial portfolio:** $30,000
 - **Position sizing:** invest {3%, 4%, 5%} of portfolio at a time per trade; if there is no liquidity, skip the trade.
-- **Algotithm:** RSI < 70
+- **Algorithm:** RSI < 70
 - **Output format:**
 
   ```text
+  all algorithm `bk50d_s20_v1.3_roc100-366d parametrs as header
+  
   size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
   --------------------------------------------------------------------------
   3%         145,397  +20.44   -30.34   0.674    0.885    261    977   14.4%
@@ -293,8 +295,10 @@ All cohort studies below share the same setup unless stated otherwise:
 
 - Compare what would by result if whole amount would be invested to SPY or QQQ in first day of period and sold on last day of period
 - <!-- Provide a comparison with an alternative approach where a limit order is added to buy the stock 
-    3% below closing price during the next 30 days (instead of buying on closing price). -->
-- Provide comparison with an alternative holding lengths (90d, 120d, 180d, 240d, 360d)
+    3% below closing price during the next 30 days (instead of buying on closing price). 
+    - Provide comparison with an alternative holding lengths (90d, 120d, 180d, 240d, 360d) -->
+- Calculate `bk50d_s20_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d` ranking (turtlex/strategy/ranking/qullamaggie.py) for all transactions and provide
+  N CAGR%   MaxDD%  Calmar  Sortino for different ranking deciles
 - Add your findings on how to improve the portfolio performance (Mean%, Sortino, Calmar).
 - **Deferred/considered ideas** (commented out in the original prompt):
   - Prefer always bk50d_s20_tr10_v1.2_roc100 signals, but if there is liquidity use bk50d_s15_tr15_v1.2_roc100 signals to reduce uninvested amounts.
