@@ -19,7 +19,12 @@ match the backtest's methodology; Entry $/Curr Price/Change % use raw (unadjuste
 the real tradeable price, matching scripts/qullamaggie-backtest-v4.py's MIN_PRICE/MAX_PRICE
 convention.
 
-References: docs/research/qullamaggie-backtest-v4.md, docs/research/result-qullamaggie-backtest-v4.md
+Ranking is the 0-100 QullamaggieRanking score (turtlex/strategy/ranking/qullamaggie.py) on the
+entry date's indicators. Two cohort tables are reported: Change % by %abv SMA50 bucket, and
+Change % by Ranking bucket -- both mark-to-latest-price, not annualized (see cohort_stats()).
+
+References: docs/research/qullamaggie-backtest-v4.md, docs/research/result-qullamaggie-backtest-v4.md,
+turtlex/strategy/ranking/qullamaggie.py
 """
 
 import time
@@ -32,6 +37,7 @@ import polars as pl
 import sqlalchemy as sa
 
 from turtlex.config.settings import Settings
+from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 DISPLAY_START = date(2026, 6, 1)
 DISPLAY_END = date.today()
@@ -69,12 +75,72 @@ COHORTS = [
     (20.0, float("inf"), "[>=20)"),
 ]
 
+RANKING_COHORTS = [
+    (0.0, 20.0, "[0-20)"),
+    (20.0, 40.0, "[20-40)"),
+    (40.0, 60.0, "[40-60)"),
+    (60.0, 80.0, "[60-80)"),
+    (80.0, float("inf"), "[>=80)"),
+]
 
-def cohort_label(pct: float) -> str:
-    for lo, hi, label in COHORTS:
-        if lo <= pct < hi:
+
+def cohort_label(value: float, cohorts: list[tuple[float, float, str]]) -> str:
+    for lo, hi, label in cohorts:
+        if lo <= value < hi:
             return label
-    return COHORTS[-1][2]
+    return cohorts[-1][2]
+
+
+def cohort_stats(returns: list[float], mdds: list[float]) -> dict | None:
+    """Med%/Mean%/Win%/PF/Sortino/MaxDD% for one cohort's Change % values.
+
+    Sortino here is **not annualized** (positions have no fixed holding period --
+    each is still open, marked at whatever elapsed time has passed since entry),
+    but downside_dev keeps the backtest's convention (RMS of negative returns over
+    all N, positives count as 0).
+    """
+    if not returns:
+        return None
+    arr = np.array(returns)
+    mean = float(arr.mean())
+    gross_win = float(arr[arr > 0].sum())
+    gross_loss = float(-arr[arr < 0].sum())
+    downside = np.where(arr < 0, arr, 0.0)
+    downside_dev = float(np.sqrt(np.mean(downside**2)))
+    return {
+        "n": len(returns),
+        "med": float(np.median(arr)),
+        "mean": mean,
+        "win": float((arr > 0).mean() * 100),
+        "pf": gross_win / gross_loss if gross_loss > 0 else float("inf"),
+        "sortino": mean / downside_dev if downside_dev > 0 else float("nan"),
+        "mdd": float(np.mean(mdds) * 100) if mdds else float("nan"),
+    }
+
+
+def format_cohort_row(label: str, stats: dict | None) -> str:
+    if stats is None:
+        return f"{label:<10} {0:>4} {'--':>8} {'--':>8} {'--':>7} {'--':>6} {'--':>8} {'--':>7}"
+    pf_str = f"{stats['pf']:>6.2f}" if np.isfinite(stats["pf"]) else f"{'inf':>6}"
+    sortino_str = f"{stats['sortino']:>8.2f}" if not np.isnan(stats["sortino"]) else f"{'n/a':>8}"
+    return (
+        f"{label:<10} {stats['n']:>4} {stats['med']:>+7.1f}% {stats['mean']:>+7.1f}% "
+        f"{stats['win']:>6.1f}% {pf_str} {sortino_str} {stats['mdd']:>6.1f}%"
+    )
+
+
+def build_cohort_table(
+    cohorts: list[tuple[float, float, str]], returns_by_label: dict[str, list[float]], mdds_by_label: dict[str, list[float]]
+) -> tuple[str, list[float]]:
+    hdr = f"{'Cohort':<10} {'N':>4} {'Med%':>8} {'Mean%':>8} {'Win%':>7} {'PF':>6} {'Sortino':>8} {'MaxDD%':>7}"
+    lines = [hdr, "-" * len(hdr)]
+    means: list[float] = []
+    for _, _, label in cohorts:
+        stats = cohort_stats(returns_by_label[label], mdds_by_label[label])
+        lines.append(format_cohort_row(label, stats))
+        if stats:
+            means.append(stats["mean"])
+    return "\n".join(lines), means
 
 
 def load_benchmark_return(engine: sa.Engine, symbol: str) -> tuple[float, date, date]:
@@ -300,6 +366,24 @@ def main() -> None:
                 return True
         return False
 
+    ranker = QullamaggieRanking()
+
+    def compute_ranking(row: dict) -> int:
+        row_df = pl.DataFrame(
+            [
+                {
+                    "date": row["date"],
+                    "close": row["raw_close"],
+                    "adr_pct": row["adr_pct"],
+                    "adr_pct_change": row["adr_pct_change"],
+                    "pct_vs_sma50": row["pct_vs_sma50"],
+                    "roc_252d": row["roc_252d"],
+                    "rsi14": row["rsi14"],
+                }
+            ]
+        )
+        return ranker.ranking(row_df, row["date"])
+
     print(f"Generating signals for {BASE_LABEL} …", flush=True)
     base_sig = get_signals(df, bull_dates, BASE_SMA_T)
     base_sig = base_sig.filter((pl.col("date") >= DISPLAY_START) & (pl.col("date") <= DISPLAY_END)).sort(["date", "symbol"])
@@ -321,7 +405,7 @@ def main() -> None:
     hdr = (
         f"{'Date':<11}│ {'Symbol':<7}│ {'Entry $':>8} │ {'Curr Price':>10} │ {'0.97*Entry':>10} │ {'Change %':>9} │ "
         f"{'%abv SMA50':>10} │ {'ADR%':>6} │ {'ADR_CHG':>7} │ {'RSI14':>6} │ {'TR%':>6} │ {'ROC252%':>8} │ "
-        f"{'In s15?':>7} │ {'In s20?':>7} │ {'Reached?':>8} │ {'Last date':>11}"
+        f"{'In s15?':>7} │ {'In s20?':>7} │ {'Reached?':>8} │ {'Ranking':>7} │ {'Last date':>11}"
     )
     sep = "─" * len(hdr)
 
@@ -331,6 +415,8 @@ def main() -> None:
     reached_count = 0
     cohort_returns: dict[str, list[float]] = {label: [] for _, _, label in COHORTS}
     cohort_mdds: dict[str, list[float]] = {label: [] for _, _, label in COHORTS}
+    ranking_returns: dict[str, list[float]] = {label: [] for _, _, label in RANKING_COHORTS}
+    ranking_mdds: dict[str, list[float]] = {label: [] for _, _, label in RANKING_COHORTS}
     for row in base_sig.iter_rows(named=True):
         sym, d = row["symbol"], row["date"]
         idx_entry = bisect_left(sym_dates[sym], d)
@@ -348,22 +434,25 @@ def main() -> None:
         mark15 = "✓" if (sym, d) in compare15_keys else " "
         reached = limit_reached(sym, idx_entry, d)
         mark_reached = "✓" if reached else " "
+        ranking = compute_ranking(row)
         ld = latest_date.get(sym)
         sma_pct = row["pct_vs_sma50"] * 100
         lines.append(
             f"{str(d):<11}│ {sym:<7}│ {entry:>8.2f} │ {curr:>10.2f} │ {limit_px:>10.2f} │ {chg:>+8.1f}% │ "
             f"{sma_pct:>+9.1f}% │ {row['adr_pct'] * 100:>5.1f}% │ {row['adr_pct_change']:>7.2f} │ "
             f"{row['rsi14']:>6.1f} │ {row['tight_range_ratio'] * 100:>5.1f}% │ {row['roc_252d'] * 100:>+7.1f}% │ "
-            f"{mark15:>7} │ {mark:>7} │ {mark_reached:>8} │ {str(ld):>11}"
+            f"{mark15:>7} │ {mark:>7} │ {mark_reached:>8} │ {ranking:>7} │ {str(ld):>11}"
         )
         if in_compare:
             also_in_compare += 1
         if reached:
             reached_count += 1
-        label = cohort_label(sma_pct)
-        cohort_returns[label].append(chg)
         running_max = np.maximum.accumulate(window)
-        cohort_mdds[label].append(float((1.0 - window / running_max).max()))
+        mdd = float((1.0 - window / running_max).max())
+        cohort_returns[cohort_label(sma_pct, COHORTS)].append(chg)
+        cohort_mdds[cohort_label(sma_pct, COHORTS)].append(mdd)
+        ranking_returns[cohort_label(float(ranking), RANKING_COHORTS)].append(chg)
+        ranking_mdds[cohort_label(float(ranking), RANKING_COHORTS)].append(mdd)
 
     lines.append(sep)
     shown = len(base_sig) - len(excluded_rows)
@@ -402,33 +491,13 @@ def main() -> None:
     excluded_text = "\n".join(excluded_lines)
     print("\n" + excluded_text)
 
-    cohort_hdr = f"{'Cohort':<10} {'N':>4} {'Med%':>8} {'Mean%':>8} {'Win%':>7} {'PF':>6} {'Sortino':>8} {'MaxDD%':>7}"
-    cohort_sep = "-" * len(cohort_hdr)
-    cohort_lines = [cohort_hdr, cohort_sep]
-    cohort_means: list[float] = []
-    for _, _, label in COHORTS:
-        vals = cohort_returns[label]
-        if not vals:
-            cohort_lines.append(f"{label:<10} {0:>4} {'--':>8} {'--':>8} {'--':>7} {'--':>6} {'--':>8} {'--':>7}")
-            continue
-        arr = np.array(vals)
-        med = float(np.median(arr))
-        mean = float(arr.mean())
-        win = float((arr > 0).mean() * 100)
-        cohort_means.append(mean)
-        gross_win = float(arr[arr > 0].sum())
-        gross_loss = float(-arr[arr < 0].sum())
-        pf = gross_win / gross_loss if gross_loss > 0 else float("inf")
-        downside = np.where(arr < 0, arr, 0.0)
-        downside_dev = float(np.sqrt(np.mean(downside**2)))
-        sortino = mean / downside_dev if downside_dev > 0 else float("nan")
-        mdd_pct = float(np.mean(cohort_mdds[label]) * 100)
-        pf_str = f"{pf:>6.2f}" if np.isfinite(pf) else f"{'inf':>6}"
-        sortino_str = f"{sortino:>8.2f}" if not np.isnan(sortino) else f"{'n/a':>8}"
-        cohort_lines.append(f"{label:<10} {len(vals):>4} {med:>+7.1f}% {mean:>+7.1f}% {win:>6.1f}% {pf_str} {sortino_str} {mdd_pct:>6.1f}%")
-    cohort_output = "\n".join(cohort_lines)
+    cohort_output, cohort_means = build_cohort_table(COHORTS, cohort_returns, cohort_mdds)
     print(f"\n=== {BASE_LABEL} — Change % by %abv SMA50 cohort (mark-to-latest-price) ===")
     print(cohort_output)
+
+    ranking_output, _ranking_means = build_cohort_table(RANKING_COHORTS, ranking_returns, ranking_mdds)
+    print(f"\n=== {BASE_LABEL} — Change % by Ranking cohort (mark-to-latest-price) ===")
+    print(ranking_output)
 
     print("Loading benchmark returns …", flush=True)
     mean_of_means = float(np.mean(cohort_means)) if cohort_means else float("nan")
@@ -451,8 +520,10 @@ def main() -> None:
         fh.write(
             "Entry $/Curr Price/Change % use raw (unadjusted) close — the real tradeable price. "
             "%abv SMA50/ADR%/ADR_CHG/RSI14/TR%/ROC252% are computed on the entry date, using the "
-            "same split/dividend-adjusted series as scripts/qullamaggie-backtest-v4.py. Last date is "
-            "the latest date with data available for that symbol in turtle.daily_bars.\n\n"
+            "same split/dividend-adjusted series as scripts/qullamaggie-backtest-v4.py. Ranking is "
+            "the 0-100 score from turtlex/strategy/ranking/qullamaggie.py, computed on the entry "
+            "date's indicators. Last date is the latest date with data available for that symbol "
+            "in turtle.daily_bars.\n\n"
         )
         fh.write("```text\n")
         fh.write(output)
@@ -477,6 +548,14 @@ def main() -> None:
             "available date.\n\n```text\n"
         )
         fh.write(cohort_output)
+        fh.write("\n```\n\n")
+        fh.write(f"## Cohort Analysis — {BASE_LABEL} by Ranking at entry\n\n")
+        fh.write(
+            "Same Med%/Mean%/Win%/PF/Sortino/MaxDD% convention as the %abv SMA50 cohort table above, "
+            "grouped by each signal's Ranking score (turtlex/strategy/ranking/qullamaggie.py) at "
+            "entry instead.\n\n```text\n"
+        )
+        fh.write(ranking_output)
         fh.write("\n```\n\n")
         fh.write("### mean(Mean%) vs benchmarks\n\n")
         fh.write(

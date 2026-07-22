@@ -308,19 +308,26 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ### Signals: s12 with overlap & cohorts
 
-**Goal:** Provide `bk50d_s12_v1.2_roc100` signals for period 2026-06-01 : today; mark signals that are also in `bk50d_s20_v1.2_roc100` and `bk50d_s15_v1.2_roc100`.
+**Goal:** Provide `bk50d_s12_v1.3_roc100` signals for period 2026-06-01 : today; mark signals that are also in `bk50d_s20_v1.3_roc100` and `bk50d_s15_v1.3_roc100`.
 
 - **Output columns:**
 
   ```text
-  Date │ Symbol │ Entry $ │ Curr Price │ 0.97*Entry Price │ Change % │ %abv SMA50 │ ADR% │ ADR_CHG │ RSI14 │ TR% │ ROC252% │ In s15? │ In s20? │ 0.97*Entry Price reached? │ Last date
+  Date │ Symbol │ Entry $ │ Curr Price │ 0.97*Entry Price │ Change % │ %abv SMA50 │ ADR% │ ADR_CHG │ RSI14 │ TR% │ ROC252% │ In s15? │ In s20? │ 0.97*Entry Price reached? │ Ranking | Last date |
   ```
 
   - `%abv SMA50`, `ADR%`, `RSI14`, `TR%`, `ROC252%` must be calculated on the entry date.
   - `Last date` = latest date when stock data is available in the `turtle.daily_bars` table.
+  - `Ranking` - ranking calculated according to @turtlex/strategy/ranking/qullamaggie.py
 
 - Report also the share of signals where the 0.97*Entry price was reached: `reached/total (Reached%)` in the summary line.
 - Write also a separate table with aggregated results where `%abv SMA50` is in cohorts [12-15), [15-17.5), [17.5-20), (>20):
+
+  ```text
+  Cohort | N | Med% | Mean% | Win% | PF | Sortino | Max DD
+  ```
+
+- Write also a separate table with aggregated results where `Ranking` is in cohorts [0-20), [20-40), [40-60), [60-80), (>80):
 
   ```text
   Cohort | N | Med% | Mean% | Win% | PF | Sortino | Max DD
