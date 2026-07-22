@@ -402,9 +402,7 @@ def main() -> None:
         for p in positions:  # still open at period end -- mark-to-market, not force-closed
             px = price_on(p["sym"], cal_int[-1])
             if px is not None:
-                trades.append(
-                    {"entry_date": p["entry_date"], "symbol": p["sym"], "ret": px / p["entry_px"] - 1.0, "ranking": p["ranking"]}
-                )
+                trades.append({"entry_date": p["entry_date"], "symbol": p["sym"], "ret": px / p["entry_px"] - 1.0, "ranking": p["ranking"]})
 
         dates = [e[0] for e in equity_curve]
         eq = np.array([e[1] for e in equity_curve])
