@@ -120,12 +120,14 @@ Configured in `.mcp.json`. Tool-selection rules are in [Tool Preferences](#tool-
 | `github` | GitHub API — issues, PRs, commits, actions (prefer over `gh` CLI when supported). Requires `GITHUB_PERSONAL_ACCESS_TOKEN` env var. |
 | `context7` | Fetch current library/framework docs |
 | `fetch` | HTTP fetch for external URLs |
+| `codegraph` | Code-intelligence knowledge graph of this repo (indexed in `.codegraph/`) — one query returns a symbol's verbatim source plus its callers and call paths. |
 
 ## Tool Preferences
 
 - For GitHub queries (PRs, issues, Actions, workflow runs), ALWAYS use the GitHub MCP server first. Only fall back to `gh` CLI or Bash if MCP lacks the needed tool.
 - For Postgres queries, use the `mcp__postgres__query` tool with parameter name `sql` (not `query`).
 - For library/framework documentation lookups, use context7 MCP rather than guessing or web search.
+- For code analysis — locating a symbol, understanding how a class/function is used, tracing call paths, or assessing the blast radius of a change — use the `codegraph_explore` MCP tool (or the `codegraph explore` / `codegraph node` CLI if MCP isn't available) before grep/find or reading files one by one.
 
 ## Git Workflow
 
