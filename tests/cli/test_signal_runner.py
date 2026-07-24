@@ -99,15 +99,13 @@ class TestMain:
     def _patch_wiring(self, mocker: MockerFixture) -> None:
         mocker.patch("turtlex.cli.signal_runner.Settings")
         mocker.patch("turtlex.cli.signal_runner.LogConfig")
-        mocker.patch("turtlex.cli.signal_runner.DailyBarsQueryRepository")
         mocker.patch("turtlex.cli.signal_runner.TickerQueryRepository")
-        mocker.patch("turtlex.cli.signal_runner.get_ranking_strategy", return_value=MagicMock())
 
     def test_main_returns_zero_on_success(self, mocker: MockerFixture) -> None:
         self._patch_wiring(mocker)
         strategy = MagicMock()
         strategy.get_signals.return_value = []
-        mocker.patch("turtlex.cli.signal_runner.get_trading_strategy", return_value=strategy)
+        mocker.patch("turtlex.cli.signal_runner.resolve_trading_strategy", return_value=(strategy, MagicMock()))
         mocker.patch("sys.argv", ["signal-runner", "signal", "AAPL.US", *DATE_ARGS])
 
         assert main() == 0
@@ -115,7 +113,7 @@ class TestMain:
 
     def test_main_returns_one_on_factory_error(self, mocker: MockerFixture) -> None:
         self._patch_wiring(mocker)
-        mocker.patch("turtlex.cli.signal_runner.get_trading_strategy", side_effect=ValueError("Unknown trading strategy"))
+        mocker.patch("turtlex.cli.signal_runner.resolve_trading_strategy", side_effect=ValueError("Unknown trading strategy"))
         mocker.patch("sys.argv", ["signal-runner", "list", *DATE_ARGS])
 
         assert main() == 1
@@ -124,7 +122,7 @@ class TestMain:
         self._patch_wiring(mocker)
         strategy = MagicMock()
         strategy.get_signals.side_effect = RuntimeError("db down")
-        mocker.patch("turtlex.cli.signal_runner.get_trading_strategy", return_value=strategy)
+        mocker.patch("turtlex.cli.signal_runner.resolve_trading_strategy", return_value=(strategy, MagicMock()))
         mocker.patch("sys.argv", ["signal-runner", "signal", "AAPL.US", *DATE_ARGS])
 
         assert main() == 1
@@ -133,7 +131,7 @@ class TestMain:
         self._patch_wiring(mocker)
         strategy = MagicMock()
         strategy.get_signals.side_effect = KeyboardInterrupt
-        mocker.patch("turtlex.cli.signal_runner.get_trading_strategy", return_value=strategy)
+        mocker.patch("turtlex.cli.signal_runner.resolve_trading_strategy", return_value=(strategy, MagicMock()))
         mocker.patch("sys.argv", ["signal-runner", "signal", "AAPL.US", *DATE_ARGS])
 
         assert main() == 1
