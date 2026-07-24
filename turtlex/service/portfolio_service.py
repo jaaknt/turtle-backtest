@@ -191,20 +191,16 @@ class PortfolioService:
             List of generated signals
         """
         signals: list[Signal] = []
-        qualified_signals: list[Signal] = []
 
         for ticker in universe:
             signals.extend(self.trading_strategy.get_signals(ticker, current_date, current_date))
 
-        # Step 1: Filter by minimum ranking threshold
-        qualified_signals = [
-            signal
-            for signal in signals
-            if signal.ranking >= self.min_signal_ranking and signal.ticker not in self.portfolio_manager.current_snapshot.get_tickers()
-        ]
-
-        # order by ranking descending
-        qualified_signals.sort(key=lambda s: s.ranking, reverse=True)
+        qualified_signals = self.signal_selector.select_entry_signals(
+            available_signals=signals,
+            current_positions=set(self.portfolio_manager.current_snapshot.get_tickers()),
+            available_positions=len(signals),
+            current_date=current_date,
+        )
 
         logger.info(f"Generated {len(qualified_signals)} signals for {current_date}")
 

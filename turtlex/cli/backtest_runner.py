@@ -2,9 +2,8 @@
 """
 Backtest Script
 
-This script runs trading strategy analysis using the SignalService class.
-It can get ticker lists, ticker counts, check individual ticker signals, or count signals
-for specific tickers using different trading strategies.
+This script runs a complete signal-to-exit backtest using the BacktestService class,
+combining signal generation with exit strategy processing across one or more tickers.
 
 Usage:
     uv run backtest-runner [options]
@@ -181,10 +180,7 @@ def main() -> int:
 
         # Run analysis based on mode
         if args.mode == "list":
-            if args.tickers:
-                backtest_service.run(start_date, end_date, args.tickers)
-            else:
-                backtest_service.run(start_date, end_date, None)
+            backtest_service.run(start_date, end_date, args.tickers, max_tickers=args.max_tickers)
 
         logger.info("Backtest analysis completed successfully")
         return 0

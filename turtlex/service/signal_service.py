@@ -22,21 +22,27 @@ class SignalService:
         self.trading_strategy = trading_strategy
         self.ticker_repo = ticker_repo
 
-    def scan(self, start_date: date, end_date: date, max_tickers: int | None = None) -> list[Signal]:
+    def scan(
+        self, start_date: date, end_date: date, max_tickers: int | None = None, tickers: list[str] | None = None
+    ) -> list[Signal]:
         """
-        Generate signals for every ticker in the strategy's universe.
+        Generate signals for a set of tickers, or for every ticker in the strategy's universe.
 
         Args:
             start_date: The start date of the analysis period
             end_date: The end date of the analysis period
-            max_tickers: Optional maximum number of universe tickers to scan
+            max_tickers: Optional maximum number of universe tickers to scan. Ignored if
+                `tickers` is given.
+            tickers: Optional explicit ticker list to scan instead of resolving the strategy's
+                universe
 
         Returns:
-            list[Signal]: Signals from all scanned tickers, in universe order
+            list[Signal]: Signals from all scanned tickers, in scan order
         """
-        universe = self.trading_strategy.get_universe(self.ticker_repo, limit=max_tickers)
-        logger.info(f"Scanning {len(universe)} tickers for signals")
+        if not tickers:
+            tickers = self.trading_strategy.get_universe(self.ticker_repo, limit=max_tickers)
+        logger.info(f"Scanning {len(tickers)} tickers for signals")
         signals: list[Signal] = []
-        for ticker in universe:
+        for ticker in tickers:
             signals.extend(self.trading_strategy.get_signals(ticker, start_date, end_date))
         return signals

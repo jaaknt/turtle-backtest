@@ -7,6 +7,7 @@ from turtlex.backtest.benchmark_utils import calculate_benchmark_list
 from turtlex.backtest.processor import SignalProcessor
 from turtlex.model import FutureTrade
 from turtlex.repository.query.ticker import TickerQueryRepository
+from turtlex.service.signal_service import SignalService
 from turtlex.strategy.trading.base import TradingStrategy
 
 logger = logging.getLogger(__name__)
@@ -30,27 +31,24 @@ class BacktestService:
         self.trading_strategy = trading_strategy
         self.signal_processor = signal_processor
         self.symbol_repo = symbol_repo
+        self.signal_service = SignalService(trading_strategy=trading_strategy, ticker_repo=symbol_repo)
 
-    def run(self, start_date: date, end_date: date, tickers: list[str] | None) -> list[FutureTrade]:
+    def run(self, start_date: date, end_date: date, tickers: list[str] | None, max_tickers: int | None = None) -> list[FutureTrade]:
         """
         Run the backtest for the specified date range.
 
         Args:
             start_date: The start date for the backtest.
             end_date: The end date for the backtest.
+            tickers: Optional explicit ticker list to test. If not given, scans the trading
+                strategy's universe.
+            max_tickers: Optional maximum number of universe tickers to scan. Ignored if
+                `tickers` is given.
 
         Returns:
             A list of FutureTrade objects containing the backtest results.
         """
-        signals: list = []
-        if tickers:
-            for ticker in tickers:
-                signals.extend(self.trading_strategy.get_signals(ticker, start_date, end_date))
-        else:
-            tickers = self.symbol_repo.get_symbol_list("USA")
-            logger.info(f"Running backtest for {len(tickers)} tickers")
-            for ticker in tickers:
-                signals.extend(self.trading_strategy.get_signals(ticker, start_date, end_date))
+        signals = self.signal_service.scan(start_date, end_date, max_tickers=max_tickers, tickers=tickers)
 
         # raise value error if no signals found
         if not signals:
