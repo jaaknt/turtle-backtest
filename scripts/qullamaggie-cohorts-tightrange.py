@@ -323,7 +323,9 @@ def main() -> None:
     header = (
         f"Tight-range cohort analysis | Hold: {HOLD_CAL}d | "
         f"Period: {EVAL_START} – {EVAL_END}\n"
-        f"Filters: all bk50d fixed filters applied; tight_range cap removed for cohort view\n"
+        f"Filters: RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, "
+        f"breakout>50d high, %abv_sma50>20% (s20 variants) or >15% (s15 variant), SPY>200d SMA, close>$5&<$250, "
+        f"avg_vol>=500K, cooldown=30d, hold=366d cal; tight_range cap removed for cohort view\n"
         f"Note: s20_tr10 and s20_tr20 share pct_above_sma50=20%, so with the tr cap removed\n"
         f"they draw from the same candidate pool — only the current-cap reference row differs.\n"
     )

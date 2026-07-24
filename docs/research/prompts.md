@@ -74,6 +74,7 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Algorithms:** `bk50d_s20_v1.3_roc100-366d`, `bk50d_s15_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d`
 - **Period:** 2015-01-01 : 2026-06-26
 - **Output columns:** `Cohort  N  Med%  Mean%  Win%  Sortino  PF`
+- **Header:** `All filter conditions from algorithm`
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`
 
 ### ROC 12m cohorts
@@ -149,8 +150,8 @@ All cohort studies below share the same setup unless stated otherwise:
 
 **Goal:** How `signal above sma(200)` (`SMA(200)` on entry) affects performance.
 
+- **Cohorts:** (< -50%), [-50% : -20%), [-20% : 0%), [0% : 10%), [10% : 20%), [20% : 30%), [30% : 40%), [40% : 50%), [50% : 60%), [60% : 80%), [80% : 100%), (>100%)
 - **Output:** setup is the same as for cohort analyze
-- **Algorithms:** `bk50d_s20_v1.3_roc100-366d`, `bk50d_s15_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d`
 - **Script:** `scripts/qullamaggie-sma200.py`
 - **Results:** `docs/research/result-qullamaggie-sma200.md`
 

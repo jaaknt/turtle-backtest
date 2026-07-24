@@ -319,8 +319,10 @@ def main() -> None:
     header = (
         f"ADR compression cohort analysis | Hold: {HOLD_CAL}d | "
         f"Period: {EVAL_START} – {EVAL_END}\n"
-        f"Filters: all bk50d filters applied as-is (no tight_range);\n"
-        f"compression = ADR%(10)/ADR%(50) is measured only, not filtered\n"
+        f"Filters: RSI(14)<70, ADR%(20)>=3.0%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, breakout>50d high, "
+        f"%abv_sma50>12%/15%/20% (swept), SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal, "
+        f"tight_range disabled; ADR_change (compression=ADR%(10)/ADR%(50)) <90% cap removed for cohort view -- "
+        f"measured only, not filtered\n"
     )
     print("\n" + header)
 
