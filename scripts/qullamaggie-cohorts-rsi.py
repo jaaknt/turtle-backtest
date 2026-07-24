@@ -320,7 +320,9 @@ def main() -> None:
     header = (
         f"RSI(14) cohort analysis | Hold: {HOLD_CAL}d | "
         f"Period: {EVAL_START} – {EVAL_END}\n"
-        f"Filters: all bk50d fixed filters applied; RSI filter (<{int(RSI_CAP)}) removed for cohort view\n"
+        f"Filters: ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, breakout>50d high, "
+        f"%abv_sma50>12%/15%/20% (swept), SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal, "
+        f"tight_range disabled; RSI(14)<{int(RSI_CAP)} filter removed for cohort view\n"
     )
     print("\n" + header)
 

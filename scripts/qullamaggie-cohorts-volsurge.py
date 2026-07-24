@@ -318,7 +318,9 @@ def main() -> None:
     header = (
         f"Vol-surge cohort analysis | Hold: {HOLD_CAL}d | "
         f"Period: {EVAL_START} – {EVAL_END}\n"
-        f"Filters: all bk50d fixed filters applied; vol_surge_max cap removed for cohort view\n"
+        f"Filters: RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_dry_up<90%, roc_12m<100%, breakout>50d high, "
+        f"%abv_sma50>12%/15%/20% (swept), SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal, "
+        f"tight_range disabled; vol_surge<2.0x cap removed for cohort view\n"
     )
     print("\n" + header)
 

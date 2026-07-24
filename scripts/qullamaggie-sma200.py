@@ -44,15 +44,18 @@ STRATEGIES = [
 ]
 
 COHORTS: list[tuple[str, float, float]] = [
-    ("(<0)      ", float("-inf"), 0.0),
-    ("[0-10)    ", 0.0, 10.0),
-    ("[10-20)   ", 10.0, 20.0),
-    ("[20-30)   ", 20.0, 30.0),
-    ("[30-40)   ", 30.0, 40.0),
-    ("[40-50)   ", 40.0, 50.0),
-    ("[50-60)   ", 50.0, 60.0),
-    ("[60-80)   ", 60.0, 80.0),
-    ("(>80)     ", 80.0, float("inf")),
+    ("(<-50%)   ", float("-inf"), -50.0),
+    ("[-50:-20) ", -50.0, -20.0),
+    ("[-20:0)   ", -20.0, 0.0),
+    ("[0:10)    ", 0.0, 10.0),
+    ("[10:20)   ", 10.0, 20.0),
+    ("[20:30)   ", 20.0, 30.0),
+    ("[30:40)   ", 30.0, 40.0),
+    ("[40:50)   ", 40.0, 50.0),
+    ("[50:60)   ", 50.0, 60.0),
+    ("[60:80)   ", 60.0, 80.0),
+    ("[80:100)  ", 80.0, 100.0),
+    ("(>100%)   ", 100.0, float("inf")),
 ]
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-sma200.md"
@@ -332,7 +335,10 @@ def main() -> None:
         f"SMA(200) cohort analysis | Hold: {HOLD_CAL}d | "
         f"Period: {EVAL_START} – {EVAL_END}\n"
         f"Cohort variable: close / SMA200(prev 200 closes) − 1 on entry date, in %.\n"
-        f"Filters: all bk50d v1.3 fixed filters applied (baseline has no stock-level SMA200 filter)\n"
+        f"Filters: RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, "
+        f"breakout>50d high, %abv_sma50>12%/15%/20% (swept), SPY>200d SMA, close>$5&<$250, avg_vol>=500K, "
+        f"cooldown=30d, hold=366d cal, tight_range disabled; no stock-level SMA200 filter in the baseline -- "
+        f"cohorts just slice the existing signal population by pct_vs_sma200\n"
     )
     print("\n" + header)
 

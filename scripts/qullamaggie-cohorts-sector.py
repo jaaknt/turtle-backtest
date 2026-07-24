@@ -331,7 +331,10 @@ def main() -> None:
     header = (
         f"Company-sector cohort analysis | Hold: {HOLD_CAL}d | "
         f"Period: {EVAL_START} – {EVAL_END}\n"
-        f"Filters: all bk50d fixed filters applied; Comm Services/Real Estate exclusion removed for cohort view\n"
+        f"Filters: RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, "
+        f"breakout>50d high, %abv_sma50>12%/15%/20% (swept), SPY>200d SMA, close>$5&<$250, avg_vol>=500K, "
+        f"cooldown=30d, hold=366d cal, tight_range disabled; Comm Services/Real Estate sector exclusion removed "
+        f"for cohort view\n"
     )
     print("\n" + header)
 
