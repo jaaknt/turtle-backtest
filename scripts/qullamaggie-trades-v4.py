@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Current-period trade report for bk50d_s20_v1.2_roc100.
+Current-period trade report for bk50d_s20_v1.3_roc100.
 
 Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
 ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA,
@@ -37,7 +37,7 @@ ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 SMA_T = 0.20
 
-STRATEGY_LABEL = "bk50d_s20_v1.2_roc100"
+STRATEGY_LABEL = "bk50d_s20_v1.3_roc100"
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-trades-v4.md"
 

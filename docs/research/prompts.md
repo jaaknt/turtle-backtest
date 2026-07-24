@@ -21,8 +21,9 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 | [Limit-order fill rate](#limit-order-fill-rate) | `scripts/qullamaggie-limit-fill-rate.py` | `result-qullamaggie-limit-fill-rate.md` |
 | [Relaxation brainstorm (s15)](#relaxation-brainstorm-s15) | — | — |
 | [Relaxation sweep (s20)](#relaxation-sweep-s20) | `scripts/qullamaggie-relax-sweep.py` | `result-qullamaggie-relax-sweep.md` |
-| [Ranking algorithm proposal](#ranking-algorithm-proposal) | — | `result-qullamaggie-ranking.md` |
+| [Ranking algorithm proposal](#ranking-algorithm-proposal) | — | — |
 | [Dynamic cohort ranking (s15)](#dynamic-cohort-ranking-s15) | `scripts/qullamaggie-cohort-ranking.py` | `result-qullamaggie-cohort-ranking.md` |
+| [Recalibrate ranking weights + validate](#recalibrate-ranking-weights--validate) | `scripts/qullamaggie-ranking-validation.py` | `result-qullamaggie-ranking-validation.md` |
 | [Portfolio simulation](#portfolio-simulation) | `scripts/qullamaggie-portfolio-sim.py` | `result-qullamaggie-portfolio-v4.md` |
 | [Signals: s12 with overlap & cohorts](#signals-s12-with-overlap--cohorts) | `scripts/qullamaggie-signals-v4.py` | screen |
 | [Trades: s20 open-trade performance](#trades-s20-open-trade-performance) | `scripts/qullamaggie-trades-v4.py` | `result-qullamaggie-trades-v4.md` |
@@ -39,7 +40,7 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 
 ### Long-term monthly analysis
 
-**Goal:** Analyze `bk50d_s12_v1.2_roc100-366d`, `bk50d_s15_v1.2_roc100-366d`, `bk50d_s17_v1.2_roc100-366d`, `bk50d_s20_v1.2_roc100-366d` over the long term; provide monthly Mean% and trade counts by year, plus general findings and pros/cons of the different algorithms.
+**Goal:** Analyze `bk50d_s12_v1.3_roc100-366d`, `bk50d_s15_v1.3_roc100-366d`, `bk50d_s17_v1.3_roc100-366d`, `bk50d_s20_v1.3_roc100-366d` over the long term; provide monthly Mean% and trade counts by year, plus general findings and pros/cons of the different algorithms.
 
 - **Period:** 2007-01-01 : 2026-06-26
 - **Output format** (monthly matrix, years as rows):
@@ -64,13 +65,13 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 
 - **Script:** `scripts/qullamaggie-longterm-monthly.py`
 - **Results:** `docs/research/result-qullamaggie-longterm-monthly.md`
-- **Note:** script must follow alogrithm parameters in `docs/research/qullamaggie-backtest-v4.md`.
+- **Note:** script must follow algorithm parameters in `docs/research/qullamaggie-backtest-v4.md`.
 
 ## Filter cohort studies
 
 All cohort studies below share the same setup unless stated otherwise:
 
-- **Algorithms:** `bk50d_s20_v1.2_roc100-366d`, `bk50d_s15_v1.2_roc100-366d`, `bk50d_s12_v1.2_roc100-366d`
+- **Algorithms:** `bk50d_s20_v1.3_roc100-366d`, `bk50d_s15_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d`
 - **Period:** 2015-01-01 : 2026-06-26
 - **Output columns:** `Cohort  N  Med%  Mean%  Win%  Sortino  PF`
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`
@@ -127,9 +128,9 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ### Tight range cohorts
 
-**Goal:** How `tight_range2` (`(max(close[-11:-1]) − min(close[-11:-1])) / mean(close[-11:-1]) < Y`) affects results.
+**Goal:** How `tight_range_ratio` (`(max(close[-11:-1]) − min(close[-11:-1])) / mean(close[-11:-1]) < Y`) affects results.
 
-- **Algorithms:** `bk50d_s12_v1.2_roc100-366d`, `bk50d_s15_v1.2_roc100-366d`, `bk50d_s17_v1.2_roc100-366d`, `bk50d_s20_v1.2_roc100-366d`
+- **Algorithms:** `bk50d_s12_v1.3_roc100-366d`, `bk50d_s15_v1.3_roc100-366d`, `bk50d_s17_v1.3_roc100-366d`, `bk50d_s20_v1.3_roc100-366d`
 - **Cohorts:** (<0), [0.0-0.1), [0.1-0.15), [0.15-0.2), [0.2-0.25), [0.25-0.3), (>0.3)
 - **Script:** `scripts/qullamaggie-cohorts-tightrange.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-tightrange.md`
@@ -139,17 +140,18 @@ All cohort studies below share the same setup unless stated otherwise:
 
 **Goal:** How `pct_above_sma50`: `close / mean(close[-51:-1]) − 1 > X` affects results.
 
-- **Algorithms:** `bk50d_<X>_v1.2_roc100-366d`
+- **Algorithms:** `bk50d_<X>_v1.3_roc100-366d`
 - **Cohorts:** (<10), [10-12), [12-15), [15-17), [17-20), [20-30), (>30)
 - **Script:** `scripts/qullamaggie-cohorts-pct-above-sma50.py`
-- **Results:** `docs/research/result-qullamaggie-cohorts-pct-above-sma50.md`.
+- **Results:** `docs/research/result-qullamaggie-cohorts-pct-above-sma50.md`
 
 ### SMA(200) analyze
 
 **Goal:** How `signal above sma(200)` (`SMA(200)` on entry) affects performance.
 
 - **Output:** setup is the same as for cohort analyze
-- **Script:** `scripts/qullamaggie-sma200.py`updat
+- **Algorithms:** `bk50d_s20_v1.3_roc100-366d`, `bk50d_s15_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d`
+- **Script:** `scripts/qullamaggie-sma200.py`
 - **Results:** `docs/research/result-qullamaggie-sma200.md`
 
 ### Sector analyze
@@ -166,7 +168,7 @@ All cohort studies below share the same setup unless stated otherwise:
 
 **Goal:** How buying on the next day with a limit order (limit price = previous day closing price − X%) affects results.
 
-- **Algorithms:** `bk50d_s20_v1.2_roc100-366d`, `bk50d_s15_v1.2_roc100-366d`, `bk50d_s12_v1.2_roc100-366d`
+- **Algorithms:** `bk50d_s20_v1.3_roc100-366d`, `bk50d_s15_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d`
 - **X%:** 0%, 1%, 2%, 3%, 4%, 5%; limit order is effective during the next 30 days.
 - **Period:** 2010-01-01 : 2026-06-26
 - **Output columns:** `Cohort  N  Med%  Mean%  Win%  Sortino  PF`
@@ -185,7 +187,7 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ### Limit-order fill rate
 
-**Goal:** Calculate `bk50d_s12_v1.2_roc100` signals, then figure out the percentage of signals where the price drops X% during the next Y days so that a resting limit order would be filled.
+**Goal:** Calculate `bk50d_s12_v1.3_roc100` signals, then figure out the percentage of signals where the price drops X% during the next Y days so that a resting limit order would be filled.
 
 - **Filters:** same as `scripts/qullamaggie-signals-v4.py` (RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, no tight_range, cooldown 30d, mcap>=1.5B excl Comm/RE)
 - **Limit order price:** signal-day close × (1 − X%), X = 0%, 1%, 2%, 3%, 4%, 5%
@@ -209,7 +211,7 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ### Relaxation brainstorm (s15)
 
-**Goal:** Analyze `bk50d_s15_v1.2_roc100` 366d results in period 2001-01-01 : 2026-06-26.
+**Goal:** Analyze `bk50d_s15_v1.3_roc100` 366d results in period 2001-01-01 : 2026-06-26.
 
 - Propose 5 options how to achieve ~3 signals per month.
 - Important: Med% and Sortino must stay on the same level.
@@ -217,7 +219,7 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ### Relaxation sweep (s20)
 
-**Goal:** Increase signals per month (F/mo) for `bk50d_s20_v1.2_roc100-366d` without degrading Sortino and Mean%.
+**Goal:** Increase signals per month (F/mo) for `bk50d_s20_v1.3_roc100-366d` without degrading Sortino and Mean%.
 
 - **Baseline** (2021-01-01 : 2026-07-05, unconstrained): N=243, F/mo=3.7, Win%=67.1, Mean%=+52.50, Med%=+22.32, Sortino=2.864, MaxDD%=39.71
 - Propose 5 ideas how to loosen currently applied filters or expand the universe.
@@ -244,7 +246,7 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ### Dynamic cohort ranking (s15)
 
-**Goal:** Build a dynamic ranking score for `bk50d_s15_v1.2_roc100` signals that estimates the probability the signal will succeed (trade return > 0 at the 366d exit), derived from the per-dimension cohort statistics of the existing cohort studies.
+**Goal:** Build a dynamic ranking score for `bk50d_s15_v1.3_roc100` signals that estimates the probability the signal will succeed (trade return > 0 at the 366d exit), derived from the per-dimension cohort statistics of the existing cohort studies.
 
 - **Dimensions** (all computed on the entry date, definitions identical to the cohort scripts): `adr_pct` (ADR% cohorts), `adr_pct_change` = ADR%(10)/ADR%(50) (compression cohorts), `rsi14` (RSI cohorts), entry close price (price cohorts), `vol_surge_ratio` (volsurge cohorts), `roc_252d` (ROC cohorts). Reuse each study's cohort boundaries.
 - **Per-dimension probability:** the Win% of the signal's cohort, computed **walk-forward** — from s15 trades whose 366d hold completed before the signal date (expanding window; no look-ahead). Shrink small cohorts toward the running pool win rate: `p̂ = (wins + k·p₀) / (n + k)` with `k = 20`.
@@ -259,11 +261,21 @@ All cohort studies below share the same setup unless stated otherwise:
   - `PredP%` = mean predicted probability in the decile; compare with realized Win% (calibration).
   - Check the Win%/Mean%/Sortino gradient is monotonic from D1 (lowest score) to D10 (highest).
 
-- **Period:** 2015-01-01 : 2026-06-26, hold 366d, all standardized v1.2 filters (vol_dry_up<90%, no tight_range).
+- **Period:** 2015-01-01 : 2026-06-26, hold 366d, all standardized v1.3 filters (vol_dry_up<90%, no tight_range).
 - **Script:** `scripts/qullamaggie-cohort-ranking.py` (create new; reuse the shared harness of the cohort scripts)
 - **Results:** `docs/research/result-qullamaggie-cohort-ranking.md`
 - **Note:** implementation adds a second, regime-neutral decile table (score minus running pool log-odds) because the raw walk-forward P proved anti-calibrated — dominated by pool-win-rate time drift; see Findings in the result doc. RSI uses the fine partition ([40-50), [50-60)) so bins are disjoint; values in cohort gaps (e.g. ADR [7-8)) fall back to the pool win rate via n=0 shrinkage.
 - **Important files:** `scripts/qullamaggie-cohorts-adr.py`, `scripts/qullamaggie-cohorts-roc.py`, `docs/research/result-qullamaggie-cohorts-adr.md`, `docs/research/result-qullamaggie-cohorts-adr-compression.md`, `docs/research/result-qullamaggie-cohorts-rsi.md`, `docs/research/result-qullamaggie-cohorts-price.md`, `docs/research/result-qullamaggie-cohorts-volsurge.md`, `docs/research/result-qullamaggie-cohorts-roc.md`, `docs/research/qullamaggie-backtest-v4.md`
+
+### Recalibrate ranking weights + validate
+
+**Goal:** Check all cohort analyses in `docs/research/`, validate whether `turtlex/strategy/ranking/qullamaggie.py`'s band weights still match the current (v1.3, RSI<70) cohort data, and propose improvements to optimize Sortino and Mean%.
+
+- Recalibrated all six dimensions' point tables using *reachable-only* cohort Sortino spreads (the bucket range a candidate can actually land in given that dimension's own entry filter) and added two new dimensions the ranking previously ignored: ROC252 and RSI(14) within the qualifying pool. New weight split: SMA50=50 (fixed by design), price=13, ADR=12, compression=12, ROC252=10, RSI=3.
+- Built a genuine out-of-sample validation: a train/test split confirms the new scheme separates forward Sortino/Mean% better than the old 4-dimension bands, and a further 5-fold stability check across independent cutoffs (2019-2023) confirms the weight split is robust to being refit on shorter sub-periods (which is noisier and performs worse on average, not better).
+- **Script:** `scripts/qullamaggie-ranking-validation.py` (new)
+- **Results:** `docs/research/result-qullamaggie-ranking-validation.md`
+- **References:** `turtlex/strategy/ranking/qullamaggie.py`, `docs/research/result-qullamaggie-cohorts-*.md`, `docs/research/result-qullamaggie-cohort-ranking.md`
 
 ## Portfolio simulation
 
@@ -276,8 +288,8 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Output format:**
 
   ```text
-  all algorithm `bk50d_s20_v1.3_roc100-366d parametrs as header
-  
+  all algorithm `bk50d_s20_v1.3_roc100-366d` parameters as header
+
   size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
   --------------------------------------------------------------------------
   3%         145,397  +20.44   -30.34   0.674    0.885    261    977   14.4%
@@ -293,7 +305,7 @@ All cohort studies below share the same setup unless stated otherwise:
    2010 |    -3.2|7    +3.8|1    +2.6|1    -0.4|2    -2.4|0    -3.9|0    +2.9|0    -3.1|4    +5.5|2    +1.0|2    -0.3|2    +8.3|6 |   +10.5    27
   ```
 
-- Compare what would by result if whole amount would be invested to SPY or QQQ in first day of period and sold on last day of period
+- Compare what the result would be if the whole amount were invested in SPY or QQQ on the first day of the period and sold on the last day of the period
 - <!-- Provide a comparison with an alternative approach where a limit order is added to buy the stock 
     3% below closing price during the next 30 days (instead of buying on closing price). 
     - Provide comparison with an alternative holding lengths (90d, 120d, 180d, 240d, 360d) -->
@@ -301,7 +313,7 @@ All cohort studies below share the same setup unless stated otherwise:
   N CAGR%   MaxDD%  Calmar  Sortino for different ranking deciles
 - Add your findings on how to improve the portfolio performance (Mean%, Sortino, Calmar).
 - **Deferred/considered ideas** (commented out in the original prompt):
-  - Prefer always bk50d_s20_tr10_v1.2_roc100 signals, but if there is liquidity use bk50d_s15_tr15_v1.2_roc100 signals to reduce uninvested amounts.
+  - Prefer always bk50d_s20_tr10_v1.3_roc100 signals, but if there is liquidity use bk50d_s15_tr15_v1.3_roc100 signals to reduce uninvested amounts.
   - Implement rank-based funding to choose the trade if several trades are available on the same day.
   - Sell the position if the stock closes below the 200-day SMA for 3 consecutive trades.
 - **Script:** `scripts/qullamaggie-portfolio-sim.py`
@@ -317,7 +329,7 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Output columns:**
 
   ```text
-  Date │ Symbol │ Entry $ │ Curr Price │ 0.97*Entry Price │ Change % │ %abv SMA50 │ ADR% │ ADR_CHG │ RSI14 │ TR% │ ROC252% │ In s15? │ In s20? │ 0.97*Entry Price reached? │ Ranking | Last date |
+  Date │ Symbol │ Entry $ │ Curr Price │ 0.97*Entry Price │ Change % │ %abv SMA50 │ ADR% │ ADR_CHG │ RSI14 │ TR% │ ROC252% │ In s15? │ In s20? │ 0.97*Entry Price reached? │ Ranking │ Last date
   ```
 
   - `%abv SMA50`, `ADR%`, `RSI14`, `TR%`, `ROC252%` must be calculated on the entry date.
@@ -344,7 +356,7 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ### Trades: s20 open-trade performance
 
-**Goal:** Provide `bk50d_s20_v1.2_roc100` signals for period 2025-07-01 : today.
+**Goal:** Provide `bk50d_s20_v1.3_roc100` signals for period 2025-07-01 : today.
 
 - **Output columns:**
 
@@ -359,7 +371,7 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Script:** `scripts/qullamaggie-trades-v4.py`
 - **Results:** `docs/research/result-qullamaggie-trades-v4.md`
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`
-- **Note:** implemented as bk50d_s20_v1.2_roc100 (vol_dry_up<90%, no tight_range — TR% shown for information only).
+- **Note:** implemented as bk50d_s20_v1.3_roc100 (vol_dry_up<90%, no tight_range — TR% shown for information only).
 
 ## Maintenance
 

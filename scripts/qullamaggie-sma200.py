@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-SMA(200) cohort analysis for bk50d_s20_v1.2_roc100, bk50d_s15_v1.2_roc100, bk50d_s12_v1.2_roc100 (366d hold).
+SMA(200) cohort analysis for bk50d_s20_v1.3_roc100, bk50d_s15_v1.3_roc100, bk50d_s12_v1.3_roc100 (366d hold).
 
 Cohort variable: pct_vs_sma200 = close / SMA200 − 1 on the entry date, where SMA200 is the
 mean of the previous 200 closes (shift-1, same convention as sma50). The baseline strategy
-has no stock-level SMA(200) filter (only the SPY regime uses SMA200), so ALL v1.2 filters
+has no stock-level SMA(200) filter (only the SPY regime uses SMA200), so ALL v1.3 filters
 are applied unchanged and the cohorts just slice the existing signal population.
 
 Period: 2015-01-01 – 2026-06-26  (burn-in from 2013-01-01)
@@ -38,9 +38,9 @@ RSI_CAP = 70.0
 MIN_NEG = 5
 
 STRATEGIES = [
-    ("bk50d_s20_v1.2_roc100", 0.20),
-    ("bk50d_s15_v1.2_roc100", 0.15),
-    ("bk50d_s12_v1.2_roc100", 0.12),
+    ("bk50d_s20_v1.3_roc100", 0.20),
+    ("bk50d_s15_v1.3_roc100", 0.15),
+    ("bk50d_s12_v1.3_roc100", 0.12),
 ]
 
 COHORTS: list[tuple[str, float, float]] = [
@@ -166,7 +166,7 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
     return df.drop(["_c1", "_v1", "_rp1", "_adr10", "_adr50", "_c_252d"])
 
 
-# ── Signal generation (all v1.2 filters; cohort variable pct_vs_sma200 carried through) ──
+# ── Signal generation (all v1.3 filters; cohort variable pct_vs_sma200 carried through) ──
 
 
 def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
@@ -332,7 +332,7 @@ def main() -> None:
         f"SMA(200) cohort analysis | Hold: {HOLD_CAL}d | "
         f"Period: {EVAL_START} – {EVAL_END}\n"
         f"Cohort variable: close / SMA200(prev 200 closes) − 1 on entry date, in %.\n"
-        f"Filters: all bk50d v1.2 fixed filters applied (baseline has no stock-level SMA200 filter)\n"
+        f"Filters: all bk50d v1.3 fixed filters applied (baseline has no stock-level SMA200 filter)\n"
     )
     print("\n" + header)
 

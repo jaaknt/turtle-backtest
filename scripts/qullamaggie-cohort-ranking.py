@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Dynamic cohort ranking for bk50d_s15_v1.2_roc100 (366d hold).
+Dynamic cohort ranking for bk50d_s15_v1.3_roc100 (366d hold).
 
 Estimates the probability that a signal succeeds (trade return > 0 at the 366d exit)
 from the per-dimension cohort statistics of the existing cohort studies (ADR%,
@@ -15,7 +15,7 @@ Scoring starts once WARMUP_TRADES completed trades exist; earlier signals are
 excluded from validation. Validation: decile table (by P) with calibration
 (PredP% vs realized Win%) and monotonicity check.
 
-All standardized v1.2 filters applied (vol_dry_up<90%, no tight_range).
+All standardized v1.3 filters applied (vol_dry_up<90%, no tight_range).
 Period: 2015-01-01 – 2026-06-26  (burn-in from 2013-01-01)
 
 References: docs/research/qullamaggie-backtest-v4.md and the cohort studies in
@@ -49,7 +49,7 @@ ADR_CHANGE_CAP = 0.90
 ROC_CAP = 1.00
 MIN_NEG = 5
 
-STRATEGY_LABEL = "bk50d_s15_v1.2_roc100"
+STRATEGY_LABEL = "bk50d_s15_v1.3_roc100"
 SMA_T = 0.15
 
 K_SHRINK = 20.0
@@ -246,7 +246,7 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
     return df.drop(["_c1", "_v1", "_rp1", "_adr10", "_adr50", "_c_252d"])
 
 
-# ── Signal generation (all v1.2 filters) ─────────────────────────────────────
+# ── Signal generation (all v1.3 filters) ─────────────────────────────────────
 
 
 def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
