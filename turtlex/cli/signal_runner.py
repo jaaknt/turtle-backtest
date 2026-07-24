@@ -30,13 +30,11 @@ import sys
 import time
 from datetime import date
 
-from turtlex.common.cli import iso_date_type
+from turtlex.cli.common import build_common_analysis_parser, resolve_trading_strategy, run_cli
 from turtlex.config.logging import LogConfig
 from turtlex.config.settings import Settings
-from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.service.signal_service import SignalService
-from turtlex.strategy.factory import RANKING_STRATEGIES, TRADING_STRATEGIES, get_ranking_strategy, get_trading_strategy
 
 logger = logging.getLogger(__name__)
 
@@ -73,34 +71,7 @@ def run_signal(service: SignalService, args: argparse.Namespace) -> int:
 
 def create_argument_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser with one subcommand per analysis mode."""
-    common = argparse.ArgumentParser(add_help=False)
-    common.add_argument(
-        "--start-date",
-        type=iso_date_type,
-        required=True,
-        help="Start date for analysis (YYYY-MM-DD format)",
-    )
-    common.add_argument(
-        "--end-date",
-        type=iso_date_type,
-        required=True,
-        help="End date for analysis (YYYY-MM-DD format)",
-    )
-    common.add_argument(
-        "--trading-strategy",
-        type=str,
-        default="darvas_box",
-        choices=list(TRADING_STRATEGIES),
-        help="Trading strategy to use (default: darvas_box)",
-    )
-    common.add_argument(
-        "--ranking-strategy",
-        type=str,
-        default="momentum",
-        choices=list(RANKING_STRATEGIES),
-        help="Ranking strategy to use (default: momentum)",
-    )
-    common.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    common = build_common_analysis_parser()
 
     universe = argparse.ArgumentParser(add_help=False)
     universe.add_argument("--max-tickers", type=int, default=10000, help="Maximum number of universe tickers to scan")
@@ -138,11 +109,9 @@ def main() -> int:
 
     logger.info(f"Starting strategy analysis with {args.trading_strategy} strategy and {args.ranking_strategy} ranking")
 
-    try:
+    def body() -> int:
         try:
-            ranking_strategy = get_ranking_strategy(args.ranking_strategy)
-            bars_history = DailyBarsQueryRepository(engine=settings.engine)
-            trading_strategy = get_trading_strategy(args.trading_strategy, ranking_strategy, bars_history)
+            trading_strategy, _bars_history = resolve_trading_strategy(args, settings)
         except ValueError as e:
             logger.error(str(e))
             return 1
@@ -157,14 +126,7 @@ def main() -> int:
         logger.info(f"Strategy analysis completed successfully in {time.perf_counter() - run_start:.1f}s")
         return result
 
-    except KeyboardInterrupt:
-        logger.warning("Analysis interrupted by user")
-        return 1
-    except Exception as e:
-        logger.error(f"Analysis failed with error: {e}")
-        if args.verbose:
-            logger.exception("Full error details:")
-        return 1
+    return run_cli(args, body)
 
 
 if __name__ == "__main__":
