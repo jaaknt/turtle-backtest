@@ -22,9 +22,7 @@ class SignalService:
         self.trading_strategy = trading_strategy
         self.ticker_repo = ticker_repo
 
-    def scan(
-        self, start_date: date, end_date: date, max_tickers: int | None = None, tickers: list[str] | None = None
-    ) -> list[Signal]:
+    def scan(self, start_date: date, end_date: date, max_tickers: int | None = None, tickers: list[str] | None = None) -> list[Signal]:
         """
         Generate signals for a set of tickers, or for every ticker in the strategy's universe.
 
