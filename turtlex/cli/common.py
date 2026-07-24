@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 def build_common_analysis_parser() -> argparse.ArgumentParser:
-    """Build a parent parser (add_help=False) for the --start-date/--end-date/--trading-strategy/--ranking-strategy/--verbose flags shared by every analysis CLI."""
+    """Build a parent parser (add_help=False) for the --start-date/--end-date/--trading-strategy/
+    --ranking-strategy/--verbose flags shared by every analysis CLI."""
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
         "--start-date",
@@ -66,7 +67,8 @@ def resolve_trading_strategy(args: argparse.Namespace, settings: Settings) -> tu
 
 
 def run_cli(args: argparse.Namespace, body: Callable[[], int]) -> int:
-    """Run `body`, translating KeyboardInterrupt/unexpected exceptions into the logged-error + exit-code-1 behavior shared by the analysis CLIs.
+    """Run `body`, translating KeyboardInterrupt/unexpected exceptions into the logged-error +
+    exit-code-1 behavior shared by the analysis CLIs.
 
     Args:
         args: Parsed CLI arguments, must have `verbose`
