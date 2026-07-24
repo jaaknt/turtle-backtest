@@ -47,3 +47,31 @@ def test_scan_empty_universe_returns_no_signals() -> None:
 
     assert service.scan(START, END) == []
     trading_strategy.get_signals.assert_not_called()
+
+
+def test_scan_explicit_tickers_bypasses_universe_resolution() -> None:
+    signals_by_ticker = {"AAPL.US": [Signal(ticker="AAPL.US", date=START, ranking=80)]}
+    service, trading_strategy, _ = _make_service(["MSFT.US"], signals_by_ticker)
+
+    signals = service.scan(START, END, tickers=["AAPL.US"])
+
+    assert [s.ticker for s in signals] == ["AAPL.US"]
+    trading_strategy.get_universe.assert_not_called()
+
+
+def test_scan_empty_tickers_list_falls_back_to_universe() -> None:
+    service, trading_strategy, ticker_repo = _make_service(["MSFT.US"], {})
+
+    service.scan(START, END, tickers=[])
+
+    trading_strategy.get_universe.assert_called_once_with(ticker_repo, limit=None)
+
+
+def test_scan_ignores_max_tickers_when_tickers_given() -> None:
+    signals_by_ticker = {"AAPL.US": [Signal(ticker="AAPL.US", date=START, ranking=80)]}
+    service, trading_strategy, _ = _make_service(["MSFT.US"], signals_by_ticker)
+
+    signals = service.scan(START, END, max_tickers=5, tickers=["AAPL.US"])
+
+    assert [s.ticker for s in signals] == ["AAPL.US"]
+    trading_strategy.get_universe.assert_not_called()

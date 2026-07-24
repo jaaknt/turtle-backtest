@@ -105,18 +105,18 @@ The `BacktestService` orchestrates complete signal-to-exit backtesting by combin
 
 ```python
 from turtlex.strategy.trading.darvas_box import DarvasBoxStrategy
+from turtlex.strategy.ranking.momentum import MomentumRanking
 from turtlex.strategy.exit.atr import ATRExitStrategy
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 
 bars_history = DailyBarsQueryRepository(engine)
-strategy = DarvasBoxStrategy(bars_history)
-signal_service = SignalService(engine, strategy, market_ticker="SPY")
+strategy = DarvasBoxStrategy(bars_history, MomentumRanking())
 exit_strategy = ATRExitStrategy(bars_history, atr_multiplier=2.0)
 signal_processor = SignalProcessor(30, bars_history, exit_strategy, ["QQQ", "SPY"])
 symbol_repo = TickerQueryRepository(engine)
 
 # Run backtest
-backtest_service = BacktestService(signal_service, signal_processor, symbol_repo)
+backtest_service = BacktestService(trading_strategy=strategy, signal_processor=signal_processor, symbol_repo=symbol_repo)
 results = backtest_service.run(start_date, end_date, ["AAPL", "MSFT", "NVDA"])
 
 # Results contain FutureTrade objects with entry/exit details and performance metrics
@@ -300,15 +300,15 @@ For programmatic use where the concrete class is already known, instantiate the 
 
 ```python
 # Test signals for specific stocks
-signal_service = SignalService(engine, darvas_strategy, market_ticker="SPY")
-signals = signal_service.get_signals("AAPL", start_date, end_date)
+signal_service = SignalService(trading_strategy=darvas_strategy, ticker_repo=TickerQueryRepository(engine))
+signals = darvas_strategy.get_signals("AAPL.US", start_date, end_date)
 ```
 
 **Complete Strategy Backtesting:**
 
 ```python
 # Test strategy with exits and benchmarks
-backtest_service = BacktestService(signal_service, signal_processor, symbol_repo)
+backtest_service = BacktestService(trading_strategy=darvas_strategy, signal_processor=signal_processor, symbol_repo=symbol_repo)
 results = backtest_service.run(start_date, end_date, symbol_list)
 ```
 
