@@ -1,14 +1,14 @@
 # Qullamaggie Dynamic Cohort Ranking (s15)
 
-Run date: 2026-07-22
+Run date: 2026-07-23
 
 ```text
-Dynamic cohort ranking | bk50d_s15_v1.2_roc100 | Hold: 366d | Period: 2015-01-01 – 2026-06-26
+Dynamic cohort ranking | bk50d_s15_v1.3_roc100 | Hold: 366d | Period: 2015-01-01 – 2026-06-26
 P(success) = sigmoid(mean log-odds of walk-forward cohort Win% across ADR%, compression, RSI14, price, vol_surge, ROC252)
 Shrinkage k=20 toward running pool win rate | warm-up: 300 completed trades
 Completed trades: 1695 | scored (post warm-up): 1369 | first scored entry: 2019-02-12
 
-### bk50d_s15_v1.2_roc100 — walk-forward P(success) deciles (D1 = lowest, D10 = highest)
+### bk50d_s15_v1.3_roc100 — walk-forward P(success) deciles (D1 = lowest, D10 = highest)
 
 Decile      PredP%      N     Med%    Mean%    Win%   Sortino      PF
 ─────────────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ ALL           67.4   1369   +31.74   +47.80    73.0     1.389    7.32
 
 Win% monotonicity: 3/9 decile steps non-decreasing
 
-### bk50d_s15_v1.2_roc100 — regime-neutral (pool-relative) score deciles (D1 = lowest, D10 = highest)
+### bk50d_s15_v1.3_roc100 — regime-neutral (pool-relative) score deciles (D1 = lowest, D10 = highest)
 
 Decile      PredP%      N     Med%    Mean%    Win%   Sortino      PF
 ─────────────────────────────────────────────────────────────────────

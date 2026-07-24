@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Relaxation sweep for bk50d_s20_v1.2_roc100 / 366d hold.
+Relaxation sweep for bk50d_s20_v1.3_roc100 / 366d hold.
 
 Goal: increase signals per month (F/mo) without degrading Sortino and Mean%.
 Each variant relaxes exactly ONE dimension of the baseline (all other filters
@@ -324,7 +324,7 @@ def main() -> None:
         return m
 
     print("Running baseline + single-dimension variants …", flush=True)
-    base_m = run_variant("baseline (bk50d_s20_v1.2_roc100)", BASE_PARAMS)
+    base_m = run_variant("baseline (bk50d_s20_v1.3_roc100)", BASE_PARAMS)
     single_results: list[tuple[str, dict, dict]] = []  # (label, overrides, metrics)
     for label, overrides in VARIANTS:
         m = run_variant(label, {**BASE_PARAMS, **overrides})
@@ -363,7 +363,7 @@ def main() -> None:
             combo_results.append((combo_label, run_variant(combo_label, combo_params)))
 
     # ── Assemble report ────────────────────────────────────────────────────────
-    table_lines = [_HDR, _SEP, fmt_row("baseline (bk50d_s20_v1.2_roc100)", base_m)]
+    table_lines = [_HDR, _SEP, fmt_row("baseline (bk50d_s20_v1.3_roc100)", base_m)]
     for label, _, m in sorted(single_results, key=lambda x: x[2]["sr"], reverse=True):
         table_lines.append(fmt_row(label, m))
     for label, m in combo_results:
@@ -394,13 +394,13 @@ def main() -> None:
 
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with RESULT_PATH.open("w") as fh:
-        fh.write("# Qullamaggie Relax Sweep — bk50d_s20_v1.2_roc100 / 366d\n\n")
+        fh.write("# Qullamaggie Relax Sweep — bk50d_s20_v1.3_roc100 / 366d\n\n")
         fh.write(f"Run date: {date.today()}\n\n")
         fh.write("## Configuration\n\n")
         fh.write("| Parameter | Value |\n|---|---|\n")
         fh.write(f"| Eval period | {EVAL_START} – {EVAL_END} |\n")
         fh.write(f"| Hold | {HOLD_CAL}d (calendar); entries without {HOLD_CAL}d of forward data skipped |\n")
-        fh.write("| Baseline | bk50d_s20_v1.2_roc100: 50d-high breakout, close >20% above SMA50 |\n")
+        fh.write("| Baseline | bk50d_s20_v1.3_roc100: 50d-high breakout, close >20% above SMA50 |\n")
         fh.write(
             "| Baseline fixed filters | vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x, RSI<70, ADR>=3.0%, "
             "ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown 30d, "

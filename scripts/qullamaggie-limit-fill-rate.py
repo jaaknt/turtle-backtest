@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Limit-order fill-rate grid for bk50d_s12_v1.2_roc100 signals (pure fill-probability
+Limit-order fill-rate grid for bk50d_s12_v1.3_roc100 signals (pure fill-probability
 study — no hold/return computation).
 
 For each signal, a resting limit buy is placed at signal_day_close * (1 - X%) for
@@ -47,7 +47,7 @@ ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 
 SMA_T = 0.12
-LABEL = "bk50d_s12_v1.2_roc100"
+LABEL = "bk50d_s12_v1.3_roc100"
 
 LIMIT_PCTS = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05]
 WINDOWS_CAL = [30, 60, 90]  # limit order stays resting this many calendar days after the signal

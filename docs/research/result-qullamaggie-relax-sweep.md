@@ -1,6 +1,6 @@
-# Qullamaggie Relax Sweep — bk50d_s20_v1.2_roc100 / 366d
+# Qullamaggie Relax Sweep — bk50d_s20_v1.3_roc100 / 366d
 
-Run date: 2026-07-15
+Run date: 2026-07-23
 
 ## Configuration
 
@@ -8,7 +8,7 @@ Run date: 2026-07-15
 |---|---|
 | Eval period | 2015-01-01 – 2026-06-26 |
 | Hold | 366d (calendar); entries without 366d of forward data skipped |
-| Baseline | bk50d_s20_v1.2_roc100: 50d-high breakout, close >20% above SMA50 |
+| Baseline | bk50d_s20_v1.3_roc100: 50d-high breakout, close >20% above SMA50 |
 | Baseline fixed filters | vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x, RSI<70, ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown 30d, mcap>=1.5B excl Comm/RE |
 | Variants | each relaxes exactly one dimension (see table) |
 | Combo selection | variants with Sortino AND Mean% >= 95% of baseline, ranked by F/mo; top-2 and top-3 combined (qualified: cd15, p3) |
@@ -21,20 +21,20 @@ Variant key: `cd15` cooldown 30→15d; `p3` min price $5→$3; `mcap1.0B` market
 ```text
 Variant                                   N   F/mo   Win%    Mean%     Med%  Sortino      PF   MaxDD%
 ─────────────────────────────────────────────────────────────────────────────────────────────────────
-baseline (bk50d_s20_v1.2_roc100)        924    6.7   76.2   +56.32   +40.87    3.618   10.34    35.60
-cd15                                    979    7.1   75.8   +55.78   +39.87    3.568   10.11    35.67
-p3                                      974    7.1   76.4   +56.86   +40.87    3.495   10.11    36.16
-sect+CommRE                            1001    7.3   75.8   +54.69   +39.84    3.348    9.57    35.92
-mcap1.0B                               1015    7.4   74.7   +54.44   +38.36    3.308    9.23    36.17
-combo(cd15+p3)                         1031    7.5   76.0   +56.45   +39.95    3.469    9.95    36.20
+baseline (bk50d_s20_v1.3_roc100)        990    7.2   75.8   +56.09   +39.85    3.415    9.70    35.99
+cd15                                   1048    7.6   75.5   +55.60   +38.30    3.379    9.53    36.05
+p3                                     1048    7.6   76.0   +57.06   +39.80    3.334    9.56    36.54
+sect+CommRE                            1075    7.8   75.3   +54.62   +38.01    3.198    9.06    36.36
+mcap1.0B                               1074    7.8   73.6   +54.15   +36.84    3.071    8.42    36.92
+combo(cd15+p3)                         1108    8.1   75.7   +56.68   +38.64    3.316    9.45    36.55
 ```
 
 ## F/mo gain per unit of Sortino given up
 
-- `cd15` — ΔF/mo +0.4, ΔSortino -0.049, ΔMean% -0.54pp → F/mo gain per unit Sortino lost: 8.1
-- `p3` — ΔF/mo +0.4, ΔSortino -0.122, ΔMean% +0.53pp → F/mo gain per unit Sortino lost: 3.0
-- `mcap1.0B` — ΔF/mo +0.7, ΔSortino -0.309, ΔMean% -1.88pp → F/mo gain per unit Sortino lost: 2.1
-- `sect+CommRE` — ΔF/mo +0.6, ΔSortino -0.270, ΔMean% -1.63pp → F/mo gain per unit Sortino lost: 2.1
+- `cd15` — ΔF/mo +0.4, ΔSortino -0.036, ΔMean% -0.48pp → F/mo gain per unit Sortino lost: 11.6
+- `p3` — ΔF/mo +0.4, ΔSortino -0.081, ΔMean% +0.97pp → F/mo gain per unit Sortino lost: 5.2
+- `sect+CommRE` — ΔF/mo +0.6, ΔSortino -0.217, ΔMean% -1.46pp → F/mo gain per unit Sortino lost: 2.9
+- `mcap1.0B` — ΔF/mo +0.6, ΔSortino -0.344, ΔMean% -1.93pp → F/mo gain per unit Sortino lost: 1.8
 
 ## Caveats
 
