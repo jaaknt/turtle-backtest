@@ -3,12 +3,14 @@ from __future__ import annotations
 import logging
 from datetime import date, timedelta
 
+import polars as pl
+
 from turtlex.common.enums import TimeFrameUnit
 from turtlex.model import Benchmark, FutureTrade, Signal, Trade
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.strategy.exit import ExitStrategy
 
-from .benchmark_utils import calculate_benchmark_list
+from .benchmark_utils import calculate_benchmark
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +57,7 @@ class SignalProcessor:
         self.benchmark_tickers = benchmark_tickers
         self.time_frame_unit = time_frame_unit
         self.exit_strategy_kwargs = exit_strategy_kwargs or {}
+        self._benchmark_cache: dict[str, tuple[pl.DataFrame, date, date]] = {}
 
     def run(self, signal: Signal, end_date: date | None = None) -> FutureTrade | None:
         """
@@ -66,27 +69,25 @@ class SignalProcessor:
                      combined with max_holding_period constraint.
 
         Returns:
-            FutureTrade with all calculated fields
-
-        Raises:
-            ValueError: If entry data cannot be calculated or required data is missing
-            RuntimeError: If processor was not initialized
+            FutureTrade with all calculated fields, or None if entry/exit data could not be
+            calculated for this signal (e.g. missing historical data).
         """
 
         logger.debug(f"Processing signal for {signal.ticker} on {signal.date}")
 
-        # Step 1: Calculate entry data
-        entry: Trade | None = self.calculate_entry_data(signal)
-        if entry is None:  # No trading data available for entry
-            logger.warning(f"Skipping signal for {signal.ticker} on {signal.date}: No entry data")
-            return None
+        try:
+            # Step 1: Calculate entry data
+            entry: Trade | None = self.calculate_entry_data(signal)
+            if entry is None:  # No trading data available for entry
+                logger.warning(f"Skipping signal for {signal.ticker} on {signal.date}: No entry data")
+                return None
 
-        logger.debug(f"Entry calculated: {entry.date} at ${entry.price}")
+            logger.debug(f"Entry calculated: {entry.date} at ${entry.price}")
 
-        # Step 2: Calculate exit data using strategy
-        exit: Trade | None = self.calculate_exit_data(signal, entry.date, entry.price, end_date)
-        if exit is None:  # No trading data available for exit
-            logger.warning(f"Skipping signal for {signal.ticker} on {signal.date}: No exit data")
+            # Step 2: Calculate exit data using strategy
+            exit: Trade = self.calculate_exit_data(signal, entry.date, entry.price, end_date)
+        except ValueError as e:
+            logger.warning(f"Skipping signal for {signal.ticker} on {signal.date}: {e}")
             return None
 
         logger.debug(f"Exit calculated: {exit.date} at ${exit.price} ({exit.reason})")
@@ -167,12 +168,6 @@ class SignalProcessor:
         max_holding_end_date = entry_date + timedelta(days=self.max_holding_period)
         effective_end_date = min(end_date, max_holding_end_date) if end_date is not None else max_holding_end_date
 
-        # Get historical data for the ticker from entry date onwards
-        df = self.bars_history.get_bars_pl(signal.ticker, entry_date, effective_end_date, self.time_frame_unit)
-
-        if df.is_empty():
-            raise ValueError(f"No historical data available for {signal.ticker} from {entry_date}")
-
         # Exit strategies own their default parameters (see each ExitStrategy
         # subclass's `initialize()`); exit_strategy_kwargs only carries overrides.
         self.exit_strategy.initialize(signal.ticker, entry_date, effective_end_date, **self.exit_strategy_kwargs)
@@ -197,10 +192,45 @@ class SignalProcessor:
         Returns:
             List of Benchmark objects with returns for each benchmark
         """
-        return calculate_benchmark_list(
-            entry_date,
-            exit_date,
-            self.benchmark_tickers,
-            self.bars_history,
-            self.time_frame_unit,
-        )
+        benchmarks = []
+        for ticker in self.benchmark_tickers:
+            try:
+                df = self._get_cached_benchmark_bars(ticker, entry_date, exit_date)
+                benchmark = calculate_benchmark(df, ticker, entry_date, exit_date)
+                if benchmark is not None:
+                    benchmarks.append(benchmark)
+            except Exception as e:
+                logger.error(f"Error calculating benchmark return for {ticker}: {e}")
+                continue
+        return benchmarks
+
+    def _get_cached_benchmark_bars(self, ticker: str, entry_date: date, exit_date: date) -> pl.DataFrame:
+        """
+        Fetch a benchmark ticker's bars, reusing the cached DataFrame when it already covers the
+        requested range and widening it (once, on cache miss) otherwise. Benchmark tickers repeat
+        identically across every signal in a run, so caching them here avoids refetching the same
+        data per signal.
+
+        Args:
+            ticker: Benchmark ticker symbol
+            entry_date: Position entry date
+            exit_date: Position exit date
+
+        Returns:
+            DataFrame of bars covering at least [entry_date, exit_date]
+        """
+        cached = self._benchmark_cache.get(ticker)
+        if cached is not None:
+            df, cached_start, cached_end = cached
+            if cached_start <= entry_date and exit_date <= cached_end:
+                return df
+            fetch_start = min(cached_start, entry_date)
+        else:
+            fetch_start = entry_date
+
+        # Pad the end so later signals with slightly later exit dates can reuse this fetch too.
+        fetch_end = exit_date + timedelta(days=self.max_holding_period)
+
+        df = self.bars_history.get_bars_pl(ticker, fetch_start, fetch_end, self.time_frame_unit)
+        self._benchmark_cache[ticker] = (df, fetch_start, fetch_end)
+        return df
