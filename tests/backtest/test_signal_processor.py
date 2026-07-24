@@ -105,6 +105,24 @@ class TestSignalProcessor:
         result = processor.run(sample_signal)
         assert result is None
 
+    def test_run_returns_none_when_exit_calculation_raises(
+        self,
+        mock_bars_history: Mock,
+        exit_strategy: Mock,
+        sample_signal: Signal,
+        sample_ticker_data: pl.DataFrame,
+    ) -> None:
+        """Test that run() converts a ValueError from exit calculation into None instead of propagating."""
+        processor = SignalProcessor(
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
+        )
+
+        mock_bars_history.get_bars_pl.return_value = sample_ticker_data
+        exit_strategy.calculate_exit.side_effect = ValueError("No valid data available for exit calculation.")
+
+        result = processor.run(sample_signal)
+        assert result is None
+
     def test_calculate_entry_data_success(
         self,
         mock_bars_history: Mock,
@@ -187,18 +205,36 @@ class TestSignalProcessor:
     def test_calculate_exit_data_no_historical_data(
         self,
         mock_bars_history: Mock,
-        exit_strategy: Mock,
         sample_signal: Signal,
     ) -> None:
-        """Test exit data calculation when get_bars_pl returns empty DataFrame."""
+        """Test exit data calculation when the exit strategy finds no data."""
+        exit_strategy = BuyAndHoldExitStrategy(mock_bars_history)
         processor = SignalProcessor(
             max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
         )
 
         mock_bars_history.get_bars_pl.return_value = pl.DataFrame()
 
-        with pytest.raises(ValueError, match="No historical data available"):
+        with pytest.raises(ValueError, match="No valid data available"):
             processor.calculate_exit_data(sample_signal, date(2024, 1, 16), 100.0)
+
+    def test_calculate_exit_data_single_fetch(
+        self,
+        mock_bars_history: Mock,
+        sample_signal: Signal,
+        sample_ticker_data: pl.DataFrame,
+    ) -> None:
+        """Test that calculate_exit_data fetches bars exactly once (no redundant pre-check fetch)."""
+        exit_strategy = BuyAndHoldExitStrategy(mock_bars_history)
+        processor = SignalProcessor(
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
+        )
+
+        mock_bars_history.get_bars_pl.return_value = sample_ticker_data
+
+        processor.calculate_exit_data(sample_signal, date(2024, 1, 16), 100.0)
+
+        assert mock_bars_history.get_bars_pl.call_count == 1
 
     def test_calculate_benchmark_empty_after_entry_filter(self) -> None:
         """Test benchmark returns None when all data precedes entry date."""
@@ -312,6 +348,65 @@ class TestSignalProcessor:
         spy_benchmark = next(b for b in benchmarks if b.ticker == "SPY")
         assert isinstance(spy_benchmark.return_pct, float)
         assert spy_benchmark.return_pct > 0
+
+    def test_calculate_benchmark_returns_caches_across_calls(
+        self,
+        mock_bars_history: Mock,
+        exit_strategy: Mock,
+        sample_spy_data: pl.DataFrame,
+        sample_qqq_data: pl.DataFrame,
+    ) -> None:
+        """Test that benchmark bars are fetched once per ticker and reused for overlapping ranges."""
+        processor = SignalProcessor(
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
+        )
+
+        def mock_get_bars_pl(ticker: str, start: Any, end: Any, timeframe: Any = None) -> pl.DataFrame:
+            if ticker == "SPY":
+                return sample_spy_data
+            elif ticker == "QQQ":
+                return sample_qqq_data
+            return pl.DataFrame()
+
+        mock_bars_history.get_bars_pl.side_effect = mock_get_bars_pl
+
+        processor._calculate_benchmark_returns(date(2024, 1, 16), date(2024, 1, 20))
+        assert mock_bars_history.get_bars_pl.call_count == 2  # one fetch per ticker
+
+        # A second signal with a later, still-covered date range should hit the cache, not refetch.
+        processor._calculate_benchmark_returns(date(2024, 1, 17), date(2024, 1, 21))
+        assert mock_bars_history.get_bars_pl.call_count == 2
+
+    def test_calculate_benchmark_returns_refetches_when_range_extends_earlier(
+        self,
+        mock_bars_history: Mock,
+        exit_strategy: Mock,
+        sample_spy_data: pl.DataFrame,
+        sample_qqq_data: pl.DataFrame,
+    ) -> None:
+        """Test that a request outside the cached range triggers a widened refetch."""
+        processor = SignalProcessor(
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
+        )
+
+        def mock_get_bars_pl(ticker: str, start: Any, end: Any, timeframe: Any = None) -> pl.DataFrame:
+            if ticker == "SPY":
+                return sample_spy_data
+            elif ticker == "QQQ":
+                return sample_qqq_data
+            return pl.DataFrame()
+
+        mock_bars_history.get_bars_pl.side_effect = mock_get_bars_pl
+
+        processor._calculate_benchmark_returns(date(2024, 1, 16), date(2024, 1, 20))
+        assert mock_bars_history.get_bars_pl.call_count == 2
+
+        # An earlier entry_date falls outside the cached range and must trigger a widened refetch.
+        processor._calculate_benchmark_returns(date(2024, 1, 10), date(2024, 1, 20))
+        assert mock_bars_history.get_bars_pl.call_count == 4
+
+        spy_calls = [c for c in mock_bars_history.get_bars_pl.call_args_list if c.args[0] == "SPY"]
+        assert spy_calls[-1].args[1] == date(2024, 1, 10)
 
     def test_run_full_integration(
         self,

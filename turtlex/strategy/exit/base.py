@@ -40,5 +40,8 @@ class ExitStrategy(ABC):
 
         Returns:
             Trade object representing the exit trade with ticker populated
+
+        Raises:
+            ValueError: If `data` is empty or otherwise insufficient to calculate an exit.
         """
         pass
