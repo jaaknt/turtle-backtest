@@ -1,6 +1,7 @@
 """Portfolio performance analytics using quantstats library."""
 
 import logging
+import math
 import warnings
 from datetime import date, datetime
 
@@ -10,6 +11,7 @@ import pandas as pd
 import polars as pl
 import quantstats as qs  # type: ignore[import-untyped]
 
+from turtlex.backtest.metrics import metrics_from_future_trades
 from turtlex.model import PortfolioState
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 
@@ -40,6 +42,9 @@ class PortfolioAnalytics:
     ) -> None:
         """Generate portfolio analysis with printed metrics and tearsheet report."""
         logger.info("Generating portfolio performance results")
+
+        # Trades are summarized independently of the snapshots the tearsheet needs
+        self.print_trade_summary(portfolio_state)
 
         if not portfolio_state.daily_snapshots:
             logger.warning("No portfolio data available")
@@ -80,6 +85,32 @@ class PortfolioAnalytics:
                 logger.info("Continuing without tearsheet generation")
         else:
             logger.warning("No returns data available for tearsheet report")
+
+    def print_trade_summary(self, portfolio_state: PortfolioState) -> None:
+        """
+        Print aggregate metrics for the portfolio's round-trip trades.
+
+        The tearsheet describes the equity curve; this describes the trades that produced it.
+        Columns match the backtest runner's bucket table so the two reports are comparable.
+
+        Args:
+            portfolio_state: Portfolio state holding the completed trades
+        """
+        metrics = metrics_from_future_trades(portfolio_state.future_trades)
+        if metrics is None:
+            logger.warning("No closed trades to summarize")
+            return
+
+        header = f"{'N':>4}  {'Mean%':>8}  {'Med%':>8}  {'AnnMean%':>9}  {'Win%':>6}  {'PF':>6}  {'Sortino':>7}  {'CVaR95%':>8}"
+        pf_str = f"{metrics.profit_factor:>6.2f}" if math.isfinite(metrics.profit_factor) else f"{'inf':>6}"
+        sortino_str = f"{metrics.sortino:>7.2f}" if not math.isnan(metrics.sortino) else f"{'n/a':>7}"
+        print("\nTrade Summary:")
+        print(header)
+        print("─" * len(header))
+        print(
+            f"{metrics.n:>4}  {metrics.mean_pct:>+7.2f}%  {metrics.median_pct:>+7.2f}%  {metrics.ann_mean_pct:>+8.2f}%  "
+            f"{metrics.win_pct:>5.1f}%  {pf_str}  {sortino_str}  {metrics.cvar95_pct:>+7.2f}%"
+        )
 
     def _extract_daily_series(self, portfolio_state: PortfolioState) -> pd.Series:
         """Calculate daily returns from portfolio snapshots."""
