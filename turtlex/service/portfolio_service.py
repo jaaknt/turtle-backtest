@@ -40,6 +40,7 @@ class PortfolioService:
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         max_holding_period: int = 365,
         benchmark_ticker: str = DEFAULT_BENCHMARK_TICKER,
+        exit_strategy_kwargs: dict[str, int | float | str] | None = None,
     ):
         """
         Initialize portfolio service.
@@ -55,6 +56,8 @@ class PortfolioService:
             time_frame_unit: Time frame for analysis (DAY, WEEK, etc.)
             max_holding_period: Maximum calendar days a position may stay open
             benchmark_ticker: Symbol the tearsheet compares the portfolio against
+            exit_strategy_kwargs: Overrides forwarded to `exit_strategy.initialize()`; omitted
+                parameters keep that strategy's own defaults
         """
         self.trading_strategy = trading_strategy
         self.exit_strategy = exit_strategy
@@ -87,6 +90,7 @@ class PortfolioService:
             exit_strategy=exit_strategy,
             benchmark_tickers=[],  # Standard benchmarks, ignored in portfolio calculations
             time_frame_unit=time_frame_unit,
+            exit_strategy_kwargs=exit_strategy_kwargs,
         )
 
         # Backtest configuration

@@ -31,13 +31,14 @@ import logging
 import sys
 
 from turtlex.cli.common import build_common_analysis_parser, resolve_trading_strategy, run_cli
+from turtlex.common.cli import key_value_type
 from turtlex.common.enums import TimeFrameUnit
 from turtlex.config.logging import setup_logging
 from turtlex.config.settings import Settings
 from turtlex.portfolio.analytics import DEFAULT_BENCHMARK_TICKER
 from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.service.portfolio_service import PortfolioService
-from turtlex.strategy.factory import EXIT_STRATEGIES, get_exit_strategy
+from turtlex.strategy.factory import EXIT_STRATEGIES, get_exit_strategy, resolve_exit_strategy_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,15 @@ def create_argument_parser() -> argparse.ArgumentParser:
         default="buy_and_hold",
         choices=list(EXIT_STRATEGIES),
         help="Exit strategy to use (default: buy_and_hold)",
+    )
+
+    parser.add_argument(
+        "--exit-param",
+        action="append",
+        default=[],
+        type=key_value_type,
+        metavar="KEY=VALUE",
+        help="Override an exit-strategy parameter, e.g. --exit-param holding_days=365 (repeatable)",
     )
 
     # Portfolio configuration arguments
@@ -140,6 +150,7 @@ def main() -> int:
         try:
             trading_strategy, bars_history = resolve_trading_strategy(args, settings)
             exit_strategy = get_exit_strategy(args.exit_strategy, bars_history)
+            exit_strategy_kwargs = resolve_exit_strategy_kwargs(exit_strategy, args.exit_param)
         except ValueError as e:
             logger.error(f"Invalid configuration: {e}")
             return 1
@@ -159,6 +170,7 @@ def main() -> int:
             time_frame_unit=TimeFrameUnit.DAY,
             max_holding_period=args.max_holding_days,
             benchmark_ticker=args.benchmark_ticker,
+            exit_strategy_kwargs=exit_strategy_kwargs,
         )
 
         # Determine universe of stocks to test
