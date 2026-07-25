@@ -52,7 +52,7 @@ sequenceDiagram
     participant BR as DailyBarsQueryRepository
     participant R as RankingStrategy
 
-    M->>M: parse args, Settings.from_toml(), LogConfig.setup()
+    M->>M: parse args, setup_logging(verbose), Settings.from_toml()
     M->>M: factories build ranking + trading strategy
     M->>H: run_list(service, args)
     H->>S: scan(start_date, end_date, max_tickers)

@@ -30,52 +30,20 @@ import argparse
 import logging
 import sys
 
-from turtlex.common.cli import iso_date_type
+from turtlex.cli.common import build_common_analysis_parser, resolve_trading_strategy, run_cli
 from turtlex.common.enums import TimeFrameUnit
-from turtlex.config.logging import LogConfig
+from turtlex.config.logging import setup_logging
 from turtlex.config.settings import Settings
-from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.service.portfolio_service import PortfolioService
-from turtlex.strategy.factory import (
-    EXIT_STRATEGIES,
-    RANKING_STRATEGIES,
-    TRADING_STRATEGIES,
-    get_exit_strategy,
-    get_ranking_strategy,
-    get_trading_strategy,
-)
+from turtlex.strategy.factory import EXIT_STRATEGIES, get_exit_strategy
 
 logger = logging.getLogger(__name__)
 
 
 def create_argument_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser."""
-    parser = argparse.ArgumentParser(description="Run portfolio backtest analysis")
-
-    # Required arguments
-    parser.add_argument(
-        "--start-date",
-        type=iso_date_type,
-        required=True,
-        help="Start date for backtest (YYYY-MM-DD format)",
-    )
-
-    parser.add_argument(
-        "--end-date",
-        type=iso_date_type,
-        required=True,
-        help="End date for backtest (YYYY-MM-DD format)",
-    )
-
-    # Strategy arguments
-    parser.add_argument(
-        "--trading-strategy",
-        type=str,
-        default="darvas_box",
-        choices=list(TRADING_STRATEGIES),
-        help="Trading strategy to use (default: darvas_box)",
-    )
+    parser = argparse.ArgumentParser(description="Run portfolio backtest analysis", parents=[build_common_analysis_parser()])
 
     parser.add_argument(
         "--exit-strategy",
@@ -83,14 +51,6 @@ def create_argument_parser() -> argparse.ArgumentParser:
         default="buy_and_hold",
         choices=list(EXIT_STRATEGIES),
         help="Exit strategy to use (default: buy_and_hold)",
-    )
-
-    parser.add_argument(
-        "--ranking-strategy",
-        type=str,
-        default="momentum",
-        choices=list(RANKING_STRATEGIES),
-        help="Ranking strategy to use (default: momentum)",
     )
 
     # Portfolio configuration arguments
@@ -150,14 +110,12 @@ def create_argument_parser() -> argparse.ArgumentParser:
         help="Benchmark ticker symbols (default: SPY QQQ)",
     )
 
-    # Output and logging
+    # Output
     parser.add_argument(
         "--output-file",
         type=str,
         help="Optional HTML tearsheet filename (saved in reports/ folder)",
     )
-
-    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
 
     return parser
 
@@ -171,22 +129,19 @@ def main() -> int:
     parser = create_argument_parser()
     args = parser.parse_args()
 
-    # Setup logging
-    LogConfig.setup(args.verbose)
+    # Setup logging before loading settings so the DB connection log is visible
+    setup_logging(args.verbose)
+    settings = Settings.from_toml()
 
     logger.info(f"Starting portfolio backtest with {args.trading_strategy} trading strategy and {args.exit_strategy} exit strategy")
 
-    try:
-        # Load settings
-        settings = Settings.from_toml()
-
-        # Create bars history repository
-        bars_history = DailyBarsQueryRepository(engine=settings.engine)
-
-        # Create strategy instances
-        ranking_strategy = get_ranking_strategy(args.ranking_strategy)
-        trading_strategy = get_trading_strategy(args.trading_strategy, ranking_strategy, bars_history)
-        exit_strategy = get_exit_strategy(args.exit_strategy, bars_history)
+    def body() -> int:
+        try:
+            trading_strategy, bars_history = resolve_trading_strategy(args, settings)
+            exit_strategy = get_exit_strategy(args.exit_strategy, bars_history)
+        except ValueError as e:
+            logger.error(f"Invalid configuration: {e}")
+            return 1
 
         # Initialize portfolio service
         logger.info("Initializing portfolio service...")
@@ -225,17 +180,7 @@ def main() -> int:
         logger.info("Portfolio backtest completed successfully")
         return 0
 
-    except ValueError as e:
-        logger.error(f"Invalid configuration: {e}")
-        return 1
-    except KeyboardInterrupt:
-        logger.warning("Backtest interrupted by user")
-        return 1
-    except Exception as e:
-        logger.error(f"Backtest failed with error: {e}")
-        if args.verbose:
-            logger.exception("Full error details:")
-        return 1
+    return run_cli(args, body)
 
 
 if __name__ == "__main__":

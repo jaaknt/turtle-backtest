@@ -1,6 +1,9 @@
 import logging
+from collections.abc import Iterator
 
-from turtlex.cli.download_eodhd_data import _ApiTokenFilter
+import pytest
+
+from turtlex.config.logging import _THIRD_PARTY_LEVELS, ApiTokenFilter, setup_logging
 
 
 def _make_record(msg: str, args: tuple = ()) -> logging.LogRecord:
@@ -16,9 +19,22 @@ def _make_record(msg: str, args: tuple = ()) -> logging.LogRecord:
     return record
 
 
+@pytest.fixture
+def restore_root_logger() -> Iterator[None]:
+    """Snapshot and restore root handlers/level so setup_logging cannot leak into other tests."""
+    root = logging.getLogger()
+    handlers, level = root.handlers[:], root.level
+    third_party = {name: logging.getLogger(name).level for name in _THIRD_PARTY_LEVELS}
+    yield
+    root.handlers[:] = handlers
+    root.setLevel(level)
+    for name, saved in third_party.items():
+        logging.getLogger(name).setLevel(saved)
+
+
 class TestApiTokenFilter:
     def setup_method(self) -> None:
-        self.f = _ApiTokenFilter()
+        self.f = ApiTokenFilter()
 
     def test_redacts_token_in_msg(self) -> None:
         record = _make_record("GET https://example.com?api_token=secret123&fmt=json")
@@ -60,3 +76,43 @@ class TestApiTokenFilter:
         self.f.filter(record)
         assert isinstance(record.args, tuple)
         assert "secret" not in str(record.args[0])
+
+
+@pytest.mark.usefixtures("restore_root_logger")
+class TestSetupLogging:
+    def test_installs_single_stdout_handler_with_redaction(self) -> None:
+        setup_logging()
+
+        root = logging.getLogger()
+        assert len(root.handlers) == 1
+        assert any(isinstance(f, ApiTokenFilter) for f in root.handlers[0].filters)
+
+    def test_is_idempotent(self) -> None:
+        setup_logging()
+        setup_logging()
+
+        assert len(logging.getLogger().handlers) == 1
+
+    def test_replaces_preexisting_handlers(self) -> None:
+        logging.getLogger().addHandler(logging.NullHandler())
+
+        setup_logging()
+
+        assert len(logging.getLogger().handlers) == 1
+
+    def test_default_level_is_info(self) -> None:
+        setup_logging()
+
+        assert logging.getLogger().level == logging.INFO
+
+    def test_verbose_sets_root_to_debug(self) -> None:
+        setup_logging(verbose=True)
+
+        assert logging.getLogger().level == logging.DEBUG
+
+    def test_verbose_leaves_third_party_loggers_pinned(self) -> None:
+        setup_logging(verbose=True)
+
+        assert logging.getLogger("httpx").level == logging.WARNING
+        assert logging.getLogger("sqlalchemy.engine").level == logging.WARNING
+        assert logging.getLogger("matplotlib").level == logging.INFO

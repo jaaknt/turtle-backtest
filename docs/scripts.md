@@ -48,6 +48,7 @@ uv run download-eodhd-data --data history --ticker-limit 10 --start-date 2024-06
 - `--ticker-limit` — Limit processing to first N tickers (useful for testing)
 - `--start-date` — Start date for historical data in `YYYY-MM-DD` format (default: `2000-01-01`)
 - `--end-date` — End date for historical data in `YYYY-MM-DD` format (default: `2025-12-30`)
+- `--verbose` — Enable detailed logging
 
 **Recommended first-run order:**
 
@@ -325,3 +326,18 @@ uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --exit-str
 uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --min-signal-ranking 60 --position-max-amount 2000 --output-file conservative.html
 uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --min-signal-ranking 90 --position-max-amount 5000 --output-file aggressive.html
 ```
+
+## snapshot-company
+
+The `snapshot-company` console script copies the current `turtle.company` rows into `turtle.company_history`, stamping them with `snapshot_date` set to the last day of the previous month. Intended to run on the 1st of each month via `deploy/snapshot_company.timer`. The operation is idempotent — running it twice for the same month skips the second write.
+
+**Usage:**
+
+```bash
+# Take this month's snapshot
+uv run snapshot-company
+```
+
+**Options:**
+
+- `--verbose` — Enable detailed logging

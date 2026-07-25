@@ -32,7 +32,7 @@ import sys
 from turtlex.backtest.processor import SignalProcessor
 from turtlex.cli.common import build_common_analysis_parser, resolve_trading_strategy, run_cli
 from turtlex.common.cli import key_value_type
-from turtlex.config.logging import LogConfig
+from turtlex.config.logging import setup_logging
 from turtlex.config.settings import Settings
 from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.service.backtest_service import BacktestService
@@ -100,7 +100,7 @@ def main() -> int:
     args = parser.parse_args()
 
     # Setup logging before loading settings so the DB connection log is visible
-    LogConfig.setup(args.verbose)
+    setup_logging(args.verbose)
     settings = Settings.from_toml()
 
     logger.info(f"Starting strategy analysis with {args.trading_strategy} strategy")

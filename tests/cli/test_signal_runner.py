@@ -53,7 +53,7 @@ class TestHandlers:
 class TestMain:
     def _patch_wiring(self, mocker: MockerFixture) -> None:
         mocker.patch("turtlex.cli.signal_runner.Settings")
-        mocker.patch("turtlex.cli.signal_runner.LogConfig")
+        mocker.patch("turtlex.cli.signal_runner.setup_logging")
         mocker.patch("turtlex.cli.signal_runner.TickerQueryRepository")
 
     def test_main_returns_zero_on_success(self, mocker: MockerFixture) -> None:

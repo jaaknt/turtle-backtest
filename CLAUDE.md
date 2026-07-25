@@ -301,6 +301,8 @@ All function signatures carry full type hints — parameters and return types. U
 
 One module-level logger per file via `logging.getLogger(__name__)`. Use `DEBUG` for decision points and data values; `WARNING`/`ERROR` for anomalies and failures. Never log secrets or API keys.
 
+Every CLI configures logging exactly once: `setup_logging(args.verbose)` from `turtlex/config/logging.py`, called in `main()` immediately after parsing arguments and before `Settings.from_toml()`, so the database-connection banner it logs at INFO is visible. The `--verbose/-v` flag comes from `add_logging_args()` in `turtlex/cli/common.py` (already included via `build_common_analysis_parser()`). Never add a second logging bootstrap: no `logging.basicConfig`, no `dictConfig`, and no handler mutation from library code. `setup_logging` attaches `ApiTokenFilter` to the stdout handler, so `api_token` redaction is always on; third-party loggers are pinned in `_THIRD_PARTY_LEVELS` and stay pinned under `--verbose`.
+
 ### Error Handling
 
 Validate preconditions early and return `bool` (for data-collection methods) or raise `ValueError` with a descriptive message. No bare `except` clauses. No swallowed exceptions. Properties validate their preconditions before computing.

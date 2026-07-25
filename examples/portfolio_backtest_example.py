@@ -19,16 +19,16 @@ REQUIREMENTS:
 
 import logging
 
+from turtlex.config.logging import setup_logging
 from turtlex.model import PortfolioState  # noqa: E402
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 logger = logging.getLogger(__name__)
 
 
 def main() -> None:
     """Main execution function."""
+    setup_logging()
+
     logger.info("Starting Portfolio Backtesting Example")
 
     # Note: This example is a template - it requires proper database setup

@@ -1,32 +1,16 @@
 import argparse
 import asyncio
 import logging
-import re
 import sys
 from datetime import date, timedelta
 
+from turtlex.cli.common import add_logging_args
 from turtlex.common.cli import iso_date_type
+from turtlex.config.logging import setup_logging
 from turtlex.config.settings import Settings
 from turtlex.service.eodhd_service import EodhdService
 
 logger = logging.getLogger(__name__)
-
-
-class _ApiTokenFilter(logging.Filter):
-    """Redact api_token query parameter from httpx request log messages.
-
-    httpx logs via format-string args (e.g. "HTTP Request: %s %s ..."),
-    so the URL lives in record.args, not record.msg.
-    """
-
-    _PATTERN = re.compile(r"api_token=[^&\s\"]+")
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        record.msg = self._PATTERN.sub("api_token=***", str(record.msg))
-        if record.args:
-            args = record.args if isinstance(record.args, tuple) else (record.args,)
-            record.args = tuple(self._PATTERN.sub("api_token=***", s) if "api_token=" in (s := str(arg)) else arg for arg in args)
-        return True
 
 
 async def download(
@@ -45,14 +29,6 @@ async def download(
         start_date: Start date for historical data. Defaults to 2026-01-01.
         end_date: End date for historical data. Defaults to today minus 30 days.
     """
-    # Force logging to stdout for this script
-    logging.basicConfig(level=logging.INFO, stream=sys.stdout, format="[%(levelname)s|%(module)s|%(funcName)s] %(message)s")
-    # Redact api_token from all handlers — filter must be on the handler, not the
-    # logger, because httpx logs from httpx._client propagate to root without
-    # passing through filters attached to the parent httpx logger.
-    token_filter = _ApiTokenFilter()
-    for handler in logging.getLogger().handlers:
-        handler.addFilter(token_filter)
     logger.info("Starting EODHD data download script.")
     logger.info(f"Dataset to download: {data}")
     if ticker_limit is not None:
@@ -144,6 +120,7 @@ Examples:
         default=date.today(),
         help="End date for historical data (YYYY-MM-DD). Default: today",
     )
+    add_logging_args(parser)
 
     return parser
 
@@ -151,6 +128,8 @@ Examples:
 def main() -> int:
     """Main entry point for the EODHD download CLI."""
     args = create_argument_parser().parse_args()
+
+    setup_logging(args.verbose)
 
     try:
         asyncio.run(
