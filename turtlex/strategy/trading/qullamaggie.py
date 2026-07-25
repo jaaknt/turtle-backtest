@@ -19,10 +19,10 @@ class QullamaggieStrategy(TradingStrategy):
 
     Port of the validated signal from scripts/qullamaggie-backtest-v4.py:
     adjusted close breaks above the max of the prior 50 closes while sitting
-    more than 15% above the 50-day SMA, with volume dry-up, a volume-surge cap,
-    a 12-month ROC cap, RSI/ADR filters, a $5-$250 raw-close band, and a
-    SPY > 200d SMA market-regime gate. Signals within 30 calendar days of the
-    previous accepted trigger are suppressed.
+    more than `sma_thresh` (15% by default) above the 50-day SMA, with volume
+    dry-up, a volume-surge cap, a 12-month ROC cap, RSI/ADR filters, a
+    $5-$250 raw-close band, and a SPY > 200d SMA market-regime gate. Signals
+    within 30 calendar days of the previous accepted trigger are suppressed.
 
     All rolling indicators are computed on shift-1 (prior-day) values so every
     filter only uses information available at the prior close; the breakout and
@@ -54,6 +54,7 @@ class QullamaggieStrategy(TradingStrategy):
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         warmup_period: int = 730,  # 2 years: covers 252d ROC lookback + 50d windows + shift
         min_bars: int = 300,  # backtest's minimum-history rule
+        sma_thresh: float = SMA_THRESH,
     ):
         """
         Initialize the Qullamaggie breakout strategy.
@@ -64,8 +65,11 @@ class QullamaggieStrategy(TradingStrategy):
             time_frame_unit: Time frame for analysis (DAY expected)
             warmup_period: Number of days of historical data needed for indicators
             min_bars: Minimum number of bars required for analysis
+            sma_thresh: Minimum fraction the adjusted close must sit above the 50-day SMA
+                on the breakout day (0.15 = 15%)
         """
         super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars)
+        self.sma_thresh = sma_thresh
         self._regime_dates: set[date] = set()
         self._regime_dates_key: tuple[date, date] | None = None
 
@@ -213,7 +217,7 @@ class QullamaggieStrategy(TradingStrategy):
             & (pl.col("adr_pct") >= self.ADR_MIN)
             & (pl.col("adr_pct_change") < self.ADR_CHANGE_CAP)
             & (pl.col("adj_close") > pl.col("max_c_50d"))
-            & (pl.col("pct_vs_sma50") > self.SMA_THRESH)
+            & (pl.col("pct_vs_sma50") > self.sma_thresh)
             & (pl.col("volume").cast(pl.Float64) < self.VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < self.VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < self.ROC_CAP)

@@ -72,12 +72,14 @@ def _build_spy(last_date: date, n: int = 650, bull: bool = True) -> pl.DataFrame
     )
 
 
-def _make_strategy(ticker_df: pl.DataFrame, spy_df: pl.DataFrame) -> QullamaggieStrategy:
+def _make_strategy(
+    ticker_df: pl.DataFrame, spy_df: pl.DataFrame, sma_thresh: float = QullamaggieStrategy.SMA_THRESH
+) -> QullamaggieStrategy:
     mock_repo = MagicMock()
     mock_repo.get_bars_pl.side_effect = lambda ticker, start, end, tf: spy_df if ticker == "SPY.US" else ticker_df
     mock_ranking = MagicMock()
     mock_ranking.ranking.return_value = 50
-    return QullamaggieStrategy(bars_history=mock_repo, ranking_strategy=mock_ranking)
+    return QullamaggieStrategy(bars_history=mock_repo, ranking_strategy=mock_ranking, sma_thresh=sma_thresh)
 
 
 def test_breakout_produces_signal() -> None:
@@ -89,6 +91,24 @@ def test_breakout_produces_signal() -> None:
     assert signals[0].ticker == "TEST.US"
     assert signals[0].date == last_date
     assert signals[0].ranking == 50
+
+
+def test_higher_sma_thresh_blocks_breakout() -> None:
+    # the 120 breakout sits ~19% above the ~100.5 SMA50: a 25% threshold rejects it
+    ohlcv = _build_ohlcv(breakouts={N - 1: 120.0})
+    last_date = ohlcv["date"][-1]
+    strategy = _make_strategy(ohlcv, _build_spy(last_date), sma_thresh=0.25)
+    assert strategy.get_signals("TEST.US", last_date, last_date) == []
+
+
+def test_lower_sma_thresh_admits_smaller_breakout() -> None:
+    # a 105 close clears the 50d max (101) but is only ~4.5% above the SMA50: blocked at
+    # the 15% default, accepted at 4%
+    ohlcv = _build_ohlcv(breakouts={N - 1: 105.0})
+    last_date = ohlcv["date"][-1]
+    assert _make_strategy(ohlcv, _build_spy(last_date)).get_signals("TEST.US", last_date, last_date) == []
+    signals = _make_strategy(ohlcv, _build_spy(last_date), sma_thresh=0.04).get_signals("TEST.US", last_date, last_date)
+    assert [s.date for s in signals] == [last_date]
 
 
 def test_bear_regime_blocks_signal() -> None:

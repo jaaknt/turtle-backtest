@@ -41,6 +41,43 @@ def test_factory_creates_qullamaggie_strategy() -> None:
     assert isinstance(strategy, QullamaggieStrategy)
 
 
+@pytest.mark.parametrize("raw_value", ["0.2", "0"])  # "0" must survive: a falsy override is still an override
+def test_factory_applies_trading_param_override(raw_value: str) -> None:
+    strategy = get_trading_strategy("qullamaggie", MagicMock(), MagicMock(), [("sma_thresh", raw_value)])
+    assert isinstance(strategy, QullamaggieStrategy)
+    assert strategy.sma_thresh == float(raw_value)
+
+
+def test_factory_coerces_trading_params_to_their_annotated_types() -> None:
+    strategy = get_trading_strategy("qullamaggie", MagicMock(), MagicMock(), [("min_bars", "120"), ("sma_thresh", "0.2")])
+    assert strategy.min_bars == 120
+    assert isinstance(strategy.min_bars, int)
+    assert isinstance(strategy, QullamaggieStrategy)
+    assert strategy.sma_thresh == 0.2
+
+
+def test_factory_defaults_trading_params_when_not_overridden() -> None:
+    strategy = get_trading_strategy("qullamaggie", MagicMock(), MagicMock())
+    assert isinstance(strategy, QullamaggieStrategy)
+    assert strategy.sma_thresh == 0.15
+
+
+def test_trading_param_unknown_for_the_selected_strategy_raises_value_error() -> None:
+    with pytest.raises(ValueError, match="Unknown parameter 'sma_thresh' for trading strategy 'darvas_box'.*Available"):
+        get_trading_strategy("darvas_box", MagicMock(), MagicMock(), [("sma_thresh", "0.2")])
+
+
+def test_trading_param_with_uncoercible_value_raises_value_error() -> None:
+    with pytest.raises(ValueError, match="Invalid value for 'sma_thresh'"):
+        get_trading_strategy("qullamaggie", MagicMock(), MagicMock(), [("sma_thresh", "loose")])
+
+
+def test_non_scalar_constructor_parameters_are_not_overridable() -> None:
+    """time_frame_unit is a TimeFrameUnit, so a raw string must not reach the constructor."""
+    with pytest.raises(ValueError, match="Unknown parameter 'time_frame_unit' for trading strategy 'qullamaggie'"):
+        get_trading_strategy("qullamaggie", MagicMock(), MagicMock(), [("time_frame_unit", "DAY")])
+
+
 def test_trading_strategy_name_is_case_insensitive() -> None:
     strategy = get_trading_strategy("DARVAS_BOX", MagicMock(), MagicMock())
     assert isinstance(strategy, DarvasBoxStrategy)

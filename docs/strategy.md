@@ -156,7 +156,7 @@ Bars with a non-positive close or adjusted close, or zero volume, are dropped be
 | Category | Condition |
 | ---------- | ----------- |
 | Breakout | Adjusted close > max of prior 50 closes |
-| Trend distance | Close more than 15% above the 50-day SMA |
+| Trend distance | Adjusted close more than 15% above the 50-day SMA — the default of the `sma_thresh` constructor parameter, overridable with `--trading-param sma_thresh=0.20` |
 | Volume | Average volume ≥ 500k; dry-up < 0.90 of average; surge capped at 2.0× |
 | Momentum caps | 12-month ROC < 100%; RSI(14) < 70 |
 | Volatility | ADR(20) ≥ 3%; ADR change ≤ 0.90 |
@@ -173,7 +173,7 @@ Bars with a non-positive close or adjusted close, or zero volume, are dropped be
 | **Primary signal** | Box breakout | Tight consolidation breakout | Weekly momentum | 50-day-high breakout |
 | **Time frame** | Daily | Weekly | Weekly | Daily |
 | **Volume required** | Yes (>110% EMA10) | Optional | Yes (>110% prev week) | Yes (dry-up + surge cap) |
-| **EMA stack** | EMA10 > EMA20 > EMA50 > EMA200 | EMA10 > EMA20 | EMA(200) proximity | >15% above SMA(50) |
+| **EMA stack** | EMA10 > EMA20 > EMA50 > EMA200 | EMA10 > EMA20 | EMA(200) proximity | >15% above SMA(50) (default) |
 | **New highs window** | 20 bars | 10 bars | 10 weeks | 50 bars |
 | **Stop loss** | At box bottom | Consolidation midpoint −2% | None specified | None specified |
 
@@ -256,7 +256,7 @@ Cohort-derived ranking for Qullamaggie-style breakout signals. Scores each signa
 | 12-month ROC | `roc_252d` | <-20% or 40-60% (non-monotonic) | 10 |
 | RSI(14) | `rsi14` | <50, within the qualifying <70 pool | 3 |
 
-Expects the shift-1 indicator columns produced by `QullamaggieStrategy`; a missing column or null value scores that component 0. Note: per `result-qullamaggie-cohort-ranking.md`, a differently-constructed composite (walk-forward log-odds) separates already-filtered signals only weakly; `result-qullamaggie-ranking-validation.md` walk-forward validates this exact weighted-points scheme. This ranking orders surviving signals, it is not a substitute for the entry filters.
+Expects the shift-1 indicator columns produced by `QullamaggieStrategy`; a missing column or null value scores that component 0. The bands are calibrated at the strategy's default 15% SMA distance: lowering it (`--trading-param sma_thresh=0.05`) below 0.10 admits signals that score 0 of the 50 available points on that dimension, so they cannot reach the portfolio backtester's default `--min-signal-ranking 70`. Pair a lowered threshold with a different ranking strategy or a lower `--min-signal-ranking`. Note: per `result-qullamaggie-cohort-ranking.md`, a differently-constructed composite (walk-forward log-odds) separates already-filtered signals only weakly; `result-qullamaggie-ranking-validation.md` walk-forward validates this exact weighted-points scheme. This ranking orders surviving signals, it is not a substitute for the entry filters.
 
 ---
 

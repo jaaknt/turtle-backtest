@@ -4,7 +4,7 @@ import argparse
 import logging
 from collections.abc import Callable
 
-from turtlex.common.cli import iso_date_type
+from turtlex.common.cli import iso_date_type, key_value_type
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.strategy.factory import RANKING_STRATEGIES, TRADING_STRATEGIES, get_ranking_strategy, get_trading_strategy
@@ -24,7 +24,7 @@ def add_logging_args(parser: argparse.ArgumentParser) -> None:
 
 def build_common_analysis_parser() -> argparse.ArgumentParser:
     """Build a parent parser (add_help=False) for the --start-date/--end-date/--trading-strategy/
-    --ranking-strategy/--verbose flags shared by every analysis CLI."""
+    --ranking-strategy/--trading-param/--verbose flags shared by every analysis CLI."""
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
         "--start-date",
@@ -52,6 +52,15 @@ def build_common_analysis_parser() -> argparse.ArgumentParser:
         choices=list(RANKING_STRATEGIES),
         help="Ranking strategy to use (default: momentum)",
     )
+    parser.add_argument(
+        "--trading-param",
+        action="append",
+        default=[],
+        type=key_value_type,
+        metavar="KEY=VALUE",
+        help="Override a trading-strategy constructor parameter, e.g. --trading-param sma_thresh=0.20 "
+        "(qullamaggie's SMA distance, a fraction and not a percent) (repeatable)",
+    )
     add_logging_args(parser)
     return parser
 
@@ -60,18 +69,19 @@ def resolve_trading_strategy(args: argparse.Namespace, settings: Settings) -> tu
     """Resolve --ranking-strategy/--trading-strategy into a TradingStrategy and its DailyBarsQueryRepository.
 
     Args:
-        args: Parsed CLI arguments, must have `trading_strategy` and `ranking_strategy`
+        args: Parsed CLI arguments, must have `trading_strategy`, `ranking_strategy` and `trading_param`
         settings: Loaded application settings, used for the database engine
 
     Returns:
         Tuple of (trading_strategy, bars_history)
 
     Raises:
-        ValueError: If either strategy name is unknown
+        ValueError: If either strategy name is unknown, or a --trading-param key/value is not
+            accepted by the selected trading strategy
     """
     bars_history = DailyBarsQueryRepository(engine=settings.engine)
     ranking_strategy = get_ranking_strategy(args.ranking_strategy)
-    trading_strategy = get_trading_strategy(args.trading_strategy, ranking_strategy, bars_history)
+    trading_strategy = get_trading_strategy(args.trading_strategy, ranking_strategy, bars_history, args.trading_param)
     return trading_strategy, bars_history
 
 
