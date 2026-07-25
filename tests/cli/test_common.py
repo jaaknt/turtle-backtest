@@ -15,7 +15,29 @@ class TestBuildCommonAnalysisParser:
         args = build_common_analysis_parser().parse_args(["--start-date", "2024-06-03", "--end-date", "2024-06-07"])
         assert args.trading_strategy == "darvas_box"
         assert args.ranking_strategy == "momentum"
+        assert args.trading_param == []
         assert args.verbose is False
+
+    def test_parses_repeated_trading_params(self) -> None:
+        args = build_common_analysis_parser().parse_args(
+            [
+                "--start-date",
+                "2024-06-03",
+                "--end-date",
+                "2024-06-07",
+                "--trading-param",
+                "sma_thresh=0.2",
+                "--trading-param",
+                "min_bars=120",
+            ]
+        )
+        assert args.trading_param == [("sma_thresh", "0.2"), ("min_bars", "120")]
+
+    def test_rejects_trading_param_without_equals(self) -> None:
+        with pytest.raises(SystemExit):
+            build_common_analysis_parser().parse_args(
+                ["--start-date", "2024-06-03", "--end-date", "2024-06-07", "--trading-param", "sma_thresh"]
+            )
 
     def test_requires_dates(self) -> None:
         with pytest.raises(SystemExit):
@@ -42,19 +64,32 @@ class TestResolveTradingStrategy:
         mocker.patch("turtlex.cli.common.get_ranking_strategy", return_value=ranking_strategy)
         trading_strategy = MagicMock()
         get_trading_strategy_mock = mocker.patch("turtlex.cli.common.get_trading_strategy", return_value=trading_strategy)
-        args = argparse.Namespace(trading_strategy="darvas_box", ranking_strategy="momentum")
+        args = argparse.Namespace(trading_strategy="darvas_box", ranking_strategy="momentum", trading_param=[])
 
         result_strategy, result_bars_history = resolve_trading_strategy(args, MagicMock())
 
         assert result_strategy is trading_strategy
         assert result_bars_history is bars_history
-        get_trading_strategy_mock.assert_called_once_with("darvas_box", ranking_strategy, bars_history)
+        get_trading_strategy_mock.assert_called_once_with("darvas_box", ranking_strategy, bars_history, [])
+
+    def test_forwards_trading_param_overrides(self, mocker: MockerFixture) -> None:
+        bars_history = MagicMock()
+        mocker.patch("turtlex.cli.common.DailyBarsQueryRepository", return_value=bars_history)
+        ranking_strategy = MagicMock()
+        mocker.patch("turtlex.cli.common.get_ranking_strategy", return_value=ranking_strategy)
+        get_trading_strategy_mock = mocker.patch("turtlex.cli.common.get_trading_strategy", return_value=MagicMock())
+        params = [("sma_thresh", "0.2")]
+        args = argparse.Namespace(trading_strategy="qullamaggie", ranking_strategy="qullamaggie", trading_param=params)
+
+        resolve_trading_strategy(args, MagicMock())
+
+        get_trading_strategy_mock.assert_called_once_with("qullamaggie", ranking_strategy, bars_history, params)
 
     def test_propagates_value_error_for_unknown_strategy(self, mocker: MockerFixture) -> None:
         mocker.patch("turtlex.cli.common.DailyBarsQueryRepository")
         mocker.patch("turtlex.cli.common.get_ranking_strategy", return_value=MagicMock())
         mocker.patch("turtlex.cli.common.get_trading_strategy", side_effect=ValueError("Unknown trading strategy: nope"))
-        args = argparse.Namespace(trading_strategy="nope", ranking_strategy="momentum")
+        args = argparse.Namespace(trading_strategy="nope", ranking_strategy="momentum", trading_param=[])
 
         with pytest.raises(ValueError, match="Unknown trading strategy"):
             resolve_trading_strategy(args, MagicMock())

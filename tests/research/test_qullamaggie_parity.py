@@ -105,7 +105,9 @@ def universe() -> dict[str, pl.DataFrame]:
     }
 
 
-def _library_entries(universe: dict[str, pl.DataFrame], spy: pl.DataFrame, start_date: date) -> set[tuple]:
+def _library_entries(
+    universe: dict[str, pl.DataFrame], spy: pl.DataFrame, start_date: date, sma_thresh: float = QullamaggieStrategy.SMA_THRESH
+) -> set[tuple]:
     """Run the production path: QullamaggieStrategy signals + SignalProcessor entries."""
     end_date = max(df["date"][-1] for df in universe.values())
 
@@ -118,7 +120,7 @@ def _library_entries(universe: dict[str, pl.DataFrame], spy: pl.DataFrame, start
     repo.get_bars_pl.side_effect = get_bars_pl
     ranking = MagicMock()
     ranking.ranking.return_value = 50
-    strategy = QullamaggieStrategy(bars_history=repo, ranking_strategy=ranking)
+    strategy = QullamaggieStrategy(bars_history=repo, ranking_strategy=ranking, sma_thresh=sma_thresh)
     processor = SignalProcessor(max_holding_period=60, bars_history=repo, exit_strategy=MagicMock(), benchmark_tickers=[])
 
     out: set[tuple] = set()
@@ -147,7 +149,6 @@ def _research_entries(universe: dict[str, pl.DataFrame], spy: pl.DataFrame, star
 class TestSignalParity:
     def test_thresholds_match_the_production_strategy(self) -> None:
         """The research module's constants must not drift from the strategy's class attributes."""
-        assert research.SMA_THRESH == QullamaggieStrategy.SMA_THRESH
         assert research.MIN_AVG_VOL == QullamaggieStrategy.MIN_AVG_VOL
         assert research.MIN_PRICE == QullamaggieStrategy.MIN_PRICE
         assert research.MAX_PRICE == QullamaggieStrategy.MAX_PRICE
@@ -161,11 +162,17 @@ class TestSignalParity:
         assert research.MARKET_TICKER == QullamaggieStrategy.MARKET_TICKER
         assert research.MARKET_SMA_WARMUP_DAYS == QullamaggieStrategy.MARKET_SMA_WARMUP_DAYS
 
-    def test_warmup_defaults_match(self) -> None:
-        """WARMUP_DAYS/MIN_BARS must equal the strategy constructor defaults they mirror."""
+    def test_constructor_defaults_match(self) -> None:
+        """WARMUP_DAYS/MIN_BARS/SMA_THRESH must equal the strategy constructor defaults they mirror.
+
+        sma_thresh is asserted against the instance, not QullamaggieStrategy.SMA_THRESH: the
+        filter reads self.sma_thresh, so a constructor default decoupled from the class
+        constant would diverge from the research path while the constants still matched.
+        """
         strategy = QullamaggieStrategy(bars_history=MagicMock(), ranking_strategy=MagicMock())
         assert research.WARMUP_DAYS == strategy.warmup_period
         assert research.MIN_BARS == strategy.min_bars
+        assert research.SMA_THRESH == strategy.sma_thresh
 
     def test_both_paths_find_signals(self, universe: dict[str, pl.DataFrame]) -> None:
         """Guard against a vacuous parity assertion: the fixture must actually produce signals."""
@@ -189,15 +196,23 @@ class TestSignalParity:
         assert "TAIL.US" not in {symbol for symbol, _, _, _ in library}
         assert bulk == library
 
-    def test_entries_are_identical(self, universe: dict[str, pl.DataFrame]) -> None:
+    @pytest.mark.parametrize(("sma_thresh", "expect_entries"), [(QullamaggieStrategy.SMA_THRESH, True), (0.25, False)])
+    def test_entries_are_identical(self, universe: dict[str, pl.DataFrame], sma_thresh: float, expect_entries: bool) -> None:
+        """Both paths must agree at the default threshold and under an override.
+
+        Every fixture breakout sits ~19.5% above its SMA50, so 0.25 rejects all of them:
+        a path that ignored sma_thresh would still return entries and fail the comparison.
+        expect_entries keeps that case from passing vacuously as set() == set().
+        """
         last_date = max(df["date"][-1] for df in universe.values())
         spy = _spy_bull(last_date)
         start_date = last_date - timedelta(days=10)
 
-        library = _library_entries(universe, spy, start_date)
-        bulk = _research_entries(universe, spy, start_date, QullamaggieStrategy.SMA_THRESH)
+        library = _library_entries(universe, spy, start_date, sma_thresh)
+        bulk = _research_entries(universe, spy, start_date, sma_thresh)
 
         assert bulk == library
+        assert bool(library) is expect_entries
 
     def test_entries_are_identical_over_a_wide_window(self, universe: dict[str, pl.DataFrame]) -> None:
         """A start_date deep inside the frame exercises the warmup-window cooldown chain."""

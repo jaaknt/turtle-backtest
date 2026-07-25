@@ -93,6 +93,7 @@ uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --trading-str
 - `--start-date` / `--end-date` — Date range (required)
 - `--trading-strategy` — `darvas_box`, `mars`, `momentum`, `qullamaggie` (default: `darvas_box`)
 - `--ranking-strategy` — `momentum`, `volume_momentum`, `breakout_quality`, `qullamaggie` (default: `momentum`)
+- `--trading-param KEY=VALUE` — Override a trading-strategy constructor parameter, e.g. `--trading-param sma_thresh=0.20` (repeatable)
 - `--max-tickers` — Maximum symbols to scan (default: 10000)
 - `--verbose` — Enable detailed logging
 
@@ -152,6 +153,7 @@ uv run backtest-runner --start-date 2024-01-15 --end-date 2024-01-15 --mode top 
   - `volume_momentum` - Volume-weighted momentum ranking
   - `breakout_quality` - Breakout event strength ranking
   - `qullamaggie` - Cohort-derived Sortino ranking for Qullamaggie breakouts
+- `--trading-param KEY=VALUE` - Override a trading-strategy constructor parameter, e.g. `--trading-param sma_thresh=0.20` (repeatable)
 - `--max-tickers` - Maximum number of tickers to test (default: 10000)
 - `--mode` - Analysis mode (default: list)
   - `list` - Get all tickers with signals in date range
@@ -252,6 +254,7 @@ uv run portfolio-runner \
 - `--trading-strategy` - Trading strategy: darvas_box, mars, momentum, qullamaggie (default: darvas_box)
 - `--exit-strategy` - Exit strategy: buy_and_hold, profit_loss, ema, macd, atr, trailing_percentage_loss (default: buy_and_hold)
 - `--ranking-strategy` - Ranking strategy: momentum, volume_momentum, breakout_quality, qullamaggie (default: momentum)
+- `--trading-param KEY=VALUE` - Override a trading-strategy constructor parameter, e.g. `--trading-param sma_thresh=0.20` (repeatable)
 
 **Portfolio Parameters:**
 
