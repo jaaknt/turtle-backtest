@@ -354,6 +354,7 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Script:** `scripts/qullamaggie-signals-v4.py`
 - **Output:** screen
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `scripts/qullamaggie-backtest-v4.py`
+- **Note:** the script prints the full report — signal table, exclusions, both cohort tables and the benchmark comparison — to stdout. It used to also write `docs/research/result-qullamaggie-signals-v4.md`; that doc was deleted 2026-07-25 because the report is only meaningful for the day it is run.
 
 ### Trades: s15 open-trade performance
 

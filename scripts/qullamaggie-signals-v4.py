@@ -23,6 +23,9 @@ Ranking is the 0-100 QullamaggieRanking score (turtlex/strategy/ranking/qullamag
 entry date's indicators. Two cohort tables are reported: Change % by %abv SMA50 bucket, and
 Change % by Ranking bucket -- both mark-to-latest-price, not annualized (see cohort_stats()).
 
+The whole report — signal table, exclusions, both cohort tables and the benchmark
+comparison — is printed to stdout; no result doc is written.
+
 References: docs/research/qullamaggie-backtest-v4.md, docs/research/result-qullamaggie-backtest-v4.md,
 turtlex/strategy/ranking/qullamaggie.py
 """
@@ -30,7 +33,6 @@ turtlex/strategy/ranking/qullamaggie.py
 import time
 from bisect import bisect_left
 from datetime import date
-from pathlib import Path
 
 import numpy as np
 import polars as pl
@@ -65,8 +67,6 @@ COMPARE15_LABEL = "bk50d_s15_v1.3_roc100"
 COMPARE15_SMA_T = 0.15
 LIMIT_DISCOUNT = 0.03  # 0.97*Entry column: resting-limit level 3% below the entry-day close
 LIMIT_WINDOW_CAL = 30  # "Reached?" checks lows for this many calendar days after the signal
-
-RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-signals-v4.md"
 
 COHORTS = [
     (12.0, 15.0, "[12-15)"),
@@ -473,6 +473,8 @@ def main() -> None:
     lines.append(summary)
 
     output = "\n".join(lines)
+    print(f"\n=== {BASE_LABEL} vs {COMPARE_LABEL} — Signal Report ===")
+    print(f"Run date: {date.today()}  |  Period: {DISPLAY_START} – {DISPLAY_END}")
     print("\n" + output)
 
     excluded_lines: list[str] = []
@@ -512,61 +514,7 @@ def main() -> None:
     print(f"\n=== mean(Mean%) vs SPY/QQQ buy-and-hold, {DISPLAY_START} – {DISPLAY_END} ===")
     print(bench_output)
 
-    RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with RESULT_PATH.open("w") as fh:
-        fh.write(f"# {BASE_LABEL} vs {COMPARE_LABEL} — Signal Report\n\n")
-        fh.write(f"Run date: {date.today()}\n\n")
-        fh.write(f"Period: {DISPLAY_START} – {DISPLAY_END}\n\n")
-        fh.write(
-            "Entry $/Curr Price/Change % use raw (unadjusted) close — the real tradeable price. "
-            "%abv SMA50/ADR%/ADR_CHG/RSI14/TR%/ROC252% are computed on the entry date, using the "
-            "same split/dividend-adjusted series as scripts/qullamaggie-backtest-v4.py. Ranking is "
-            "the 0-100 score from turtlex/strategy/ranking/qullamaggie.py, computed on the entry "
-            "date's indicators. Last date is the latest date with data available for that symbol "
-            "in turtle.daily_bars.\n\n"
-        )
-        fh.write("```text\n")
-        fh.write(output)
-        fh.write("\n```\n\n")
-        fh.write("## Excluded as suspicious data\n\n")
-        fh.write(
-            f"Signals with a single-day raw-close move exceeding {SUSPICIOUS_DAY_MOVE * 100:.0f}% between entry "
-            "and the latest available date are dropped from the table, cross-check, and cohort analysis above — "
-            "such a move is not organic price action for this universe (market cap ≥ $1.5B) and most likely "
-            "reflects a delisting/halt-type event or a data anomaly.\n\n```text\n"
-        )
-        fh.write(excluded_text)
-        fh.write("\n```\n\n")
-        fh.write(f"## Cohort Analysis — {BASE_LABEL} by %abv SMA50 at entry\n\n")
-        fh.write(
-            "Med%/Mean%/Win%/PF/Sortino are computed on the mark-to-latest-price Change % (same as the "
-            "Change % column above) grouped by each signal's %abv SMA50 value at entry. Unlike the backtest's "
-            "Sortino, these are **not annualized** (positions have no fixed holding period here — each is "
-            "still open, marked at whatever elapsed time has passed since entry), but downside_dev keeps the "
-            "backtest's convention (RMS of negative returns over all N, positives count as 0). MaxDD% is the "
-            "mean of each signal's own peak-to-trough decline (raw close) from entry through its latest "
-            "available date.\n\n```text\n"
-        )
-        fh.write(cohort_output)
-        fh.write("\n```\n\n")
-        fh.write(f"## Cohort Analysis — {BASE_LABEL} by Ranking at entry\n\n")
-        fh.write(
-            "Same Med%/Mean%/Win%/PF/Sortino/MaxDD% convention as the %abv SMA50 cohort table above, "
-            "grouped by each signal's Ranking score (turtlex/strategy/ranking/qullamaggie.py) at "
-            "entry instead.\n\n```text\n"
-        )
-        fh.write(ranking_output)
-        fh.write("\n```\n\n")
-        fh.write("### mean(Mean%) vs benchmarks\n\n")
-        fh.write(
-            "`mean(Mean%)` is the unweighted average of the four cohort Mean% values above (not weighted "
-            "by N per cohort). SPY.US/QQQ.US are raw-close buy-and-hold over the same window, no dividend "
-            "reinvestment — same convention as Entry $/Curr Price/Change %.\n\n```text\n"
-        )
-        fh.write(bench_output)
-        fh.write("\n```\n")
-    print(f"\nResults saved to {RESULT_PATH}", flush=True)
-    print(f"Signal report completed in {time.perf_counter() - run_start:.1f}s", flush=True)
+    print(f"\nSignal report completed in {time.perf_counter() - run_start:.1f}s", flush=True)
 
 
 if __name__ == "__main__":
