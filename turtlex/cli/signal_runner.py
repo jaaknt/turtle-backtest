@@ -3,16 +3,17 @@
 Signal Runner Script
 
 This script runs trading strategy analysis using the SignalService class.
-It checks signals for specific tickers.
+It scans the strategy's ticker universe and lists all signals in the date range.
 
 Usage:
-    uv run signal-runner TICKER [TICKER ...] [options]
+    uv run signal-runner [options]
 
 Options:
     --start-date YYYY-MM-DD      Start date for analysis (required)
     --end-date YYYY-MM-DD        End date for analysis (required)
     --trading-strategy STRATEGY  darvas_box, mars, momentum, qullamaggie (default: darvas_box)
     --ranking-strategy STRATEGY  momentum, volume_momentum, breakout_quality (default: momentum)
+    --max-tickers NUM            Maximum number of universe tickers to scan (default: 10000)
     --verbose                    Enable verbose logging
 
 Run `signal-runner --help` for the full option list.
@@ -38,11 +39,11 @@ def print_signal(ticker: str, signal_date: date, ranking: int) -> None:
     print(f"  ✓ Signal {ticker} on {signal_date} ranking: {ranking} ")
 
 
-def run_signal(service: SignalService, args: argparse.Namespace) -> int:
-    """Check signals for the specified tickers."""
-    for ticker in args.tickers:
-        for signal in service.trading_strategy.get_signals(ticker, args.start_date, args.end_date):
-            print_signal(ticker, signal.date, signal.ranking)
+def run_list(service: SignalService, args: argparse.Namespace) -> int:
+    """List all signals in the strategy's universe, sorted by date and ticker."""
+    signals = service.scan(args.start_date, args.end_date, max_tickers=args.max_tickers)
+    for signal in sorted(signals, key=lambda s: (s.date, s.ticker)):
+        print_signal(signal.ticker, signal.date, signal.ranking)
     return 0
 
 
@@ -54,7 +55,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         epilog=__doc__,
         parents=[build_common_analysis_parser()],
     )
-    parser.add_argument("tickers", nargs="+", help="Stock ticker symbols")
+    parser.add_argument("--max-tickers", type=int, default=10000, help="Maximum number of universe tickers to scan")
 
     return parser
 
@@ -83,7 +84,7 @@ def main() -> int:
             ticker_repo=TickerQueryRepository(settings.engine),
         )
 
-        result: int = run_signal(service, args)
+        result: int = run_list(service, args)
 
         logger.info(f"Strategy analysis completed successfully in {time.perf_counter() - run_start:.1f}s")
         return result

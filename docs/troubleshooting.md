@@ -26,7 +26,7 @@ uv run alembic current
 psql -U postgres -d trading -c "SELECT COUNT(*) FROM turtle.daily_bars WHERE symbol='AAPL.US'"
 
 # Run a script with detailed output
-uv run signal-runner AAPL --start-date 2024-06-01 --end-date 2024-06-01 --verbose
+uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --verbose
 
 # Run tests to confirm environment is healthy
 uv run pytest

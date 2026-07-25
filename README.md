@@ -83,7 +83,7 @@ uv run download-eodhd-data --data history --start-date 2024-01-01 --end-date 202
 
 For comprehensive strategy analysis and performance testing, use the command-line scripts:
 
-- **`signal-runner`** (console script) - Check trading signals for specific tickers
+- **`signal-runner`** (console script) - Scan the ticker universe and list trading signals for a date range
 - **`backtest-runner`** (console script) - Complete signal-to-exit backtesting with configurable strategies
 - **`portfolio-runner`** (console script) - Portfolio-level backtesting with capital constraints
 
