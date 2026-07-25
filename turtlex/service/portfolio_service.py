@@ -8,7 +8,7 @@ from pathlib import Path
 from turtlex.backtest.processor import SignalProcessor
 from turtlex.common.enums import TimeFrameUnit
 from turtlex.model import FutureTrade, Signal
-from turtlex.portfolio.analytics import PortfolioAnalytics
+from turtlex.portfolio.analytics import DEFAULT_BENCHMARK_TICKER, PortfolioAnalytics
 from turtlex.portfolio.manager import PortfolioManager
 from turtlex.portfolio.selector import PortfolioSignalSelector
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
@@ -39,6 +39,7 @@ class PortfolioService:
         min_signal_ranking: int = 70,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         max_holding_period: int = 365,
+        benchmark_ticker: str = DEFAULT_BENCHMARK_TICKER,
     ):
         """
         Initialize portfolio service.
@@ -53,6 +54,7 @@ class PortfolioService:
             min_signal_ranking: Minimum signal ranking to consider
             time_frame_unit: Time frame for analysis (DAY, WEEK, etc.)
             max_holding_period: Maximum calendar days a position may stay open
+            benchmark_ticker: Symbol the tearsheet compares the portfolio against
         """
         self.trading_strategy = trading_strategy
         self.exit_strategy = exit_strategy
@@ -61,6 +63,7 @@ class PortfolioService:
         self.start_date = start_date
         self.end_date = end_date
         self.min_signal_ranking = min_signal_ranking
+        self.benchmark_ticker = benchmark_ticker
 
         # Initialize components
         self.portfolio_manager = PortfolioManager(
@@ -269,6 +272,7 @@ class PortfolioService:
             self.end_date,
             self.bars_history,
             output_file=output_file,
+            benchmark_ticker=self.benchmark_ticker,
         )
 
     def _save_trade_to_csv(self, trades: list[FutureTrade]) -> None:

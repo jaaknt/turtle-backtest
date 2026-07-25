@@ -34,6 +34,7 @@ from turtlex.cli.common import build_common_analysis_parser, resolve_trading_str
 from turtlex.common.enums import TimeFrameUnit
 from turtlex.config.logging import setup_logging
 from turtlex.config.settings import Settings
+from turtlex.portfolio.analytics import DEFAULT_BENCHMARK_TICKER
 from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.service.portfolio_service import PortfolioService
 from turtlex.strategy.factory import EXIT_STRATEGIES, get_exit_strategy
@@ -104,10 +105,11 @@ def create_argument_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--benchmark-tickers",
-        nargs="*",
-        default=["SPY", "QQQ"],
-        help="Benchmark ticker symbols (default: SPY QQQ)",
+        "--benchmark-ticker",
+        type=str,
+        default=DEFAULT_BENCHMARK_TICKER,
+        help=f"Symbol the tearsheet compares the portfolio against; quantstats takes exactly one "
+        f"(default: {DEFAULT_BENCHMARK_TICKER})",
     )
 
     # Output
@@ -157,6 +159,7 @@ def main() -> int:
             min_signal_ranking=args.min_signal_ranking,
             time_frame_unit=TimeFrameUnit.DAY,
             max_holding_period=args.max_holding_days,
+            benchmark_ticker=args.benchmark_ticker,
         )
 
         # Determine universe of stocks to test
