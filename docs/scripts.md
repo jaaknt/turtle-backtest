@@ -248,9 +248,9 @@ uv run portfolio-runner \
 
 **Strategy Configuration:**
 
-- `--trading-strategy` - Trading strategy: darvas_box, mars, momentum (default: darvas_box)
+- `--trading-strategy` - Trading strategy: darvas_box, mars, momentum, qullamaggie (default: darvas_box)
 - `--exit-strategy` - Exit strategy: buy_and_hold, profit_loss, ema, macd, atr, trailing_percentage_loss (default: buy_and_hold)
-- `--ranking-strategy` - Ranking strategy: momentum, volume_momentum (default: momentum)
+- `--ranking-strategy` - Ranking strategy: momentum, volume_momentum, breakout_quality, qullamaggie (default: momentum)
 
 **Portfolio Parameters:**
 
