@@ -8,7 +8,7 @@ import polars as pl
 from turtlex.common.enums import TimeFrameUnit
 from turtlex.model import Trade
 
-from .base import ExitStrategy
+from .base import ExitStrategy, add_adjusted_columns
 
 logger = logging.getLogger(__name__)
 
@@ -36,12 +36,13 @@ class ATRExitStrategy(ExitStrategy):
         df = self.bars_history.get_bars_pl(
             self.ticker, self.start_date - timedelta(days=60), self.end_date, time_frame_unit=TimeFrameUnit.DAY
         )
+        df = add_adjusted_columns(df)
         return (
             df.with_columns(
                 pl.max_horizontal(
-                    pl.col("high") - pl.col("low"),
-                    (pl.col("high") - pl.col("close").shift(1)).abs(),
-                    (pl.col("low") - pl.col("close").shift(1)).abs(),
+                    pl.col("adj_high") - pl.col("adj_low"),
+                    (pl.col("adj_high") - pl.col("adj_close").shift(1)).abs(),
+                    (pl.col("adj_low") - pl.col("adj_close").shift(1)).abs(),
                 ).alias("tr")
             )
             .with_columns(pl.col("tr").ewm_mean(alpha=1.0 / self.atr_period, adjust=False).alias("atr"))
@@ -57,7 +58,7 @@ class ATRExitStrategy(ExitStrategy):
             raise ValueError("ATR column not found in data. Ensure calculate_indicators() was called first.")
 
         first_row = data.row(0, named=True)
-        entry_price: float = first_row["open"]
+        entry_price: float = first_row["adj_open"]
         entry_atr: float | None = first_row["atr"]
 
         if entry_atr is None or entry_atr == 0:
@@ -67,20 +68,20 @@ class ATRExitStrategy(ExitStrategy):
         logger.debug(f"Entry price: {entry_price:.2f}, Entry ATR: {entry_atr:.2f}, Initial stop: {initial_stop:.2f}")
 
         df = (
-            data.with_columns(pl.col("high").cum_max().alias("cummax_high"))
+            data.with_columns(pl.col("adj_high").cum_max().alias("cummax_high"))
             .with_columns((pl.col("cummax_high") - self.atr_multiplier * pl.col("atr")).alias("potential_stop"))
             .with_columns(pl.col("potential_stop").cum_max().clip(lower_bound=initial_stop).alias("trailing_stop"))
             .with_columns(pl.col("trailing_stop").forward_fill().alias("trailing_stop"))
         )
 
-        exit_rows = df.filter(pl.col("close") < pl.col("trailing_stop"))
+        exit_rows = df.filter(pl.col("adj_close") < pl.col("trailing_stop"))
         if not exit_rows.is_empty():
             row = exit_rows.row(0, named=True)
             exit_date = row["date"]
-            logger.debug(f"Stop loss triggered on {exit_date}: Close {row['close']:.2f} < Stop {row['trailing_stop']:.2f}")
-            return Trade(ticker=self.ticker, date=exit_date, price=row["close"], reason="atr_trailing_stop")
+            logger.debug(f"Stop loss triggered on {exit_date}: Close {row['adj_close']:.2f} < Stop {row['trailing_stop']:.2f}")
+            return Trade(ticker=self.ticker, date=exit_date, price=row["adj_close"], reason="atr_trailing_stop")
 
         row = df.row(-1, named=True)
         final_date = row["date"]
-        logger.debug(f"Period end: Final close {row['close']:.2f}, Final stop {row['trailing_stop']:.2f}")
-        return Trade(ticker=self.ticker, date=final_date, price=row["close"], reason="period_end")
+        logger.debug(f"Period end: Final close {row['adj_close']:.2f}, Final stop {row['trailing_stop']:.2f}")
+        return Trade(ticker=self.ticker, date=final_date, price=row["adj_close"], reason="period_end")

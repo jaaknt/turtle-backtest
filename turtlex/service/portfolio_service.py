@@ -249,7 +249,10 @@ class PortfolioService:
                 df = self.bars_history.get_bars_pl(position.ticker, current_date, current_date, self.time_frame_unit)
 
                 if not df.is_empty():
-                    close_price = float(df["close"][0])
+                    # Mark on the adjusted close: positions are opened at the adjusted entry price
+                    # (SignalProcessor.calculate_entry_data), so marking on the raw close would
+                    # compare two different price bases and misstate unrealized P&L across a split.
+                    close_price = float(df["adjusted_close"][0])
                     self.portfolio_manager.current_snapshot.update_position_price(position.ticker, close_price)
 
             except Exception as e:

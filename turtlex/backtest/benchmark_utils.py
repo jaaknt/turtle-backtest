@@ -83,15 +83,22 @@ def calculate_benchmark(
             logger.warning(f"No {ticker} exit data available on or before {exit_date}")
             return None
 
-        entry_price_raw = entry_data["open"][0]
-        exit_price_raw = exit_data["close"][-1]
-        if entry_price_raw is None:
-            logger.warning(f"Null {ticker} open price on entry")
+        # Both legs on the adjusted basis, matching how trade returns are computed, so the
+        # comparison is like-for-like instead of pitting a total return against a price-only one.
+        entry_open_raw = entry_data["open"][0]
+        entry_close_raw = entry_data["close"][0]
+        entry_adj_close_raw = entry_data["adjusted_close"][0]
+        exit_price_raw = exit_data["adjusted_close"][-1]
+        if entry_open_raw is None or entry_close_raw is None or entry_adj_close_raw is None:
+            logger.warning(f"Null {ticker} price on entry")
             return None
         if exit_price_raw is None:
-            logger.warning(f"Null {ticker} close price on exit")
+            logger.warning(f"Null {ticker} adjusted close price on exit")
             return None
-        entry_price = float(entry_price_raw)
+        if float(entry_close_raw) <= 0:
+            logger.warning(f"Invalid {ticker} entry close price: {entry_close_raw}")
+            return None
+        entry_price = float(entry_open_raw) * float(entry_adj_close_raw) / float(entry_close_raw)
         exit_price = float(exit_price_raw)
 
         if entry_price <= 0:

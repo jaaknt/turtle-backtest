@@ -115,7 +115,12 @@ class SignalProcessor:
         """
         Calculate entry date and price based on signal.
         Entry date is the next trading date after signal date.
-        Entry price is the opening price on the entry date.
+        Entry price is the split/dividend-adjusted opening price on the entry date,
+        so it shares a price basis with the adjusted exit price.
+
+        A bar with zero volume is not fillable, and one with a non-positive close or
+        adjusted close has no usable adjustment factor, so the search skips such bars and
+        takes the next tradeable one. This matches the bars the strategies actually see.
 
         Args:
             signal: Signal object
@@ -124,7 +129,7 @@ class SignalProcessor:
             Entry Trade object
 
         Raises:
-            ValueError: If no trading data is available for entry calculation
+            ValueError: If bars exist in the window but none of them are tradeable
         """
         # Get data starting from day after signal date
         search_start = signal.date + timedelta(days=1)
@@ -136,13 +141,21 @@ class SignalProcessor:
             logger.warning(f"No trading data available for {signal.ticker} after {signal.date}")
             return None
 
-        # Get first available trading day
-        row = df.row(0, named=True)
-        entry_date = row["date"]
+        tradeable = df.filter(
+            pl.col("open").is_not_null()
+            & (pl.col("open") > 0)
+            & (pl.col("close") > 0)
+            & (pl.col("adjusted_close") > 0)
+            & (pl.col("volume") > 0)
+        )
+        if tradeable.is_empty():
+            raise ValueError(f"Invalid entry price for {signal.ticker}: no tradeable bar after {signal.date}")
 
-        if row["open"] is None or float(row["open"]) <= 0:
-            raise ValueError(f"Invalid entry price for {signal.ticker}: {row['open']}")
-        entry_price = float(row["open"])
+        # Get first tradeable day
+        row = tradeable.row(0, named=True)
+        entry_date = row["date"]
+        # Scale the raw open by the bar's own adjustment factor so entry and exit share a basis.
+        entry_price = float(row["open"]) * float(row["adjusted_close"]) / float(row["close"])
 
         return Trade(ticker=signal.ticker, date=entry_date, price=entry_price, reason="next_day_open")
 

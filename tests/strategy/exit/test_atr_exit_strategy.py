@@ -9,6 +9,7 @@ import pytest
 from turtlex.model import Trade
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.strategy.exit import ATRExitStrategy
+from turtlex.strategy.exit.base import add_adjusted_columns
 
 
 class TestATRExitStrategy:
@@ -64,6 +65,7 @@ class TestATRExitStrategy:
             {
                 "date": [date(2024, 1, 1 + i) if i < 31 else date(2024, 2, i - 30) for i in range(60)],
                 "close": [100.0 + i * 0.5 for i in range(60)],
+                "adjusted_close": [100.0 + i * 0.5 for i in range(60)],
                 "high": [102.0 + i * 0.5 for i in range(60)],
                 "low": [98.0 + i * 0.5 for i in range(60)],
                 "open": [100.0 + i * 0.5 for i in range(60)],
@@ -88,6 +90,7 @@ class TestATRExitStrategy:
             {
                 "date": [date(2024, 1, i + 1) for i in range(5)],
                 "close": [100.0, 101.0, 102.0, 103.0, 104.0],
+                "adjusted_close": [100.0, 101.0, 102.0, 103.0, 104.0],
                 "high": [102.0, 103.0, 104.0, 105.0, 106.0],
                 "low": [98.0, 99.0, 100.0, 101.0, 102.0],
                 "open": [100.0, 101.0, 102.0, 103.0, 104.0],
@@ -95,7 +98,7 @@ class TestATRExitStrategy:
         )
 
         with pytest.raises(ValueError, match="ATR column not found"):
-            strategy.calculate_exit(data)
+            strategy.calculate_exit(add_adjusted_columns(data))
 
     def test_calculate_exit_with_stop_hit(self) -> None:
         """Test calculate_exit when ATR stop loss is hit."""
@@ -112,13 +115,14 @@ class TestATRExitStrategy:
                 "date": [date(2024, 1, i + 1) for i in range(5)],
                 "open": [100.0, 99.0, 98.0, 97.0, 96.0],
                 "close": [99.0, 98.0, 97.0, 96.0, 95.0],
+                "adjusted_close": [99.0, 98.0, 97.0, 96.0, 95.0],
                 "high": [101.0, 100.0, 99.0, 98.0, 97.0],
                 "low": [98.0, 96.0, 94.0, 92.0, 90.0],
                 "atr": [1.0, 1.0, 1.0, 1.0, 1.0],
             }
         )
 
-        result = strategy.calculate_exit(data)
+        result = strategy.calculate_exit(add_adjusted_columns(data))
 
         assert isinstance(result, Trade)
         assert result.reason == "atr_trailing_stop"
@@ -137,13 +141,14 @@ class TestATRExitStrategy:
                 "date": [date(2024, 1, i + 1) for i in range(5)],
                 "open": [100.0, 101.0, 102.0, 103.0, 104.0],
                 "close": [101.0, 102.0, 103.0, 104.0, 105.0],
+                "adjusted_close": [101.0, 102.0, 103.0, 104.0, 105.0],
                 "high": [102.0, 103.0, 104.0, 105.0, 106.0],
                 "low": [99.0, 100.0, 101.0, 102.0, 103.0],
                 "atr": [1.0, 1.0, 1.0, 1.0, 1.0],
             }
         )
 
-        result = strategy.calculate_exit(data)
+        result = strategy.calculate_exit(add_adjusted_columns(data))
 
         assert isinstance(result, Trade)
         assert result.reason == "period_end"
@@ -165,6 +170,7 @@ class TestATRExitStrategy:
                 "date": [date(2024, 1, i + 1) for i in range(3)],
                 "open": [100.0, 99.0, 98.0],
                 "close": [99.0, 98.0, 97.0],
+                "adjusted_close": [99.0, 98.0, 97.0],
                 "high": [101.0, 100.0, 99.0],
                 "low": [98.0, 96.0, 95.0],
                 "atr": [2.0, 2.0, 2.0],
@@ -172,11 +178,11 @@ class TestATRExitStrategy:
         )
 
         # Loose stop: 100 - (3.0 * 2.0) = 94.0 (not hit, close[0]=99 > 94)
-        result_loose = strategy_loose.calculate_exit(data)
+        result_loose = strategy_loose.calculate_exit(add_adjusted_columns(data))
         assert result_loose.reason == "period_end"
 
         # Tight stop: 100 - (1.0 * 2.0) = 98.0; trailing_stop=cummax([101-2,101-2,101-2])=[99,99,99]
         # close: [99,98,97] → close[1]=98 < 99 → exit
-        result_tight = strategy_tight.calculate_exit(data)
+        result_tight = strategy_tight.calculate_exit(add_adjusted_columns(data))
         assert result_tight.reason == "atr_trailing_stop"
         assert result_tight.price <= 100.0

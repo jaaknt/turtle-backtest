@@ -92,10 +92,17 @@ class QullamaggieStrategy(TradingStrategy):
             start_date: The start date for data collection
             end_date: The end date for data collection
 
+        Bars with a non-positive close, adjusted close or zero volume are dropped, then the
+        minimum-history rule is re-applied to what survives. Keeping them would skew the
+        rolling volume averages for the ~5% of symbols carrying at least one zero-volume bar.
+
         Returns:
             bool: True if sufficient ticker data was collected, False otherwise
         """
         if not super().collect_data(ticker, start_date, end_date):
+            return False
+        self.pl_df = self.pl_df.filter((pl.col("close") > 0) & (pl.col("adjusted_close") > 0) & (pl.col("volume") > 0))
+        if self.pl_df.shape[0] < self.min_bars:
             return False
         self._load_regime_dates(start_date, end_date)
         return True
@@ -138,19 +145,23 @@ class QullamaggieStrategy(TradingStrategy):
           definitions as MomentumStrategy)
         """
         factor = pl.col("adjusted_close") / pl.col("close")
-        df = self.pl_df.with_columns(
-            pl.col("adjusted_close").alias("adj_close"),
-            (pl.col("high") * factor).alias("adj_high"),
-            (pl.col("low") * factor).alias("adj_low"),
-            pl.col("close").rolling_max(20).alias("max_close_20"),
-            pl.col("close").ewm_mean(span=10, adjust=False).alias("ema_10"),
-            pl.col("close").ewm_mean(span=20, adjust=False).alias("ema_20"),
-            pl.col("close").ewm_mean(span=50, adjust=False).alias("ema_50"),
-            pl.col("close").ewm_mean(span=200, adjust=False).alias("ema_200"),
-            pl.col("volume").ewm_mean(span=10, adjust=False).alias("ema_volume_10"),
-            (pl.col("close").ewm_mean(span=12, adjust=False) - pl.col("close").ewm_mean(span=26, adjust=False)).alias("macd"),
-        ).with_columns(
-            pl.col("macd").ewm_mean(span=9, adjust=False).alias("macd_signal"),
+        df = (
+            self.pl_df.sort("date")
+            .with_columns(
+                pl.col("adjusted_close").alias("adj_close"),
+                (pl.col("high") * factor).alias("adj_high"),
+                (pl.col("low") * factor).alias("adj_low"),
+                pl.col("close").rolling_max(20).alias("max_close_20"),
+                pl.col("close").ewm_mean(span=10, adjust=False).alias("ema_10"),
+                pl.col("close").ewm_mean(span=20, adjust=False).alias("ema_20"),
+                pl.col("close").ewm_mean(span=50, adjust=False).alias("ema_50"),
+                pl.col("close").ewm_mean(span=200, adjust=False).alias("ema_200"),
+                pl.col("volume").ewm_mean(span=10, adjust=False).alias("ema_volume_10"),
+                (pl.col("close").ewm_mean(span=12, adjust=False) - pl.col("close").ewm_mean(span=26, adjust=False)).alias("macd"),
+            )
+            .with_columns(
+                pl.col("macd").ewm_mean(span=9, adjust=False).alias("macd_signal"),
+            )
         )
         df = df.with_columns(
             pl.col("adj_close").shift(1).alias("_c1"),

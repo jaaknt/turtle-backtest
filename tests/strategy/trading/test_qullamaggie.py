@@ -166,3 +166,29 @@ def test_universe_uses_qualified_symbols() -> None:
     mock_ticker_repo.get_qullamaggie_qualified_symbols.return_value = ["AAA.US", "BBB.US"]
     assert strategy.get_universe(mock_ticker_repo, limit=100) == ["AAA.US", "BBB.US"]
     mock_ticker_repo.get_qullamaggie_qualified_symbols.assert_called_once_with(limit=100)
+
+
+def test_zero_volume_bars_are_dropped_before_indicators() -> None:
+    """Zero-volume bars would skew the rolling volume averages, so they never reach the filters."""
+    ohlcv = _build_ohlcv(breakouts={N - 1: 120.0})
+    with_gaps = ohlcv.with_columns(
+        pl.when(pl.col("date").is_in([ohlcv["date"][5], ohlcv["date"][6]])).then(0.0).otherwise(pl.col("volume")).alias("volume")
+    )
+    last_date = with_gaps["date"][-1]
+    strategy = _make_strategy(with_gaps, _build_spy(last_date))
+
+    assert strategy.collect_data("TEST.US", last_date, last_date) is True
+    assert strategy.pl_df.shape[0] == N - 2
+    assert strategy.pl_df.filter(pl.col("volume") == 0).is_empty()
+
+
+def test_min_bars_is_applied_after_dropping_unusable_bars() -> None:
+    """A ticker whose raw count clears min_bars but whose usable count does not is rejected."""
+    ohlcv = _build_ohlcv(n=305)
+    zero_dates = ohlcv["date"][:10].to_list()
+    with_gaps = ohlcv.with_columns(pl.when(pl.col("date").is_in(zero_dates)).then(0.0).otherwise(pl.col("volume")).alias("volume"))
+    last_date = with_gaps["date"][-1]
+    strategy = _make_strategy(with_gaps, _build_spy(last_date))
+
+    assert with_gaps.shape[0] >= strategy.min_bars  # raw count would have passed
+    assert strategy.collect_data("TEST.US", last_date, last_date) is False
