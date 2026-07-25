@@ -12,7 +12,7 @@ Options:
     --start-date YYYY-MM-DD      Start date for analysis (required)
     --end-date YYYY-MM-DD        End date for analysis (required)
     --trading-strategy STRATEGY  darvas_box, mars, momentum, qullamaggie (default: darvas_box)
-    --ranking-strategy STRATEGY  momentum, volume_momentum, breakout_quality (default: momentum)
+    --ranking-strategy STRATEGY  momentum, volume_momentum, breakout_quality, qullamaggie (default: momentum)
     --max-tickers NUM            Maximum number of universe tickers to scan (default: 10000)
     --verbose                    Enable verbose logging
 

@@ -7,37 +7,37 @@ This document covers the three categories of pluggable strategies used by the ba
 The framework composes three independent strategy types into a complete trading system:
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│                        Symbol Universe                          │
-│              (all US tickers from turtle.ticker)                │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Trading Strategy                             │
-│          (generates entry Signal for each ticker)               │
-│   DarvasBoxStrategy │ MarsStrategy │ MomentumStrategy           │
-└────────────────────────────┬────────────────────────────────────┘
-                             │  Signal (ticker, date, price, ...)
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Ranking Strategy                             │
-│       (scores each signal 0–100 for portfolio selection)        │
-│   MomentumRanking │ VolumeMomentumRanking │ BreakoutQualityRanking │
-└────────────────────────────┬────────────────────────────────────┘
-                             │  ranked Signal
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     Exit Strategy                               │
-│       (determines when to close each open position)             │
-│   BuyAndHold │ ProfitLoss │ EMA │ MACD │ ATR │ TrailingPct     │
-└────────────────────────────┬────────────────────────────────────┘
-                             │  Trade (entry, exit, return)
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              BacktestService / PortfolioService                 │
-│            (aggregates trades into performance report)          │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                     Symbol Universe                                     │
+│                           (all US tickers from turtle.ticker)                           │
+└─────────────────────────────────────────────┬───────────────────────────────────────────┘
+                                              │
+                                              ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                     Trading Strategy                                    │
+│                         (generates entry Signal for each ticker)                        │
+│        DarvasBoxStrategy │ MarsStrategy │ MomentumStrategy │ QullamaggieStrategy        │
+└─────────────────────────────────────────────┬───────────────────────────────────────────┘
+                                              │  Signal (ticker, date, price, ...)
+                                              ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                     Ranking Strategy                                    │
+│                    (scores each signal 0–100 for portfolio selection)                   │
+│  MomentumRanking │ VolumeMomentumRanking │ BreakoutQualityRanking │ QullamaggieRanking  │
+└─────────────────────────────────────────────┬───────────────────────────────────────────┘
+                                              │  ranked Signal
+                                              ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                      Exit Strategy                                      │
+│                      (determines when to close each open position)                      │
+│                 BuyAndHold │ ProfitLoss │ EMA │ MACD │ ATR │ TrailingPct                │
+└─────────────────────────────────────────────┬───────────────────────────────────────────┘
+                                              │  Trade (entry, exit, return)
+                                              ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                            BacktestService / PortfolioService                           │
+│                       (aggregates trades into performance report)                       │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Typical usage pattern:**

@@ -316,9 +316,11 @@ Tests mirror the source tree under `tests/`:
 - `strategy/trading/test_darvas_box.py`: Darvas Box strategy logic
 - `strategy/trading/test_mars_strategy.py`: Mars strategy logic
 - `strategy/trading/test_momentum_strategy_parity.py`: Momentum strategy (polars path)
+- `strategy/trading/test_qullamaggie.py`: Qullamaggie strategy logic
 - `strategy/ranking/test_breakout_quality_ranking.py`: Breakout quality ranking strategy
 - `strategy/ranking/test_momentum_ranking.py`: Momentum ranking strategy
 - `strategy/ranking/test_volume_momentum_ranking.py`: Volume momentum ranking strategy
+- `strategy/ranking/test_qullamaggie_ranking.py`: Qullamaggie ranking strategy
 - `strategy/exit/test_macd_exit_strategy.py`: MACD exit strategy logic
 - `strategy/exit/test_atr_exit_strategy.py`: ATR exit strategy logic
 - `strategy/exit/test_ema_exit_strategy.py`: EMA exit strategy logic

@@ -18,7 +18,7 @@ Options:
     --exit-param KEY=VALUE    Override an exit-strategy parameter, e.g. --exit-param
                               profit_target=15 (repeatable)
     --max-holding-days NUM    Maximum calendar days a position may stay open (default: 60)
-    --ranking-strategy STRATEGY      Ranking strategy: momentum, volume_momentum, breakout_quality (default: momentum)
+    --ranking-strategy STRATEGY      Ranking strategy: momentum, volume_momentum, breakout_quality, qullamaggie (default: momentum)
     --max-tickers NUM        Maximum number of tickers to test (default: 10000)
     --mode MODE              Analysis mode: list (default: list)
     --verbose                Enable verbose logging
