@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Quick reference for common issues. Use `--verbose` on any script for detailed logging and consult logs in `logs/` for additional context.
+Quick reference for common issues. Use `--verbose` on any script for detailed logging. Logs go to stdout; on the VPS the systemd units capture them in the journal (`journalctl -u <unit>`).
 
 ## Common Issues
 

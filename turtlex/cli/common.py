@@ -13,6 +13,15 @@ from turtlex.strategy.trading.base import TradingStrategy
 logger = logging.getLogger(__name__)
 
 
+def add_logging_args(parser: argparse.ArgumentParser) -> None:
+    """Add the shared --verbose/-v logging flag to `parser`.
+
+    Args:
+        parser: Parser to extend
+    """
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+
+
 def build_common_analysis_parser() -> argparse.ArgumentParser:
     """Build a parent parser (add_help=False) for the --start-date/--end-date/--trading-strategy/
     --ranking-strategy/--verbose flags shared by every analysis CLI."""
@@ -43,7 +52,7 @@ def build_common_analysis_parser() -> argparse.ArgumentParser:
         choices=list(RANKING_STRATEGIES),
         help="Ranking strategy to use (default: momentum)",
     )
-    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    add_logging_args(parser)
     return parser
 
 

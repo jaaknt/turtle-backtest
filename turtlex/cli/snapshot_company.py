@@ -5,12 +5,15 @@ day of the previous month. The operation is idempotent — running it twice on t
 same day is safe.
 """
 
+import argparse
 import logging
+import sys
 from datetime import date, timedelta
 
 from sqlalchemy import text
 
-from turtlex.config.logging import LogConfig
+from turtlex.cli.common import add_logging_args
+from turtlex.config.logging import setup_logging
 from turtlex.config.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -30,9 +33,19 @@ _COLUMNS = [
 ]
 
 
-def main() -> None:
+def create_argument_parser() -> argparse.ArgumentParser:
+    """Create and configure the argument parser."""
+    parser = argparse.ArgumentParser(description="Snapshot turtle.company into turtle.company_history")
+    add_logging_args(parser)
+
+    return parser
+
+
+def main() -> int:
     """Copy current turtle.company rows into turtle.company_history."""
-    LogConfig.setup(verbose=False)
+    args = create_argument_parser().parse_args()
+
+    setup_logging(args.verbose)
     settings = Settings.from_toml()
 
     snapshot_date = date.today().replace(day=1) - timedelta(days=1)
@@ -48,7 +61,7 @@ def main() -> None:
 
         if existing:
             logger.info("Snapshot for %s already exists — skipping", snapshot_date)
-            return
+            return 0
 
         result = conn.execute(
             text(f"INSERT INTO turtle.company_history ({col_list}, snapshot_date) SELECT {col_list}, :d FROM turtle.company"),
@@ -56,7 +69,8 @@ def main() -> None:
         )
 
     logger.info("Snapshot complete: %d rows written for %s", result.rowcount, snapshot_date)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
