@@ -253,6 +253,7 @@ uv run portfolio-runner \
 
 - `--trading-strategy` - Trading strategy: darvas_box, mars, momentum, qullamaggie (default: darvas_box)
 - `--exit-strategy` - Exit strategy: buy_and_hold, profit_loss, ema, macd, atr, trailing_percentage_loss (default: buy_and_hold)
+- `--exit-param KEY=VALUE` - Override an exit-strategy parameter, e.g. `--exit-param holding_days=365` (repeatable)
 - `--ranking-strategy` - Ranking strategy: momentum, volume_momentum, breakout_quality, qullamaggie (default: momentum)
 - `--trading-param KEY=VALUE` - Override a trading-strategy constructor parameter, e.g. `--trading-param sma_thresh=0.20` (repeatable)
 
