@@ -72,24 +72,27 @@ uv run download-eodhd-data --data history --start-date 2020-01-01 --end-date 202
 
 ## signal-runner
 
-The `signal-runner` console script checks trading strategy signals for a specific ticker list. Architecture and flow diagrams are in [signal_runner.md](signal_runner.md).
+The `signal-runner` console script scans the strategy's ticker universe and lists all signals in a date range. Architecture and flow diagrams are in [signal_runner.md](signal_runner.md).
 
 **Usage:**
 
 ```bash
-# Check specific tickers
-uv run signal-runner AAPL MSFT --start-date 2024-06-01 --end-date 2024-06-01
+# Scan all symbols for signals on a given day
+uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01
+
+# Limit the universe scan size
+uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --max-tickers 500
 
 # Use a different strategy
-uv run signal-runner AAPL MSFT --start-date 2024-06-01 --end-date 2024-06-01 --trading-strategy mars
+uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --trading-strategy mars
 ```
 
 **Options:**
 
-- `TICKER [TICKER ...]` — Stock ticker symbols to check (required, positional)
 - `--start-date` / `--end-date` — Date range (required)
 - `--trading-strategy` — `darvas_box`, `mars`, `momentum`, `qullamaggie` (default: `darvas_box`)
 - `--ranking-strategy` — `momentum`, `volume_momentum`, `breakout_quality`, `qullamaggie` (default: `momentum`)
+- `--max-tickers` — Maximum symbols to scan (default: 10000)
 - `--verbose` — Enable detailed logging
 
 ## backtest-runner
