@@ -236,11 +236,11 @@ uv run portfolio-runner \
     --trading-strategy darvas_box --exit-strategy atr \
     --position-max-amount 5000 --verbose
 
-# High-ranking signals only with custom benchmarks
+# High-ranking signals only, compared against a custom benchmark
 uv run portfolio-runner \
     --start-date 2024-01-01 --end-date 2024-12-31 \
     --min-signal-ranking 85 --max-tickers 500 \
-    --benchmark-tickers SPY QQQ IWM \
+    --benchmark-ticker SPY.US \
     --output-file high_quality_signals.html
 ```
 
@@ -267,7 +267,7 @@ uv run portfolio-runner \
 
 - `--max-tickers` - Maximum number of tickers from database (default: 10000)
 - `--tickers` - Specific ticker symbols to test (space-separated list)
-- `--benchmark-tickers` - Custom benchmark symbols (default: SPY QQQ)
+- `--benchmark-ticker` - Symbol the tearsheet compares the portfolio against, in database convention with the `.US` suffix; quantstats takes exactly one (default: `QQQ.US`)
 
 **Output and Analysis:**
 

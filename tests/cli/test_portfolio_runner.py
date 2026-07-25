@@ -23,6 +23,7 @@ class TestArgumentParser:
         assert args.initial_capital == 30000.0
         assert args.min_signal_ranking == 70
         assert args.max_holding_days == 365
+        assert args.benchmark_ticker == "QQQ.US"
         assert args.verbose is False
 
     def test_shared_and_portfolio_flags_coexist(self) -> None:
@@ -74,6 +75,14 @@ class TestMain:
         mocker.patch("sys.argv", ["portfolio-runner", *DATE_ARGS])
 
         assert main() == 1
+
+    def test_main_forwards_the_benchmark_ticker_to_the_service(self, mocker: MockerFixture) -> None:
+        """The flag was previously parsed and dropped, leaving the tearsheet benchmark unconfigurable."""
+        service = self._patch_wiring(mocker)
+        mocker.patch("sys.argv", ["portfolio-runner", *DATE_ARGS, "--benchmark-ticker", "SPY.US"])
+
+        assert main() == 0
+        assert service.call_args.kwargs["benchmark_ticker"] == "SPY.US"
 
     def test_main_uses_explicit_tickers_when_given(self, mocker: MockerFixture) -> None:
         service = self._patch_wiring(mocker)
