@@ -62,9 +62,14 @@ class TestMACDExitStrategy:
             {
                 "date": [date(2024, 1, 1 + i) if i < 31 else date(2024, 2, i - 30) for i in range(60)],
                 "close": [100.0 + i * 0.5 for i in range(60)],
+                "adjusted_close": [100.0 + i * 0.5 for i in range(60)],
+                "adj_close": [100.0 + i * 0.5 for i in range(60)],
                 "high": [101.0 + i * 0.5 for i in range(60)],
+                "adj_high": [101.0 + i * 0.5 for i in range(60)],
                 "low": [99.0 + i * 0.5 for i in range(60)],
+                "adj_low": [99.0 + i * 0.5 for i in range(60)],
                 "open": [100.0 + i * 0.5 for i in range(60)],
+                "adj_open": [100.0 + i * 0.5 for i in range(60)],
                 "volume": [1000000] * 60,
             }
         )
@@ -88,6 +93,8 @@ class TestMACDExitStrategy:
             {
                 "date": [date(2024, 1, i + 1) for i in range(10)],
                 "close": [100.0, 101.0, 102.0, 101.5, 100.5, 99.0, 98.0, 97.0, 96.0, 95.0],
+                "adjusted_close": [100.0, 101.0, 102.0, 101.5, 100.5, 99.0, 98.0, 97.0, 96.0, 95.0],
+                "adj_close": [100.0, 101.0, 102.0, 101.5, 100.5, 99.0, 98.0, 97.0, 96.0, 95.0],
                 "macd_line": [100.0, 101.0, 102.0, 101.0, 100.0, 98.0, 97.0, 96.0, 95.0, 94.0],
                 "macd_signal": [99.0, 100.0, 101.0, 101.0, 101.0, 100.0, 99.0, 98.0, 97.0, 96.0],
             }
@@ -111,6 +118,8 @@ class TestMACDExitStrategy:
             {
                 "date": [date(2024, 1, i + 1) for i in range(5)],
                 "close": [100.0, 101.0, 102.0, 103.0, 104.0],
+                "adjusted_close": [100.0, 101.0, 102.0, 103.0, 104.0],
+                "adj_close": [100.0, 101.0, 102.0, 103.0, 104.0],
                 "macd_line": [100.0, 101.0, 102.0, 103.0, 104.0],
                 "macd_signal": [99.0, 100.0, 101.0, 102.0, 103.0],
             }

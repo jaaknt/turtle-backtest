@@ -57,9 +57,14 @@ class TestEMAExitStrategy:
             {
                 "date": [date(2024, 1, 1 + i) if i < 31 else date(2024, 2, i - 30) for i in range(60)],
                 "close": [100.0 + i * 0.5 for i in range(60)],
+                "adjusted_close": [100.0 + i * 0.5 for i in range(60)],
+                "adj_close": [100.0 + i * 0.5 for i in range(60)],
                 "open": [100.0 + i * 0.5 for i in range(60)],
+                "adj_open": [100.0 + i * 0.5 for i in range(60)],
                 "high": [101.0 + i * 0.5 for i in range(60)],
+                "adj_high": [101.0 + i * 0.5 for i in range(60)],
                 "low": [99.0 + i * 0.5 for i in range(60)],
+                "adj_low": [99.0 + i * 0.5 for i in range(60)],
                 "volume": [1000000] * 60,
             }
         )
@@ -83,6 +88,8 @@ class TestEMAExitStrategy:
             {
                 "date": [date(2024, 1, i + 1) for i in range(5)],
                 "close": [105.0, 104.0, 98.0, 97.0, 96.0],
+                "adjusted_close": [105.0, 104.0, 98.0, 97.0, 96.0],
+                "adj_close": [105.0, 104.0, 98.0, 97.0, 96.0],
                 "ema": [100.0, 101.0, 102.0, 103.0, 104.0],
             }
         )
@@ -104,6 +111,8 @@ class TestEMAExitStrategy:
             {
                 "date": [date(2024, 1, i + 1) for i in range(5)],
                 "close": [105.0, 106.0, 107.0, 108.0, 109.0],
+                "adjusted_close": [105.0, 106.0, 107.0, 108.0, 109.0],
+                "adj_close": [105.0, 106.0, 107.0, 108.0, 109.0],
                 "ema": [100.0, 101.0, 102.0, 103.0, 104.0],
             }
         )
@@ -125,6 +134,8 @@ class TestEMAExitStrategy:
             {
                 "date": [date(2024, 1, i + 1) for i in range(5)],
                 "close": [95.0, 96.0, 97.0, 98.0, 99.0],
+                "adjusted_close": [95.0, 96.0, 97.0, 98.0, 99.0],
+                "adj_close": [95.0, 96.0, 97.0, 98.0, 99.0],
                 "ema": [100.0, 101.0, 102.0, 103.0, 104.0],
             }
         )

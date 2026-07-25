@@ -57,9 +57,14 @@ class TestTrailingPercentageLossExitStrategy:
             {
                 "date": [date(2024, 1, i + 1) for i in range(10)],
                 "close": [100.0 + i for i in range(10)],
+                "adjusted_close": [100.0 + i for i in range(10)],
+                "adj_close": [100.0 + i for i in range(10)],
                 "open": [100.0 + i for i in range(10)],
+                "adj_open": [100.0 + i for i in range(10)],
                 "high": [101.0 + i for i in range(10)],
+                "adj_high": [101.0 + i for i in range(10)],
                 "low": [99.0 + i for i in range(10)],
+                "adj_low": [99.0 + i for i in range(10)],
                 "volume": [1000000] * 10,
             }
         )
@@ -82,8 +87,11 @@ class TestTrailingPercentageLossExitStrategy:
             {
                 "date": [date(2024, 1, i + 1) for i in range(5)],
                 "open": [100.0, 110.0, 120.0, 115.0, 100.0],
+                "adj_open": [100.0, 110.0, 120.0, 115.0, 100.0],
                 # Max close rises to 120, stop becomes 120*0.9=108; day 4 close=100 < 108
                 "close": [105.0, 112.0, 120.0, 115.0, 100.0],
+                "adjusted_close": [105.0, 112.0, 120.0, 115.0, 100.0],
+                "adj_close": [105.0, 112.0, 120.0, 115.0, 100.0],
             }
         )
 
@@ -105,7 +113,10 @@ class TestTrailingPercentageLossExitStrategy:
             {
                 "date": [date(2024, 1, i + 1) for i in range(5)],
                 "open": [100.0, 101.0, 102.0, 103.0, 104.0],
+                "adj_open": [100.0, 101.0, 102.0, 103.0, 104.0],
                 "close": [101.0, 102.0, 103.0, 104.0, 105.0],
+                "adjusted_close": [101.0, 102.0, 103.0, 104.0, 105.0],
+                "adj_close": [101.0, 102.0, 103.0, 104.0, 105.0],
             }
         )
 
@@ -129,7 +140,9 @@ class TestTrailingPercentageLossExitStrategy:
             {
                 "date": [date(2024, 1, i + 1) for i in range(3)],
                 "open": [100.0, 90.0, 88.0],
+                "adj_open": [100.0, 90.0, 88.0],
                 "close": [85.0, 90.0, 88.0],  # day 0 close < initial stop of 90
+                "adj_close": [85.0, 90.0, 88.0],
             }
         )
 
@@ -150,7 +163,10 @@ class TestTrailingPercentageLossExitStrategy:
             {
                 "date": [date(2024, 1, i + 1) for i in range(5)],
                 "open": [100.0, 140.0, 130.0, 125.0, 119.0],
+                "adj_open": [100.0, 140.0, 130.0, 125.0, 119.0],
                 "close": [140.0, 150.0, 130.0, 125.0, 119.0],
+                "adjusted_close": [140.0, 150.0, 130.0, 125.0, 119.0],
+                "adj_close": [140.0, 150.0, 130.0, 125.0, 119.0],
                 # stop after day 1: max_close=150, stop=120
                 # day 4 close=119 < 120 → exit
             }
@@ -170,7 +186,10 @@ class TestTrailingPercentageLossExitStrategy:
             {
                 "date": [date(2024, 1, i + 1) for i in range(5)],
                 "open": [100.0, 110.0, 120.0, 115.0, 108.0],
+                "adj_open": [100.0, 110.0, 120.0, 115.0, 108.0],
                 "close": [110.0, 120.0, 118.0, 112.0, 108.0],
+                "adjusted_close": [110.0, 120.0, 118.0, 112.0, 108.0],
+                "adj_close": [110.0, 120.0, 118.0, 112.0, 108.0],
             }
         )
 

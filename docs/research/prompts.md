@@ -26,7 +26,7 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 | [Recalibrate ranking weights + validate](#recalibrate-ranking-weights--validate) | `scripts/qullamaggie-ranking-validation.py` | `result-qullamaggie-ranking-validation.md` |
 | [Portfolio simulation](#portfolio-simulation) | `scripts/qullamaggie-portfolio-sim.py` | `result-qullamaggie-portfolio-v4.md` |
 | [Signals: s12 with overlap & cohorts](#signals-s12-with-overlap--cohorts) | `scripts/qullamaggie-signals-v4.py` | screen |
-| [Trades: s20 open-trade performance](#trades-s20-open-trade-performance) | `scripts/qullamaggie-trades-v4.py` | `result-qullamaggie-trades-v4.md` |
+| [Trades: s15 open-trade performance](#trades-s15-open-trade-performance) | `scripts/qullamaggie-trades-v4.py` | `result-qullamaggie-trades-v4.md` |
 | [Maintenance: lint & tests](#maintenance-lint--tests) | — | — |
 
 ## Backtest foundation
@@ -355,24 +355,36 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Output:** screen
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `scripts/qullamaggie-backtest-v4.py`
 
-### Trades: s20 open-trade performance
+### Trades: s15 open-trade performance
 
-**Goal:** Provide `bk50d_s20_v1.3_roc100` signals for period 2025-07-01 : today.
+**Goal:** Provide `bk50d_s15_v1.3_roc100` signals for period 2025-07-01 : today.
 
 - **Output columns:**
 
   ```text
-  Date │ Symbol │ Entry $ │ Curr Price │ Change in % │ %abv SMA50 │ ADR% │ ADR_CHANGE │ RSI14 │ TR% │ ROC252%
+  Signal │ Entry │ Symbol │ Entry $ │ Curr Price │ Change % │ %abv SMA50 │ ADR% │ ADR_CHG │ RSI14 │ ROC252% │ Latest Data
   ```
 
-  - `%abv SMA50`, `ADR%`, `RSI14`, `TR%`, `ROC252%` must be calculated on the entry date.
-  - Add also the latest date when stock data is available.
+  - `Signal` = the breakout bar; `Entry` = the next trading bar, which is where the position is opened.
+  - `%abv SMA50`, `ADR%`, `ADR_CHG`, `RSI14`, `ROC252%` are calculated on the **signal** date, since every
+    filter is evaluated on that bar.
+  - `Entry $` = the entry bar's split/dividend-adjusted open (`open × adjusted_close / close`).
+  - `Curr Price` = the symbol's latest available adjusted close; `Change %` marks the open position to it.
+  - `Latest Data` = the symbol's latest *usable* bar in `turtle.daily_bars` (zero-volume and
+    non-positive-close bars are dropped before indicators, so they cannot appear here).
 
-- Provide mean trade performance and trade count if all trades are closed on the last date.
+- Provide mean trade performance and trade count if all trades are closed at the latest available adjusted close.
 - **Script:** `scripts/qullamaggie-trades-v4.py`
 - **Results:** `docs/research/result-qullamaggie-trades-v4.md`
-- **References:** `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`
-- **Note:** implemented as bk50d_s20_v1.3_roc100 (vol_dry_up<90%, no tight_range — TR% shown for information only).
+- **References:** `turtlex/research/qullamaggie.py` (shared signal layer), `tests/research/test_qullamaggie_parity.py` (parity harness), `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`
+- **Note:** the signal layer is imported from `turtlex/research/qullamaggie.py`, which is parity-tested against
+  `QullamaggieStrategy` — the strategy behind `backtest-runner --trading-strategy qullamaggie` — so this report and
+  the runner agree on `(symbol, signal_date, entry_date, entry_price)`. That parity fixed the variant to **s15**
+  (the strategy's `SMA_THRESH = 0.15`, previously s20 here) and switched indicators to split/dividend-adjusted
+  prices; the `$5-$250` band stays on the raw close. `tight_range` is not part of the strategy, so the former
+  informational `TR%` column is gone. Filters: RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x,
+  vol_dry_up<90%, SPY>200d SMA, raw close>$5&<$250, avg_vol>=500K, >15% above the 50d SMA, cooldown 30d,
+  mcap>=1.5B excl Comm/RE.
 
 ## Maintenance
 

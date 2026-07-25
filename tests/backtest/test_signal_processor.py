@@ -36,6 +36,7 @@ class TestSignalProcessor:
                 "high": [102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0, 111.0],
                 "low": [99.0, 100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0],
                 "close": [101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0],
+                "adjusted_close": [101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0],
                 "volume": [1000000] * 10,
             }
         )
@@ -51,6 +52,7 @@ class TestSignalProcessor:
                 "high": [402.0 + i for i in range(30)],
                 "low": [399.0 + i for i in range(30)],
                 "close": [401.0 + i for i in range(30)],
+                "adjusted_close": [401.0 + i for i in range(30)],
                 "volume": [1000000] * 30,
             }
         )
@@ -66,6 +68,7 @@ class TestSignalProcessor:
                 "high": [302.0 + i * 0.5 for i in range(30)],
                 "low": [299.0 + i * 0.5 for i in range(30)],
                 "close": [301.0 + i * 0.5 for i in range(30)],
+                "adjusted_close": [301.0 + i * 0.5 for i in range(30)],
                 "volume": [1000000] * 30,
             }
         )
@@ -168,6 +171,7 @@ class TestSignalProcessor:
                 "high": [102.0],
                 "low": [99.0],
                 "close": [101.0],
+                "adjusted_close": [101.0],
                 "volume": [1000000],
             }
         )
@@ -176,6 +180,81 @@ class TestSignalProcessor:
 
         with pytest.raises(ValueError, match="Invalid entry price"):
             processor.calculate_entry_data(sample_signal)
+
+    def test_calculate_entry_data_applies_adjustment_factor(
+        self, mock_bars_history: Mock, exit_strategy: Mock, sample_signal: Signal
+    ) -> None:
+        """Entry price is the raw open scaled by adjusted_close/close, not the raw open."""
+        processor = SignalProcessor(
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
+        )
+
+        # A 2:1 split after this bar halves the factor: 200 raw open -> 100 adjusted.
+        mock_bars_history.get_bars_pl.return_value = pl.DataFrame(
+            {
+                "date": [date(2024, 1, 16)],
+                "open": [200.0],
+                "high": [204.0],
+                "low": [198.0],
+                "close": [202.0],
+                "adjusted_close": [101.0],
+                "volume": [1000000],
+            }
+        )
+
+        entry = processor.calculate_entry_data(sample_signal)
+
+        assert entry is not None
+        assert entry.price == 100.0
+        assert entry.reason == "next_day_open"
+
+    @pytest.mark.parametrize("bad_column", ["open", "close", "adjusted_close", "volume"])
+    def test_calculate_entry_data_rejects_untradeable_only_bar(
+        self, mock_bars_history: Mock, exit_strategy: Mock, sample_signal: Signal, bad_column: str
+    ) -> None:
+        """If the only bar in the window is untradeable, the entry is rejected rather than mispriced."""
+        processor = SignalProcessor(
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
+        )
+
+        data: dict[str, list[float] | list[date]] = {
+            "date": [date(2024, 1, 16)],
+            "open": [100.0],
+            "high": [102.0],
+            "low": [99.0],
+            "close": [101.0],
+            "adjusted_close": [101.0],
+            "volume": [1000000.0],
+        }
+        data[bad_column] = [0.0]
+        mock_bars_history.get_bars_pl.return_value = pl.DataFrame(data)
+
+        with pytest.raises(ValueError, match="Invalid entry price"):
+            processor.calculate_entry_data(sample_signal)
+
+    def test_calculate_entry_data_skips_zero_volume_bar(self, mock_bars_history: Mock, exit_strategy: Mock, sample_signal: Signal) -> None:
+        """A zero-volume bar cannot be filled, so the entry moves to the next tradeable bar."""
+        processor = SignalProcessor(
+            max_holding_period=30, bars_history=mock_bars_history, exit_strategy=exit_strategy, benchmark_tickers=["SPY", "QQQ"]
+        )
+
+        mock_bars_history.get_bars_pl.return_value = pl.DataFrame(
+            {
+                "date": [date(2024, 1, 16), date(2024, 1, 17)],
+                "open": [100.0, 110.0],
+                "high": [102.0, 112.0],
+                "low": [99.0, 109.0],
+                "close": [101.0, 111.0],
+                "adjusted_close": [101.0, 111.0],
+                "volume": [0.0, 1000000.0],
+            }
+        )
+
+        entry = processor.calculate_entry_data(sample_signal)
+
+        assert entry is not None
+        assert entry.date == date(2024, 1, 17)
+        assert entry.price == 110.0
 
     def test_calculate_exit_data_success(
         self,
@@ -306,6 +385,43 @@ class TestSignalProcessor:
         assert benchmark.ticker == "SPY"
         assert abs(benchmark.return_pct - 1.2048192771084338) < 0.01
 
+    def test_calculate_single_benchmark_return_uses_adjusted_basis(self) -> None:
+        """Benchmark legs use the adjusted basis so they are comparable with adjusted trade returns."""
+        # Entry bar: raw open 200, raw close 202, adjusted_close 101 -> factor 0.5 -> adjusted open 100.
+        # Exit bar: adjusted_close 110. Return must be (110 - 100) / 100 = +10%, not (220 - 200) / 200.
+        data = pl.DataFrame(
+            {
+                "date": [date(2024, 1, 16), date(2024, 1, 20)],
+                "open": [200.0, 218.0],
+                "high": [204.0, 224.0],
+                "low": [198.0, 216.0],
+                "close": [202.0, 220.0],
+                "adjusted_close": [101.0, 110.0],
+                "volume": [1000000, 1000000],
+            }
+        )
+
+        benchmark = calculate_benchmark(data, "SPY", date(2024, 1, 16), date(2024, 1, 20))
+
+        assert benchmark is not None
+        assert abs(benchmark.return_pct - 10.0) < 1e-9
+
+    def test_calculate_single_benchmark_return_rejects_nonpositive_entry_close(self) -> None:
+        """A non-positive entry close leaves the adjustment factor undefined, so no benchmark is produced."""
+        data = pl.DataFrame(
+            {
+                "date": [date(2024, 1, 16), date(2024, 1, 20)],
+                "open": [200.0, 218.0],
+                "high": [204.0, 224.0],
+                "low": [198.0, 216.0],
+                "close": [0.0, 220.0],
+                "adjusted_close": [101.0, 110.0],
+                "volume": [1000000, 1000000],
+            }
+        )
+
+        assert calculate_benchmark(data, "SPY", date(2024, 1, 16), date(2024, 1, 20)) is None
+
     def test_calculate_single_benchmark_return_empty_data(self) -> None:
         """Test benchmark return calculation with empty data."""
         benchmark = calculate_benchmark(pl.DataFrame(), "SPY", date(2024, 1, 16), date(2024, 1, 20))
@@ -429,6 +545,7 @@ class TestSignalProcessor:
                 "high": [102.0 + i for i in range(10)],
                 "low": [99.0 + i for i in range(10)],
                 "close": [101.0 + i for i in range(10)],
+                "adjusted_close": [101.0 + i for i in range(10)],
                 "volume": [1000000] * 10,
             }
         )

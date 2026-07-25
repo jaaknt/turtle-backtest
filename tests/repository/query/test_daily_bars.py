@@ -128,3 +128,61 @@ def test_get_bars_pl_raises_for_unsupported_time_frame_unit(mock_engine: MagicMo
     with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=_sample_pl_df()):
         with pytest.raises(ValueError, match="Unsupported time_frame_unit"):
             _make_repo(mock_engine).get_bars_pl("AAPL", date(2024, 1, 1), date(2024, 1, 31), "month")  # type: ignore[arg-type]
+
+
+# --- get_qualified_universe_bars_pl ---
+
+
+def _sample_universe_pl_df() -> pl.DataFrame:
+    return pl.DataFrame(
+        {
+            "symbol": ["AAPL.US", "AAPL.US", "MSFT.US"],
+            "date": [date(2024, 1, 2), date(2024, 1, 3), date(2024, 1, 2)],
+            "open": [100.0, 102.0, 300.0],
+            "high": [105.0, 110.0, 310.0],
+            "low": [95.0, 100.0, 295.0],
+            "close": [102.0, 108.0, 305.0],
+            "adjusted_close": [51.0, 54.0, 305.0],
+            "volume": [1_000_000, 1_200_000, 900_000],
+        }
+    )
+
+
+def test_get_qualified_universe_bars_pl_returns_multi_symbol_frame(mock_engine: MagicMock) -> None:
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=_sample_universe_pl_df()):
+        result = _make_repo(mock_engine).get_qualified_universe_bars_pl(date(2024, 1, 2), date(2024, 1, 3))
+
+    assert result.shape == (3, 8)
+    assert result["symbol"].unique().sort().to_list() == ["AAPL.US", "MSFT.US"]
+    # Returned as stored: adjusted_close is not folded into close by the repository.
+    assert result["close"][0] == 102.0
+    assert result["adjusted_close"][0] == 51.0
+
+
+def test_get_qualified_universe_bars_pl_applies_default_filters(mock_engine: MagicMock) -> None:
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=_sample_universe_pl_df()) as read_database:
+        _make_repo(mock_engine).get_qualified_universe_bars_pl(date(2024, 1, 2), date(2024, 1, 3))
+
+    sql = str(read_database.call_args.kwargs["query"])
+    assert "market_cap" in sql
+    assert "sector" in sql
+    assert "country" in sql
+    assert "type" in sql
+
+
+def test_get_qualified_universe_bars_pl_honours_overrides(mock_engine: MagicMock) -> None:
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=_sample_universe_pl_df()) as read_database:
+        _make_repo(mock_engine).get_qualified_universe_bars_pl(
+            date(2024, 1, 2), date(2024, 1, 3), min_market_cap=5_000_000_000, excluded_sectors=["Energy"]
+        )
+
+    params = read_database.call_args.kwargs["query"].compile().params
+    assert 5_000_000_000 in params.values()
+    assert "Energy" in [v for value in params.values() for v in (value if isinstance(value, tuple | list) else [value])]
+
+
+def test_get_qualified_universe_bars_pl_returns_empty_frame(mock_engine: MagicMock) -> None:
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=pl.DataFrame()):
+        result = _make_repo(mock_engine).get_qualified_universe_bars_pl(date(2024, 1, 2), date(2024, 1, 3))
+
+    assert result.is_empty()

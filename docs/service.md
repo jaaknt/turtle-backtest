@@ -154,7 +154,7 @@ The `PortfolioService` is the most sophisticated backtesting engine that simulat
 - **PortfolioManager**: Handles position tracking, cash management, and daily snapshots
 - **PortfolioSignalSelector**: Filters and ranks signals for entry consideration
 - **PortfolioAnalytics**: Generates comprehensive performance reports and tearsheets
-- **SignalProcessor**: Calculates complete trade lifecycle including exits
+- **SignalProcessor**: Calculates complete trade lifecycle including exits. Entry is the next trading bar's open, priced on the split/dividend-adjusted basis (`open × adjusted_close / close`); `BuyAndHoldExitStrategy` exits on `adjusted_close`, so both legs share a price basis and a split mid-trade does not distort the return.
 
 **Primary Methods:**
 

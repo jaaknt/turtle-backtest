@@ -141,6 +141,10 @@ Identifies weekly momentum breakouts with EMA trend confirmation.
 
 Qullamaggie-style 50-day-high breakout (bk50d_s15_v1.3_roc100), ported from the validated signal in `scripts/qullamaggie-backtest-v4.py`. Unlike the other strategies it defines its own fundamentals-based universe (US common stocks with market cap ≥ $1.5B, excluding Communication Services and Real Estate) instead of a symbol group, and gates entries on market regime. All rolling indicators are computed on prior-day (shift-1) values so filters only use information available at the previous close.
 
+Bars with a non-positive close or adjusted close, or zero volume, are dropped before the minimum-history check — keeping them would skew the rolling volume averages.
+
+`turtlex/research/qullamaggie.py` is the bulk (whole-universe-in-one-query) counterpart used by the `scripts/` studies. The two are kept identical by `tests/research/test_qullamaggie_parity.py`, which asserts both produce the same `(symbol, signal_date, entry_date, entry_price)` tuples. Change one, change the other.
+
 #### Data requirements
 
 - Time frame: daily

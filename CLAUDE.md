@@ -147,7 +147,7 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 
 ### Repo Layout
 
-Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `docs/` (project docs), `examples/` (see [Examples Directory](#examples-directory)), `scripts/` (CLI entry points), `tests/` (mirrors source tree).
+Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `docs/` (project docs), `examples/` (see [Examples Directory](#examples-directory)), `scripts/` (standalone research studies, run via `uv run scripts/<name>.py`; their shared signal layer lives in `turtlex/research/`), `tests/` (mirrors source tree).
 
 ### Core Components
 
@@ -158,7 +158,7 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 - **turtlex/strategy/factory.py**: Strategy factories for CLI scripts — module-level registries (`TRADING_STRATEGIES`, `EXIT_STRATEGIES`, `RANKING_STRATEGIES`) hold the canonical string → class mapping for trading, exit, and ranking strategies; `get_trading_strategy` / `get_exit_strategy` / `get_ranking_strategy` instantiate from them with injected dependencies. CLIs derive their argparse `choices` from the registry keys — never hardcode strategy name lists in scripts.
 - **turtlex/repository/**: All database access (sync Engine reads + async Session writes)
   - `tables.py`: SQLAlchemy Core table definitions + shared reference constants (`US_EXCHANGES`, `COMMON_STOCK_TYPE`)
-  - `query/`: sync Engine-based analytical reads — `daily_bars.py` → `DailyBarsQueryRepository` (bulk OHLCV reads returning polars DataFrames), `ticker.py` → `TickerQueryRepository` (symbol groups, fundamentals-qualified lists)
+  - `query/`: sync Engine-based analytical reads — `daily_bars.py` → `DailyBarsQueryRepository` (`get_bars_pl` for one ticker, used by the per-ticker runner; `get_qualified_universe_bars_pl` for the whole universe in one query, used by `turtlex/research/`), `ticker.py` → `TickerQueryRepository` (symbol groups, fundamentals-qualified lists)
   - `ingest/`: async Session-based repositories for the EODHD download path — `ExchangeRepository`, `TickerRepository`, `DailyBarsRepository`, `CompanyRepository`
 - **turtlex/strategy/trading/**: Trading signal implementations
   - `base.py`: TradingStrategy abstract base
@@ -171,6 +171,8 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 - **turtlex/portfolio/**: Multi-position portfolio management
   - `manager.py`, `selector.py`, `analytics.py`
 - **turtlex/strategy/ranking/**: Signal ranking strategies — `momentum.py`, `volume_momentum.py`, `breakout_quality.py`, `qullamaggie.py` (see [docs/strategy.md](docs/strategy.md))
+- **turtlex/research/**: Bulk (whole-universe-in-one-query) counterparts of the production strategies, backing the `scripts/` studies
+  - `qullamaggie.py`: multi-symbol Qullamaggie signal layer — `load_bars`, `add_indicators`, `get_signals`, `resolve_entries`. Mirrors `QullamaggieStrategy`; parity is enforced by `tests/research/test_qullamaggie_parity.py`. The production strategy loads one ticker per query because the runner walks the universe ticker by ticker; the research path loads everything at once so parameter sweeps can re-filter in memory. Keep both — and keep them identical.
 - **turtlex/client/**: External API clients
   - `eodhd.py`: EODHD API wrapper
 - **turtlex/config/**: Configuration management
@@ -330,7 +332,8 @@ Tests mirror the source tree under `tests/`:
 - `strategy/exit/test_profit_loss_exit_strategy.py`: Profit/loss exit strategy logic
 - `strategy/exit/test_trailing_percentage_loss_exit_strategy.py`: Trailing percentage loss exit strategy logic
 - `strategy/test_factory.py`: Strategy factory
-- `repository/query/test_daily_bars.py`: DailyBarsQueryRepository (polars reads)
+- `research/test_qullamaggie_parity.py`: parity between `turtlex/research/qullamaggie.py` (bulk) and `QullamaggieStrategy` (per-ticker) — identical `(symbol, signal_date, entry_date, entry_price)` tuples
+- `repository/query/test_daily_bars.py`: DailyBarsQueryRepository (polars reads, per-ticker and bulk universe)
 - `repository/query/test_ticker.py`: TickerQueryRepository (symbol list and qualified-universe reads)
 - `repository/ingest/test_exchange.py`, `test_ticker.py`, `test_daily_bars.py`, `test_company.py`: async ingest repository classes
 - `portfolio/test_portfolio.py`: Portfolio management and analytics

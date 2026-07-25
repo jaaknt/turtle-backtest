@@ -7,7 +7,7 @@ import polars as pl
 from turtlex.common.enums import TimeFrameUnit
 from turtlex.model import Trade
 
-from .base import ExitStrategy
+from .base import ExitStrategy, add_adjusted_columns
 
 
 class MACDExitStrategy(ExitStrategy):
@@ -30,11 +30,12 @@ class MACDExitStrategy(ExitStrategy):
         df = self.bars_history.get_bars_pl(
             self.ticker, self.start_date - timedelta(days=40), self.end_date, time_frame_unit=TimeFrameUnit.DAY
         )
+        df = add_adjusted_columns(df)
         return (
             df.with_columns(
                 (
-                    pl.col("close").ewm_mean(span=self.fastperiod, adjust=False)
-                    - pl.col("close").ewm_mean(span=self.slowperiod, adjust=False)
+                    pl.col("adj_close").ewm_mean(span=self.fastperiod, adjust=False)
+                    - pl.col("adj_close").ewm_mean(span=self.slowperiod, adjust=False)
                 ).alias("macd_line")
             )
             .with_columns(pl.col("macd_line").ewm_mean(span=self.signalperiod, adjust=False).alias("macd_signal"))
@@ -49,7 +50,7 @@ class MACDExitStrategy(ExitStrategy):
         below_signal = data.filter(pl.col("macd_line") < pl.col("macd_signal"))
         if not below_signal.is_empty():
             row = below_signal.row(0, named=True)
-            return Trade(ticker=self.ticker, date=row["date"], price=row["close"], reason="below_signal")
+            return Trade(ticker=self.ticker, date=row["date"], price=row["adj_close"], reason="below_signal")
 
         row = data.row(-1, named=True)
-        return Trade(ticker=self.ticker, date=row["date"], price=row["close"], reason="period_end")
+        return Trade(ticker=self.ticker, date=row["date"], price=row["adj_close"], reason="period_end")

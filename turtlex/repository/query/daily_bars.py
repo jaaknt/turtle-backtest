@@ -2,10 +2,10 @@ import logging
 from datetime import date
 
 import polars as pl
-from sqlalchemy import Engine, Select, select
+from sqlalchemy import Engine, Select, and_, select
 
 from turtlex.common.enums import TimeFrameUnit
-from turtlex.repository.tables import daily_bars_table
+from turtlex.repository.tables import COMMON_STOCK_TYPE, company_table, daily_bars_table, ticker_table
 
 logger = logging.getLogger(__name__)
 
@@ -64,3 +64,50 @@ class DailyBarsQueryRepository:
             )
             .sort("date")
         )
+
+    def get_qualified_universe_bars_pl(
+        self,
+        start_date: date,
+        end_date: date,
+        min_market_cap: int = 1_500_000_000,
+        excluded_sectors: list[str] | None = None,
+    ) -> pl.DataFrame:
+        """Return daily bars for every fundamentals-qualified US common stock in one query.
+
+        The per-ticker `get_bars_pl` serves the runner, which walks the universe one ticker at
+        a time. This bulk read serves the whole-universe research studies in
+        `turtlex/research/`, where a parameter sweep re-filters an in-memory frame instead of
+        re-querying. Bars are returned as stored — non-positive or zero-volume rows are the
+        caller's concern, so this matches what the per-ticker read returns.
+
+        Args:
+            start_date: First bar date to include (inclusive)
+            end_date: Last bar date to include (inclusive)
+            min_market_cap: Minimum company market capitalisation
+            excluded_sectors: Sectors to exclude; defaults to Communication Services and Real Estate
+
+        Returns:
+            Columns: symbol, date, open, high, low, close, adjusted_close, volume — ordered by
+            symbol then date. Empty DataFrame if nothing qualifies.
+        """
+        if excluded_sectors is None:
+            excluded_sectors = ["Communication Services", "Real Estate"]
+
+        b, t, c = daily_bars_table, ticker_table, company_table
+        stmt = (
+            select(b.c.symbol, b.c.date, b.c.open, b.c.high, b.c.low, b.c.close, b.c.adjusted_close, b.c.volume)
+            .select_from(b.join(t, t.c.code == b.c.symbol).join(c, c.c.ticker_code == t.c.code))
+            .where(
+                and_(
+                    t.c.country == "USA",
+                    t.c.type == COMMON_STOCK_TYPE,
+                    c.c.market_cap >= min_market_cap,
+                    c.c.sector.not_in(excluded_sectors),
+                    b.c.date >= start_date,
+                    b.c.date <= end_date,
+                )
+            )
+            .order_by(b.c.symbol, b.c.date)
+        )
+        with self._engine.connect() as conn:
+            return pl.read_database(query=stmt, connection=conn)

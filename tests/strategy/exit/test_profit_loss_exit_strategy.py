@@ -9,6 +9,7 @@ import pytest
 from turtlex.model import Trade
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.strategy.exit import ProfitLossExitStrategy
+from turtlex.strategy.exit.base import add_adjusted_columns
 
 
 class TestProfitLossExitStrategy:
@@ -59,6 +60,7 @@ class TestProfitLossExitStrategy:
             {
                 "date": [date(2024, 1, i + 1) for i in range(10)],
                 "close": [100.0 + i for i in range(10)],
+                "adjusted_close": [100.0 + i for i in range(10)],
                 "open": [100.0 + i for i in range(10)],
                 "high": [101.0 + i for i in range(10)],
                 "low": [99.0 + i for i in range(10)],
@@ -85,12 +87,13 @@ class TestProfitLossExitStrategy:
                 "date": [date(2024, 1, i + 1) for i in range(5)],
                 "open": [100.0, 101.0, 102.0, 103.0, 104.0],
                 "close": [101.0, 102.0, 103.0, 104.0, 105.0],
+                "adjusted_close": [101.0, 102.0, 103.0, 104.0, 105.0],
                 "high": [102.0, 103.0, 111.0, 112.0, 113.0],  # hits 110 on day 2
                 "low": [99.0, 100.0, 101.0, 102.0, 103.0],
             }
         )
 
-        result = strategy.calculate_exit(data)
+        result = strategy.calculate_exit(add_adjusted_columns(data))
 
         assert isinstance(result, Trade)
         assert result.reason == "profit_target"
@@ -109,12 +112,13 @@ class TestProfitLossExitStrategy:
                 "date": [date(2024, 1, i + 1) for i in range(5)],
                 "open": [100.0, 99.0, 98.0, 97.0, 96.0],
                 "close": [99.0, 98.0, 97.0, 96.0, 95.0],
+                "adjusted_close": [99.0, 98.0, 97.0, 96.0, 95.0],
                 "high": [101.0, 100.0, 99.0, 98.0, 97.0],
                 "low": [98.0, 97.0, 94.0, 93.0, 92.0],  # hits 95 on day 2
             }
         )
 
-        result = strategy.calculate_exit(data)
+        result = strategy.calculate_exit(add_adjusted_columns(data))
 
         assert isinstance(result, Trade)
         assert result.reason == "stop_loss"
@@ -133,12 +137,13 @@ class TestProfitLossExitStrategy:
                 "date": [date(2024, 1, i + 1) for i in range(3)],
                 "open": [100.0, 100.0, 100.0],
                 "close": [100.0, 100.0, 100.0],
+                "adjusted_close": [100.0, 100.0, 100.0],
                 "high": [105.0, 111.0, 105.0],  # profit hit on day 1
                 "low": [99.0, 94.0, 99.0],  # loss hit on day 1 too
             }
         )
 
-        result = strategy.calculate_exit(data)
+        result = strategy.calculate_exit(add_adjusted_columns(data))
 
         # Both hit on dates[1]; profit_date == loss_date → profit wins
         assert result.reason == "profit_target"
@@ -155,12 +160,13 @@ class TestProfitLossExitStrategy:
                 "date": [date(2024, 1, i + 1) for i in range(5)],
                 "open": [100.0, 99.0, 98.0, 97.0, 96.0],
                 "close": [99.0, 98.0, 97.0, 112.0, 95.0],
+                "adjusted_close": [99.0, 98.0, 97.0, 112.0, 95.0],
                 "high": [101.0, 100.0, 99.0, 115.0, 97.0],  # profit hit on day 3
                 "low": [98.0, 97.0, 94.0, 96.0, 92.0],  # stop hit on day 2
             }
         )
 
-        result = strategy.calculate_exit(data)
+        result = strategy.calculate_exit(add_adjusted_columns(data))
 
         assert result.reason == "stop_loss"
         assert result.date == date(2024, 1, 3)
@@ -177,12 +183,13 @@ class TestProfitLossExitStrategy:
                 "date": [date(2024, 1, i + 1) for i in range(5)],
                 "open": [100.0, 101.0, 102.0, 101.0, 100.0],
                 "close": [101.0, 102.0, 103.0, 102.0, 101.0],
+                "adjusted_close": [101.0, 102.0, 103.0, 102.0, 101.0],
                 "high": [103.0, 104.0, 105.0, 104.0, 103.0],
                 "low": [99.0, 100.0, 101.0, 100.0, 99.0],
             }
         )
 
-        result = strategy.calculate_exit(data)
+        result = strategy.calculate_exit(add_adjusted_columns(data))
 
         assert isinstance(result, Trade)
         assert result.reason == "period_end"

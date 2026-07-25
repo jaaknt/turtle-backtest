@@ -16,6 +16,9 @@ class BuyAndHoldExitStrategy(ExitStrategy):
 
     Sells at the first bar on or after ``start_date + holding_days`` calendar
     days, or at the last available bar if the data ends before the cutoff.
+
+    Exits on the split/dividend-adjusted close so the exit shares a price basis
+    with the adjusted entry price, keeping returns correct across a split.
     """
 
     def initialize(self, ticker: str, start_date: date, end_date: date, holding_days: int = 30) -> None:
@@ -47,4 +50,4 @@ class BuyAndHoldExitStrategy(ExitStrategy):
         else:
             row = data.row(-1, named=True)
             reason = "period_end"
-        return Trade(ticker=self.ticker, date=row["date"], price=row["close"], reason=reason)
+        return Trade(ticker=self.ticker, date=row["date"], price=row["adjusted_close"], reason=reason)
