@@ -80,7 +80,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 | Task | Command | Use When |
 | ------ | --------- | ---------- |
-| **Generate signals** | `uv run signal-runner list --start-date 2024-06-01 --end-date 2024-06-01` | Analyze trading opportunities |
+| **Check signals** | `uv run signal-runner AAPL --start-date 2024-06-01 --end-date 2024-06-01` | Analyze trading opportunities for specific tickers |
 | **Portfolio backtest** | `uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31` | Test multi-position strategy |
 | **Single backtest** | `uv run backtest-runner --tickers AAPL --start-date 2024-01-01 --end-date 2024-01-01` | Test specific ticker |
 | **Run tests** | `uv run pytest` | Verify code changes |
@@ -102,7 +102,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ### Development Decision Tree
 
-**Want to analyze market signals?** → Use `uv run signal-runner list` (or `top` / `signal`)
+**Want to check market signals for specific tickers?** → Use `uv run signal-runner TICKER [TICKER ...]`
 
 **Want to test a strategy on one ticker?** → Use `uv run backtest-runner --tickers SYMBOL`
 
@@ -239,7 +239,7 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 
 3. **Add tests**: `tests/strategy/trading/test_my_strategy.py` (mirror the source tree)
 4. **Register in the factory**: Add your class to the `TRADING_STRATEGIES` registry in `turtlex/strategy/factory.py` — all CLIs derive their `--trading-strategy` choices from it. For programmatic use, instantiate the class directly and pass it to the service constructor.
-5. **Test**: `uv run signal-runner list --trading-strategy my_strategy --start-date 2024-06-01 --end-date 2024-06-01`
+5. **Test**: `uv run signal-runner AAPL --trading-strategy my_strategy --start-date 2024-06-01 --end-date 2024-06-01`
 
 ## Examples Directory
 

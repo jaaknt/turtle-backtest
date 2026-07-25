@@ -267,7 +267,7 @@ systemctl --user enable --now turtle-backup.timer
 
 ```bash
 # 1. Confirm signals generate correctly
-uv run signal-runner list --start-date 2024-01-01 --end-date 2024-01-02
+uv run signal-runner AAPL --start-date 2024-01-01 --end-date 2024-01-02
 
 # 2. Confirm portfolio backtest runs end-to-end
 uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-01-31 --output-file /tmp/test.html

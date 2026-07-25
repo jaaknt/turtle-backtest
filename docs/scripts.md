@@ -72,36 +72,24 @@ uv run download-eodhd-data --data history --start-date 2020-01-01 --end-date 202
 
 ## signal-runner
 
-The `signal-runner` console script runs trading strategy signal analysis across the symbol universe or a specific ticker list. Architecture and flow diagrams are in [signal_runner.md](signal_runner.md).
-
-**Commands:**
-
-- `list` — Scan all symbols and print those with signals in the date range
-- `signal TICKER [TICKER ...]` — Check specific tickers
-- `top` — Print the top-ranked signals (`--limit`, default 20)
+The `signal-runner` console script checks trading strategy signals for a specific ticker list. Architecture and flow diagrams are in [signal_runner.md](signal_runner.md).
 
 **Usage:**
 
 ```bash
-# Scan all symbols for signals on a given day
-uv run signal-runner list --start-date 2024-06-01 --end-date 2024-06-01
-
 # Check specific tickers
-uv run signal-runner signal AAPL MSFT --start-date 2024-06-01 --end-date 2024-06-01
-
-# Get top 10 signals
-uv run signal-runner top --start-date 2024-06-01 --end-date 2024-06-01 --limit 10
+uv run signal-runner AAPL MSFT --start-date 2024-06-01 --end-date 2024-06-01
 
 # Use a different strategy
-uv run signal-runner list --start-date 2024-06-01 --end-date 2024-06-01 --trading-strategy mars
+uv run signal-runner AAPL MSFT --start-date 2024-06-01 --end-date 2024-06-01 --trading-strategy mars
 ```
 
-**Options (all commands):**
+**Options:**
 
+- `TICKER [TICKER ...]` — Stock ticker symbols to check (required, positional)
 - `--start-date` / `--end-date` — Date range (required)
 - `--trading-strategy` — `darvas_box`, `mars`, `momentum`, `qullamaggie` (default: `darvas_box`)
 - `--ranking-strategy` — `momentum`, `volume_momentum`, `breakout_quality`, `qullamaggie` (default: `momentum`)
-- `--max-tickers` — Maximum symbols to scan (`list` and `top` only, default: 10000)
 - `--verbose` — Enable detailed logging
 
 ## backtest-runner
