@@ -108,8 +108,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--benchmark-ticker",
         type=str,
         default=DEFAULT_BENCHMARK_TICKER,
-        help=f"Symbol the tearsheet compares the portfolio against; quantstats takes exactly one "
-        f"(default: {DEFAULT_BENCHMARK_TICKER})",
+        help=f"Symbol the tearsheet compares the portfolio against; quantstats takes exactly one (default: {DEFAULT_BENCHMARK_TICKER})",
     )
 
     # Output
