@@ -57,6 +57,27 @@ class TradingStrategy(ABC):
     @abstractmethod
     def _get_polars_signals(self, ticker: str, start_date: date) -> list[Signal]: ...
 
+    def describe_parameters(self) -> dict[str, object]:
+        """
+        Return the parameter values this instance will actually run with.
+
+        The analysis CLIs log this once per run, so a log file records the
+        configuration that produced its signals rather than whatever the
+        defaults happen to be when the log is later read back.
+
+        Subclasses carrying their own thresholds should extend this dict.
+        Read each value off the instance where one exists, so a
+        --trading-param override is reported instead of the class default.
+
+        Returns:
+            dict[str, object]: Parameter name → effective value
+        """
+        return {
+            "time_frame_unit": self.time_frame_unit.value,
+            "warmup_period": self.warmup_period,
+            "min_bars": self.min_bars,
+        }
+
     def get_universe(self, ticker_repo: TickerQueryRepository, limit: int | None = None) -> list[str]:
         """
         Return the ticker universe this strategy generates signals for.

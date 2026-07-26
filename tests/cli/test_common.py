@@ -1,6 +1,7 @@
 """Tests for the shared CLI bootstrap helpers used by backtest_runner and signal_runner."""
 
 import argparse
+import logging
 from unittest.mock import MagicMock
 
 import pytest
@@ -84,6 +85,19 @@ class TestResolveTradingStrategy:
         resolve_trading_strategy(args, MagicMock())
 
         get_trading_strategy_mock.assert_called_once_with("qullamaggie", ranking_strategy, bars_history, params)
+
+    def test_logs_resolved_strategy_parameters(self, mocker: MockerFixture, caplog: pytest.LogCaptureFixture) -> None:
+        mocker.patch("turtlex.cli.common.DailyBarsQueryRepository", return_value=MagicMock())
+        mocker.patch("turtlex.cli.common.get_ranking_strategy", return_value=MagicMock())
+        trading_strategy = MagicMock()
+        trading_strategy.describe_parameters.return_value = {"sma_thresh": 0.2, "rsi_cap": 70.0}
+        mocker.patch("turtlex.cli.common.get_trading_strategy", return_value=trading_strategy)
+        args = argparse.Namespace(trading_strategy="qullamaggie", ranking_strategy="qullamaggie", trading_param=[])
+
+        with caplog.at_level(logging.INFO, logger="turtlex.cli.common"):
+            resolve_trading_strategy(args, MagicMock())
+
+        assert "qullamaggie parameters: sma_thresh=0.2, rsi_cap=70.0" in caplog.text
 
     def test_propagates_value_error_for_unknown_strategy(self, mocker: MockerFixture) -> None:
         mocker.patch("turtlex.cli.common.DailyBarsQueryRepository")

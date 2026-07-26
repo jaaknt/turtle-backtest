@@ -13,6 +13,7 @@ from turtlex.strategy.factory import (
     EXIT_STRATEGIES,
     RANKING_STRATEGIES,
     TRADING_STRATEGIES,
+    describe_exit_parameters,
     get_exit_strategy,
     get_ranking_strategy,
     get_trading_strategy,
@@ -136,3 +137,21 @@ def test_every_registry_name_constructs() -> None:
         get_exit_strategy(name, MagicMock())
     for name in RANKING_STRATEGIES:
         get_ranking_strategy(name)
+
+
+class TestDescribeExitParameters:
+    def test_reports_initialize_defaults(self) -> None:
+        params = describe_exit_parameters(ProfitLossExitStrategy(MagicMock()), {})
+
+        assert params == {"profit_target": 10.0, "stop_loss": 5.0}
+
+    def test_exit_param_overrides_win_over_defaults(self) -> None:
+        params = describe_exit_parameters(ProfitLossExitStrategy(MagicMock()), {"profit_target": 15.0})
+
+        assert params == {"profit_target": 15.0, "stop_loss": 5.0}
+
+    def test_omits_the_per_position_arguments(self) -> None:
+        """ticker/start_date/end_date are supplied per position, not configured by the user."""
+        params = describe_exit_parameters(BuyAndHoldExitStrategy(MagicMock()), {})
+
+        assert params == {"holding_days": 30}

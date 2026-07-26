@@ -139,6 +139,28 @@ def resolve_exit_strategy_kwargs(exit_strategy: ExitStrategy, exit_params: list[
     return _coerce_params(params, exit_params, type(exit_strategy).__name__)
 
 
+def describe_exit_parameters(exit_strategy: ExitStrategy, exit_kwargs: Mapping[str, int | float | str]) -> dict[str, object]:
+    """Return the effective `initialize()` parameter values for an exit strategy.
+
+    Unlike a trading strategy's, an exit strategy's parameters are not instance state --
+    they are handed to `initialize()` once per position -- so the defaults are read off the
+    signature and the `--exit-param` overrides layered on top.
+
+    Args:
+        exit_strategy: The concrete exit strategy instance to describe.
+        exit_kwargs: Overrides from `resolve_exit_strategy_kwargs`.
+
+    Returns:
+        Parameter name → effective value, in signature order.
+    """
+    defaults = {
+        name: param.default
+        for name, param in inspect.signature(exit_strategy.initialize).parameters.items()
+        if name not in ("ticker", "start_date", "end_date") and param.default is not inspect.Parameter.empty
+    }
+    return {**defaults, **exit_kwargs}
+
+
 def _coerce_params(params: Mapping[str, inspect.Parameter], param_pairs: list[tuple[str, str]], owner: str) -> dict[str, int | float | str]:
     """Cast KEY=VALUE pairs to the annotated types of the matching entries in `params`.
 
