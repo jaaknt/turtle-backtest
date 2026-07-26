@@ -1,9 +1,13 @@
 import logging
+import re
 from collections.abc import Iterator
 
 import pytest
 
 from turtlex.config.logging import _THIRD_PARTY_LEVELS, ApiTokenFilter, setup_logging
+
+# Trailing UTC offset on the timestamp, e.g. the "+0300" in 2026-07-26T12:28:51+0300
+_UTC_OFFSET = r"\d{2}:\d{2}:\d{2}[+-]\d{4}"
 
 
 def _make_record(msg: str, args: tuple = ()) -> logging.LogRecord:
@@ -109,6 +113,26 @@ class TestSetupLogging:
         setup_logging(verbose=True)
 
         assert logging.getLogger().level == logging.DEBUG
+
+    def test_default_format_omits_call_site_and_utc_offset(self) -> None:
+        setup_logging()
+
+        formatted = logging.getLogger().handlers[0].format(_make_record("hello"))
+
+        assert formatted.startswith("[INFO] ")
+        assert formatted.endswith(": hello")
+        assert "|" not in formatted
+        assert re.search(_UTC_OFFSET, formatted) is None
+
+    def test_verbose_format_keeps_call_site_and_utc_offset(self) -> None:
+        setup_logging(verbose=True)
+
+        formatted = logging.getLogger().handlers[0].format(_make_record("hello"))
+
+        assert formatted.startswith("[INFO|")
+        assert "|L0]" in formatted
+        assert formatted.endswith(": hello")
+        assert re.search(_UTC_OFFSET, formatted) is not None
 
     def test_verbose_leaves_third_party_loggers_pinned(self) -> None:
         setup_logging(verbose=True)

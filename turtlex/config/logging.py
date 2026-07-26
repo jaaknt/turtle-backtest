@@ -8,8 +8,11 @@ import logging
 import re
 import sys
 
-_FORMAT = "[%(levelname)s|%(module)s|%(funcName)s|L%(lineno)d] %(asctime)s: %(message)s"
-_DATEFMT = "%Y-%m-%dT%H:%M:%S%z"
+_FORMAT = "[%(levelname)s] %(asctime)s: %(message)s"
+_DATEFMT = "%Y-%m-%dT%H:%M:%S"
+# --verbose additionally reports the call site and the UTC offset
+_VERBOSE_FORMAT = "[%(levelname)s|%(module)s|%(funcName)s|L%(lineno)d] %(asctime)s: %(message)s"
+_VERBOSE_DATEFMT = "%Y-%m-%dT%H:%M:%S%z"
 
 # Pinned even under --verbose: DEBUG on these floods the console
 # (matplotlib.font_manager glyph scanning, sqlalchemy.engine SQL echo).
@@ -70,10 +73,12 @@ def setup_logging(verbose: bool = False) -> None:
     at INFO is visible.
 
     Args:
-        verbose: Emit DEBUG records from turtlex modules instead of INFO.
+        verbose: Emit DEBUG records from turtlex modules instead of INFO, and switch to
+            the diagnostic line format that names the call site and the UTC offset.
     """
+    fmt, datefmt = (_VERBOSE_FORMAT, _VERBOSE_DATEFMT) if verbose else (_FORMAT, _DATEFMT)
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(logging.Formatter(_FORMAT, datefmt=_DATEFMT))
+    handler.setFormatter(logging.Formatter(fmt, datefmt=datefmt))
     handler.addFilter(ApiTokenFilter())
 
     root = logging.getLogger()
