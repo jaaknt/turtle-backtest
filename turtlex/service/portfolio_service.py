@@ -202,14 +202,22 @@ class PortfolioService:
         for ticker in universe:
             signals.extend(self.trading_strategy.get_signals(ticker, current_date, current_date))
 
+        # Free slots, not the signal count: passing the latter made the selector's cap a no-op,
+        # leaving max_positions unenforced and the position count bounded only by cash.
+        open_positions = len(self.portfolio_manager.current_snapshot.positions)
+        free_slots = max(0, self.signal_selector.max_positions - open_positions)
+
         qualified_signals = self.signal_selector.select_entry_signals(
             available_signals=signals,
             current_positions=set(self.portfolio_manager.current_snapshot.get_tickers()),
-            available_positions=len(signals),
+            available_positions=free_slots,
             current_date=current_date,
         )
 
-        logger.info(f"Generated {len(qualified_signals)} signals for {current_date}")
+        logger.info(
+            f"Generated {len(signals)} signals for {current_date}: {len(qualified_signals)} selected for entry "
+            f"(ranking >= {self.signal_selector.min_ranking}, {free_slots} of {self.signal_selector.max_positions} slots free)"
+        )
 
         return qualified_signals
 
