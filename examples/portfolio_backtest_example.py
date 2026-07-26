@@ -44,8 +44,8 @@ def main() -> None:
     # end_date = datetime(2024, 8, 30)
     # initial_capital = 10000.0
     # max_positions = 10
-    # position_size = 1000.0
-    # min_signal_ranking = 70
+    # position_size_pct = 0.04
+    # min_signal_ranking = 40
 
     # Define stock universe - using a subset for this example
     # In practice, you might use data_service.get_symbol_group_list("NAS100") or similar
@@ -76,8 +76,7 @@ def main() -> None:
     #     start_date=start_date,
     #     end_date=end_date,
     #     initial_capital=initial_capital,
-    #     position_min_amount=position_size,
-    #     position_max_amount=position_size * 2,
+    #     position_size_pct=position_size_pct,
     #     min_signal_ranking=min_signal_ranking,
     #     time_frame_unit=TimeFrameUnit.DAY,
     # )

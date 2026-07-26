@@ -130,7 +130,7 @@ The `PortfolioService` is the most sophisticated backtesting engine that simulat
 
 - **Daily Portfolio Simulation**: Processes each trading day individually with realistic market constraints
 - **Dynamic Position Management**: Opens and closes positions based on signal generation and exit strategies
-- **Risk Management**: Configurable position sizing with minimum/maximum position amounts
+- **Risk Management**: Position sizing as a configurable fraction of portfolio value
 - **Capital Management**: Tracks available cash and prevents over-allocation
 - **Performance Analytics**: Comprehensive tearsheet generation with detailed metrics
 - **Signal Ranking**: Only considers high-quality signals above minimum ranking threshold
@@ -144,9 +144,8 @@ The `PortfolioService` is the most sophisticated backtesting engine that simulat
 - `start_date` - Portfolio backtest start date
 - `end_date` - Portfolio backtest end date
 - `initial_capital` - Starting capital amount (default: $30,000)
-- `position_min_amount` - Minimum dollar amount per position (default: $1,500)
-- `position_max_amount` - Maximum dollar amount per position (default: $3,000)
-- `min_signal_ranking` - Minimum signal ranking to consider (default: 70)
+- `position_size_pct` - Fraction of portfolio value committed per position, so size compounds with the portfolio (default: 0.04 = 4%)
+- `min_signal_ranking` - Minimum signal ranking to consider (default: 40)
 - `time_frame_unit` - Time frame for analysis (default: DAY)
 
 **Core Components:**
@@ -196,8 +195,7 @@ portfolio_service = PortfolioService(
     start_date=datetime(2024, 1, 1),
     end_date=datetime(2024, 6, 30),
     initial_capital=50000.0,
-    position_min_amount=2000.0,
-    position_max_amount=4000.0,
+    position_size_pct=0.05,
     min_signal_ranking=75
 )
 

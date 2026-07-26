@@ -16,7 +16,7 @@ def create_mock_future_trade(ticker: str, entry_date: datetime, entry_price: flo
     exit = Trade(ticker=ticker, date=entry_date, price=entry_price * 1.1, reason="profit_target")  # 10% profit
     benchmarks = [Benchmark(ticker="SPY", return_pct=5.0, entry_date=entry_date, exit_date=entry_date)]
 
-    return FutureTrade(signal=signal, entry=entry, exit=exit, benchmark_list=benchmarks, slippage_pct=0.3)
+    return FutureTrade(signal=signal, entry=entry, exit=exit, benchmark_list=benchmarks)
 
 
 class TestPortfolioModels:
@@ -36,7 +36,6 @@ class TestPortfolioModels:
             exit=open_exit_trade,
             current_price=100.0,
             position_size=10,
-            slippage_pct=0.3,
         )
 
         # Test initial values
@@ -87,36 +86,83 @@ class TestPortfolioManager:
             start_date=start_date,
             end_date=end_date,
             initial_capital=10000.0,
-            position_min_amount=1000.0,
-            position_max_amount=2000.0,
+            position_size_pct=0.10,
         )
 
         assert manager.initial_capital == 10000.0
-        assert manager.position_min_amount == 1000.0
-        assert manager.position_max_amount == 2000.0
+        assert manager.position_size_pct == 0.10
         assert manager.start_date == start_date
         assert manager.end_date == end_date
         assert len(manager.state.daily_snapshots) == 0
         assert len(manager.state.future_trades) == 0
 
-    def test_can_open_new_position(self) -> None:
-        """Test position opening validation."""
+    def test_calculate_position_size_skips_when_cash_cannot_fund_the_target(self) -> None:
+        """The cash gate specifically: the target still buys whole shares, so a 0 here is not truncation."""
         start_date = datetime(2024, 1, 1)
         end_date = datetime(2024, 12, 31)
         manager = PortfolioManager(
             start_date=start_date,
             end_date=end_date,
             initial_capital=10000.0,
-            position_min_amount=500.0,
-            position_max_amount=3000.0,
+            position_size_pct=0.10,
         )
 
         # Create initial snapshot to have cash available
         manager.record_daily_snapshot(start_date)
+        trade = Trade(ticker="AAPL", date=start_date, price=100.0, reason="signal")
 
-        # Test position size calculation limits
-        assert manager.position_min_amount == 500.0
-        assert manager.position_max_amount == 3000.0
+        # 10% of $10,000 is fundable from the opening cash
+        assert manager.calculate_position_size(trade) == 10
+
+        # Tie cash up in an open position. Total value — and so the $1,000 target — is
+        # unchanged, but only $500 cash is left to fund it.
+        held = Trade(ticker="MSFT", date=start_date, price=100.0, reason="signal")
+        manager.open_position(held, held, 95)
+        assert manager.current_snapshot.cash == 500.0
+        assert manager.current_snapshot.total_value == 10000.0
+
+        # $1,000 still buys 10 whole shares at $100, so only the cash gate can return 0.
+        assert manager.calculate_position_size(trade) == 0
+
+    def test_calculate_position_size_skips_when_one_share_exceeds_the_target(self) -> None:
+        """A share dearer than the whole target is skipped, not part-filled."""
+        start_date = datetime(2024, 1, 1)
+        end_date = datetime(2024, 12, 31)
+        manager = PortfolioManager(
+            start_date=start_date,
+            end_date=end_date,
+            initial_capital=10000.0,
+            position_size_pct=0.10,
+        )
+
+        manager.record_daily_snapshot(start_date)
+
+        # Target is $1,000 and cash is ample, but one share costs $1,500.
+        expensive = Trade(ticker="BRK-A", date=start_date, price=1500.0, reason="signal")
+        assert manager.calculate_position_size(expensive) == 0
+
+    def test_position_size_compounds_with_portfolio_value(self) -> None:
+        """Sizing tracks total value, not cash: a marked-up holding enlarges the next entry."""
+        start_date = datetime(2024, 1, 1)
+        end_date = datetime(2024, 12, 31)
+        manager = PortfolioManager(
+            start_date=start_date,
+            end_date=end_date,
+            initial_capital=10000.0,
+            position_size_pct=0.10,
+        )
+
+        manager.record_daily_snapshot(start_date)
+
+        # Open $1,000 of AAPL, then double it: cash $9,000 + positions $2,000 = $11,000.
+        entry = Trade(ticker="AAPL", date=start_date, price=100.0, reason="signal")
+        manager.open_position(entry, entry, 10)
+        manager.current_snapshot.update_position_price("AAPL", 200.0)
+        assert manager.current_snapshot.total_value == 11000.0
+
+        # 10% of $11,000 buys 11 shares at $100. Sizing off cash alone would buy 9.
+        trade = Trade(ticker="MSFT", date=start_date, price=100.0, reason="signal")
+        assert manager.calculate_position_size(trade) == 11
 
     def test_calculate_position_size(self) -> None:
         """Test position size calculation."""
@@ -126,7 +172,7 @@ class TestPortfolioManager:
             start_date=start_date,
             end_date=end_date,
             initial_capital=10000.0,
-            position_max_amount=1000.0,
+            position_size_pct=0.10,
         )
 
         # Create initial snapshot
@@ -148,7 +194,7 @@ class TestPortfolioManager:
             start_date=start_date,
             end_date=end_date,
             initial_capital=10000.0,
-            position_max_amount=1000.0,
+            position_size_pct=0.10,
         )
 
         # Create initial snapshot
@@ -175,7 +221,7 @@ class TestPortfolioManager:
             start_date=start_date,
             end_date=end_date,
             initial_capital=10000.0,
-            position_max_amount=1000.0,
+            position_size_pct=0.10,
         )
 
         # Create initial snapshot and open position
@@ -194,8 +240,8 @@ class TestPortfolioManager:
 
         # Verify position was closed
         # With new Position structure, remove_position uses current_value (exit price)
-        # Calculation: Initial 10000 - 1000 (cost) + 1100 (proceeds) - 3.15 (slippage with 0.3%) = 10096.85
-        assert manager.current_snapshot.cash == 10096.85  # Includes slippage deduction
+        # Calculation: Initial 10000 - 1000 (cost) + 1100 (proceeds) = 10100.0, no slippage modelled
+        assert manager.current_snapshot.cash == 10100.0
         # Check position is not in current snapshot
         positions = manager.current_snapshot.positions
         assert not any(p.ticker == "AAPL" for p in positions)
@@ -222,17 +268,19 @@ class TestPortfolioSignalSelector:
 
     def test_signal_selector_initialization(self) -> None:
         """Test signal selector initialization."""
-        selector = PortfolioSignalSelector(
-            max_positions=10,
-            min_ranking=70,
-        )
+        selector = PortfolioSignalSelector(min_ranking=70)
 
-        assert selector.max_positions == 10
         assert selector.min_ranking == 70
 
+    def test_signal_selector_defaults(self) -> None:
+        """The defaults must track portfolio-runner's --min-signal-ranking default."""
+        selector = PortfolioSignalSelector()
+
+        assert selector.min_ranking == 40
+
     def test_select_entry_signals(self) -> None:
-        """Test entry signal selection."""
-        selector = PortfolioSignalSelector(max_positions=10, min_ranking=70)
+        """Every qualifying signal is returned, ranked: cash alone limits how many are taken."""
+        selector = PortfolioSignalSelector(min_ranking=70)
 
         # Create test signals
         signals = [
@@ -244,14 +292,10 @@ class TestPortfolioSignalSelector:
         ]
 
         current_positions = {"NVDA"}  # Already holding
-        available_positions = 3
 
-        selected = selector.select_entry_signals(signals, current_positions, available_positions, datetime(2024, 1, 1))
+        selected = selector.select_entry_signals(signals, current_positions, datetime(2024, 1, 1))
 
-        assert len(selected) == 3
-        assert selected[0].ticker == "AAPL"  # Highest ranking
-        assert selected[1].ticker == "GOOGL"
-        assert selected[2].ticker == "MSFT"
+        assert [s.ticker for s in selected] == ["AAPL", "GOOGL", "MSFT", "TSLA"]
 
     def test_filter_signals_by_quality(self) -> None:
         """Test signal quality filtering."""
@@ -307,8 +351,7 @@ def portfolio_manager() -> PortfolioManager:
         start_date=datetime(2024, 1, 1),
         end_date=datetime(2024, 12, 31),
         initial_capital=10000.0,
-        position_min_amount=500.0,
-        position_max_amount=1000.0,
+        position_size_pct=0.10,
     )
 
 
