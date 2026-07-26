@@ -187,7 +187,7 @@ The `portfolio-runner` console script provides sophisticated portfolio-level bac
 
 - **Realistic Portfolio Simulation**: Daily trading simulation with capital constraints and position overlap management
 - **Multi-Strategy Support**: Configurable trading, exit, and ranking strategies
-- **Risk Management**: Position sizing controls with minimum/maximum amounts
+- **Risk Management**: Position sizing as a configurable fraction of portfolio value
 - **Performance Analytics**: Comprehensive tearsheet generation with HTML reports
 - **Flexible Universe**: Support for specific tickers or full symbol database
 - **Benchmark Analysis**: Automatic comparison against SPY, QQQ, or custom benchmarks
@@ -236,7 +236,7 @@ uv run portfolio-runner \
     --start-date 2024-01-01 --end-date 2024-06-30 \
     --tickers AAPL MSFT GOOGL AMZN NVDA \
     --trading-strategy darvas_box --exit-strategy atr \
-    --position-max-amount 5000 --verbose
+    --position-size-pct 0.05 --verbose
 
 # High-ranking signals only, compared against a custom benchmark
 uv run portfolio-runner \
@@ -262,9 +262,8 @@ uv run portfolio-runner \
 **Portfolio Parameters:**
 
 - `--initial-capital` - Starting capital amount (default: 30000.0)
-- `--position-min-amount` - Minimum position size in dollars (default: 1500.0)
-- `--position-max-amount` - Maximum position size in dollars (default: 3000.0)
-- `--min-signal-ranking` - Minimum signal ranking threshold 1-100 (default: 70)
+- `--position-size-pct` - Fraction of portfolio value per position, compounding as the portfolio grows (default: 0.04 = 4%)
+- `--min-signal-ranking` - Minimum signal ranking threshold 1-100 (default: 40)
 
 **Universe Selection:**
 
@@ -329,8 +328,8 @@ uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --exit-str
 
 ```bash
 # Test different position sizing and signal quality thresholds
-uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --min-signal-ranking 60 --position-max-amount 2000 --output-file conservative.html
-uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --min-signal-ranking 90 --position-max-amount 5000 --output-file aggressive.html
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --min-signal-ranking 60 --position-size-pct 0.02 --output-file conservative.html
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --min-signal-ranking 90 --position-size-pct 0.08 --output-file aggressive.html
 ```
 
 ## snapshot-company

@@ -20,23 +20,22 @@ class PortfolioManager:
         start_date: date,
         end_date: date,
         initial_capital: float = 30000.0,
-        position_min_amount: float = 1500.0,
-        position_max_amount: float = 3000.0,
+        position_size_pct: float = 0.04,
     ):
         """
         Initialize portfolio manager.
 
         Args:
+            start_date: Backtest start date, used for the opening snapshot
+            end_date: Backtest end date
             initial_capital: Starting capital amount
-            position_size_strategy: Strategy for position sizing ("equal_weight", "percentage")
-            position_size_amount: Fixed amount per position for equal_weight strategy
-            min_cash_reserve: Minimum cash to maintain for operational flexibility
+            position_size_pct: Fraction of current portfolio value committed per position
+                (0.04 = 4%), so position size compounds with the portfolio
         """
         self.start_date = start_date
         self.end_date = end_date
         self.initial_capital = initial_capital
-        self.position_min_amount = position_min_amount
-        self.position_max_amount = position_max_amount
+        self.position_size_pct = position_size_pct
 
         # Initialize portfolio state
         self.state = PortfolioState(
@@ -51,20 +50,31 @@ class PortfolioManager:
 
     def calculate_position_size(self, entry: Trade) -> int:
         """
-        Calculate position size for a new entry.
+        Calculate position size for a new entry as a fraction of current portfolio value.
+
+        The target commits `position_size_pct` of total value (cash plus open positions
+        marked to market), so it compounds as the portfolio grows. Two situations skip the
+        entry outright rather than part-filling it, both returning 0 shares: available cash
+        cannot fund the target, or one share already costs more than the whole target.
 
         Args:
-            signal: Trading signal
-            current_price: Current stock price
+            entry: Entry trade carrying the ticker and fill price
 
         Returns:
-            position_size: Number of shares to buy
+            position_size: Number of whole shares to buy, or 0 if the entry is skipped
         """
-        target_value = min(self.position_max_amount, self.current_snapshot.cash)
+        cash = self.current_snapshot.cash
+        target_value = self.position_size_pct * self.current_snapshot.total_value
+        if cash + 1e-9 < target_value:
+            logger.debug(f"Skipping {entry.ticker}: target ${target_value:.2f} exceeds cash ${cash:.2f}")
+            return 0
         position_size = int(target_value / entry.price)
+        if position_size <= 0:
+            logger.debug(f"Skipping {entry.ticker}: price ${entry.price:.2f} exceeds target ${target_value:.2f}")
+            return 0
         logger.debug(
-            f"Position size calculation for {entry.ticker}: target=${target_value}, "
-            f"price=${entry.price}, shares={position_size}, cash=${self.current_snapshot.cash}"
+            f"Position size calculation for {entry.ticker}: target=${target_value:.2f}, "
+            f"price=${entry.price}, shares={position_size}, cash=${cash:.2f}"
         )
         return position_size
 
@@ -92,7 +102,6 @@ class PortfolioManager:
             exit=exit,
             position_size=position_size,
             current_price=entry.price,
-            slippage_pct=0.3,
         )
 
         self.current_snapshot.add_position(position)

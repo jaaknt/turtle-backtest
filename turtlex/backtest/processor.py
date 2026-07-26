@@ -102,7 +102,6 @@ class SignalProcessor:
             entry=entry,
             exit=exit,
             benchmark_list=benchmarks,
-            slippage_pct=0.3,
         )
 
         # Log return percentage using the new property

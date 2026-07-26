@@ -6,13 +6,16 @@ Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ra
 ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA,
 close>$5&<$250, avg_vol>=500K; tight_range and sma_alignment disabled).
 
-close/high/low are split/dividend-adjusted (scaled by adjusted_close/close) so indicators,
+open/close/high/low are split/dividend-adjusted (scaled by adjusted_close/close) so indicators,
 entries, and mark-to-market aren't corrupted by split-day discontinuities; raw (unadjusted)
 close is used only for the $5-$250 price band, matching scripts/qullamaggie-backtest-v4.py.
 
 Rules:
   - Period 2020-01-01 .. 2026-06-26, initial equity $30,000.
-  - Each signal: buy at the entry-day close, sizing = {3%,4%,5%} of current portfolio
+  - Signals scoring below MIN_RANKING on QullamaggieRanking are dropped before the
+    simulation, matching the portfolio-runner --min-signal-ranking default.
+  - Each signal: buy at the next trading day's split/dividend-adjusted open (matching
+    SignalProcessor.calculate_entry_data), sizing = {3%,4%,5%} of current portfolio
     value (cash + open positions marked to market).
   - If available cash < the target, skip the trade (no liquidity).
   - Exit at the close of the first trading day >= entry + HOLD_CAL calendar days
@@ -23,7 +26,9 @@ SPY/QQQ buy & hold benchmarks ($INIT_EQUITY lump-sum, first close to last close 
 are reported alongside the main sweep. Each taken trade for the s20/s12 configs is also scored
 with QullamaggieRanking (turtlex/strategy/ranking/qullamaggie.py); trades are split into 10
 equal-count ranking deciles and each decile's signal subset is re-simulated in isolation (same
-position sizing) to report that decile's own standalone CAGR/MaxDD/Calmar/Sortino.
+position sizing) to report that decile's own standalone CAGR/MaxDD/Calmar/Sortino. Note the
+deciles only span MIN_RANKING..100: the entry gate removes the low end of the evidence for
+whether ranking predicts outcome, so these tables no longer speak to scores below it.
 
 Outputs: monthly portfolio return + transaction-count grid (year x month), Max DD, Calmar,
 Sortino, signals taken/skipped, average uninvested capital.
@@ -65,6 +70,7 @@ ROC_CAP = 1.00
 RSI_CAP = 70.0
 ADR_FLOOR = 0.03
 ADR_CHANGE_CAP = 0.90
+MIN_RANKING = 40  # QullamaggieRanking entry gate, matching the portfolio-runner default
 
 CONFIGS = [
     ("s20", 0.20),
@@ -96,7 +102,7 @@ def load_spy(engine: sa.Engine) -> pl.DataFrame:
 def load_bars(engine: sa.Engine) -> pl.DataFrame:
     sql = """
         SELECT db.symbol, db.date::date AS date, db.close::float8 AS raw_close,
-               db.adjusted_close::float8 AS close,
+               db.adjusted_close::float8 AS close, db.open::float8 AS open,
                db.high::float8 AS high, db.low::float8 AS low, db.volume::int8 AS volume
         FROM   turtle.daily_bars db
         JOIN   turtle.ticker  t  ON t.code        = db.symbol
@@ -116,9 +122,10 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
             "date": pl.Series([r[1] for r in rows], dtype=pl.Date),
             "raw_close": [float(r[2]) for r in rows],
             "close": [float(r[3]) for r in rows],
-            "high": [float(r[4]) * f for r, f in zip(rows, factor, strict=True)],
-            "low": [float(r[5]) * f for r, f in zip(rows, factor, strict=True)],
-            "volume": [int(r[6]) for r in rows],
+            "open": [float(r[4]) * f for r, f in zip(rows, factor, strict=True)],
+            "high": [float(r[5]) * f for r, f in zip(rows, factor, strict=True)],
+            "low": [float(r[6]) * f for r, f in zip(rows, factor, strict=True)],
+            "volume": [int(r[7]) for r in rows],
         }
     )
 
@@ -271,11 +278,13 @@ def main() -> None:
     # per-symbol arrays for mark-to-market / entry / exit
     sym_dates: dict[str, np.ndarray] = {}
     sym_closes: dict[str, np.ndarray] = {}
+    sym_opens: dict[str, np.ndarray] = {}
     sym_sma200: dict[str, np.ndarray] = {}
     for (sym,), grp in df.sort(["symbol", "date"]).group_by(["symbol"], maintain_order=False):
         g = grp.sort("date")
         sym_dates[sym] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int64)
         sym_closes[sym] = g["close"].cast(pl.Float64).to_numpy(allow_copy=True)
+        sym_opens[sym] = g["open"].cast(pl.Float64).to_numpy(allow_copy=True)
         sym_sma200[sym] = g["sma200"].cast(pl.Float64).to_numpy(allow_copy=True)
 
     def _idx_on(sym: str, dint: int) -> int:
@@ -288,6 +297,24 @@ def main() -> None:
         idx = _idx_on(sym, dint)
         return float(sym_closes[sym][idx]) if idx >= 0 else None
 
+    def next_open(sym: str, dint: int) -> tuple[int, float] | None:
+        """First tradeable bar strictly after `dint`, as (date_int, adjusted open).
+
+        Mirrors SignalProcessor.calculate_entry_data: the search skips bars with a
+        non-positive open and gives up after 7 calendar days, and the open is already
+        scaled by that bar's own adjustment factor in load_bars.
+        """
+        dates = sym_dates.get(sym)
+        if dates is None:
+            return None
+        idx = int(np.searchsorted(dates, dint, side="right"))
+        opens = sym_opens[sym]
+        while idx < len(dates) and dates[idx] <= dint + 7:
+            if opens[idx] > 0 and not np.isnan(opens[idx]):
+                return int(dates[idx]), float(opens[idx])
+            idx += 1
+        return None
+
     def below_sma200(sym: str, dint: int) -> bool:
         idx = _idx_on(sym, dint)
         if idx < 0:
@@ -298,6 +325,7 @@ def main() -> None:
     # master trading calendar = SPY days within period
     cal = [d for d in spy["date"].to_list() if EVAL_START <= d <= EVAL_END]
     cal_int = [(d - _EPOCH).days for d in cal]
+    cal_set = set(cal_int)  # entries must land on a day run_sim actually visits
 
     lines: list[str] = []
 
@@ -335,6 +363,7 @@ def main() -> None:
                         trades.append(
                             {
                                 "entry_date": p["entry_date"],
+                                "sig_date": p["sig_date"],
                                 "symbol": p["sym"],
                                 "ret": px / p["entry_px"] - 1.0,
                                 "ranking": p["ranking"],
@@ -357,6 +386,7 @@ def main() -> None:
                     trades.append(
                         {
                             "entry_date": p["entry_date"],
+                            "sig_date": p["sig_date"],
                             "symbol": p["sym"],
                             "ret": px / p["entry_px"] - 1.0,
                             "ranking": p["ranking"],
@@ -373,9 +403,7 @@ def main() -> None:
                 day_sigs = sorted(day_sigs, key=lambda s: s["adr_pct"], reverse=True)
             for s in day_sigs:
                 target = pos_fraction * mtm
-                entry_px = price_on(s["symbol"], dint)
-                if entry_px is None or entry_px <= 0:
-                    continue
+                entry_px = s["entry_px"]  # next trading day's adjusted open, resolved once in main()
                 if cash + 1e-9 < target:
                     n_skipped += 1
                     continue
@@ -386,10 +414,11 @@ def main() -> None:
                         "shares": target / entry_px,
                         "entry_px": entry_px,
                         "entry_date": d,
+                        "sig_date": s["date"],
                         "exit_int": dint + hold_cal,
                         "below_cnt": 0,
                         "peak": entry_px,
-                        "ranking": compute_ranking(s),
+                        "ranking": s["ranking"],
                     }
                 )
                 n_taken += 1
@@ -402,7 +431,15 @@ def main() -> None:
         for p in positions:  # still open at period end -- mark-to-market, not force-closed
             px = price_on(p["sym"], cal_int[-1])
             if px is not None:
-                trades.append({"entry_date": p["entry_date"], "symbol": p["sym"], "ret": px / p["entry_px"] - 1.0, "ranking": p["ranking"]})
+                trades.append(
+                    {
+                        "entry_date": p["entry_date"],
+                        "sig_date": p["sig_date"],
+                        "symbol": p["sym"],
+                        "ret": px / p["entry_px"] - 1.0,
+                        "ranking": p["ranking"],
+                    }
+                )
 
         dates = [e[0] for e in equity_curve]
         eq = np.array([e[1] for e in equity_curve])
@@ -484,7 +521,7 @@ def main() -> None:
             subset = trades[edges[d] : edges[d + 1]]
             if not subset:
                 continue
-            keys = {(t["symbol"], t["entry_date"]) for t in subset}
+            keys = {(t["symbol"], t["sig_date"]) for t in subset}
             sub_by_day: dict[int, list[dict]] = {}
             for dint, sigs in signals_by_day.items():
                 kept = [s for s in sigs if (s["symbol"], s["date"]) in keys]
@@ -527,9 +564,7 @@ def main() -> None:
             ]
             for s in day_sigs:
                 target = pos_fraction * mtm
-                entry_px = price_on(s["symbol"], dint)
-                if entry_px is None or entry_px <= 0:
-                    continue
+                entry_px = s["entry_px"]
                 if cash + 1e-9 < target:
                     n_skipped += 1
                     continue
@@ -583,7 +618,7 @@ def main() -> None:
     out(
         f"Period: {EVAL_START} – {EVAL_END}  |  Initial: ${INIT_EQUITY:,.0f}  |  "
         f"algorithm: RSI<70  |  sizes: {', '.join(f'{f:.0%}' for f in POS_FRACTIONS)}  |  "
-        f"hold: {HOLD_CAL}d"
+        f"hold: {HOLD_CAL}d  |  min ranking: {MIN_RANKING}"
     )
 
     out("")
@@ -608,9 +643,23 @@ def main() -> None:
     for name, sma_t in CONFIGS:
         print(f"Simulating {name} …", flush=True)
         sig = get_signals(df, bull_dates, sma_t)
+        # Score and resolve the fill once here, not per entry inside run_sim: the sweep and
+        # the decile re-simulations replay the same signals many times over. Signals are
+        # keyed by their *entry* day (the next trading day), so run_sim funds a position on
+        # the day it is actually filled.
         signals_by_day: dict[int, list[dict]] = {}
+        n_below_rank = n_no_fill = 0
         for r in sig.iter_rows(named=True):
-            signals_by_day.setdefault((r["date"] - _EPOCH).days, []).append(r)
+            r["ranking"] = compute_ranking(r)
+            if r["ranking"] < MIN_RANKING:
+                n_below_rank += 1
+                continue
+            fill = next_open(r["symbol"], (r["date"] - _EPOCH).days)
+            if fill is None or fill[0] not in cal_set:
+                n_no_fill += 1  # no tradeable open, or the fill lands past EVAL_END
+                continue
+            entry_dint, r["entry_px"] = fill
+            signals_by_day.setdefault(entry_dint, []).append(r)
         signals_by_day_by_config[name] = signals_by_day
 
         out("")
@@ -621,7 +670,8 @@ def main() -> None:
             f"ADR%(20)>={ADR_FLOOR * 100:.1f}%, ADR_change<{ADR_CHANGE_CAP * 100:.0f}%, "
             f"vol_surge<{VOL_SURGE_MAX:.1f}x, vol_dry_up<{VOL_DRY_UP * 100:.0f}%, roc_12m<{ROC_CAP * 100:.0f}%, "
             f"SPY>200d SMA, close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K, "
-            f"cooldown={COOLDOWN}d, hold={HOLD_CAL}d cal"
+            f"cooldown={COOLDOWN}d, hold={HOLD_CAL}d cal, QullamaggieRanking>={MIN_RANKING} "
+            f"({n_below_rank} signals dropped below it, {n_no_fill} with no fillable next-day open in period)"
         )
         results: dict[float, dict] = {}
         rows: list[str] = []

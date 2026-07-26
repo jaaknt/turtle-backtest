@@ -80,7 +80,6 @@ class FutureTrade:
         exit: Trade object containing exit date, price, and reason
         benchmark_list: List of benchmark comparisons for the same period
         position_size: Position size in shares or dollar amount (defaults to 1.0)
-        slippage_pct: Slippage percentage (defaults to 0.3%)
         entry_signal_ranking: Original signal ranking when position was opened (optional)
     """
 
@@ -89,7 +88,6 @@ class FutureTrade:
     exit: Trade
     benchmark_list: list[Benchmark]
     position_size: float = 1.0
-    slippage_pct: float = 0.3
 
     @property
     def holding_days(self) -> int:
@@ -159,17 +157,6 @@ class FutureTrade:
         """
         return self.signal.ticker
 
-    @property
-    def slippage(self) -> float:
-        """
-        Calculate the slippage in dollars.
-        Returns:
-            slippage = (entry_price + exit_price) / 2 * (slippage_pct / 100) * position_size
-        """
-        entry_price = self.entry.price
-        exit_price = self.exit.price
-        return (entry_price + exit_price) / 2 * (self.slippage_pct / 100.0) * self.position_size
-
 
 @dataclass
 class Position:
@@ -180,14 +167,12 @@ class Position:
         entry: Trade object representing entry trade
         exit: Trade object representing exit trade in future
         position_size: Number of shares held
-        slippage_pct: Slippage percentage (defaults to 0.3%)
     """
 
     entry: Trade
     exit: Trade
     current_price: float
     position_size: int
-    slippage_pct: float = 0.3
 
     @property
     def ticker(self) -> str:
@@ -208,17 +193,6 @@ class Position:
     def holding_period_days(self) -> int:
         """Get the holding period in days"""
         return (self.exit.date - self.entry.date).days
-
-    @property
-    def slippage(self) -> float:
-        """
-        Calculate the slippage in dollars.
-        Returns:
-            slippage = (entry_price + exit_price) / 2 * (slippage_pct / 100) * position_size
-        """
-        entry_price = self.entry.price
-        exit_price = self.exit.price
-        return (entry_price + exit_price) / 2 * (self.slippage_pct / 100.0) * self.position_size
 
 
 @dataclass
@@ -267,7 +241,7 @@ class DailyPortfolioSnapshot:
     def remove_position(self, ticker: str, price: float) -> None:
         """Remove a position by ticker symbol."""
         position = self.get_position(ticker)
-        self.cash += position.position_size * price - position.slippage
+        self.cash += position.position_size * price
         self.positions.remove(position)
 
     def update_position_price(self, ticker: str, new_price: float) -> None:
@@ -287,7 +261,6 @@ class DailyPortfolioSnapshot:
                     exit=Trade(p.exit.ticker, p.exit.date, p.exit.price, p.exit.reason),
                     position_size=p.position_size,
                     current_price=p.current_price,
-                    slippage_pct=p.slippage_pct,
                 )
                 for p in self.positions
             ],

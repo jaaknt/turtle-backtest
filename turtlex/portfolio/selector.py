@@ -20,8 +20,7 @@ class PortfolioSignalSelector:
 
     def __init__(
         self,
-        max_positions: int = 10,
-        min_ranking: int = 70,
+        min_ranking: int = 40,
         max_sector_concentration: float = 0.4,
         exclude_existing_positions: bool = True,
     ):
@@ -29,12 +28,10 @@ class PortfolioSignalSelector:
         Initialize signal selector with filtering parameters.
 
         Args:
-            max_positions: Maximum number of positions to hold simultaneously
             min_ranking: Minimum signal ranking to consider (1-100 scale)
             max_sector_concentration: Maximum percentage of portfolio in single sector
             exclude_existing_positions: Whether to exclude signals for existing positions
         """
-        self.max_positions = max_positions
         self.min_ranking = min_ranking
         self.max_sector_concentration = max_sector_concentration
         self.exclude_existing_positions = exclude_existing_positions
@@ -43,22 +40,24 @@ class PortfolioSignalSelector:
         self,
         available_signals: list[Signal],
         current_positions: set[str],
-        available_positions: int,
         current_date: date,
     ) -> list[Signal]:
         """
         Select the best entry signals for new positions.
 
+        There is no cap on the number of signals returned: available cash is the only
+        constraint on how many entries are actually taken, applied per signal when the
+        portfolio manager sizes each position.
+
         Args:
             available_signals: All signals generated for the current date
             current_positions: Set of tickers with existing positions
-            available_positions: Number of new positions that can be opened
             current_date: Current backtest date
 
         Returns:
-            List of selected signals for entry, limited by available_positions
+            List of qualifying signals for entry, highest ranking first
         """
-        logger.debug(f"Selecting entry signals for {current_date}: {len(available_signals)} signals, {available_positions} slots available")
+        logger.debug(f"Selecting entry signals for {current_date}: {len(available_signals)} signals")
 
         # Step 1: Filter by minimum ranking threshold
         qualified_signals = [signal for signal in available_signals if signal.ranking >= self.min_ranking]
@@ -70,15 +69,12 @@ class PortfolioSignalSelector:
             qualified_signals = [signal for signal in qualified_signals if signal.ticker not in current_positions]
             logger.debug(f"After position exclusion: {len(qualified_signals)} signals")
 
-        # Step 3: Sort by ranking (highest first)
+        # Step 3: Sort by ranking (highest first) so the best signals are funded first
         qualified_signals.sort(key=lambda x: x.ranking, reverse=True)
 
-        # Step 4: Select top signals up to available positions
-        selected_signals = qualified_signals[:available_positions]
+        logger.debug(f"Selected {len(qualified_signals)} signals for entry: {[f'{s.ticker}({s.ranking})' for s in qualified_signals]}")
 
-        logger.debug(f"Selected {len(selected_signals)} signals for entry: {[f'{s.ticker}({s.ranking})' for s in selected_signals]}")
-
-        return selected_signals
+        return qualified_signals
 
     def filter_signals_by_quality(
         self,

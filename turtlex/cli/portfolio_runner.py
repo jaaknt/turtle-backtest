@@ -73,24 +73,17 @@ def create_argument_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--position-min-amount",
+        "--position-size-pct",
         type=float,
-        default=1500.0,
-        help="Minimum position size (default: 1500.0)",
-    )
-
-    parser.add_argument(
-        "--position-max-amount",
-        type=float,
-        default=3000.0,
-        help="Maximum position size (default: 3000.0)",
+        default=0.04,
+        help="Fraction of portfolio value committed per position, so size compounds with the portfolio (default: 0.04 = 4%%)",
     )
 
     parser.add_argument(
         "--min-signal-ranking",
         type=int,
-        default=70,
-        help="Minimum signal ranking threshold (default: 70)",
+        default=40,
+        help="Minimum signal ranking threshold (default: 40)",
     )
 
     parser.add_argument(
@@ -167,8 +160,7 @@ def main() -> int:
             start_date=args.start_date,
             end_date=args.end_date,
             initial_capital=args.initial_capital,
-            position_min_amount=args.position_min_amount,
-            position_max_amount=args.position_max_amount,
+            position_size_pct=args.position_size_pct,
             min_signal_ranking=args.min_signal_ranking,
             time_frame_unit=TimeFrameUnit.DAY,
             max_holding_period=args.max_holding_days,

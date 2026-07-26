@@ -21,7 +21,8 @@ class TestArgumentParser:
         assert args.ranking_strategy == "momentum"
         assert args.exit_strategy == "buy_and_hold"
         assert args.initial_capital == 30000.0
-        assert args.min_signal_ranking == 70
+        assert args.position_size_pct == 0.04
+        assert args.min_signal_ranking == 40
         assert args.max_holding_days == 365
         assert args.benchmark_ticker == "QQQ.US"
         assert args.exit_param == []
@@ -111,6 +112,14 @@ class TestMain:
 
         assert main() == 0
         assert service.call_args.kwargs["benchmark_ticker"] == "SPY.US"
+
+    def test_main_forwards_the_position_size_pct_to_the_service(self, mocker: MockerFixture) -> None:
+        """A dropped kwarg would silently fall back to the service default rather than fail."""
+        service = self._patch_wiring(mocker)
+        mocker.patch("sys.argv", ["portfolio-runner", *DATE_ARGS, "--position-size-pct", "0.10"])
+
+        assert main() == 0
+        assert service.call_args.kwargs["position_size_pct"] == 0.10
 
     def test_main_uses_explicit_tickers_when_given(self, mocker: MockerFixture) -> None:
         service = self._patch_wiring(mocker)

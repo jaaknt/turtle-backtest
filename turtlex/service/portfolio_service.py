@@ -17,6 +17,9 @@ from turtlex.strategy.trading.base import TradingStrategy
 
 logger = logging.getLogger(__name__)
 
+# Below this much free cash no entry is worth the universe sweep it would cost to find.
+MIN_CASH_FOR_ENTRY = 500.0
+
 
 class PortfolioService:
     """
@@ -34,9 +37,8 @@ class PortfolioService:
         start_date: date,
         end_date: date,
         initial_capital: float = 30000.0,
-        position_min_amount: float = 1500.0,
-        position_max_amount: float = 3000.0,
-        min_signal_ranking: int = 70,
+        position_size_pct: float = 0.04,
+        min_signal_ranking: int = 40,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         max_holding_period: int = 365,
         benchmark_ticker: str = DEFAULT_BENCHMARK_TICKER,
@@ -50,8 +52,7 @@ class PortfolioService:
             exit_strategy: Strategy for determining when to exit positions
             bars_history: Data repository for historical price data
             initial_capital: Starting capital amount
-            position_min_amount: Minimum dollar amount per position
-            position_max_amount: Maximum dollar amount per position
+            position_size_pct: Fraction of current portfolio value committed per position
             min_signal_ranking: Minimum signal ranking to consider
             time_frame_unit: Time frame for analysis (DAY, WEEK, etc.)
             max_holding_period: Maximum calendar days a position may stay open
@@ -73,8 +74,7 @@ class PortfolioService:
             start_date=start_date,
             end_date=end_date,
             initial_capital=initial_capital,
-            position_min_amount=position_min_amount,
-            position_max_amount=position_max_amount,
+            position_size_pct=position_size_pct,
         )
 
         self.signal_selector = PortfolioSignalSelector(
@@ -156,8 +156,9 @@ class PortfolioService:
         # Step 2: Process scheduled exits
         self._process_exits(current_date)
 
-        # Step 3: Generate new entry signals
-        if self.portfolio_manager.current_snapshot.cash >= self.portfolio_manager.position_min_amount and current_date < end_date:
+        # Step 3: Generate new entry signals. Per-signal affordability is decided in
+        # calculate_position_size; _generate_entry_signals only gates the universe sweep.
+        if current_date < end_date:
             entry_signals = self._generate_entry_signals(current_date, universe)
 
             # Step 4: Select and process new entries
@@ -197,26 +198,27 @@ class PortfolioService:
         Returns:
             List of generated signals
         """
+        # Walking the universe costs one query per ticker, so skip the sweep entirely once
+        # too little cash is left to fund any entry the day could produce.
+        cash = self.portfolio_manager.current_snapshot.cash
+        if cash < MIN_CASH_FOR_ENTRY:
+            logger.debug(f"Skipping signal generation for {current_date}: cash ${cash:.2f} below ${MIN_CASH_FOR_ENTRY:.2f}")
+            return []
+
         signals: list[Signal] = []
 
         for ticker in universe:
             signals.extend(self.trading_strategy.get_signals(ticker, current_date, current_date))
 
-        # Free slots, not the signal count: passing the latter made the selector's cap a no-op,
-        # leaving max_positions unenforced and the position count bounded only by cash.
-        open_positions = len(self.portfolio_manager.current_snapshot.positions)
-        free_slots = max(0, self.signal_selector.max_positions - open_positions)
-
         qualified_signals = self.signal_selector.select_entry_signals(
             available_signals=signals,
             current_positions=set(self.portfolio_manager.current_snapshot.get_tickers()),
-            available_positions=free_slots,
             current_date=current_date,
         )
 
         logger.info(
             f"Generated {len(signals)} signals for {current_date}: {len(qualified_signals)} selected for entry "
-            f"(ranking >= {self.signal_selector.min_ranking}, {free_slots} of {self.signal_selector.max_positions} slots free)"
+            f"(ranking >= {self.signal_selector.min_ranking})"
         )
 
         return qualified_signals
@@ -239,8 +241,8 @@ class PortfolioService:
             # calculate position size based on entry price and position sizing strategy
             position_size = self.portfolio_manager.calculate_position_size(future_trade.entry)
             future_trade.position_size = position_size
-            if position_size == 0:
-                logger.warning(f"Calculated zero shares for {signal.ticker} at price ${future_trade.entry.price}")
+            if position_size <= 0:
+                logger.debug(f"Skipped {signal.ticker} at ${future_trade.entry.price}: no whole share fundable")
                 continue
             # Add the closed trade to the portfolio state for tracking
             self.portfolio_manager.state.future_trades.append(future_trade)
@@ -248,8 +250,6 @@ class PortfolioService:
             self.portfolio_manager.open_position(future_trade.entry, future_trade.exit, position_size)
 
             logger.info(f"Opened position for {signal.ticker} on {future_trade.entry.date}, scheduled exit on {future_trade.exit.date}")
-            if self.portfolio_manager.current_snapshot.cash < self.portfolio_manager.position_min_amount:
-                break
 
     def _update_portfolio_prices(self, current_date: date) -> None:
         """
@@ -328,7 +328,6 @@ class PortfolioService:
                     "exit_reason": trade.exit.reason,
                     "entry_price": f"{trade.entry.price:.2f}",
                     "exit_price": f"{trade.exit.price:.2f}",
-                    "slippage": f"{trade.slippage:.2f}",
                     "position_size": f"{trade.position_size:.0f}",
                     "realized_pnl": f"{trade.realized_pnl:.2f}",
                     "realized_pct": f"{trade.realized_pct:.2f}",
