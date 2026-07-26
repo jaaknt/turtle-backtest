@@ -13,12 +13,18 @@ _DATEFMT = "%Y-%m-%dT%H:%M:%S%z"
 
 # Pinned even under --verbose: DEBUG on these floods the console
 # (matplotlib.font_manager glyph scanning, sqlalchemy.engine SQL echo).
+# matplotlib.font_manager is pinned at ERROR to drop the cosmetic
+# "findfont: Font family 'Arial' not found" warnings quantstats provokes by
+# passing fontname="Arial" explicitly on every title and axis label: the font
+# is absent on a stock Ubuntu server, and matplotlib renders fine in DejaVu
+# Sans regardless.
 _THIRD_PARTY_LEVELS = {
     "httpx": logging.WARNING,
     "httpcore": logging.WARNING,
     "urllib3": logging.INFO,
     "sqlalchemy.engine": logging.WARNING,
     "matplotlib": logging.INFO,
+    "matplotlib.font_manager": logging.ERROR,
     "asyncio": logging.INFO,
 }
 

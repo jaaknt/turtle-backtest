@@ -2,7 +2,6 @@
 
 import logging
 import math
-import warnings
 from datetime import date, datetime
 
 import matplotlib
@@ -15,9 +14,6 @@ from turtlex.backtest.metrics import metrics_from_future_trades
 from turtlex.model import PortfolioState
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 
-# Suppress font warnings
-warnings.filterwarnings("ignore", message=".*findfont.*")
-warnings.filterwarnings("ignore", message=".*Font family.*not found.*")
 # Configure matplotlib to use available fonts instead of Arial
 matplotlib.rcParams["font.family"] = ["DejaVu Sans", "Ubuntu", "sans-serif"]
 # Remove Arial from sans-serif font list to prevent warnings
