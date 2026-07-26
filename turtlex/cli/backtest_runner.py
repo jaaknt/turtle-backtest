@@ -32,13 +32,13 @@ import logging
 import sys
 
 from turtlex.backtest.processor import SignalProcessor
-from turtlex.cli.common import build_common_analysis_parser, resolve_trading_strategy, run_cli
+from turtlex.cli.common import build_common_analysis_parser, log_parameters, resolve_trading_strategy, run_cli
 from turtlex.common.cli import key_value_type
 from turtlex.config.logging import setup_logging
 from turtlex.config.settings import Settings
 from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.service.backtest_service import BacktestService
-from turtlex.strategy.factory import EXIT_STRATEGIES, get_exit_strategy, resolve_exit_strategy_kwargs
+from turtlex.strategy.factory import EXIT_STRATEGIES, describe_exit_parameters, get_exit_strategy, resolve_exit_strategy_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +106,7 @@ def main() -> int:
     settings = Settings.from_toml()
 
     logger.info(f"Starting strategy analysis with {args.trading_strategy} strategy")
+    log_parameters("CLI arguments", vars(args))
 
     def body() -> int:
         # Parse and validate dates
@@ -119,6 +120,8 @@ def main() -> int:
         except ValueError as e:
             logger.error(str(e))
             return 1
+
+        log_parameters(f"{args.exit_strategy} exit parameters", describe_exit_parameters(exit_strategy, exit_strategy_kwargs))
 
         # Initialize strategy runner with the trading strategy
         logger.info("Initializing strategy runner...")

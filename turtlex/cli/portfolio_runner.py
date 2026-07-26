@@ -30,7 +30,7 @@ import argparse
 import logging
 import sys
 
-from turtlex.cli.common import build_common_analysis_parser, resolve_trading_strategy, run_cli
+from turtlex.cli.common import build_common_analysis_parser, log_parameters, resolve_trading_strategy, run_cli
 from turtlex.common.cli import key_value_type
 from turtlex.common.enums import TimeFrameUnit
 from turtlex.config.logging import setup_logging
@@ -38,7 +38,7 @@ from turtlex.config.settings import Settings
 from turtlex.portfolio.analytics import DEFAULT_BENCHMARK_TICKER
 from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.service.portfolio_service import PortfolioService
-from turtlex.strategy.factory import EXIT_STRATEGIES, get_exit_strategy, resolve_exit_strategy_kwargs
+from turtlex.strategy.factory import EXIT_STRATEGIES, describe_exit_parameters, get_exit_strategy, resolve_exit_strategy_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +145,7 @@ def main() -> int:
     settings = Settings.from_toml()
 
     logger.info(f"Starting portfolio backtest with {args.trading_strategy} trading strategy and {args.exit_strategy} exit strategy")
+    log_parameters("CLI arguments", vars(args))
 
     def body() -> int:
         try:
@@ -154,6 +155,8 @@ def main() -> int:
         except ValueError as e:
             logger.error(f"Invalid configuration: {e}")
             return 1
+
+        log_parameters(f"{args.exit_strategy} exit parameters", describe_exit_parameters(exit_strategy, exit_strategy_kwargs))
 
         # Initialize portfolio service
         logger.info("Initializing portfolio service...")

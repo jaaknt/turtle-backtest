@@ -27,7 +27,7 @@ import sys
 import time
 from datetime import date
 
-from turtlex.cli.common import build_common_analysis_parser, resolve_trading_strategy, run_cli
+from turtlex.cli.common import build_common_analysis_parser, log_parameters, resolve_trading_strategy, run_cli
 from turtlex.config.logging import setup_logging
 from turtlex.config.settings import Settings
 from turtlex.repository.query.ticker import TickerQueryRepository
@@ -73,6 +73,7 @@ def main() -> int:
     settings = Settings.from_toml()
 
     logger.info(f"Starting strategy analysis with {args.trading_strategy} strategy and {args.ranking_strategy} ranking")
+    log_parameters("CLI arguments", vars(args))
 
     def body() -> int:
         try:

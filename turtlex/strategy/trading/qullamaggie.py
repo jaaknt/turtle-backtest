@@ -73,6 +73,31 @@ class QullamaggieStrategy(TradingStrategy):
         self._regime_dates: set[date] = set()
         self._regime_dates_key: tuple[date, date] | None = None
 
+    def describe_parameters(self) -> dict[str, object]:
+        """
+        Return the base parameters plus this strategy's breakout filter thresholds.
+
+        sma_thresh comes off the instance so a --trading-param override shows up;
+        the rest are class constants and are reported as such.
+
+        Returns:
+            dict[str, object]: Parameter name → effective value
+        """
+        return super().describe_parameters() | {
+            "sma_thresh": self.sma_thresh,
+            "min_avg_vol": self.MIN_AVG_VOL,
+            "min_price": self.MIN_PRICE,
+            "max_price": self.MAX_PRICE,
+            "cooldown_days": self.COOLDOWN_DAYS,
+            "vol_dry_up": self.VOL_DRY_UP,
+            "vol_surge_max": self.VOL_SURGE_MAX,
+            "roc_cap": self.ROC_CAP,
+            "rsi_cap": self.RSI_CAP,
+            "adr_min": self.ADR_MIN,
+            "adr_change_cap": self.ADR_CHANGE_CAP,
+            "market_ticker": self.MARKET_TICKER,
+        }
+
     def get_universe(self, ticker_repo: TickerQueryRepository, limit: int | None = None) -> list[str]:
         """
         Return the backtest's fundamentals-based universe instead of a symbol group.

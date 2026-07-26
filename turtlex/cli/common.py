@@ -2,7 +2,7 @@
 
 import argparse
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 from turtlex.common.cli import iso_date_type, key_value_type
 from turtlex.config.settings import Settings
@@ -65,8 +65,21 @@ def build_common_analysis_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def log_parameters(label: str, params: Mapping[str, object]) -> None:
+    """Log one `label: name=value, ...` line at INFO, so a run records the configuration it used.
+
+    Args:
+        label: Names the group, e.g. "qullamaggie parameters" or "CLI arguments"
+        params: Parameter name → effective value, logged in iteration order
+    """
+    logger.info(f"{label}: {', '.join(f'{name}={value}' for name, value in params.items())}")
+
+
 def resolve_trading_strategy(args: argparse.Namespace, settings: Settings) -> tuple[TradingStrategy, DailyBarsQueryRepository]:
     """Resolve --ranking-strategy/--trading-strategy into a TradingStrategy and its DailyBarsQueryRepository.
+
+    Logs the resolved strategy's effective parameters at INFO, so every analysis CLI records
+    the configuration its run used.
 
     Args:
         args: Parsed CLI arguments, must have `trading_strategy`, `ranking_strategy` and `trading_param`
@@ -82,6 +95,7 @@ def resolve_trading_strategy(args: argparse.Namespace, settings: Settings) -> tu
     bars_history = DailyBarsQueryRepository(engine=settings.engine)
     ranking_strategy = get_ranking_strategy(args.ranking_strategy)
     trading_strategy = get_trading_strategy(args.trading_strategy, ranking_strategy, bars_history, args.trading_param)
+    log_parameters(f"{args.trading_strategy} parameters", trading_strategy.describe_parameters())
     return trading_strategy, bars_history
 
 

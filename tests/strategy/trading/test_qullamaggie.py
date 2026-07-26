@@ -212,3 +212,15 @@ def test_min_bars_is_applied_after_dropping_unusable_bars() -> None:
 
     assert with_gaps.shape[0] >= strategy.min_bars  # raw count would have passed
     assert strategy.collect_data("TEST.US", last_date, last_date) is False
+
+
+def test_describe_parameters_reports_effective_sma_thresh() -> None:
+    """A --trading-param override must be logged, not the SMA_THRESH class default."""
+    ohlcv = _build_ohlcv()
+    strategy = _make_strategy(ohlcv, _build_spy(ohlcv["date"][-1]), sma_thresh=0.25)
+    params = strategy.describe_parameters()
+
+    assert params["sma_thresh"] == 0.25
+    assert params["rsi_cap"] == QullamaggieStrategy.RSI_CAP
+    assert params["market_ticker"] == QullamaggieStrategy.MARKET_TICKER
+    assert params["min_bars"] == strategy.min_bars  # inherited from the base strategy
