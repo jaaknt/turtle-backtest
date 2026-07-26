@@ -38,6 +38,7 @@ import numpy as np
 import polars as pl
 import sqlalchemy as sa
 
+from turtlex.backtest.metrics import compute_trade_metrics
 from turtlex.config.settings import Settings
 from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
@@ -94,27 +95,21 @@ def cohort_label(value: float, cohorts: list[tuple[float, float, str]]) -> str:
 def cohort_stats(returns: list[float], mdds: list[float]) -> dict | None:
     """Med%/Mean%/Win%/PF/Sortino/MaxDD% for one cohort's Change % values.
 
-    Sortino here is **not annualized** (positions have no fixed holding period --
-    each is still open, marked at whatever elapsed time has passed since entry),
-    but downside_dev keeps the backtest's convention (RMS of negative returns over
-    all N, positives count as 0).
+    Sortino here is **not annualized** -- passing holding_days=0 skips the
+    sqrt(365/hold) factor, because these positions have no fixed holding period
+    (each is still open, marked at whatever elapsed time has passed since entry).
     """
-    if not returns:
+    m = compute_trade_metrics(returns, 0, trade_drawdowns_pct=[d * 100 for d in mdds])
+    if m is None:
         return None
-    arr = np.array(returns)
-    mean = float(arr.mean())
-    gross_win = float(arr[arr > 0].sum())
-    gross_loss = float(-arr[arr < 0].sum())
-    downside = np.where(arr < 0, arr, 0.0)
-    downside_dev = float(np.sqrt(np.mean(downside**2)))
     return {
-        "n": len(returns),
-        "med": float(np.median(arr)),
-        "mean": mean,
-        "win": float((arr > 0).mean() * 100),
-        "pf": gross_win / gross_loss if gross_loss > 0 else float("inf"),
-        "sortino": mean / downside_dev if downside_dev > 0 else float("nan"),
-        "mdd": float(np.mean(mdds) * 100) if mdds else float("nan"),
+        "n": m.n,
+        "med": m.median_pct,
+        "mean": m.mean_pct,
+        "win": m.win_pct,
+        "pf": m.profit_factor,
+        "sortino": m.sortino,
+        "mdd": m.mean_trade_mdd_pct if m.mean_trade_mdd_pct is not None else float("nan"),
     }
 
 

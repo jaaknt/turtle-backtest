@@ -4,6 +4,8 @@ This document describes the command-line scripts that provide convenient interfa
 
 All strategy name → class mappings used by `--trading-strategy`, `--exit-strategy`, and `--ranking-strategy` flags are defined in `turtlex/strategy/factory.py`. Add new strategies there to make them available across all scripts.
 
+Trade statistics (Win%, PF, Sortino, Med%, Mean%, CVaR, mean per-trade MaxDD) come from `turtlex/backtest/metrics.py`, which owns the canonical definitions — notably Sortino's downside deviation as the RMS of `min(r, 0)` over **all N** trades, annualized as a ratio. `backtest-runner`, `portfolio-runner`, `scripts/qullamaggie-backtest-v4.py`, `scripts/qullamaggie-cohorts-adr.py` and `scripts/qullamaggie-signals-v4.py` use it. The remaining `scripts/qullamaggie-*.py` studies still carry their own copies, several of which divide by the RMS of the losers only — a different statistic, larger by `sqrt(N / n_losers)` — so their Sortino columns are not comparable with the ones above. Each result doc states the convention its own run used.
+
 ## download-eodhd-data
 
 The `download-eodhd-data` console script downloads bulk data from the EODHD API and stores it in the database. It covers four datasets: exchanges, US ticker lists, company fundamentals, and full historical price data. Use this for initial database population or large historical backfills.

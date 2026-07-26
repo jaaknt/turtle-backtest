@@ -16,6 +16,7 @@ import numpy as np
 import polars as pl
 import sqlalchemy as sa
 
+from turtlex.backtest.metrics import compute_trade_metrics
 from turtlex.config.settings import Settings
 
 _EPOCH = date(1970, 1, 1)
@@ -268,39 +269,28 @@ def apply_capacity(records: list[dict], max_open: int) -> list[dict]:
 # ── Metrics ────────────────────────────────────────────────────────────────────
 
 
-def sortino(a: np.ndarray, hold_cal: int) -> float:
-    neg = a[a < 0]
-    if len(neg) < MIN_NEG:
-        return float("nan")
-    downside = np.where(a < 0, a, 0.0)
-    dd = float(np.sqrt(np.mean(downside**2)))
-    return float(np.mean(a) * np.sqrt(365 / hold_cal) / dd) if dd > 0 else float("nan")
-
-
 def compute_metrics(records: list[dict], hold_cal: int) -> dict | None:
+    """Study-level metrics: the shared trade metrics plus this study's own Q75 and frequency."""
     if len(records) < MIN_TRADES:
         return None
     a = np.array([r["ret"] for r in records])
-    sr = sortino(a, hold_cal)
-    if np.isnan(sr) or sr <= 0:
+    mdds = np.array([r["mdd"] for r in records])
+    m = compute_trade_metrics(a * 100, hold_cal, trade_drawdowns_pct=mdds * 100, min_losers=MIN_NEG)
+    if m is None or np.isnan(m.sortino) or m.sortino <= 0:
         return None
-    p5 = max(1, int(np.floor(len(a) * 0.05)))
     today = date.today()
     months = (today.year - EVAL_START.year) * 12 + (today.month - EVAL_START.month)
-    gross_win = float(a[a > 0].sum())
-    gross_loss = float(-a[a < 0].sum())
-    mdds = np.array([r["mdd"] for r in records])
     return {
-        "n": len(a),
-        "win": float((a > 0).mean() * 100),
-        "mean": float(a.mean() * 100),
-        "ann_mean": float(((1.0 + a.mean()) ** (365.0 / hold_cal) - 1.0) * 100),
-        "med": float(np.median(a) * 100),
+        "n": m.n,
+        "win": m.win_pct,
+        "mean": m.mean_pct,
+        "ann_mean": m.ann_mean_pct,
+        "med": m.median_pct,
         "q75": float(np.percentile(a, 75) * 100),
-        "pf": gross_win / gross_loss if gross_loss > 0 else float("inf"),
-        "sr": sr,
-        "mdd": float(mdds.mean() * 100),
-        "cvar": float(np.sort(a)[:p5].mean() * 100),
+        "pf": m.profit_factor,
+        "sr": m.sortino,
+        "mdd": m.mean_trade_mdd_pct,
+        "cvar": m.cvar95_pct,
         "freq": len(a) / max(months, 1),
     }
 
@@ -314,15 +304,11 @@ def consistency_flag(records: list[dict], hold_cal: int) -> tuple[str, bool]:
     for yr, rets in sorted(by_year.items()):
         if yr >= today.year:
             continue
-        a = np.array(rets)
-        neg = a[a < 0]
-        if len(neg) < MIN_NEG:
+        m = compute_trade_metrics(np.array(rets) * 100, hold_cal, min_losers=MIN_NEG)
+        if m is None or np.isnan(m.sortino):  # too few losing trades to judge the year
             continue
         valid += 1
-        downside = np.where(a < 0, a, 0.0)
-        dd = float(np.sqrt(np.mean(downside**2)))
-        sr = float(np.mean(a) * np.sqrt(365 / hold_cal) / dd) if dd > 0 else 0.0
-        if sr > 0:
+        if m.sortino > 0:
             pos += 1
     consistent = valid >= 3 and (pos / valid) >= 0.70 if valid > 0 else False
     return f"{pos}/{valid}", consistent
@@ -433,6 +419,7 @@ def main() -> None:
         f"vol_surge<{VOL_SURGE_MAX}x (no lower bound), RSI<{int(RSI_CAP)}, ADR>={ADR_MIN * 100:.1f}%, "
         f"ADR_change<{int(ADR_CHANGE_CAP * 100)}%, SPY>200d SMA, "
         f"close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K",
+        f"Sortino: mean / RMS(min(r,0)) over all N × sqrt(365/hold), min {MIN_NEG} losers (turtlex/backtest/metrics.py)",
         "",
     ]
 
