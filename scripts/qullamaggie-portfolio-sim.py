@@ -48,6 +48,7 @@ _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2020, 1, 1)
 EVAL_END = date(2026, 6, 26)
 DATA_START = "2000-01-01"
+LOAD_BATCH_ROWS = 200_000  # server-side cursor batch for load_bars; see the note there
 INIT_EQUITY = 30_000.0
 POS_FRACTIONS = [0.03, 0.04, 0.05]  # position-size sweep
 HOLD_CAL = 366
@@ -113,21 +114,22 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
           AND  db.date >= :data_start AND db.close > 0 AND db.adjusted_close > 0 AND db.volume > 0
         ORDER  BY db.symbol, db.date
     """
-    with engine.connect() as conn:
-        rows = conn.execute(sa.text(sql), {"data_start": DATA_START}).fetchall()
-    factor = [float(r[3]) / float(r[2]) for r in rows]  # adjusted_close / raw_close
-    return pl.DataFrame(
-        {
-            "symbol": [r[0] for r in rows],
-            "date": pl.Series([r[1] for r in rows], dtype=pl.Date),
-            "raw_close": [float(r[2]) for r in rows],
-            "close": [float(r[3]) for r in rows],
-            "open": [float(r[4]) * f for r, f in zip(rows, factor, strict=True)],
-            "high": [float(r[5]) * f for r, f in zip(rows, factor, strict=True)],
-            "low": [float(r[6]) * f for r, f in zip(rows, factor, strict=True)],
-            "volume": [int(r[7]) for r in rows],
-        }
-    )
+    # Streamed through a server-side cursor and adjusted in polars rather than fetchall()'d
+    # into per-column Python lists: this result set is ~9.3M rows, which costs ~7 GB as row
+    # tuples plus lists and OOM-kills the 8 GB host before the DataFrame is even built.
+    with engine.connect().execution_options(stream_results=True, max_row_buffer=LOAD_BATCH_ROWS) as conn:
+        df = pl.concat(
+            pl.read_database(
+                query=sa.text(sql),
+                connection=conn,
+                iter_batches=True,
+                batch_size=LOAD_BATCH_ROWS,
+                execute_options={"parameters": {"data_start": DATA_START}},
+            ),
+            rechunk=True,
+        )
+    factor = pl.col("close") / pl.col("raw_close")  # adjusted_close / raw_close
+    return df.with_columns(pl.col("open", "high", "low") * factor)
 
 
 def buy_and_hold(engine: sa.Engine, symbol: str) -> dict:
