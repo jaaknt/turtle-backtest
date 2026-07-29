@@ -25,6 +25,7 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 | [Dynamic cohort ranking (s15)](#dynamic-cohort-ranking-s15) | `scripts/qullamaggie-cohort-ranking.py` | `result-qullamaggie-cohort-ranking.md` |
 | [Recalibrate ranking weights + validate](#recalibrate-ranking-weights--validate) | `scripts/qullamaggie-ranking-validation.py` | `result-qullamaggie-ranking-validation.md` |
 | [Portfolio simulation](#portfolio-simulation) | `scripts/qullamaggie-portfolio-sim.py` | `result-qullamaggie-portfolio-v4.md` |
+| [Exit strategy analyze](#exit-strategy-analyze) | `scripts/qullamaggie-exit-sweep.py` | `result-qullamaggie-exit-sweep.md` |
 | [Signals: s12 with overlap & cohorts](#signals-s12-with-overlap--cohorts) | `scripts/qullamaggie-signals-v4.py` | screen |
 | [Trades: s15 open-trade performance](#trades-s15-open-trade-performance) | `scripts/qullamaggie-trades-v4.py` | `result-qullamaggie-trades-v4.md` |
 | [Maintenance: lint & tests](#maintenance-lint--tests) | — | — |
@@ -320,6 +321,38 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Script:** `scripts/qullamaggie-portfolio-sim.py`
 - **Results:** `docs/research/result-qullamaggie-portfolio-v4.md`
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `scripts/qullamaggie-backtest-v4.py`
+
+### Exit strategy analyze
+
+**Goal:** Analyze different exit strategies to improve `scripts/qullamaggie-portfolio-sim.py` CAGR% and Sortino. Provide 5 ideas and validate them against the current 366d time-cap exit. To simplify testing use only `bk50d_s20_v1.3_roc100` / 366d / 3% of portfolio.
+
+- **Period:** 2020-01-01 : 2026-06-26, initial $30,000, ranking gate >= 40
+- **Baseline to beat:** Final $222,166, CAGR +36.17%, MaxDD -26.00%, Calmar 1.391, Sortino 1.334, 180 taken / 716 skipped
+- **Pass bar (pre-registered):** CAGR **and** Sortino both above baseline, and MaxDD no more than 5pp worse
+- **Ideas swept**, each with the 366d time cap still active underneath as a backstop:
+  - `regime` — exit when SPY has closed below its 200d SMA for N consecutive days
+  - `trail` — trail T% below the running peak close, armed only once the trade is up A%
+  - `dead` — exit if the trade is not up at least R% after N trading bars
+  - `trend` — exit after N consecutive closes below the position's own EMA20 / SMA50 / SMA200
+  - `atr` — fixed stop at entry - k x ATR(14) measured at entry
+- **Controls:** the three exit modes already coded but unreachable in `qullamaggie-portfolio-sim.py:run_sim` (`stop30`, `trail25`, `sma200x3` — `EXIT_MODES = ["time"]` never selects them)
+- **Overfit guards:** baseline reconciliation against the committed portfolio-sim numbers; the full metric surface per idea rather than the winning cell alone (a real effect is a plateau, an artifact is a spike); per-year decomposition; stationary block bootstrap (1,000 resamples of 21-day blocks, paired on day indices)
+- **Robustness matrix:** the winning rule re-run across `s20` / `s15` / `s12` x 2010-2015 / 2016-2020 / 2021-2026
+- **Output format:**
+
+  ```text
+  variant                        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip
+  -------------------------------------------------------------------------------------------
+  <+5% after 90 bars            299,845  +42.62   -24.04   1.773    1.555    246    650  PASS
+  baseline (366d only)          222,166  +36.17   -26.00   1.391    1.331    180    716  fail
+  ```
+
+- **Script:** `scripts/qullamaggie-exit-sweep.py` (new)
+- **Results:** `docs/research/result-qullamaggie-exit-sweep.md`
+- **References:** `turtlex/research/qullamaggie.py` (shared signal layer, parity-tested), `turtlex/backtest/metrics.py` (`compute_trade_metrics`), `docs/research/result-qullamaggie-portfolio-v4.md` (baseline), `docs/research/result-qullamaggie-portfolio-v4-2010-2015.md` and `-2016-2020.md` (cross-checks for the earlier matrix windows)
+- **Note — the headline result is negative; keep the 366d time cap.** On the single 2020-2026 window `<+5% after 90 bars` looked decisive (CAGR +42.62%, Sortino 1.555, MaxDD -24.04%) and cleared every single-window guard: a bounded 90-150 bar plateau, better in 6 of 7 years, 91.8% / 94.1% bootstrap win rates. The robustness matrix then failed it in **7 of 9** config/period cells — every pass sits in 2021-2026, which overlaps the window it was fitted on. A follow-up run of the full 24-cell dead-money grid across all 9 cells (216 sims, run ad-hoc; not kept as a script) found **no** parameterisation passing more than 4 of 9, and 23 of 24 had a negative mean dCAGR. The passing region *moves* between eras — 2021-2026 favours short cutoffs, 2010-2015 long ones, 2016-2020 none at all — which is the signature of regime-specificity rather than mistuning. The single-window guards all agreed with each other because they were all measuring the same six years; they cannot detect that the window itself is the special case. `sma200 x 5d` and `arm +25% / trail 25%` also cleared the single-window bar and were never put through the matrix.
+- **Note:** the study's own baseline reproduces the committed portfolio-sim figure exactly ($222,166 / +36.17% / -26.00%) despite generating signals through `turtlex/research/qullamaggie.py` rather than the sim's inline copy. For the matrix windows the harness reproduces `-2016-2020.md` to within 0.41pp CAGR; the wider gap against `-2010-2015.md` (+8.48% vs +10.94%) is the `MIN_RANKING = 40` gate, which those 2026-07-21 runs predate and which drops 25 of 127 signals there.
+- **Note:** exits fill at the day's adjusted close, so stop-based rules are measured optimistically; the universe filter uses *current* `company.market_cap >= $1.5B`, which inflates every absolute figure (baseline included) and worsens the further back the window sits.
 
 ## Live signal generation
 
