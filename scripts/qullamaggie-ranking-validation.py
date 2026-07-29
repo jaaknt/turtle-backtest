@@ -9,9 +9,15 @@ scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
 ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA,
 close>$5&<$250, avg_vol>=500K; tight_range and sma_alignment disabled).
 
+Note (2026-07-29): this study validates the *six-dimension* weighting that was production
+when it was written. Production has since moved to a three-dimension 40/35/25 split whose
+own validation lives in docs/research/result-qullamaggie-ranking-weights.md. The refit arm
+below is unchanged and still refits six dimensions; only the "shipped" arm tracks the
+current class.
+
 Genuine train/test split (not expanding-window re-fit): signals entered before
 SPLIT_DATE are used to *independently refit* reachable-only Sortino-by-bucket band
-tables (same methodology as the production bands: weight-spread proportional across
+tables (the then-production methodology: weight-spread proportional across
 price/ADR/compression/ROC252/RSI, SMA50 fixed at 50), then those refit bands score the
 held-out signals entered on/after SPLIT_DATE. This directly tests whether the ranking
 methodology would have separated forward returns using only evidence available before
@@ -540,9 +546,12 @@ def main() -> None:
         "(genuine out-of-sample test of the ranking methodology)"
     )
     out(
-        "2. **Production** — the actual shipped `QullamaggieRanking` bands (fit on the full "
-        "2015-2026 period, so not strictly out-of-sample here, but shows real-world behavior on "
-        "the most recent slice)"
+        "2. **Shipped** — whatever `QullamaggieRanking` currently scores. Since 2026-07-29 that is "
+        "the three-dimension 40/35/25 weighting, which this script's refit arm does *not* mirror: "
+        "the refit still fits six dimensions by reachable-Sortino-spread, the methodology that was "
+        "in production when this study was written. Read arm 2 as 'how the shipped ranking behaves "
+        "on the most recent slice', not as a validation of how its weights were chosen — that is "
+        "`result-qullamaggie-ranking-weights.md`."
     )
     out("3. **Legacy (pre-change)** — the old 4-dimension bands (ADR/compression/price/SMA50 only, no ROC252/RSI), as the baseline to beat")
 
@@ -602,8 +611,9 @@ def main() -> None:
     out("## Weight-Split Stability Across Multiple Periods")
     out("")
     out(
-        "Tests whether the production weight split (price=13, adr=12, compression=12, roc=10, "
-        "rsi=3) reflects a stable pattern or is sensitive to the single 2021 split date used "
+        "Tests whether the six-dimension weight split this study was built around (price=13, "
+        "adr=12, compression=12, roc=10, rsi=3, SMA50=50 — production until 2026-07-29) "
+        "reflects a stable pattern or is sensitive to the single 2021 split date used "
         "above. For each cutoff below, weights are independently refit on signals entered before "
         "it (same reachable-Sortino-spread methodology as the production bands), with no "
         "reference to the production numbers."

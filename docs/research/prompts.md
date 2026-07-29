@@ -24,6 +24,7 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 | [Ranking algorithm proposal](#ranking-algorithm-proposal) | — | — |
 | [Dynamic cohort ranking (s15)](#dynamic-cohort-ranking-s15) | `scripts/qullamaggie-cohort-ranking.py` | `result-qullamaggie-cohort-ranking.md` |
 | [Recalibrate ranking weights + validate](#recalibrate-ranking-weights--validate) | `scripts/qullamaggie-ranking-validation.py` | `result-qullamaggie-ranking-validation.md` |
+| [Three-feature ranking weights](#three-feature-ranking-weights) | `scripts/qullamaggie-ranking-weights.py` | `result-qullamaggie-ranking-weights.md` |
 | [Portfolio simulation](#portfolio-simulation) | `scripts/qullamaggie-portfolio-sim.py` | `result-qullamaggie-portfolio-v4.md` |
 | [Exit strategy analyze](#exit-strategy-analyze) | `scripts/qullamaggie-exit-sweep.py` | `result-qullamaggie-exit-sweep.md` |
 | [Signals: s12 with overlap & cohorts](#signals-s12-with-overlap--cohorts) | `scripts/qullamaggie-signals-v4.py` | screen |
@@ -278,6 +279,18 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Script:** `scripts/qullamaggie-ranking-validation.py` (new)
 - **Results:** `docs/research/result-qullamaggie-ranking-validation.md`
 - **References:** `turtlex/strategy/ranking/qullamaggie.py`, `docs/research/result-qullamaggie-cohorts-*.md`, `docs/research/result-qullamaggie-cohort-ranking.md`
+
+### Three-feature ranking weights
+
+**Goal:** Propose weights for `turtlex/strategy/ranking/qullamaggie.py` assuming the ranking depends only on `adr_pct`, `pct_vs_sma50` and price; validate against the previous weighting by re-running the portfolio simulation, and check whether `MIN_RANKING=40` is still a reasonable gate.
+
+- An ad-hoc per-trade scan (1685 bk50d_s12 signals, 2010-2020, 366d returns with each year's mean subtracted) found only three of the six dimensions kept the sign of their cross-sectional effect across both halves: ADR%(20) rho +0.121, %above-SMA50 +0.099, price -0.059. Compression/ROC252/RSI were 25-75% time effect and reversed sign. That scan is not committed — the weights it produced are.
+- Kept the cohort band *shapes* and rescaled them to 40/35/25; coarser monotone bands fitted to the scan's own decile shape were tried and were worse.
+- Validation deliberately avoids three traps: comparing schemes at a fixed gate (which compares selectivity, not skill — a score of 40 keeps 59% of signals under the old weights and 40% under the new), reading a result without a same-size random-subset null, and cutting top-K inside tie groups by date.
+- Result: the new weights win at every selectivity at s12 and s16 and are mixed at s20. `MIN_RANKING=40` remains reasonable, and becomes a live filter at s20 where the old weights never dropped a single signal.
+- **Script:** `scripts/qullamaggie-ranking-weights.py` (new)
+- **Results:** `docs/research/result-qullamaggie-ranking-weights.md`
+- **References:** `turtlex/strategy/ranking/qullamaggie.py`, `docs/research/result-qullamaggie-cohorts-*.md`, `docs/research/result-qullamaggie-ranking-validation.md`
 
 ## Portfolio simulation
 
