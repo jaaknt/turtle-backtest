@@ -312,15 +312,19 @@ All cohort studies below share the same setup unless stated otherwise:
 - <!-- Provide a comparison with an alternative approach where a limit order is added to buy the stock 
     3% below closing price during the next 30 days (instead of buying on closing price). 
     - Provide comparison with an alternative holding lengths (90d, 120d, 180d, 240d, 360d) -->
+- Provide all algorithms comparison with approach that instead of buying next day open price use limit order with values (close price, close price -1%, close price -3%, close price -5%)
 - Provide N CAGR%   MaxDD%  Calmar  Sortino for different ranking deciles grouped by algorithms
 - Add your findings on how to improve the portfolio performance (Mean%, Sortino, Calmar).
+- Run the same portfolio simulation for periods 2010 : 2015, 2016 : 2020 and results to @docs/research/result-qullamaggie-portfolio-v4-2010-2015.md and @docs/research/result-qullamaggie-portfolio-v4-2016-2020.md
 - **Deferred/considered ideas** (commented out in the original prompt):
   - Prefer always bk50d_s20_tr10_v1.3_roc100 signals, but if there is liquidity use bk50d_s15_tr15_v1.3_roc100 signals to reduce uninvested amounts.
   - Implement rank-based funding to choose the trade if several trades are available on the same day.
   - Sell the position if the stock closes below the 200-day SMA for 3 consecutive trades.
+  - Provide existing algorithms comparison with additional filter - sell stock if stock price is 5 days < 200SMA
+  - Provide existing algorithms comparison with additional filter - sell stock if stock price has raised <5% during 120 days
 - **Script:** `scripts/qullamaggie-portfolio-sim.py`
 - **Results:** `docs/research/result-qullamaggie-portfolio-v4.md`
-- **References:** `docs/research/qullamaggie-backtest-v4.md`, `scripts/qullamaggie-backtest-v4.py`
+- **References:** `docs/research/qullamaggie-backtest-v4.md`, `scripts/qullamaggie-backtest-v4.py`, `scripts/qullamaggie-exit-sweep.py`
 
 ### Exit strategy analyze
 

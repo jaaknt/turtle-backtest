@@ -50,6 +50,78 @@ size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 5%          55,316  +10.75   -29.02   0.370    0.552    104    101   21.2%
 ```
 
+## Entry price: next-day open vs resting limit order
+
+The production rule buys the next trading day's split/dividend-adjusted open. The alternatives place a resting limit at the signal day's adjusted close x (1 - X), good for 30 calendar days, filling on the first day whose adjusted low touches it and filling *at* the limit. Rule and window match `scripts/qullamaggie-cohorts-limit-order.py`.
+
+`unfilled` counts signals whose limit was never touched inside the window — those trades simply never happen, which is the cost the deeper limits pay for their better entry price.
+
+```text
+cfg   size  entry           Final$   CAGR%   dCAGR   MaxDD%  Sortino    dSrt  Calmar  taken  unfil
+--------------------------------------------------------------------------------------------------
+s12   3%    next open       47,821   +8.09       —   -29.38    0.470       —   0.275    145      —
+            close           47,377   +7.92   -0.17   -27.69    0.466  -0.004   0.286    144      3
+            close -1%       47,222   +7.87   -0.23   -27.79    0.462  -0.007   0.283    141     10
+            close -3%       40,614   +5.19   -2.91   -27.26    0.347  -0.123   0.190    130     37
+            close -5%       45,679   +7.27   -0.82   -27.57    0.465  -0.004   0.264    117     57
+
+s12   4%    next open       53,490  +10.13       —   -29.41    0.536       —   0.345    122      —
+            close           53,850  +10.26   +0.12   -27.38    0.543  +0.007   0.375    122      3
+            close -1%       59,258  +12.03   +1.90   -29.14    0.603  +0.068   0.413    120     10
+            close -3%       47,710   +8.05   -2.08   -28.45    0.448  -0.087   0.283    112     37
+            close -5%       53,756  +10.22   +0.09   -27.11    0.556  +0.021   0.377    101     57
+
+s12   5%    next open       55,316  +10.75       —   -29.02    0.552       —   0.370    104      —
+            close           59,628  +12.15   +1.40   -26.30    0.604  +0.051   0.462    103      3
+            close -1%       61,394  +12.70   +1.94   -30.14    0.590  +0.038   0.421    104     10
+            close -3%       62,317  +12.98   +2.22   -28.97    0.616  +0.064   0.448     99     37
+            close -5%       62,502  +13.03   +2.28   -28.66    0.634  +0.081   0.455     89     57
+
+s16   3%    next open       47,523   +7.98       —   -24.97    0.502       —   0.320    122      —
+            close           48,570   +8.37   +0.39   -24.63    0.525  +0.023   0.340    120      3
+            close -1%       49,599   +8.75   +0.77   -25.66    0.554  +0.052   0.341    117     10
+            close -3%       46,859   +7.73   -0.25   -24.46    0.545  +0.043   0.316    104     27
+            close -5%       49,290   +8.64   +0.66   -21.18    0.628  +0.126   0.408     95     43
+
+s16   4%    next open       58,542  +11.80       —   -25.53    0.620       —   0.462    104      —
+            close           59,009  +11.95   +0.15   -25.94    0.626  +0.006   0.461    104      3
+            close -1%       57,526  +11.48   -0.33   -26.07    0.615  -0.005   0.440    103     10
+            close -3%       48,066   +8.18   -3.62   -27.35    0.490  -0.129   0.299     92     27
+            close -5%       49,802   +8.83   -2.98   -27.01    0.537  -0.082   0.327     83     43
+
+s16   5%    next open       75,777  +16.72       —   -24.72    0.778       —   0.677     91      —
+            close           73,683  +16.18   -0.54   -25.33    0.748  -0.030   0.639     92      3
+            close -1%       67,700  +14.55   -2.17   -25.42    0.691  -0.087   0.572     90     10
+            close -3%       56,816  +11.25   -5.48   -27.55    0.592  -0.186   0.408     81     27
+            close -5%       53,094  +10.00   -6.73   -27.95    0.556  -0.223   0.358     73     43
+
+s20   3%    next open       48,868   +8.48       —   -24.26    0.584       —   0.350    102      —
+            close           49,136   +8.58   +0.10   -24.31    0.591  +0.008   0.353    101      2
+            close -1%       47,435   +7.95   -0.54   -24.25    0.558  -0.026   0.328    100      4
+            close -3%       47,865   +8.11   -0.37   -22.83    0.630  +0.046   0.355     89     18
+            close -5%       46,397   +7.55   -0.94   -20.73    0.646  +0.062   0.364     76     31
+
+s20   4%    next open       52,327   +9.73       —   -26.95    0.563       —   0.361     92      —
+            close           52,634   +9.84   +0.11   -27.14    0.569  +0.007   0.362     91      2
+            close -1%       51,266   +9.35   -0.37   -28.88    0.551  -0.012   0.324     90      4
+            close -3%       48,680   +8.41   -1.32   -29.36    0.538  -0.025   0.287     81     18
+            close -5%       51,152   +9.31   -0.42   -26.72    0.628  +0.065   0.349     72     31
+
+s20   5%    next open       64,802  +13.72       —   -27.06    0.691       —   0.507     81      —
+            close           66,007  +14.07   +0.35   -27.23    0.703  +0.012   0.517     80      2
+            close -1%       63,580  +13.36   -0.36   -27.35    0.678  -0.013   0.488     79      4
+            close -3%       52,149   +9.67   -4.05   -29.94    0.541  -0.150   0.323     75     18
+            close -5%       50,800   +9.19   -4.53   -31.86    0.541  -0.151   0.288     67     31
+```
+
+`close`: beats the next-open entry on CAGR in **7 of 9** config/size cells and on Sortino in **7 of 9**; mean CAGR delta **+0.21pp**, mean unfilled signals **3**.
+
+`close -1%`: beats the next-open entry on CAGR in **3 of 9** config/size cells and on Sortino in **3 of 9**; mean CAGR delta **+0.07pp**, mean unfilled signals **8**.
+
+`close -3%`: beats the next-open entry on CAGR in **1 of 9** config/size cells and on Sortino in **3 of 9**; mean CAGR delta **-1.98pp**, mean unfilled signals **27**.
+
+`close -5%`: beats the next-open entry on CAGR in **3 of 9** config/size cells and on Sortino in **5 of 9**; mean CAGR delta **-1.49pp**, mean unfilled signals **44**.
+
 ## Monthly returns/transactions — top 5 by Final$
 
 ### #1  s16 — size 5%  (Final $75,777)
@@ -180,32 +252,33 @@ D10       71-95       13   +2.78    -6.34   0.438    0.590
 
 ## Findings (2026-07-29 run, 2010-01-01 – 2015-12-31 — tables above regenerate on re-run)
 
-1. **The strategy loses to buy & hold in this window.** At 3% sizing all three configs return
-   roughly +8% (s20 +8.48, s12 +8.09, s16 +7.98) against SPY's +10.30% and QQQ's +15.81%. Not one
-   of the nine cells clears QQQ's Calmar of 0.983 — the best is s16 @5% at 0.677. Only s16 @5%
-   (+16.72%) beats QQQ on absolute CAGR, and it pays −24.72% MaxDD to QQQ's −16.09%. Any
-   conclusion drawn from the 2016-2020 or 2021-2026 windows should be checked here first.
+1. **The strategy loses to buy & hold in this window.** At 3% all three configs return roughly +8%
+   (s20 +8.48, s12 +8.09, s16 +7.98) against SPY's +10.30% and QQQ's +15.81%. No cell clears QQQ's
+   Calmar of 0.983 — best is s16 @5% at 0.677. Check any conclusion from the later windows here first.
 2. **Signal supply, not capital, is the binding constraint — the reverse of the later periods.**
-   s20 @3% leaves 49.1% of the portfolio in cash and skips just 5 signals in six years; s12 @3%
-   skips 60. In 2021-2026 the same configs skip 353 and 602. There is simply not enough that
-   passes the filters, because far fewer $1.5B+ liquid names existed in the early 2010s.
-3. **So raising position size is close to free return here.** From 3% to 5%, s20 goes +8.48 →
-   +13.72 and s16 +7.98 → +16.72, while MaxDD barely moves (−24.26 → −27.06 and −24.97 → −24.72).
-   Calmar roughly doubles for both. 5% is best in every config — the opposite of 2021-2026, where
-   3% wins for s20 and s12. **Position size should track candidate supply rather than be fixed.**
-   Note 5% is the top of the swept range, so the true optimum here is likely larger still and
-   outside what this sweep can see.
-4. **The ranking neither gates nor orders usefully in this period.** `MIN_RANKING = 40` removes 0
-   s20 signals, 92 s16 and 247 s12, yet the decile tables show no predictive power: for s16 and
-   s12 the *lowest* decile out-Sortinos the highest (D1 0.604 vs D10 0.535, and D1 0.633 vs D10
-   0.590). Rank-preference funding cannot add anything when the score does not separate outcomes,
-   which is consistent with the near-zero effect measured for it on 2021-2026.
-5. **No config conclusion should be drawn from this window.** At 3% the three thresholds sit
-   within 0.5pp of each other (+7.98 to +8.48) and their ordering reverses at 5% (s16 +16.72 >
-   s20 +13.72 > s12 +10.75). The `s12 > s16 > s20` ordering that holds in both later periods is
-   simply absent here.
+   s20 @3% leaves 49.1% in cash and skips 5 signals in six years; the same config skips 353 in
+   2021-2026. Far fewer $1.5B+ liquid names existed in the early 2010s.
+3. **So raising position size is nearly free return here.** From 3% to 5%, s20 goes +8.48 → +13.72
+   and s16 +7.98 → +16.72 with drawdown roughly flat. 5% is best in every config — the opposite of
+   2021-2026, where 3% wins. **Position size should track candidate supply rather than be fixed.**
+   5% is the top of the swept range, so the real optimum here is probably larger and unobserved.
+4. **Limit entries are a wash, and the shallow ones are marginally best.** `close` beats next-open
+   in 7 of 9 cells but by only +0.21pp on average; `close -1%` +0.07pp; the deeper `close -3%` and
+   `close -5%` lose (−1.98pp, −1.49pp). Unfilled counts are tiny here (3 to 44) because this
+   window's breakouts pull back readily — the opposite of 2021-2026, where 254 signals never filled
+   at `close -5%`. A cheap entry is available in this regime; it just is not worth much.
+5. **The ranking has no predictive power in this period.** For s16 and s12 the *lowest* decile
+   out-Sortinos the highest (D1 0.604 vs D10 0.535, and 0.633 vs 0.590). Rank-preference funding
+   cannot add anything when the score does not separate outcomes.
+6. **No config conclusion should be drawn from this window.** At 3% the three thresholds sit within
+   0.5pp of each other and their ordering reverses at 5% (s16 +16.72 > s20 +13.72 > s12 +10.75).
+   The `s12 > s16 > s20` ordering that holds in both later periods is absent.
 
-**How to improve performance in a regime like this:** the lever is candidate supply, not exit or
-ranking logic. Either size up (5%+ when skip counts are in single digits) or loosen the entry
-filters / widen the universe — see the relaxation sweep prompt. Tuning the ranking or the exit is
-wasted effort in a window where half the portfolio never gets deployed.
+**How to improve performance in a regime like this:** the lever is candidate supply, not entry or
+exit timing. Size up when skip counts are in single digits, or loosen the entry filters / widen the
+universe — see the relaxation sweep prompt. Tuning entries or exits is wasted effort in a window
+where half the portfolio never gets deployed.
+
+**Deferred exit filters, measured here:** `sma200x5` beats the time-only baseline in 2 of 9 cells
+(mean −2.13pp) and `dead120` in 0 of 9 (mean −2.59pp). Cutting positions early is especially costly
+where replacement candidates barely exist — the freed capital joins the ~40% already idle.
