@@ -20,7 +20,7 @@ import polars as pl
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 
 # Filter thresholds — must stay in lockstep with QullamaggieStrategy's class attributes.
-SMA_THRESH = 0.15
+SMA_THRESH = 0.12
 MIN_AVG_VOL = 500_000
 MIN_PRICE = 5.0
 MAX_PRICE = 250.0

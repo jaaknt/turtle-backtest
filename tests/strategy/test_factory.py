@@ -60,7 +60,7 @@ def test_factory_coerces_trading_params_to_their_annotated_types() -> None:
 def test_factory_defaults_trading_params_when_not_overridden() -> None:
     strategy = get_trading_strategy("qullamaggie", MagicMock(), MagicMock())
     assert isinstance(strategy, QullamaggieStrategy)
-    assert strategy.sma_thresh == 0.15
+    assert strategy.sma_thresh == 0.12
 
 
 def test_trading_param_unknown_for_the_selected_strategy_raises_value_error() -> None:

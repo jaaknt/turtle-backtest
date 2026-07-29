@@ -19,6 +19,9 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 | [Entry price cohorts](#entry-price-cohorts) | `scripts/qullamaggie-cohorts-price.py` | `result-qullamaggie-cohorts-price.md` |
 | [Volume surge cohorts](#volume-surge-cohorts) | `scripts/qullamaggie-cohorts-volsurge.py` | `result-qullamaggie-cohorts-volsurge.md` |
 | [Tight range cohorts](#tight-range-cohorts) | `scripts/qullamaggie-cohorts-tightrange.py` | `result-qullamaggie-cohorts-tightrange.md` |
+| [pct-above-sma50 cohorts](#pct-above-sma50-cohorts) | `scripts/qullamaggie-cohorts-pct-above-sma50.py` | `result-qullamaggie-cohorts-pct-above-sma50.md` |
+| [SMA(200) analyze](#sma200-analyze) | `scripts/qullamaggie-sma200.py` | `result-qullamaggie-sma200.md` |
+| [Sector analyze](#sector-analyze) | `scripts/qullamaggie-cohorts-sector.py` | `result-qullamaggie-cohorts-sector.md` |
 | [Limit-order entry cohorts](#limit-order-entry-cohorts) | `scripts/qullamaggie-cohorts-limit-order.py` | `result-qullamaggie-cohorts-limit-order.md` |
 | [Limit-order fill rate](#limit-order-fill-rate) | `scripts/qullamaggie-limit-fill-rate.py` | `result-qullamaggie-limit-fill-rate.md` |
 | [Relaxation brainstorm (s15)](#relaxation-brainstorm-s15) | — | — |
@@ -30,7 +33,7 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 | [Portfolio simulation](#portfolio-simulation) | `scripts/qullamaggie-portfolio-sim.py` | `result-qullamaggie-portfolio-v4.md` |
 | [Exit strategy analyze](#exit-strategy-analyze) | `scripts/qullamaggie-exit-sweep.py` | `result-qullamaggie-exit-sweep.md` |
 | [Signals: s12 with overlap & cohorts](#signals-s12-with-overlap--cohorts) | `scripts/qullamaggie-signals-v4.py` | screen |
-| [Trades: s15 open-trade performance](#trades-s15-open-trade-performance) | `scripts/qullamaggie-trades-v4.py` | `result-qullamaggie-trades-v4.md` |
+| [Trades: s12 open-trade performance](#trades-s12-open-trade-performance) | `scripts/qullamaggie-trades-v4.py` | `result-qullamaggie-trades-v4.md` |
 | [Maintenance: lint & tests](#maintenance-lint--tests) | — | — |
 
 ## Backtest foundation
@@ -110,7 +113,7 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ### RSI(14) cohorts
 
-**Goal:** How `rsi_filter` (`RSI(14)` on entry) affects performance.
+**Goal:** How `rsi_filter` (`RSI(14)` on the signal date) affects performance.
 
 - **Cohorts:** [0-20), [20-40), [40-60), [40-50), [50-60), [60-70), [70-75), [75-80), [80-90), [90-100]
 - **Script:** `scripts/qullamaggie-cohorts-rsi.py`
@@ -118,7 +121,7 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ### Entry price cohorts
 
-**Goal:** How the close price on entry affects results.
+**Goal:** How the close price on the signal date affects results.
 
 - **Cohorts:** [0-5), [5-10), [10-20), [20-50), [50-100), [100-250), [250-700), [700-2000), (>2000)
 - **Script:** `scripts/qullamaggie-cohorts-price.py`
@@ -153,7 +156,7 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ### SMA(200) analyze
 
-**Goal:** How `signal above sma(200)` (`SMA(200)` on entry) affects performance.
+**Goal:** How `signal above sma(200)` (`SMA(200)` on the signal date) affects performance.
 
 - **Cohorts:** (< -50%), [-50% : -20%), [-20% : 0%), [0% : 10%), [10% : 20%), [20% : 30%), [30% : 40%), [40% : 50%), [50% : 60%), [60% : 80%), [80% : 100%), (>100%)
 - **Output:** setup is the same as for cohort analyze
@@ -193,7 +196,7 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ### Limit-order fill rate
 
-**Goal:** Calculate `bk50d_s12_v1.3_roc100` signals, then figure out the percentage of signals where the price drops X% during the next Y days so that a resting limit order would be filled.
+**Goal:** Calculate `bk50d_s12_v2.0` signals, then figure out the percentage of signals where the price drops X% during the next Y days so that a resting limit order would be filled.
 
 - **Filters:** same as `scripts/qullamaggie-signals-v4.py` (RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, no tight_range, cooldown 30d, mcap>=1.5B excl Comm/RE)
 - **Limit order price:** signal-day close × (1 − X%), X = 0%, 1%, 2%, 3%, 4%, 5%
@@ -225,7 +228,7 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ### Relaxation sweep (s20)
 
-**Goal:** Increase signals per month (F/mo) for `bk50d_s20_v1.3_roc100-366d` without degrading Sortino and Mean%.
+**Goal:** Increase signals per month (F/mo) for `bk50d_s20_v2.0` (366d hold) without degrading Sortino and Mean%.
 
 - **Baseline** (2021-01-01 : 2026-07-05, unconstrained): N=243, F/mo=3.7, Win%=67.1, Mean%=+52.50, Med%=+22.32, Sortino=2.864, MaxDD%=39.71
 - Propose 5 ideas how to loosen currently applied filters or expand the universe.
@@ -297,6 +300,8 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ## Portfolio simulation
 
+### Portfolio simulation
+
 **Goal:** Portfolio simulation over `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` signals.
 
 - **Period:** 2021-01-01 : 2026-06-26
@@ -344,7 +349,7 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ### Exit strategy analyze
 
-**Goal:** Analyze different exit strategies to improve `scripts/qullamaggie-portfolio-sim.py` CAGR% and Sortino. Provide 5 ideas and validate them against the current 366d time-cap exit. To simplify testing use only `bk50d_s20_v1.3_roc100` / 366d / 3% of portfolio.
+**Goal:** Analyze different exit strategies to improve `scripts/qullamaggie-portfolio-sim.py` CAGR% and Sortino. Provide 5 ideas and validate them against the current 366d time-cap exit. To simplify testing use only `bk50d_s20_v2.0` / 366d / 3% of portfolio.
 
 - **Period:** 2020-01-01 : 2026-06-26, initial $30,000, ranking gate >= 40
 - **Baseline to beat:** Final $222,166, CAGR +36.17%, MaxDD -26.00%, Calmar 1.391, Sortino 1.334, 180 taken / 716 skipped
@@ -386,7 +391,7 @@ All cohort studies below share the same setup unless stated otherwise:
   Date │ Symbol │ Entry $ │ Curr Price │ 0.97*Entry Price │ Change % │ %abv SMA50 │ ADR% │ ADR_CHG │ RSI14 │ TR% │ ROC252% │ In s16? │ In s20? │ 0.97*Entry Price reached? │ Ranking │ Last date
   ```
 
-  - `%abv SMA50`, `ADR%`, `RSI14`, `TR%`, `ROC252%` must be calculated on the entry date.
+  - `%abv SMA50`, `ADR%`, `RSI14`, `TR%`, `ROC252%` must be calculated on the **signal** date, since that is the bar every filter is evaluated on.
   - `Last date` = latest date when stock data is available in the `turtle.daily_bars` table.
   - `Ranking` - ranking calculated according to @turtlex/strategy/ranking/qullamaggie.py
 
@@ -410,9 +415,9 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Note:** the script prints the full report — signal table, exclusions, both cohort tables and the benchmark comparison — to stdout. It used to also write `docs/research/result-qullamaggie-signals-v4.md`; that doc was deleted 2026-07-25 because the report is only meaningful for the day it is run.
 - **Note:** the signal table is gated at `MIN_RANKING >= 40`, but both cohort tables are computed over the *ungated* s12 signals on purpose. Gating them would leave the `[0-20)` and `[20-40)` ranking buckets permanently empty and destroy the only thing those tables measure — whether the score separates outcomes at all. The summary line reports how many signals the gate dropped so the two views reconcile.
 
-### Trades: s15 open-trade performance
+### Trades: s12 open-trade performance
 
-**Goal:** Provide `bk50d_s15_v1.3_roc100` signals for period 2025-07-01 : today.
+**Goal:** Provide `bk50d_s12_v2.0` signals for period 2025-07-01 : today.
 
 - **Output columns:**
 
@@ -434,12 +439,12 @@ All cohort studies below share the same setup unless stated otherwise:
 - **References:** `turtlex/research/qullamaggie.py` (shared signal layer), `tests/research/test_qullamaggie_parity.py` (parity harness), `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`
 - **Note:** the signal layer is imported from `turtlex/research/qullamaggie.py`, which is parity-tested against
   `QullamaggieStrategy` — the strategy behind `backtest-runner --trading-strategy qullamaggie` — so this report and
-  the runner agree on `(symbol, signal_date, entry_date, entry_price)`. That parity fixed the variant to **s15**
-  (the strategy's `SMA_THRESH = 0.15`, previously s20 here) and switched indicators to split/dividend-adjusted
-  prices; the `$5-$250` band stays on the raw close. `tight_range` is not part of the strategy, so the former
-  informational `TR%` column is gone. Filters: RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x,
-  vol_dry_up<90%, SPY>200d SMA, raw close>$5&<$250, avg_vol>=500K, >15% above the 50d SMA, cooldown 30d,
-  mcap>=1.5B excl Comm/RE.
+  the runner agree on `(symbol, signal_date, entry_date, entry_price)`. The variant follows the strategy's
+  `SMA_THRESH`, which moved 0.15 -> **0.12** on 2026-07-30 so this study reports the standard `s12` algorithm;
+  indicators are split/dividend-adjusted and the `$5-$250` band stays on the raw close. `tight_range` is not
+  part of the strategy, so the former informational `TR%` column is gone. Filters: RSI<70, ADR>=3.0%,
+  ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA, raw close>$5&<$250,
+  avg_vol>=500K, >12% above the 50d SMA, cooldown 30d, mcap>=1.5B excl Comm/RE.
 
 ## Maintenance
 

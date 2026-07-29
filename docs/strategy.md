@@ -156,7 +156,7 @@ Bars with a non-positive close or adjusted close, or zero volume, are dropped be
 | Category | Condition |
 | ---------- | ----------- |
 | Breakout | Adjusted close > max of prior 50 closes |
-| Trend distance | Adjusted close more than 15% above the 50-day SMA — the default of the `sma_thresh` constructor parameter, overridable with `--trading-param sma_thresh=0.20` |
+| Trend distance | Adjusted close more than 12% above the 50-day SMA — the default of the `sma_thresh` constructor parameter, overridable with `--trading-param sma_thresh=0.20` |
 | Volume | Average volume ≥ 500k; dry-up < 0.90 of average; surge capped at 2.0× |
 | Momentum caps | 12-month ROC < 100%; RSI(14) < 70 |
 | Volatility | ADR(20) ≥ 3%; ADR change ≤ 0.90 |
@@ -173,7 +173,7 @@ Bars with a non-positive close or adjusted close, or zero volume, are dropped be
 | **Primary signal** | Box breakout | Tight consolidation breakout | Weekly momentum | 50-day-high breakout |
 | **Time frame** | Daily | Weekly | Weekly | Daily |
 | **Volume required** | Yes (>110% EMA10) | Optional | Yes (>110% prev week) | Yes (dry-up + surge cap) |
-| **EMA stack** | EMA10 > EMA20 > EMA50 > EMA200 | EMA10 > EMA20 | EMA(200) proximity | >15% above SMA(50) (default) |
+| **EMA stack** | EMA10 > EMA20 > EMA50 > EMA200 | EMA10 > EMA20 | EMA(200) proximity | >12% above SMA(50) (default) |
 | **New highs window** | 20 bars | 10 bars | 10 weeks | 50 bars |
 | **Stop loss** | At box bottom | Consolidation midpoint −2% | None specified | None specified |
 
