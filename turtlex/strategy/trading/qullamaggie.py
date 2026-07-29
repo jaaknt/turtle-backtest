@@ -19,7 +19,7 @@ class QullamaggieStrategy(TradingStrategy):
 
     Port of the validated signal from scripts/qullamaggie-backtest-v4.py:
     adjusted close breaks above the max of the prior 50 closes while sitting
-    more than `sma_thresh` (15% by default) above the 50-day SMA, with volume
+    more than `sma_thresh` (12% by default) above the 50-day SMA, with volume
     dry-up, a volume-surge cap, a 12-month ROC cap, RSI/ADR filters, a
     $5-$250 raw-close band, and a SPY > 200d SMA market-regime gate. Signals
     within 30 calendar days of the previous accepted trigger are suppressed.
@@ -31,7 +31,7 @@ class QullamaggieStrategy(TradingStrategy):
     validated backtest code has none.
     """
 
-    SMA_THRESH = 0.15
+    SMA_THRESH = 0.12
     MIN_AVG_VOL = 500_000
     MIN_PRICE = 5.0
     MAX_PRICE = 250.0
@@ -66,7 +66,7 @@ class QullamaggieStrategy(TradingStrategy):
             warmup_period: Number of days of historical data needed for indicators
             min_bars: Minimum number of bars required for analysis
             sma_thresh: Minimum fraction the adjusted close must sit above the 50-day SMA
-                on the breakout day (0.15 = 15%)
+                on the breakout day (0.12 = 12%)
         """
         super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars)
         self.sma_thresh = sma_thresh
