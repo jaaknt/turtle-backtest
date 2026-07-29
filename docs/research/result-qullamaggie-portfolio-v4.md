@@ -50,6 +50,78 @@ size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 5%         149,305  +34.05   -30.05   1.133    1.096    113    669    9.6%
 ```
 
+## Entry price: next-day open vs resting limit order
+
+The production rule buys the next trading day's split/dividend-adjusted open. The alternatives place a resting limit at the signal day's adjusted close x (1 - X), good for 30 calendar days, filling on the first day whose adjusted low touches it and filling *at* the limit. Rule and window match `scripts/qullamaggie-cohorts-limit-order.py`.
+
+`unfilled` counts signals whose limit was never touched inside the window — those trades simply never happen, which is the cost the deeper limits pay for their better entry price.
+
+```text
+cfg   size  entry           Final$   CAGR%   dCAGR   MaxDD%  Sortino    dSrt  Calmar  taken  unfil
+--------------------------------------------------------------------------------------------------
+s12   3%    next open      238,041  +45.96       —   -28.79    1.423       —   1.596    180      —
+            close          207,346  +42.33   -3.63   -28.40    1.365  -0.058   1.490    183     30
+            close -1%      228,728  +44.90   -1.06   -27.40    1.436  +0.013   1.639    180     59
+            close -3%      240,386  +46.23   +0.26   -28.34    1.439  +0.016   1.631    175    168
+            close -5%      147,089  +33.68  -12.28   -26.30    1.169  -0.254   1.281    174    254
+
+s12   4%    next open      200,154  +41.42       —   -26.83    1.309       —   1.544    142      —
+            close          173,038  +37.71   -3.71   -28.13    1.271  -0.038   1.340    140     30
+            close -1%      202,129  +41.67   +0.25   -26.80    1.319  +0.010   1.555    140     59
+            close -3%      194,714  +40.71   -0.71   -28.54    1.306  -0.003   1.426    132    168
+            close -5%      126,387  +30.03  -11.39   -29.06    1.092  -0.217   1.034    130    254
+
+s12   5%    next open      149,305  +34.05       —   -30.05    1.096       —   1.133    113      —
+            close          140,701  +32.60   -1.44   -31.23    1.101  +0.005   1.044    113     30
+            close -1%      174,876  +37.97   +3.93   -30.12    1.226  +0.131   1.261    114     59
+            close -3%      160,648  +35.85   +1.80   -30.14    1.178  +0.083   1.189    108    168
+            close -5%      126,419  +30.04   -4.01   -30.66    1.070  -0.026   0.980    107    254
+
+s16   3%    next open      156,697  +35.24       —   -22.55    1.255       —   1.563    177      —
+            close          120,768  +28.95   -6.28   -25.74    1.081  -0.174   1.125    177     22
+            close -1%      146,364  +33.56   -1.67   -22.65    1.251  -0.004   1.482    175     44
+            close -3%      118,737  +28.56   -6.68   -27.22    1.068  -0.188   1.049    169    137
+            close -5%      117,374  +28.29   -6.95   -22.61    1.049  -0.206   1.251    165    200
+
+s16   4%    next open      157,812  +35.41       —   -25.47    1.162       —   1.390    140      —
+            close          139,574  +32.41   -3.00   -26.52    1.111  -0.051   1.222    135     22
+            close -1%      160,244  +35.79   +0.38   -25.20    1.220  +0.058   1.420    135     44
+            close -3%      143,188  +33.03   -2.38   -24.63    1.145  -0.016   1.341    130    137
+            close -5%      112,361  +27.27   -8.14   -24.74    0.980  -0.182   1.102    126    200
+
+s16   5%    next open      185,724  +39.50       —   -29.00    1.223       —   1.362    115      —
+            close          125,168  +29.80   -9.70   -28.66    1.017  -0.206   1.040    113     22
+            close -1%      151,513  +34.41   -5.09   -26.47    1.146  -0.076   1.300    111     44
+            close -3%      168,660  +37.06   -2.43   -31.08    1.190  -0.033   1.193    105    137
+            close -5%      114,499  +27.71  -11.79   -29.81    0.993  -0.230   0.929    103    200
+
+s20   3%    next open      138,191  +32.17       —   -23.95    1.181       —   1.343    163      —
+            close          124,726  +29.72   -2.45   -23.16    1.157  -0.024   1.283    160     18
+            close -1%      117,307  +28.27   -3.90   -24.46    1.128  -0.053   1.156    159     41
+            close -3%      129,911  +30.68   -1.48   -24.50    1.155  -0.027   1.252    154    112
+            close -5%      139,267  +32.35   +0.19   -24.61    1.150  -0.032   1.314    154    168
+
+s20   4%    next open      121,336  +29.07       —   -30.93    1.038       —   0.940    131      —
+            close          110,001  +26.77   -2.29   -27.36    1.006  -0.032   0.979    129     18
+            close -1%      107,817  +26.31   -2.75   -26.41    1.010  -0.028   0.996    128     41
+            close -3%      102,095  +25.06   -4.01   -25.44    0.984  -0.054   0.985    121    112
+            close -5%       82,747  +20.35   -8.71   -28.28    0.805  -0.234   0.720    123    168
+
+s20   5%    next open      122,568  +29.30       —   -28.67    1.007       —   1.022    110      —
+            close          109,904  +26.75   -2.55   -30.94    0.961  -0.047   0.865    107     18
+            close -1%      122,566  +29.30   -0.00   -31.98    1.034  +0.026   0.916    104     41
+            close -3%      111,959  +27.18   -2.12   -29.07    0.999  -0.009   0.935     99    112
+            close -5%       89,308  +22.04   -7.26   -27.33    0.826  -0.181   0.807     98    168
+```
+
+`close`: beats the next-open entry on CAGR in **0 of 9** config/size cells and on Sortino in **1 of 9**; mean CAGR delta **-3.90pp**, mean unfilled signals **23**.
+
+`close -1%`: beats the next-open entry on CAGR in **3 of 9** config/size cells and on Sortino in **5 of 9**; mean CAGR delta **-1.10pp**, mean unfilled signals **48**.
+
+`close -3%`: beats the next-open entry on CAGR in **2 of 9** config/size cells and on Sortino in **2 of 9**; mean CAGR delta **-1.97pp**, mean unfilled signals **139**.
+
+`close -5%`: beats the next-open entry on CAGR in **1 of 9** config/size cells and on Sortino in **0 of 9**; mean CAGR delta **-7.82pp**, mean unfilled signals **207**.
+
 ## Monthly returns/transactions — top 5 by Final$
 
 ### #1  s12 — size 3%  (Final $238,041)
@@ -177,3 +249,50 @@ D8        65-73       14   +3.12    -6.53   0.478    0.592
 D9        73-80       14   +5.97    -9.76   0.612    0.788
 D10       80-95       15   +9.66   -11.03   0.875    0.930
 ```
+
+## Findings (2026-07-29 run, 2021-01-01 – 2026-06-26 — tables above regenerate on re-run)
+
+1. **Looser thresholds win by a wide margin.** At 3% sizing s12 returns +45.96% (Calmar 1.596,
+   Sortino 1.423) against s16's +35.24% and s20's +32.17%. 2016-2020 gives the same ordering.
+   `s12 @3%` is the best cell in this window on every measure.
+2. **s16 is an interpolation point, not a sweet spot** — it lands between s20 and s12 exactly where
+   its threshold sits. Its only distinction is the mildest drawdown (−22.55%), so pick it if
+   drawdown tolerance rather than return is the binding constraint.
+3. **Limit-order entries do not help in this window.** Against the next-day-open rule, all four
+   variants lose on average: `close` −3.90pp (0 of 9 cells), `close -1%` −1.10pp (3 of 9),
+   `close -3%` −1.97pp (2 of 9), `close -5%` −7.82pp (1 of 9). The deep limits fail for a
+   mechanical reason visible in the `unfil` column: at `close -5%`, 254 of the config's signals
+   never fill at all. You get a better price on the trades you do take, and forgo the breakouts
+   that ran without looking back — which are the ones that pay.
+4. **The ranking separates only at the top.** D10 is the best decile in all three configs, but the
+   middle is noise (D3 and D5 negative for s20, D4 for s16) on 13-15 trades per decile. Treat it as
+   weak evidence for a top-quintile preference, not a monotonic score.
+5. **Rank-ordered funding is a no-op** — measured against the same harness with the flag off, mean
+   CAGR delta over these nine cells is +0.21pp, better in 5 and worse in 4. `MIN_RANKING = 40`
+   already removes the low end, so same-day competitors score alike and reordering shuffles
+   near-equivalents.
+
+**How to improve performance:** prefer `s12` at 3%, keep the next-day-open entry, and keep the
+plain 366d time cap. Every exit and entry variation tested so far is regime-dependent (see below);
+the remaining untested lever is entry-side candidate supply — the relaxation sweep.
+
+### Cross-period verdict on entry and exit variations
+
+Both the entry rule and the two deferred exit filters were run over all three windows, 27
+config/size cells each. Mean CAGR delta against the production rule:
+
+```text
+variation      2010-2015   2016-2020   2021-2026   cells won (CAGR, of 27)
+close           +0.21       +0.89       -3.90            13
+close -1%       +0.07       +1.42       -1.10            12
+close -3%       -1.98       +2.54       -1.97            10
+close -5%       -1.49       +2.22       -7.82            10
+sma200x5        -2.13       -9.20       -1.91             6
+dead120         -2.59       -9.70       -0.76             4
+```
+
+No variation wins a majority of the 27 cells, and every one changes sign between periods. Limit
+entries help in 2016-2020 and hurt in 2021-2026; the exit filters fail everywhere and 2016-2020
+rejects them outright. This is the same pattern `docs/research/result-qullamaggie-exit-sweep.md`
+documented for exits: a change that looks decisive on one window does not survive the others. The
+production rules — next-day open, 366d time cap — remain the ones to beat.

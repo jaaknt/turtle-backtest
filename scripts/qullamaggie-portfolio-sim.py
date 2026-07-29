@@ -56,12 +56,23 @@ POS_FRACTIONS = [0.03, 0.04, 0.05]  # position-size sweep
 HOLD_CAL = 366
 DECILE_POS_FRACTION = 0.04  # representative size used for the ranking-decile mini-simulations
 N_DECILES = 10
-BELOW_DAYS = 3  # consecutive days below 200d SMA to trigger trend exit
+BELOW_DAYS = 5  # consecutive days below 200d SMA to trigger the trend exit
+DEAD_CAL = 120  # dead-money exit: calendar days after entry at which the gain is tested
+DEAD_MIN_RET = 0.05  # ... and the gain it must have made by then to stay open
 STOP_DD = 0.30  # fixed stop: close <= (1-STOP_DD) * entry price
 TRAIL_DD = 0.25  # trailing stop: close <= (1-TRAIL_DD) * peak-since-entry
 RANK_FUNDING = True  # when cash is scarce, fund competing signals by QullamaggieRanking (desc)
 
-EXIT_MODES = ["time"]  # 366d time cap only
+# Entry-price comparison: a resting limit at signal_day_close x (1 - pct), good for
+# LIMIT_WINDOW_CAL calendar days, filling on the first day whose adjusted low touches it.
+# Rule and window match scripts/qullamaggie-cohorts-limit-order.py.
+LIMIT_WINDOW_CAL = 30
+LIMIT_PCTS = [0.00, 0.01, 0.03, 0.05]
+
+# Only "time" is exercised. sma200x5, dead120, stop30 and trail25 are implemented in run_sim
+# but dormant: prompts.md lists them under "Deferred/considered ideas". The sma200x5 and
+# dead120 measurements that led to that deferral are recorded in the Findings sections.
+EXIT_MODES = ["time"]
 MIN_AVG_VOL = 500_000
 MIN_PRICE = 5.0
 MAX_PRICE = 250.0
@@ -282,12 +293,14 @@ def main() -> None:
     sym_dates: dict[str, np.ndarray] = {}
     sym_closes: dict[str, np.ndarray] = {}
     sym_opens: dict[str, np.ndarray] = {}
+    sym_lows: dict[str, np.ndarray] = {}
     sym_sma200: dict[str, np.ndarray] = {}
     for (sym,), grp in df.sort(["symbol", "date"]).group_by(["symbol"], maintain_order=False):
         g = grp.sort("date")
         sym_dates[sym] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int64)
         sym_closes[sym] = g["close"].cast(pl.Float64).to_numpy(allow_copy=True)
         sym_opens[sym] = g["open"].cast(pl.Float64).to_numpy(allow_copy=True)
+        sym_lows[sym] = g["low"].cast(pl.Float64).to_numpy(allow_copy=True)
         sym_sma200[sym] = g["sma200"].cast(pl.Float64).to_numpy(allow_copy=True)
 
     def _idx_on(sym: str, dint: int) -> int:
@@ -315,6 +328,25 @@ def main() -> None:
         while idx < len(dates) and dates[idx] <= dint + 7:
             if opens[idx] > 0 and not np.isnan(opens[idx]):
                 return int(dates[idx]), float(opens[idx])
+            idx += 1
+        return None
+
+    def limit_fill(sym: str, dint: int, limit_px: float) -> tuple[int, float] | None:
+        """First bar within LIMIT_WINDOW_CAL calendar days after `dint` whose adjusted low touches
+        `limit_px`, as (date_int, fill price).
+
+        Mirrors scripts/qullamaggie-cohorts-limit-order.py: the order rests from the day after the
+        signal, fills on the first day whose low reaches the limit, and fills *at* the limit — a
+        bar that gaps below it would really fill better, so this is the conservative side.
+        """
+        dates = sym_dates.get(sym)
+        if dates is None:
+            return None
+        idx = int(np.searchsorted(dates, dint, side="right"))
+        lows = sym_lows[sym]
+        while idx < len(dates) and dates[idx] <= dint + LIMIT_WINDOW_CAL:
+            if lows[idx] <= limit_px:
+                return int(dates[idx]), limit_px
             idx += 1
         return None
 
@@ -377,9 +409,14 @@ def main() -> None:
                 if px is not None:
                     if exit_mode == "stop30":
                         rule_hit = px <= (1 - STOP_DD) * p["entry_px"]
-                    elif exit_mode == "sma200x3":
+                    elif exit_mode == "sma200x5":
                         p["below_cnt"] = p["below_cnt"] + 1 if below_sma200(p["sym"], dint) else 0
                         rule_hit = p["below_cnt"] >= BELOW_DAYS
+                    elif exit_mode == "dead120":
+                        # Tested once the position is DEAD_CAL calendar days old, and every day
+                        # after: a trade that recovers past the threshold later simply stops
+                        # qualifying, so this is "not working yet", not a one-shot check.
+                        rule_hit = dint - p["entry_dint"] >= DEAD_CAL and px / p["entry_px"] - 1.0 < DEAD_MIN_RET
                     elif exit_mode == "trail25":
                         p["peak"] = max(p["peak"], px)
                         rule_hit = px <= (1 - TRAIL_DD) * p["peak"]
@@ -417,6 +454,7 @@ def main() -> None:
                         "shares": target / entry_px,
                         "entry_px": entry_px,
                         "entry_date": d,
+                        "entry_dint": dint,
                         "sig_date": s["date"],
                         "exit_int": dint + hold_cal,
                         "below_cnt": 0,
@@ -640,8 +678,39 @@ def main() -> None:
 
     # collect all baseline (366d) results first, then rank for monthly grids
     all_results: list[tuple[str, float, dict]] = []  # (name, pos_fraction, result)
+    entry_results: list[tuple[str, str, float, dict, dict, int]] = []  # cfg, label, pf, open_res, res, unfilled
     signals_by_day_by_config: dict[str, dict[int, list[dict]]] = {}
     hdr = f"{'size':<6} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} {'Sortino':>8} {'taken':>6} {'skip':>6} {'Uninv%':>7}"
+
+    def resolve(sig: pl.DataFrame, limit_pct: float | None) -> tuple[dict[int, list[dict]], int, int]:
+        """Score every signal and attach its entry day and price, keyed by the day it is funded.
+
+        `limit_pct` None means the production rule: the next trading day's adjusted open. A value
+        places a resting limit at signal_day_close x (1 - limit_pct) instead. Resolved once here
+        rather than inside run_sim, because the size sweep and the decile re-simulations replay
+        the same signals many times over.
+
+        Returns (signals keyed by entry date-int, dropped by ranking gate, unfilled).
+        """
+        by_day: dict[int, list[dict]] = {}
+        n_rank = n_unfilled = 0
+        for row in sig.iter_rows(named=True):
+            r = dict(row)
+            r["ranking"] = compute_ranking(r)
+            if r["ranking"] < MIN_RANKING:
+                n_rank += 1
+                continue
+            sig_dint = (r["date"] - _EPOCH).days
+            if limit_pct is None:
+                fill = next_open(r["symbol"], sig_dint)
+            else:
+                fill = limit_fill(r["symbol"], sig_dint, r["close"] * (1.0 - limit_pct))
+            if fill is None or fill[0] not in cal_set:
+                n_unfilled += 1
+                continue
+            entry_dint, r["entry_px"] = fill
+            by_day.setdefault(entry_dint, []).append(r)
+        return by_day, n_rank, n_unfilled
 
     for name, sma_t in CONFIGS:
         print(f"Simulating {name} …", flush=True)
@@ -650,19 +719,7 @@ def main() -> None:
         # the decile re-simulations replay the same signals many times over. Signals are
         # keyed by their *entry* day (the next trading day), so run_sim funds a position on
         # the day it is actually filled.
-        signals_by_day: dict[int, list[dict]] = {}
-        n_below_rank = n_no_fill = 0
-        for r in sig.iter_rows(named=True):
-            r["ranking"] = compute_ranking(r)
-            if r["ranking"] < MIN_RANKING:
-                n_below_rank += 1
-                continue
-            fill = next_open(r["symbol"], (r["date"] - _EPOCH).days)
-            if fill is None or fill[0] not in cal_set:
-                n_no_fill += 1  # no tradeable open, or the fill lands past EVAL_END
-                continue
-            entry_dint, r["entry_px"] = fill
-            signals_by_day.setdefault(entry_dint, []).append(r)
+        signals_by_day, n_below_rank, n_no_fill = resolve(sig, None)
         signals_by_day_by_config[name] = signals_by_day
 
         out("")
@@ -688,6 +745,62 @@ def main() -> None:
                 f"{r['avg_uninv_pct']:>6.1f}%"
             )
         table(hdr, rows)
+        for pct in LIMIT_PCTS:
+            lim_sigs, _, n_unfilled = resolve(sig, pct)
+            label = "close" if pct == 0 else f"close -{pct * 100:.0f}%"
+            for pf in POS_FRACTIONS:
+                entry_results.append((name, label, pf, results[pf], run_sim(lim_sigs, "time", pf), n_unfilled))
+
+    out("")
+    out("## Entry price: next-day open vs resting limit order")
+    out("")
+    out(
+        f"The production rule buys the next trading day's split/dividend-adjusted open. The "
+        f"alternatives place a resting limit at the signal day's adjusted close x (1 - X), good for "
+        f"{LIMIT_WINDOW_CAL} calendar days, filling on the first day whose adjusted low touches it "
+        f"and filling *at* the limit. Rule and window match `scripts/qullamaggie-cohorts-limit-order.py`."
+    )
+    out("")
+    out(
+        "`unfilled` counts signals whose limit was never touched inside the window — those trades "
+        "simply never happen, which is the cost the deeper limits pay for their better entry price."
+    )
+    ent_hdr = (
+        f"{'cfg':<5} {'size':<5} {'entry':<11} {'Final$':>10} {'CAGR%':>7} {'dCAGR':>7} "
+        f"{'MaxDD%':>8} {'Sortino':>8} {'dSrt':>7} {'Calmar':>7} {'taken':>6} {'unfil':>6}"
+    )
+    ent_rows: list[str] = []
+    prev: tuple[str, float] | None = None
+    for cfg_name, label, pf, base_r, r, n_unf in sorted(entry_results, key=lambda x: (x[0], x[2])):
+        if prev is not None and prev != (cfg_name, pf):
+            ent_rows.append("")
+        if prev != (cfg_name, pf):
+            ent_rows.append(
+                f"{cfg_name:<5} {pf:<5.0%} {'next open':<11} {base_r['final']:>10,.0f} "
+                f"{base_r['cagr'] * 100:>+7.2f} {'—':>7} {base_r['max_dd'] * 100:>8.2f} "
+                f"{base_r['sortino']:>8.3f} {'—':>7} {base_r['calmar']:>7.3f} {base_r['taken']:>6} {'—':>6}"
+            )
+        ent_rows.append(
+            f"{'':<5} {'':<5} {label:<11} {r['final']:>10,.0f} {r['cagr'] * 100:>+7.2f} "
+            f"{(r['cagr'] - base_r['cagr']) * 100:>+7.2f} {r['max_dd'] * 100:>8.2f} {r['sortino']:>8.3f} "
+            f"{r['sortino'] - base_r['sortino']:>+7.3f} {r['calmar']:>7.3f} {r['taken']:>6} {n_unf:>6}"
+        )
+        prev = (cfg_name, pf)
+    table(ent_hdr, ent_rows)
+
+    for pct in LIMIT_PCTS:
+        label = "close" if pct == 0 else f"close -{pct * 100:.0f}%"
+        cells = [(b, r, u) for _, lb, _, b, r, u in entry_results if lb == label]
+        wins_c = sum(1 for b, r, _ in cells if r["cagr"] > b["cagr"])
+        wins_s = sum(1 for b, r, _ in cells if r["sortino"] > b["sortino"])
+        mean_d = sum((r["cagr"] - b["cagr"]) * 100 for b, r, _ in cells) / len(cells)
+        mean_unf = sum(u for _, _, u in cells) / len(cells)
+        out("")
+        out(
+            f"`{label}`: beats the next-open entry on CAGR in **{wins_c} of {len(cells)}** "
+            f"config/size cells and on Sortino in **{wins_s} of {len(cells)}**; mean CAGR delta "
+            f"**{mean_d:+.2f}pp**, mean unfilled signals **{mean_unf:.0f}**."
+        )
 
     # monthly grids for the top 5 by Final$ (366d baseline, RSI<70)
     ranked_final = sorted(all_results, key=lambda x: x[2]["final"], reverse=True)
