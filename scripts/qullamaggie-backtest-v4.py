@@ -5,8 +5,11 @@ Spec: docs/research/qullamaggie-backtest-v4.md
 
 Fixed filters: vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%,
                ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K
-Sweep: SMA_THRESH ∈ {12%,15%,17%,20%} × HOLD_CAL ∈ {91,184,366 cal days}  (tight_range and sma_alignment disabled)
+Sweep: SMA_THRESH ∈ {12%,16%,20%} × HOLD_CAL ∈ {366 cal days}  (tight_range and sma_alignment disabled)
 Eval: 2021-01-01 – present  |  Burn-in data from 2020-01-01
+Entry: next trading day's split/dividend-adjusted open (not the signal-day close).
+Every signal is scored 0-100 by the production QullamaggieRanking; results are reported both
+without a ranking condition and gated at each threshold in MIN_RANKINGS.
 """
 
 from datetime import date, timedelta
@@ -18,6 +21,7 @@ import sqlalchemy as sa
 
 from turtlex.backtest.metrics import compute_trade_metrics
 from turtlex.config.settings import Settings
+from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2021, 1, 1)
@@ -27,6 +31,7 @@ MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
+ENTRY_SEARCH_DAYS = 7  # give up if no tradeable bar appears this many calendar days after the signal
 VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
@@ -35,10 +40,11 @@ ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 MIN_TRADES = 30
 MIN_NEG = 10
-CAPACITY_LIMITS = [30, 20]
+MIN_RANKINGS = [40, 45, 50]  # QullamaggieRanking gates to sweep; 40 is the portfolio-runner default
+ALGO_VERSION = "2.0"  # version encoded in the bk50d_sX_vN labels — an identity, not a filter value
 
-SMA_THRESHS = [0.12, 0.15, 0.17, 0.20]
-HOLD_CALS = [91, 184, 366]
+SMA_THRESHS = [0.12, 0.16, 0.20]
+HOLD_CALS = [366]
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-backtest-v4.md"
 
@@ -70,15 +76,17 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
 
     `raw_close` (unadjusted) is kept separately for the absolute MIN_PRICE/MAX_PRICE
     filter, since adjusting it would leak knowledge of splits that hadn't happened yet
-    as of the entry date. `close`/`high`/`low` are split/dividend-adjusted (scaled by
+    as of the signal date. `open`/`close`/`high`/`low` are split/dividend-adjusted (scaled by
     adjusted_close/close) so rolling indicators and trade returns aren't corrupted by
-    the price discontinuity a raw close shows on a split date.
+    the price discontinuity a raw close shows on a split date. `open` is the entry fill
+    price: trades are bought at the bar after the signal, not at the signal close.
     """
     sql = """
         SELECT db.symbol,
                db.date::date             AS date,
                db.close::float8          AS raw_close,
                db.adjusted_close::float8 AS close,
+               db.open::float8           AS open,
                db.high::float8           AS high,
                db.low::float8            AS low,
                db.volume::int8           AS volume
@@ -104,9 +112,12 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
             "date": pl.Series([r[1] for r in rows], dtype=pl.Date),
             "raw_close": [float(r[2]) for r in rows],
             "close": [float(r[3]) for r in rows],
-            "high": [float(r[4]) * f for r, f in zip(rows, factor, strict=True)],
-            "low": [float(r[5]) * f for r, f in zip(rows, factor, strict=True)],
-            "volume": [int(r[6]) for r in rows],
+            # a null/zero open leaves the bar usable for close-based indicators; run_trades
+            # skips it as an entry bar instead of dropping the row
+            "open": [float(r[4] or 0.0) * f for r, f in zip(rows, factor, strict=True)],
+            "high": [float(r[5]) * f for r, f in zip(rows, factor, strict=True)],
+            "low": [float(r[6]) * f for r, f in zip(rows, factor, strict=True)],
+            "volume": [int(r[7]) for r in rows],
         }
     )
 
@@ -165,6 +176,32 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
     return df.drop(["_c1", "_v1", "_rp1", "_adr10", "_adr50", "_c_252d"])
 
 
+# ── Ranking ────────────────────────────────────────────────────────────────────
+
+_ranker = QullamaggieRanking()
+
+
+def compute_ranking(row: dict) -> int:
+    """Score one signal row 0-100 with the production QullamaggieRanking.
+
+    Maps `raw_close` onto the `close` column the ranking reads, because
+    `QullamaggieStrategy` keeps `close` unadjusted (its adjusted series lives in
+    `adj_close`) and the price bands are dollar-denominated. `adr_pct` and
+    `pct_vs_sma50` are the same shift-1 indicators the entry filter used.
+    """
+    row_df = pl.DataFrame(
+        [
+            {
+                "date": row["date"],
+                "close": row["raw_close"],
+                "adr_pct": row["adr_pct"],
+                "pct_vs_sma50": row["pct_vs_sma50"],
+            }
+        ]
+    )
+    return _ranker.ranking(row_df, row["date"])
+
+
 # ── Signal generation ──────────────────────────────────────────────────────────
 
 
@@ -190,7 +227,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
         )
-        .select(["symbol", "date", "close"])
+        .select(["symbol", "date", "close", "raw_close", "adr_pct", "pct_vs_sma50"])
         .sort(["symbol", "date"])
     )
     if cands.is_empty():
@@ -201,7 +238,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
         sym, d = row["symbol"], row["date"]
         prev = last_trigger.get(sym)
         if prev is None or (d - prev).days > COOLDOWN:
-            rows_out.append(row)
+            rows_out.append({**row, "ranking": compute_ranking(row)})
             last_trigger[sym] = d
     return pl.DataFrame(rows_out) if rows_out else cands.clear()
 
@@ -213,8 +250,16 @@ def run_trades(
     signals: pl.DataFrame,
     sym_dates: dict[str, np.ndarray],
     sym_closes: dict[str, np.ndarray],
+    sym_opens: dict[str, np.ndarray],
     hold_cal: int,
 ) -> list[dict]:
+    """Turn signals into round-trip trades bought at the next trading day's adjusted open.
+
+    The entry bar is the first bar strictly after the signal date with a positive adjusted
+    open, given up on after ENTRY_SEARCH_DAYS calendar days — mirroring
+    `SignalProcessor.calculate_entry_data`. The exit is the close of the first bar at or
+    after `entry_date + hold_cal`; signals without that much forward data are dropped.
+    """
     records: list[dict] = []
     for row in signals.iter_rows(named=True):
         sym = row["symbol"]
@@ -222,48 +267,41 @@ def run_trades(
             continue
         dates = sym_dates[sym]
         closes = sym_closes[sym]
-        entry_int = (row["date"] - _EPOCH).days
-        idx_entry = int(np.searchsorted(dates, entry_int))
-        if idx_entry >= len(dates) or dates[idx_entry] != entry_int:
+        opens = sym_opens[sym]
+        signal_int = (row["date"] - _EPOCH).days
+        last_entry_int = signal_int + ENTRY_SEARCH_DAYS
+        # advance past bars with no usable open; `not (open > 0)` also skips NaN
+        idx_entry = int(np.searchsorted(dates, signal_int, side="right"))
+        while idx_entry < len(dates) and dates[idx_entry] <= last_entry_int and not opens[idx_entry] > 0:
+            idx_entry += 1
+        if idx_entry >= len(dates) or dates[idx_entry] > last_entry_int:
             continue
+        entry_int = int(dates[idx_entry])
+        entry_px = float(opens[idx_entry])
         if dates[-1] < entry_int + HOLD_MAX_CAL:
             continue
         idx_exit = int(np.searchsorted(dates, entry_int + hold_cal))
         if idx_exit >= len(dates):
             continue
-        window = closes[idx_entry : idx_exit + 1]
-        ret = float((closes[idx_exit] - closes[idx_entry]) / closes[idx_entry])
+        entry_date = _EPOCH + timedelta(days=entry_int)
+        # the position starts at the entry open, so that is the first point of the price path
+        window = np.concatenate(([entry_px], closes[idx_entry : idx_exit + 1]))
+        ret = float((closes[idx_exit] - entry_px) / entry_px)
         running_max = np.maximum.accumulate(window)
         mdd = float((1.0 - window / running_max).max())
         records.append(
             {
                 "symbol": sym,
-                "entry_date": row["date"],
+                "signal_date": row["date"],
+                "entry_date": entry_date,
                 "exit_date": _EPOCH + timedelta(days=int(dates[idx_exit])),
-                "year": row["date"].year,
+                "year": entry_date.year,
                 "ret": ret,
                 "mdd": mdd,
+                "ranking": row["ranking"],
             }
         )
     return records
-
-
-def apply_capacity(records: list[dict], max_open: int) -> list[dict]:
-    """Keep only the trades a portfolio limited to `max_open` concurrent positions could take.
-
-    Processes candidate trades in chronological entry-date order (ties broken by symbol) and
-    greedily accepts a trade if fewer than `max_open` positions are open on its entry date;
-    otherwise the signal is skipped outright (no queueing for a freed-up slot later).
-    """
-    ordered = sorted(records, key=lambda r: (r["entry_date"], r["symbol"]))
-    open_exits: list[date] = []
-    accepted: list[dict] = []
-    for r in ordered:
-        open_exits = [d for d in open_exits if d >= r["entry_date"]]
-        if len(open_exits) < max_open:
-            open_exits.append(r["exit_date"])
-            accepted.append(r)
-    return accepted
 
 
 # ── Metrics ────────────────────────────────────────────────────────────────────
@@ -275,6 +313,7 @@ def compute_metrics(records: list[dict], hold_cal: int) -> dict | None:
         return None
     a = np.array([r["ret"] for r in records])
     mdds = np.array([r["mdd"] for r in records])
+    ranks = np.array([r["ranking"] for r in records], dtype=float)
     m = compute_trade_metrics(a * 100, hold_cal, trade_drawdowns_pct=mdds * 100, min_losers=MIN_NEG)
     if m is None or np.isnan(m.sortino) or m.sortino <= 0:
         return None
@@ -282,6 +321,8 @@ def compute_metrics(records: list[dict], hold_cal: int) -> dict | None:
     months = (today.year - EVAL_START.year) * 12 + (today.month - EVAL_START.month)
     return {
         "n": m.n,
+        "rank_avg": float(ranks.mean()),
+        "rank_med": float(np.median(ranks)),
         "win": m.win_pct,
         "mean": m.mean_pct,
         "ann_mean": m.ann_mean_pct,
@@ -319,7 +360,7 @@ def consistency_flag(records: list[dict], hold_cal: int) -> tuple[str, bool]:
 _HDR = (
     f"{'#':>4}  {'Entry Signal':<30}  {'Exit':>6}  "
     f"{'N':>4}  {'Win%':>5}  {'Mean%':>7}  {'AnnMean%':>8}  {'Med%':>7}  {'Q75%':>7}  {'PF':>5}  {'Sortino':>7}  "
-    f"{'MaxDD%':>7}  {'CVaR%':>7}  {'F/mo':>5}  {'Yrs+':>5}  {'C':>1}"
+    f"{'MaxDD%':>7}  {'CVaR%':>7}  {'F/mo':>5}  {'RkAvg':>5}  {'RkMed':>5}  {'Yrs+':>5}  {'C':>1}"
 )
 _SEP = "─" * len(_HDR)
 
@@ -330,7 +371,8 @@ def fmt_row(rank: int, label: str, hold_cal: int, m: dict, yrs: str, cons: bool)
         f"{rank:>4}  {label:<30}  {hold_cal:>4}d  "
         f"{m['n']:>4}  {m['win']:>5.1f}  {m['mean']:>+7.2f}  {m['ann_mean']:>+8.2f}  {m['med']:>+7.2f}  "
         f"{m['q75']:>+7.2f}  {m['pf']:>5.2f}  {m['sr']:>7.3f}  "
-        f"{m['mdd']:>7.2f}  {m['cvar']:>+7.2f}  {m['freq']:>5.1f}  {yrs:>5}  {c}"
+        f"{m['mdd']:>7.2f}  {m['cvar']:>+7.2f}  {m['freq']:>5.1f}  "
+        f"{m['rank_avg']:>5.1f}  {m['rank_med']:>5.0f}  {yrs:>5}  {c}"
     )
 
 
@@ -383,34 +425,41 @@ def main() -> None:
 
     sym_dates: dict[str, np.ndarray] = {}
     sym_closes: dict[str, np.ndarray] = {}
+    sym_opens: dict[str, np.ndarray] = {}
     for (sym,), grp in df.sort(["symbol", "date"]).group_by(["symbol"], maintain_order=False):
         g = grp.sort("date")
         sym_dates[sym] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int32)
         sym_closes[sym] = g["close"].cast(pl.Float64).to_numpy(allow_copy=True)
+        sym_opens[sym] = g["open"].cast(pl.Float64).to_numpy(allow_copy=True)
 
     results: list[tuple[str, int, dict, list[dict]]] = []
-    results_by_cap: dict[int, list[tuple[str, int, dict, list[dict]]]] = {cap: [] for cap in CAPACITY_LIMITS}
+    results_gated: list[tuple[str, int, dict, list[dict]]] = []
+    gate_stats: list[tuple[str, int, int, int]] = []  # (label, gate, signals_total, signals_passing)
 
     for sma_t in SMA_THRESHS:
-        lbl = f"bk50d_s{int(sma_t * 100)}_v1.3_roc100"
+        lbl = f"bk50d_s{round(sma_t * 100)}_v{ALGO_VERSION}"
         print(f"  {lbl} …", flush=True)
         signals = get_signals(df, bull_dates, sma_t)
         if signals.is_empty():
             continue
         for hold_cal in HOLD_CALS:
-            records = run_trades(signals, sym_dates, sym_closes, hold_cal)
+            records = run_trades(signals, sym_dates, sym_closes, sym_opens, hold_cal)
             m = compute_metrics(records, hold_cal)
             if m is not None:
                 results.append((lbl, hold_cal, m, records))
-            for cap in CAPACITY_LIMITS:
-                records_capped = apply_capacity(records, cap)
-                m_capped = compute_metrics(records_capped, hold_cal)
-                if m_capped is not None:
-                    results_by_cap[cap].append((lbl, hold_cal, m_capped, records_capped))
+        for min_rank in MIN_RANKINGS:
+            signals_gated = signals.filter(pl.col("ranking") >= min_rank)
+            gate_stats.append((lbl, min_rank, signals.height, signals_gated.height))
+            if signals_gated.is_empty():
+                continue
+            for hold_cal in HOLD_CALS:
+                records_gated = run_trades(signals_gated, sym_dates, sym_closes, sym_opens, hold_cal)
+                m_gated = compute_metrics(records_gated, hold_cal)
+                if m_gated is not None:
+                    results_gated.append((f"{lbl} R≥{min_rank}", hold_cal, m_gated, records_gated))
 
     results.sort(key=lambda x: x[2]["sr"], reverse=True)
-    for cap in CAPACITY_LIMITS:
-        results_by_cap[cap].sort(key=lambda x: x[2]["sr"], reverse=True)
+    results_gated.sort(key=lambda x: x[2]["sr"], reverse=True)
 
     # ── Print tables ───────────────────────────────────────────────────────────
     header_lines = [
@@ -438,15 +487,25 @@ def main() -> None:
     print("\n" + output)
     print_consistent("Consistent (Sortino>0 in ≥70% of complete eval years, ≥3 valid years)", consistent_rows)
 
-    capped: dict[int, tuple[str, list[tuple[int, str, int, dict, str]]]] = {}
-    for cap in CAPACITY_LIMITS:
-        out, cons_rows = build_rankings(results_by_cap[cap], [*header_lines[:-1], f"Max concurrent positions: {cap}", ""])
-        capped[cap] = (out, cons_rows)
-        print("\n" + out)
-        print_consistent(
-            f"Consistent (Max {cap} Concurrent) — Sortino>0 in ≥70% of complete eval years, ≥3 valid years",
-            cons_rows,
-        )
+    gates_str = ", ".join(str(r) for r in MIN_RANKINGS)
+    output_gated, consistent_gated = build_rankings(
+        results_gated, [*header_lines[:-1], f"Ranking gate sweep: QullamaggieRanking ≥ {gates_str}", ""]
+    )
+    print("\n" + output_gated)
+    print_consistent(
+        f"Consistent (Ranking ≥ {gates_str}) — Sortino>0 in ≥70% of complete eval years, ≥3 valid years",
+        consistent_gated,
+    )
+
+    gate_lines = [
+        f"{'Entry Signal':<24}  {'Gate':>5}  {'Signals':>8}  {'Passing':>8}  {'Rejected':>9}  {'Reject%':>8}",
+        "─" * 72,
+    ]
+    for lbl, gate, total, passing in gate_stats:
+        rejected = total - passing
+        gate_lines.append(f"{lbl:<24}  {gate:>5}  {total:>8}  {passing:>8}  {rejected:>9}  {rejected / total * 100:>7.1f}%")
+    gate_table = "\n".join(gate_lines)
+    print(f"\n=== Ranking gate selectivity (signal level) ===\n{gate_table}")
 
     # ── Write markdown result ──────────────────────────────────────────────────
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -457,11 +516,15 @@ def main() -> None:
         hold_vals = ", ".join(f"{h}d" for h in HOLD_CALS)
         fh.write("## Configuration\n\n")
         fh.write("| Parameter | Value |\n|---|---|\n")
+        fh.write(f"| Algorithm version | {ALGO_VERSION} (encoded as `_v{ALGO_VERSION}` in the names below) |\n")
         fh.write("| Breakout | 50d high |\n")
+        fh.write(f"| Entry | next trading day's adjusted open (within {ENTRY_SEARCH_DAYS} cal days of the signal) |\n")
+        fh.write("| Exit | close of the first bar at or after entry + hold |\n")
         fh.write(f"| SMA thresh sweep | {sma_vals} |\n")
         fh.write("| Tight range | disabled (commented out) |\n")
         fh.write(f"| Hold sweep | {hold_vals} (calendar) |\n")
-        fh.write(f"| Capacity limits | unconstrained, {', '.join(str(c) for c in CAPACITY_LIMITS)} concurrent (FIFO) |\n")
+        fh.write("| Ranking | QullamaggieRanking (ADR 40 / SMA50 35 / price 25) |\n")
+        fh.write(f"| Ranking gate sweep | ungated, ≥ {gates_str} |\n")
         fh.write(f"| vol_dry_up | avg_vol_10 < {int(VOL_DRY_UP * 100)}% × avg_vol_50 |\n")
         fh.write(f"| vol_surge | volume/avg_vol_50 < {VOL_SURGE_MAX}× (no lower bound) |\n")
         fh.write(f"| roc_12m_cap | 12m ROC < {int(ROC_CAP * 100)}% |\n")
@@ -476,81 +539,38 @@ def main() -> None:
         fh.write(f"| Cooldown | {COOLDOWN} calendar days |\n")
         fh.write(f"| Eval period | {EVAL_START} – {date.today()} |\n")
         fh.write("| Universe | US common stocks, market_cap ≥ 1.5B, excl. Comm/RE |\n\n")
-        fh.write("## Rankings\n\n```text\n")
+        fh.write("## Rankings — No Ranking Condition\n\n```text\n")
         fh.write(output)
         fh.write("\n```\n\n")
         fh.write(consistent_md("Consistent Combinations", consistent_rows))
 
-        for cap in CAPACITY_LIMITS:
-            out, cons_rows = capped[cap]
-            fh.write(f"\n## Rankings — Max {cap} Concurrent Positions\n\n")
-            fh.write(
-                f"Same signals, but a trade is skipped if {cap} positions are already open on its entry "
-                "date (FIFO, ties broken alphabetically by symbol; no queueing for a freed-up slot later).\n\n```text\n"
-            )
-            fh.write(out)
-            fh.write("\n```\n\n")
-            fh.write(consistent_md(f"Consistent Combinations (Max {cap} Concurrent)", cons_rows))
+        fh.write(f"\n## Rankings — Ranking Gate Sweep (R ≥ {gates_str})\n\n")
+        fh.write(
+            "Same signals, but a trade is taken only if its `QullamaggieRanking` score "
+            f"(`turtlex/strategy/ranking/qullamaggie.py`) is ≥ R, swept over {gates_str} (40 is the "
+            "`--min-signal-ranking` default). The score is computed from the same shift-1 indicators the "
+            "entry filter used (`adr_pct`, `pct_vs_sma50`) plus the raw signal-date close, so it adds no "
+            "look-ahead.\n\n```text\n"
+        )
+        fh.write(output_gated)
+        fh.write("\n```\n\n")
+        fh.write(consistent_md(f"Consistent Combinations (Ranking ≥ {gates_str})", consistent_gated))
+
+        fh.write("\n## Ranking Gate Selectivity\n\nHow many signals each gate removes, at signal level.\n\n")
+        fh.write(f"```text\n{gate_table}\n```\n")
+
         fh.write("\n## Findings & Caveats\n\n")
-        fh.write(
-            "**RSI filter reverted to plain RSI<70**: v1.3 briefly widened the RSI filter to "
-            "`RSI(14) < 70 OR RSI(14) > 80` (re-admitting extreme-momentum reentries; an A/B test on "
-            "identical data showed the wider rule flat-to-better across every combination). The methodology "
-            "doc has since reverted to plain `RSI(14) < 70` and this script, `QullamaggieStrategy`, and "
-            "their docs/tests were reverted to match, so the reentry variant is no longer implemented "
-            "anywhere in this pipeline.\n\n"
-        )
-        fh.write(
-            "**Fixed**: `close`/`high`/`low` are now split/dividend-adjusted (scaled by `adjusted_close/close`). "
-            "The prior version used raw `close`, which shows a fake ~90% one-day move on a stock's split date "
-            "(e.g. NVDA's 2024-06-10 10:1 split) — this corrupted rolling indicators for ~50 days around any split "
-            "and could make a real winning trade compute as a huge loss (or vice versa for a reverse split). "
-            "13.1% of the qualifying universe (254/1,943 tickers) had at least one such split event since 2020. "
-            "The MIN_PRICE/MAX_PRICE band still uses raw (unadjusted) close, since that's the real price a trader "
-            "would have paid on the entry date — adjusting it would leak knowledge of future splits into a "
-            "point-in-time filter.\n\n"
-        )
-        fh.write(
-            "**Unresolved — survivorship bias**: every ticker in the qualifying universe has `status='active'`; "
-            "the pipeline retains no delisted/bankrupt/acquired tickers. `company.market_cap` is also a single "
-            "current-day snapshot applied retroactively to all history, not a point-in-time value. A momentum-"
-            "breakout strategy specifically targets stocks that sometimes blow up afterward (fraud, failed trial, "
-            "acquisition below entry) — those trades are structurally impossible to appear in this backtest. This "
-            "likely explains part of the unusually high win rate/profit factor and should be treated as a ceiling "
-            "on how much to trust the absolute return numbers.\n\n"
-        )
-        cap_list = " and ".join(str(cap) for cap in CAPACITY_LIMITS)
-        fh.write(
-            "**Partially addressed — overlapping trades**: at several signals/month with 6-12 month holds, most "
-            "trades are open concurrently and share the same regime exposure, so the unconstrained N overstates "
-            "the number of independent bets and the Sortino/consistency stats overstate statistical confidence. "
-            f"The 'Max {cap_list} Concurrent Positions' tables above cap the portfolio at that many simultaneous "
-            "positions (FIFO signal acceptance) as a rough realism check — comparing the tables shows how much each "
-            "combination's apparent edge depends on taking every single signal versus a capital-constrained subset. "
-            "This doesn't fix the underlying correlation between trades still held concurrently within a cap, and "
-            "it uses an arbitrary FIFO rule rather than a real signal-quality ranking for which trade to take when "
-            "capacity is full.\n\n"
-        )
-        fh.write(
-            "**Unresolved — regime concentration**: the SPY>200d SMA filter concentrates trades in bull years. "
-            "The Yrs+ denominator silently drops any complete calendar year with <10 losing trades from its count "
-            "(see the Yrs+ column above, e.g. a stricter signal with fewer total trades may show fewer valid years "
-            "than the number of complete calendar years in the eval period), which can exclude harder regimes "
-            "rather than prove the strategy survived them.\n\n"
-        )
-        fh.write(
-            "**Unresolved — no execution costs**: entry is assumed fillable at the same close that generated the "
-            "signal, with no slippage, spread, commissions, or gap risk — unrealistic for breakout-day fills on "
-            "high-ADR names.\n\n"
-        )
-        fh.write(
-            "**Ideas to improve**: source point-in-time market cap (or shares outstanding × price at entry) instead "
-            "of a static snapshot; source a delisted-ticker history if available to address survivorship; shift "
-            "entry to next-day open (+ slippage assumption) for realistic fills; replace the FIFO acceptance rule in "
-            "the capacity-constrained table with a real signal-quality ranking (e.g. ADR%, breakout strength) to "
-            "pick which trade to take when capacity is full; account for trade overlap (e.g. block-bootstrap or "
-            "effective-sample-size adjustment) when judging Sortino confidence.\n"
-        )
+        fh.write("### Ideas to improve\n\n")
+        ideas = [
+            "source point-in-time market cap (or shares outstanding × price at entry) instead of a static snapshot",
+            "source a delisted-ticker history if available to address survivorship",
+            "add a slippage/commission assumption on top of the next-day-open fill",
+            f"widen the gate sweep past {max(MIN_RANKINGS)} to find where the score stops separating outcomes",
+            "report the ranking's own decile spread within a fixed X so the gate's effect can be read independently of the SMA threshold",
+            "account for trade overlap (e.g. block-bootstrap or effective-sample-size adjustment) when judging Sortino confidence",
+        ]
+        for idea in ideas:
+            fh.write(f"- {idea}\n")
     print(f"\nResults saved to {RESULT_PATH}", flush=True)
 
 

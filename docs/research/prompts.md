@@ -4,6 +4,8 @@ Reusable prompts that drove the Qullamaggie v4 backtest research. Each prompt ma
 
 Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (methodology) and `docs/research/result-qullamaggie-backtest-v4.md` (baseline results).
 
+**Standard algorithm set.** Unless a prompt says otherwise, "the algorithms" means `bk50d_s20_v2.0`, `bk50d_s16_v2.0` and `bk50d_s12_v2.0` — a 50-day breakout sitting more than 20% / 16% / 12% above the 50-day SMA, entered at the next trading day's split/dividend-adjusted open, held 366 calendar days, with the `QullamaggieRanking` gate `MIN_RANKING >= 40` applied. The naming convention is defined in `docs/research/qullamaggie-backtest-v4.md` (Step 1, "Algorithm naming"). Earlier runs used `_v1.3_roc100` labels and an s15/s17 pair instead of s16; where a **Note** records what a past run actually did, the original name is kept deliberately rather than rewritten.
+
 ## Index
 
 | Prompt | Script | Results |
@@ -42,7 +44,7 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 
 ### Long-term monthly analysis
 
-**Goal:** Analyze `bk50d_s12_v1.3_roc100-366d`, `bk50d_s15_v1.3_roc100-366d`, `bk50d_s17_v1.3_roc100-366d`, `bk50d_s20_v1.3_roc100-366d` over the long term; provide monthly Mean% and trade counts by year, plus general findings and pros/cons of the different algorithms.
+**Goal:** Analyze `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` (366d hold, `MIN_RANKING >= 40`) over the long term; provide monthly Mean% and trade counts by year, plus general findings and pros/cons of the different algorithms.
 
 - **Period:** 2007-01-01 : 2026-06-26
 - **Output format** (monthly matrix, years as rows):
@@ -73,7 +75,8 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 
 All cohort studies below share the same setup unless stated otherwise:
 
-- **Algorithms:** `bk50d_s20_v1.3_roc100-366d`, `bk50d_s16_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d`
+- **Algorithms:** `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` (366d hold)
+- **Ranking gate:** `MIN_RANKING >= 40`
 - **Period:** 2021-01-01 : 2026-06-26
 - **Output columns:** `Cohort  N  Med%  Mean%  Win%  Sortino  PF`
 - **Header:** `All filter conditions from algorithm`
@@ -133,7 +136,7 @@ All cohort studies below share the same setup unless stated otherwise:
 
 **Goal:** How `tight_range_ratio` (`(max(close[-11:-1]) − min(close[-11:-1])) / mean(close[-11:-1]) < Y`) affects results.
 
-- **Algorithms:** `bk50d_s12_v1.3_roc100-366d`, `bk50d_s15_v1.3_roc100-366d`, `bk50d_s17_v1.3_roc100-366d`, `bk50d_s20_v1.3_roc100-366d`
+- **Algorithms:** `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` (366d hold, `MIN_RANKING >= 40`)
 - **Cohorts:** (<0), [0.0-0.1), [0.1-0.15), [0.15-0.2), [0.2-0.25), [0.25-0.3), (>0.3)
 - **Script:** `scripts/qullamaggie-cohorts-tightrange.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-tightrange.md`
@@ -143,7 +146,7 @@ All cohort studies below share the same setup unless stated otherwise:
 
 **Goal:** How `pct_above_sma50`: `close / mean(close[-51:-1]) − 1 > X` affects results.
 
-- **Algorithms:** `bk50d_<X>_v1.3_roc100-366d`
+- **Algorithms:** `bk50d_s<X>_v2.0` (366d hold, `MIN_RANKING >= 40`) — X is the dimension under study here, so the standard s20/s16/s12 set does not apply
 - **Cohorts:** (<10), [10-12), [12-15), [15-17), [17-20), [20-30), (>30)
 - **Script:** `scripts/qullamaggie-cohorts-pct-above-sma50.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-pct-above-sma50.md`
@@ -171,11 +174,11 @@ All cohort studies below share the same setup unless stated otherwise:
 
 **Goal:** How buying on the next day with a limit order (limit price = previous day closing price − X%) affects results.
 
-- **Algorithms:** `bk50d_s20_v1.3_roc100-366d`, `bk50d_s15_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d`
+- **Algorithms:** `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` (366d hold, `MIN_RANKING >= 40`)
 - **X%:** 0%, 1%, 2%, 3%, 4%, 5%; limit order is effective during the next 30 days.
 - **Period:** 2010-01-01 : 2026-06-26
 - **Output columns:** `Cohort  N  Med%  Mean%  Win%  Sortino  PF`
-- Additionally provide monthly Mean% and trade count by months/years for bk50d_s20 eod, bk50d_s15 eod, bk50d_s12 eod:
+- Additionally provide monthly Mean% and trade count by months/years for bk50d_s20 eod, bk50d_s16 eod, bk50d_s12 eod:
 
   ```text
    Year |    Jan    Feb    Mar    Apr    May    Jun    Jul    Aug    Sep    Oct    Nov    Dec |   Mean%    N
@@ -294,11 +297,11 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ## Portfolio simulation
 
-**Goal:** Portfolio simulation over `bk50d_s20_v1.3_roc100-366d`, `bk50d_s16_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d` signals.
+**Goal:** Portfolio simulation over `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` signals.
 
 - **Period:** 2021-01-01 : 2026-06-26
-- **Algorithms:** `bk50d_s20_v1.3_roc100-366d`, `bk50d_s16_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d`
-- **Ranking:** Calculate ranking (turtlex/strategy/ranking/qullamaggie.py) for all transactions, prefer signals with higher ranking, apply filter MIN_RANKING=40
+- **Algorithms:** `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` (366d hold)
+- **Ranking:** Calculate ranking (turtlex/strategy/ranking/qullamaggie.py) for all transactions, prefer signals with higher ranking, apply filter `MIN_RANKING >= 40`
 - **Initial portfolio:** $30,000
 - **Position sizing:** invest {3%, 4%, 5%} of portfolio at a time per trade; if there is no liquidity, skip the trade.
 - **Header:** `All filter conditions from algorithm`
@@ -375,12 +378,12 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ### Signals: s12 with overlap & cohorts
 
-**Goal:** Provide `bk50d_s12_v1.3_roc100` signals for period 2026-06-01 : today; mark signals that are also in `bk50d_s20_v1.3_roc100` and `bk50d_s15_v1.3_roc100`.
+**Goal:** Provide `bk50d_s12_v2.0` signals (`MIN_RANKING >= 40`) for period 2026-06-01 : today; mark signals that are also in `bk50d_s20_v2.0` and `bk50d_s16_v2.0`.
 
 - **Output columns:**
 
   ```text
-  Date │ Symbol │ Entry $ │ Curr Price │ 0.97*Entry Price │ Change % │ %abv SMA50 │ ADR% │ ADR_CHG │ RSI14 │ TR% │ ROC252% │ In s15? │ In s20? │ 0.97*Entry Price reached? │ Ranking │ Last date
+  Date │ Symbol │ Entry $ │ Curr Price │ 0.97*Entry Price │ Change % │ %abv SMA50 │ ADR% │ ADR_CHG │ RSI14 │ TR% │ ROC252% │ In s16? │ In s20? │ 0.97*Entry Price reached? │ Ranking │ Last date
   ```
 
   - `%abv SMA50`, `ADR%`, `RSI14`, `TR%`, `ROC252%` must be calculated on the entry date.
@@ -405,6 +408,7 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Output:** screen
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `scripts/qullamaggie-backtest-v4.py`
 - **Note:** the script prints the full report — signal table, exclusions, both cohort tables and the benchmark comparison — to stdout. It used to also write `docs/research/result-qullamaggie-signals-v4.md`; that doc was deleted 2026-07-25 because the report is only meaningful for the day it is run.
+- **Note:** the signal table is gated at `MIN_RANKING >= 40`, but both cohort tables are computed over the *ungated* s12 signals on purpose. Gating them would leave the `[0-20)` and `[20-40)` ranking buckets permanently empty and destroy the only thing those tables measure — whether the score separates outcomes at all. The summary line reports how many signals the gate dropped so the two views reconcile.
 
 ### Trades: s15 open-trade performance
 
