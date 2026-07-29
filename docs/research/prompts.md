@@ -72,8 +72,8 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 
 All cohort studies below share the same setup unless stated otherwise:
 
-- **Algorithms:** `bk50d_s20_v1.3_roc100-366d`, `bk50d_s15_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d`
-- **Period:** 2015-01-01 : 2026-06-26
+- **Algorithms:** `bk50d_s20_v1.3_roc100-366d`, `bk50d_s16_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d`
+- **Period:** 2021-01-01 : 2026-06-26
 - **Output columns:** `Cohort  N  Med%  Mean%  Win%  Sortino  PF`
 - **Header:** `All filter conditions from algorithm`
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`
@@ -281,17 +281,18 @@ All cohort studies below share the same setup unless stated otherwise:
 
 ## Portfolio simulation
 
-**Goal:** Portfolio simulation over `bk50d_s20_v1.3_roc100-366d`, `bk50d_s17_v1.3_roc100-366d`, `bk50d_s15_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d` signals.
+**Goal:** Portfolio simulation over `bk50d_s20_v1.3_roc100-366d`, `bk50d_s16_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d` signals.
 
-- **Period:** 2020-01-01 : 2026-06-26
+- **Period:** 2021-01-01 : 2026-06-26
+- **Algorithms:** `bk50d_s20_v1.3_roc100-366d`, `bk50d_s16_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d`
+- **Ranking:** Calculate ranking (turtlex/strategy/ranking/qullamaggie.py) for all transactions, prefer signals with higher ranking, apply filter MIN_RANKING=40
 - **Initial portfolio:** $30,000
 - **Position sizing:** invest {3%, 4%, 5%} of portfolio at a time per trade; if there is no liquidity, skip the trade.
-- **Algorithm:** RSI < 70
+- **Header:** `All filter conditions from algorithm`
 - **Output format:**
 
   ```text
-  all algorithm `bk50d_s20_v1.3_roc100-366d` parameters as header
-
+  
   size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
   --------------------------------------------------------------------------
   3%         145,397  +20.44   -30.34   0.674    0.885    261    977   14.4%
@@ -299,7 +300,7 @@ All cohort studies below share the same setup unless stated otherwise:
   5%         187,419  +24.10   -28.07   0.859    0.977    160   1078   11.8%
   ```
 
-- For the top 5 algorithms by `Calmar` and by `Final$`, print `monthly returns` and `trades count in particular month` by years (years are rows, months are columns):
+- For the top 5 algorithms by `Final$`, print `monthly returns` and `trades count in particular month` by years (years are rows, months are columns):
 
   ```text
    Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
@@ -311,8 +312,7 @@ All cohort studies below share the same setup unless stated otherwise:
 - <!-- Provide a comparison with an alternative approach where a limit order is added to buy the stock 
     3% below closing price during the next 30 days (instead of buying on closing price). 
     - Provide comparison with an alternative holding lengths (90d, 120d, 180d, 240d, 360d) -->
-- Calculate `bk50d_s20_v1.3_roc100-366d`, `bk50d_s12_v1.3_roc100-366d` ranking (turtlex/strategy/ranking/qullamaggie.py) for all transactions and provide
-  N CAGR%   MaxDD%  Calmar  Sortino for different ranking deciles
+- Provide N CAGR%   MaxDD%  Calmar  Sortino for different ranking deciles grouped by algorithms
 - Add your findings on how to improve the portfolio performance (Mean%, Sortino, Calmar).
 - **Deferred/considered ideas** (commented out in the original prompt):
   - Prefer always bk50d_s20_tr10_v1.3_roc100 signals, but if there is liquidity use bk50d_s15_tr15_v1.3_roc100 signals to reduce uninvested amounts.
