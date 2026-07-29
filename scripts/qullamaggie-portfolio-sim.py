@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Portfolio simulation for bk50d_s20 / s17 / s15 / s12 (v1.3_roc100, 366d).
+Portfolio simulation for bk50d_s20 / s16 / s12 (v1.3_roc100, 366d).
 
 Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
 ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA,
@@ -11,9 +11,11 @@ entries, and mark-to-market aren't corrupted by split-day discontinuities; raw (
 close is used only for the $5-$250 price band, matching scripts/qullamaggie-backtest-v4.py.
 
 Rules:
-  - Period 2020-01-01 .. 2026-06-26, initial equity $30,000.
+  - Period 2021-01-01 .. 2026-06-26, initial equity $30,000.
   - Signals scoring below MIN_RANKING on QullamaggieRanking are dropped before the
     simulation, matching the portfolio-runner --min-signal-ranking default.
+  - Signals competing for cash on the same day are funded best-ranked first. Entries arrive
+    in bursts and cash runs out mid-burst, so this ordering decides which trades exist at all.
   - Each signal: buy at the next trading day's split/dividend-adjusted open (matching
     SignalProcessor.calculate_entry_data), sizing = {3%,4%,5%} of current portfolio
     value (cash + open positions marked to market).
@@ -23,7 +25,7 @@ Rules:
   - Fractional shares, no commission/slippage.
 
 SPY/QQQ buy & hold benchmarks ($INIT_EQUITY lump-sum, first close to last close of the period)
-are reported alongside the main sweep. Each taken trade for the s20/s12 configs is also scored
+are reported alongside the main sweep. Each taken trade of every config is also scored
 with QullamaggieRanking (turtlex/strategy/ranking/qullamaggie.py); trades are split into 10
 equal-count ranking deciles and each decile's signal subset is re-simulated in isolation (same
 position sizing) to report that decile's own standalone CAGR/MaxDD/Calmar/Sortino. Note the
@@ -45,7 +47,7 @@ from turtlex.config.settings import Settings
 from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
-EVAL_START = date(2020, 1, 1)
+EVAL_START = date(2021, 1, 1)
 EVAL_END = date(2026, 6, 26)
 DATA_START = "2000-01-01"
 LOAD_BATCH_ROWS = 200_000  # server-side cursor batch for load_bars; see the note there
@@ -57,7 +59,7 @@ N_DECILES = 10
 BELOW_DAYS = 3  # consecutive days below 200d SMA to trigger trend exit
 STOP_DD = 0.30  # fixed stop: close <= (1-STOP_DD) * entry price
 TRAIL_DD = 0.25  # trailing stop: close <= (1-TRAIL_DD) * peak-since-entry
-RANK_FUNDING = False  # when cash is scarce, fund competing signals by ADR (desc)
+RANK_FUNDING = True  # when cash is scarce, fund competing signals by QullamaggieRanking (desc)
 
 EXIT_MODES = ["time"]  # 366d time cap only
 MIN_AVG_VOL = 500_000
@@ -75,8 +77,7 @@ MIN_RANKING = 40  # QullamaggieRanking entry gate, matching the portfolio-runner
 
 CONFIGS = [
     ("s20", 0.20),
-    ("s17", 0.17),
-    ("s15", 0.15),
+    ("s16", 0.16),
     ("s12", 0.12),
 ]
 
@@ -402,7 +403,7 @@ def main() -> None:
 
             day_sigs = signals_by_day.get(dint, [])
             if RANK_FUNDING:
-                day_sigs = sorted(day_sigs, key=lambda s: s["adr_pct"], reverse=True)
+                day_sigs = sorted(day_sigs, key=lambda s: s["ranking"], reverse=True)
             for s in day_sigs:
                 target = pos_fraction * mtm
                 entry_px = s["entry_px"]  # next trading day's adjusted open, resolved once in main()
@@ -688,15 +689,7 @@ def main() -> None:
             )
         table(hdr, rows)
 
-    # monthly grids for top 5 by Calmar, and separately top 5 by Final$ (366d baseline, RSI<70)
-    ranked_calmar = sorted(all_results, key=lambda x: x[2]["calmar"], reverse=True)
-    out("")
-    out("## Monthly returns/transactions — top 5 by Calmar")
-    for rank, (name, pf, r) in enumerate(ranked_calmar[:5], 1):
-        out("")
-        out(f"### #{rank}  {name} — size {pf:.0%}  (Calmar {r['calmar']:.3f})")
-        monthly_grid(r["eom"], r["entries"])
-
+    # monthly grids for the top 5 by Final$ (366d baseline, RSI<70)
     ranked_final = sorted(all_results, key=lambda x: x[2]["final"], reverse=True)
     out("")
     out("## Monthly returns/transactions — top 5 by Final$")
@@ -709,7 +702,7 @@ def main() -> None:
     out("## Ranking Deciles (QullamaggieRanking)")
     out("")
     out(
-        f"Every taken trade for s20/s12 (at {DECILE_POS_FRACTION:.0%} sizing, the middle of the "
+        f"Every taken trade of every config (at {DECILE_POS_FRACTION:.0%} sizing, the middle of the "
         f"{'/'.join(f'{f:.0%}' for f in POS_FRACTIONS)} sweep) is scored 0-100 with "
         "turtlex/strategy/ranking/qullamaggie.py at entry, split into "
         f"{N_DECILES} equal-count deciles (D1=lowest score .. D{N_DECILES}=highest), and each "
@@ -717,7 +710,7 @@ def main() -> None:
         "to report that decile's standalone portfolio metrics — this tests whether higher-ranked "
         "signals produce a better standalone portfolio, not just a higher per-trade return."
     )
-    for name in ["s20", "s12"]:
+    for name, _ in CONFIGS:
         print(f"Scoring ranking deciles for {name} …", flush=True)
         out("")
         out(f"### {name}  (bk50d_{name}_v1.3_roc100)")
