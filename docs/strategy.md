@@ -243,20 +243,19 @@ Scores the strength of the breakout event itself at signal time — useful for c
 
 **File**: `turtlex/strategy/ranking/qullamaggie.py`
 
-Cohort-derived ranking for Qullamaggie-style breakout signals. Scores each signal by six entry-time parameters against the Sortino gradients in the cohort research (`docs/research/result-qullamaggie-cohorts-*.md`, `bk50d_s15_v1.3_roc100` tables, 2026-07-22 run). Each dimension's bands mimic the cohort buckets, with points equal to the bucket's Sortino rescaled to 0–weight within the dimension, using only the *reachable* buckets a candidate can actually land in given that dimension's own entry filter. Distance above SMA50 carries half the total weight by design; the remaining 50 points are split across the other five dimensions proportionally to their Sortino spread within the reachable cohort domain.
+Cohort-derived ranking for Qullamaggie-style breakout signals. Scores each signal by three entry-time parameters against the Sortino gradients in the cohort research (`docs/research/result-qullamaggie-cohorts-*.md`, `bk50d_s15_v1.3_roc100` tables, 2026-07-22 run). Each dimension's bands mimic the cohort buckets, with points equal to the bucket's Sortino rescaled to 0–weight within the dimension, using only the *reachable* buckets a candidate can actually land in given that dimension's own entry filter. The weights come from `result-qullamaggie-ranking-weights.md` (2026-07-29): a per-trade scan of 1685 signals over 2010-2020 on year-demeaned 366d returns, which found only these three of the original six dimensions carried a cross-sectional effect holding its sign across both halves of the period.
 
 **Score breakdown** (max 100):
 
 | Component | Column | Best cohort | Max score |
 | ----------- | -------- | ------------- | ----------- |
-| Distance above SMA50 | `pct_vs_sma50` | >30% above SMA50 | 50 |
-| Entry price | `close` | $5–$10 raw close | 13 |
-| ADR%(20) | `adr_pct` | ≥8% daily range | 12 |
-| ADR compression | `adr_pct_change` | ADR10/ADR50 < 0.7 | 12 |
-| 12-month ROC | `roc_252d` | <-20% or 40-60% (non-monotonic) | 10 |
-| RSI(14) | `rsi14` | <50, within the qualifying <70 pool | 3 |
+| ADR%(20) | `adr_pct` | ≥8% daily range | 40 |
+| Distance above SMA50 | `pct_vs_sma50` | >30% above SMA50 | 35 |
+| Entry price | `close` | $5–$10 raw close | 25 |
 
-Expects the shift-1 indicator columns produced by `QullamaggieStrategy`; a missing column or null value scores that component 0. The bands are calibrated at the strategy's default 15% SMA distance: lowering it (`--trading-param sma_thresh=0.05`) below 0.10 admits signals that score 0 of the 50 available points on that dimension. Such a signal forfeits half the scale and must then score near-perfectly across the remaining five dimensions — which total exactly 50 points (13 + 12 + 12 + 10 + 3) — to clear the portfolio backtester's default `--min-signal-ranking 40`. Pair a lowered threshold with a different ranking strategy or a lower `--min-signal-ranking`. Note: per `result-qullamaggie-cohort-ranking.md`, a differently-constructed composite (walk-forward log-odds) separates already-filtered signals only weakly; `result-qullamaggie-ranking-validation.md` walk-forward validates this exact weighted-points scheme. This ranking orders surviving signals, it is not a substitute for the entry filters.
+ADR compression (`adr_pct_change`), 12-month ROC (`roc_252d`) and RSI(14) previously carried 12/10/3 points. They were dropped in 2026-07-29: 25–75% of each one's apparent power was a time effect (years with high average readings were high-return years), and all three reversed sign between the halves of 2010-2020. Re-adding them at low weight purely as tie-breakers was tested and recovered nothing.
+
+Expects the shift-1 indicator columns produced by `QullamaggieStrategy`; a missing column or null value scores that component 0 — so pairing this ranking with a strategy that computes neither `adr_pct` nor `pct_vs_sma50` (darvas_box, mars, momentum) caps every signal at 25, below the default `--min-signal-ranking 40`, and the backtest takes no trades. The bands are calibrated at the strategy's default 15% SMA distance: lowering it (`--trading-param sma_thresh=0.05`) below 0.10 admits signals that score 0 of the 35 available points on that dimension, leaving a ceiling of 65 against that same gate. Raising it has the opposite problem — at `sma_thresh=0.20` only the top two SMA50 bands remain reachable (31 and 35 points), so the dimension spreads signals by at most 4 points and the ranking has little left to say. This is why the re-weighting gains clearly at s12 and s16 but is mixed at s20, where CAGR is within noise and risk-adjusted metrics are slightly worse at the tightest selectivity. Note: per `result-qullamaggie-cohort-ranking.md`, a differently-constructed composite (walk-forward log-odds) separates already-filtered signals only weakly; `result-qullamaggie-ranking-validation.md` walk-forward validates the earlier six-dimension weighting. This ranking orders surviving signals, it is not a substitute for the entry filters.
 
 ---
 
