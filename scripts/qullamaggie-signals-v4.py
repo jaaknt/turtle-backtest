@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """
-Current-period signal report for bk50d_s12_v1.3_roc100 vs bk50d_s15_v1.3_roc100 and
-bk50d_s20_v1.3_roc100 (signals marked when also present in the stricter variants).
+Current-period signal report for bk50d_s12_v2.0 vs bk50d_s16_v2.0 and
+bk50d_s20_v2.0 (signals marked when also present in the stricter variants).
+
+The reported signal list is gated at QullamaggieRanking >= MIN_RANKING, matching the
+portfolio-runner --min-signal-ranking default. Both cohort tables are deliberately computed
+over the *ungated* s12 signals: their job is to show whether ranking and %abv SMA50 separate
+outcomes, which a table containing only scores >= 40 could not do (the [0-20) and [20-40)
+ranking buckets would always be empty).
 0.97*Entry is the 3%-below-entry-close resting-limit level from the portfolio study;
 "Reached?" marks whether any daily low touched that level within LIMIT_WINDOW_CAL calendar
 days after the signal (fill eligible from the day after the signal, adjusted-price space —
@@ -60,12 +66,14 @@ ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 SUSPICIOUS_DAY_MOVE = 0.50  # exclude signals with a >50% single-day raw-close move between entry and latest date
 
-BASE_LABEL = "bk50d_s12_v1.3_roc100"
+MIN_RANKING = 40  # QullamaggieRanking gate on the reported list (portfolio-runner default)
+
+BASE_LABEL = "bk50d_s12_v2.0"
 BASE_SMA_T = 0.12
-COMPARE_LABEL = "bk50d_s20_v1.3_roc100"
+COMPARE_LABEL = "bk50d_s20_v2.0"
 COMPARE_SMA_T = 0.20
-COMPARE15_LABEL = "bk50d_s15_v1.3_roc100"
-COMPARE15_SMA_T = 0.15
+COMPARE16_LABEL = "bk50d_s16_v2.0"
+COMPARE16_SMA_T = 0.16
 LIMIT_DISCOUNT = 0.03  # 0.97*Entry column: resting-limit level 3% below the entry-day close
 LIMIT_WINDOW_CAL = 30  # "Reached?" checks lows for this many calendar days after the signal
 
@@ -382,7 +390,10 @@ def main() -> None:
     print(f"Generating signals for {BASE_LABEL} …", flush=True)
     base_sig = get_signals(df, bull_dates, BASE_SMA_T)
     base_sig = base_sig.filter((pl.col("date") >= DISPLAY_START) & (pl.col("date") <= DISPLAY_END)).sort(["date", "symbol"])
-    print(f"  {len(base_sig)} signals in display window", flush=True)
+    rankings = [compute_ranking(r) for r in base_sig.iter_rows(named=True)]
+    base_sig = base_sig.with_columns(pl.Series("ranking", rankings, dtype=pl.Int64))
+    n_gated = int(base_sig.filter(pl.col("ranking") >= MIN_RANKING).height)
+    print(f"  {len(base_sig)} signals in display window, {n_gated} at ranking >= {MIN_RANKING}", flush=True)
 
     print(f"Generating signals for {COMPARE_LABEL} …", flush=True)
     compare_sig = get_signals(df, bull_dates, COMPARE_SMA_T)
@@ -391,16 +402,16 @@ def main() -> None:
 
     compare_keys = {(r["symbol"], r["date"]) for r in compare_sig.iter_rows(named=True)}
 
-    print(f"Generating signals for {COMPARE15_LABEL} …", flush=True)
-    compare15_sig = get_signals(df, bull_dates, COMPARE15_SMA_T)
-    compare15_sig = compare15_sig.filter((pl.col("date") >= DISPLAY_START) & (pl.col("date") <= DISPLAY_END))
-    print(f"  {len(compare15_sig)} signals in display window", flush=True)
-    compare15_keys = {(r["symbol"], r["date"]) for r in compare15_sig.iter_rows(named=True)}
+    print(f"Generating signals for {COMPARE16_LABEL} …", flush=True)
+    compare16_sig = get_signals(df, bull_dates, COMPARE16_SMA_T)
+    compare16_sig = compare16_sig.filter((pl.col("date") >= DISPLAY_START) & (pl.col("date") <= DISPLAY_END))
+    print(f"  {len(compare16_sig)} signals in display window", flush=True)
+    compare16_keys = {(r["symbol"], r["date"]) for r in compare16_sig.iter_rows(named=True)}
 
     hdr = (
         f"{'Date':<11}│ {'Symbol':<7}│ {'Entry $':>8} │ {'Curr Price':>10} │ {'0.97*Entry':>10} │ {'Change %':>9} │ "
         f"{'%abv SMA50':>10} │ {'ADR%':>6} │ {'ADR_CHG':>7} │ {'RSI14':>6} │ {'TR%':>6} │ {'ROC252%':>8} │ "
-        f"{'In s15?':>7} │ {'In s20?':>7} │ {'Reached?':>8} │ {'Ranking':>7} │ {'Last date':>11}"
+        f"{'In s16?':>7} │ {'In s20?':>7} │ {'Reached?':>8} │ {'Ranking':>7} │ {'Last date':>11}"
     )
     sep = "─" * len(hdr)
 
@@ -412,6 +423,9 @@ def main() -> None:
     cohort_mdds: dict[str, list[float]] = {label: [] for _, _, label in COHORTS}
     ranking_returns: dict[str, list[float]] = {label: [] for _, _, label in RANKING_COHORTS}
     ranking_mdds: dict[str, list[float]] = {label: [] for _, _, label in RANKING_COHORTS}
+    shown = 0
+    also_in_16 = 0
+    n_below_gate = 0
     for row in base_sig.iter_rows(named=True):
         sym, d = row["symbol"], row["date"]
         idx_entry = bisect_left(sym_dates[sym], d)
@@ -422,47 +436,49 @@ def main() -> None:
             continue
         entry = row["raw_close"]
         curr = latest_raw_close.get(sym, float("nan"))
-        limit_px = entry * (1.0 - LIMIT_DISCOUNT)
         chg = (curr / entry - 1.0) * 100 if entry else float("nan")
-        in_compare = (sym, d) in compare_keys
-        mark = "✓" if in_compare else " "
-        mark15 = "✓" if (sym, d) in compare15_keys else " "
-        reached = limit_reached(sym, idx_entry, d)
-        mark_reached = "✓" if reached else " "
-        ranking = compute_ranking(row)
-        ld = latest_date.get(sym)
+        ranking = row["ranking"]
         sma_pct = row["pct_vs_sma50"] * 100
-        lines.append(
-            f"{str(d):<11}│ {sym:<7}│ {entry:>8.2f} │ {curr:>10.2f} │ {limit_px:>10.2f} │ {chg:>+8.1f}% │ "
-            f"{sma_pct:>+9.1f}% │ {row['adr_pct'] * 100:>5.1f}% │ {row['adr_pct_change']:>7.2f} │ "
-            f"{row['rsi14']:>6.1f} │ {row['tight_range_ratio'] * 100:>5.1f}% │ {row['roc_252d'] * 100:>+7.1f}% │ "
-            f"{mark15:>7} │ {mark:>7} │ {mark_reached:>8} │ {ranking:>7} │ {str(ld):>11}"
-        )
-        if in_compare:
-            also_in_compare += 1
-        if reached:
-            reached_count += 1
         running_max = np.maximum.accumulate(window)
         mdd = float((1.0 - window / running_max).max())
+        # cohort tables cover every non-suspicious signal, gated or not — see module docstring
         cohort_returns[cohort_label(sma_pct, COHORTS)].append(chg)
         cohort_mdds[cohort_label(sma_pct, COHORTS)].append(mdd)
         ranking_returns[cohort_label(float(ranking), RANKING_COHORTS)].append(chg)
         ranking_mdds[cohort_label(float(ranking), RANKING_COHORTS)].append(mdd)
+        if ranking < MIN_RANKING:
+            n_below_gate += 1
+            continue
+        limit_px = entry * (1.0 - LIMIT_DISCOUNT)
+        in_compare = (sym, d) in compare_keys
+        mark = "✓" if in_compare else " "
+        in_compare16 = (sym, d) in compare16_keys
+        mark16 = "✓" if in_compare16 else " "
+        reached = limit_reached(sym, idx_entry, d)
+        mark_reached = "✓" if reached else " "
+        ld = latest_date.get(sym)
+        lines.append(
+            f"{str(d):<11}│ {sym:<7}│ {entry:>8.2f} │ {curr:>10.2f} │ {limit_px:>10.2f} │ {chg:>+8.1f}% │ "
+            f"{sma_pct:>+9.1f}% │ {row['adr_pct'] * 100:>5.1f}% │ {row['adr_pct_change']:>7.2f} │ "
+            f"{row['rsi14']:>6.1f} │ {row['tight_range_ratio'] * 100:>5.1f}% │ {row['roc_252d'] * 100:>+7.1f}% │ "
+            f"{mark16:>7} │ {mark:>7} │ {mark_reached:>8} │ {ranking:>7} │ {str(ld):>11}"
+        )
+        shown += 1
+        if in_compare:
+            also_in_compare += 1
+        if in_compare16:
+            also_in_16 += 1
+        if reached:
+            reached_count += 1
 
     lines.append(sep)
-    shown = len(base_sig) - len(excluded_rows)
-    also_in_15 = sum(
-        1
-        for row in base_sig.iter_rows(named=True)
-        if (row["symbol"], row["date"]) in compare15_keys
-        and not any(e["symbol"] == row["symbol"] and e["date"] == row["date"] for e in excluded_rows)
-    )
     reached_pct = reached_count / shown * 100 if shown else 0.0
     summary = (
-        f"Total {BASE_LABEL} signals in window: {shown}  |  Also in {COMPARE15_LABEL}: {also_in_15}  |  "
+        f"{BASE_LABEL} signals at ranking >= {MIN_RANKING}: {shown}  |  Also in {COMPARE16_LABEL}: {also_in_16}  |  "
         f"Also in {COMPARE_LABEL}: {also_in_compare}  |  "
         f"0.97*Entry reached: {reached_count}/{shown} ({reached_pct:.1f}%)"
     )
+    summary += f"  |  Dropped below gate: {n_below_gate}"
     if excluded_rows:
         summary += f"  |  Excluded as suspicious: {len(excluded_rows)}"
     lines.append(summary)
@@ -489,11 +505,12 @@ def main() -> None:
     print("\n" + excluded_text)
 
     cohort_output, cohort_means = build_cohort_table(COHORTS, cohort_returns, cohort_mdds)
-    print(f"\n=== {BASE_LABEL} — Change % by %abv SMA50 cohort (mark-to-latest-price) ===")
+    print(f"\n=== {BASE_LABEL} — Change % by %abv SMA50 cohort (mark-to-latest-price, ungated) ===")
     print(cohort_output)
 
     ranking_output, _ranking_means = build_cohort_table(RANKING_COHORTS, ranking_returns, ranking_mdds)
-    print(f"\n=== {BASE_LABEL} — Change % by Ranking cohort (mark-to-latest-price) ===")
+    print(f"\n=== {BASE_LABEL} — Change % by Ranking cohort (mark-to-latest-price, ungated) ===")
+    print(f"All s12 signals, including those below the ranking >= {MIN_RANKING} gate, so the gate can be judged.")
     print(ranking_output)
 
     print("Loading benchmark returns …", flush=True)
