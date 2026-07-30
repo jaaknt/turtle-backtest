@@ -12,8 +12,10 @@ close is used only for the $5-$250 price band, matching scripts/qullamaggie-back
 
 Rules:
   - Period 2021-01-01 .. 2026-06-26, initial equity $30,000.
-  - Signals scoring below MIN_RANKING on QullamaggieRanking are dropped before the
-    simulation, matching the portfolio-runner --min-signal-ranking default.
+  - Each config's size sweep is reported twice: once with signals scoring below MIN_RANKING on
+    QullamaggieRanking dropped (matching the portfolio-runner --min-signal-ranking default), and
+    once with no ranking condition at all. Everything else is identical between the two, so the
+    pair isolates what the gate is worth once position sizing and cash competition are in play.
   - Signals competing for cash on the same day are funded best-ranked first. Entries arrive
     in bursts and cash runs out mid-burst, so this ordering decides which trades exist at all.
   - Each signal: buy at the next trading day's split/dividend-adjusted open (matching
@@ -29,8 +31,9 @@ are reported alongside the main sweep. Each taken trade of every config is also 
 with QullamaggieRanking (turtlex/strategy/ranking/qullamaggie.py); trades are split into 10
 equal-count ranking deciles and each decile's signal subset is re-simulated in isolation (same
 position sizing) to report that decile's own standalone CAGR/MaxDD/Calmar/Sortino. Note the
-deciles only span MIN_RANKING..100: the entry gate removes the low end of the evidence for
-whether ranking predicts outcome, so these tables no longer speak to scores below it.
+deciles are built from the **gated** signal set, so they only span MIN_RANKING..100 and cannot
+speak to scores below it — the ungated size-sweep table above is what shows whether the gate
+earns its keep.
 
 Outputs: monthly portfolio return + transaction-count grid (year x month), Max DD, Calmar,
 Sortino, signals taken/skipped, average uninvested capital.
@@ -70,12 +73,6 @@ STOP_DD = 0.30  # fixed stop: close <= (1-STOP_DD) * entry price
 TRAIL_DD = 0.25  # trailing stop: close <= (1-TRAIL_DD) * peak-since-entry
 RANK_FUNDING = True  # when cash is scarce, fund competing signals by QullamaggieRanking (desc)
 
-# Entry-price comparison: a resting limit at signal_day_close x (1 - pct), good for
-# LIMIT_WINDOW_CAL calendar days, filling on the first day whose adjusted low touches it.
-# Rule and window match scripts/qullamaggie-cohorts-limit-order.py.
-LIMIT_WINDOW_CAL = 30
-LIMIT_PCTS = [0.00, 0.01, 0.03, 0.05]
-
 # Only "time" is exercised. sma200x5, dead120, stop30 and trail25 are implemented in run_sim
 # but dormant: prompts.md lists them under "Deferred/considered ideas". The sma200x5 and
 # dead120 measurements that led to that deferral are recorded in the Findings sections.
@@ -103,20 +100,22 @@ MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-portfolio-v4.md"
 
 
-def load_spy(engine: sa.Engine, start: date) -> pl.DataFrame:
-    """Load SPY closes with their prior-day 200d SMA, from `start` onward.
+def load_spy(engine: sa.Engine, start: date, end: date) -> pl.DataFrame:
+    """Load SPY closes with their prior-day 200d SMA, over [start, end].
 
     Args:
         engine: SQLAlchemy engine for the trading database
         start: First bar date to load; callers pass the eval-window start less enough
             warmup that the 200d SMA is already warm on the window's first day
+        end: Last bar date to load — the eval-window end, which is also the last day of
+            the trading calendar the simulation walks
     """
     sql = """
         SELECT date::date, close::float8 FROM turtle.daily_bars
-        WHERE symbol = 'SPY.US' AND date >= :start ORDER BY date
+        WHERE symbol = 'SPY.US' AND date >= :start AND date <= :end ORDER BY date
     """
     with engine.connect() as conn:
-        rows = conn.execute(sa.text(sql), {"start": start}).fetchall()
+        rows = conn.execute(sa.text(sql), {"start": start, "end": end}).fetchall()
     spy = pl.DataFrame(
         {
             "date": pl.Series([r[0] for r in rows], dtype=pl.Date),
@@ -126,12 +125,18 @@ def load_spy(engine: sa.Engine, start: date) -> pl.DataFrame:
     return spy.with_columns(pl.col("close").shift(1).rolling_mean(200, min_samples=200).alias("sma200"))
 
 
-def load_bars(engine: sa.Engine, start: date) -> pl.DataFrame:
-    """Load adjusted daily bars for the qualified universe from `start` onward.
+def load_bars(engine: sa.Engine, start: date, end: date) -> pl.DataFrame:
+    """Load adjusted daily bars for the qualified universe over [start, end].
 
     Args:
         engine: SQLAlchemy engine for the trading database
         start: First bar date to load; callers pass the eval-window start less WARMUP_DAYS
+        end: Last bar date to load — the eval-window end. Unlike
+            scripts/qullamaggie-backtest-v4.py, no forward window is needed past it: this
+            simulation never requires an exit bar to exist, it marks positions still open on
+            the last day to market. Bounding the load also puts the MIN_HISTORY count on the
+            window actually being simulated, so a symbol that listed late in it no longer
+            qualifies on bars it had not printed yet.
     """
     sql = """
         SELECT db.symbol, db.date::date AS date, db.close::float8 AS raw_close,
@@ -143,12 +148,14 @@ def load_bars(engine: sa.Engine, start: date) -> pl.DataFrame:
         WHERE  t.country = 'USA' AND t.type = 'Common Stock'
           AND  c.market_cap >= 1500000000
           AND  c.sector NOT IN ('Communication Services', 'Real Estate')
-          AND  db.date >= :data_start AND db.close > 0 AND db.adjusted_close > 0 AND db.volume > 0
+          AND  db.date >= :data_start AND db.date <= :data_end
+          AND  db.close > 0 AND db.adjusted_close > 0 AND db.volume > 0
         ORDER  BY db.symbol, db.date
     """
     # Streamed through a server-side cursor and adjusted in polars rather than fetchall()'d
-    # into per-column Python lists: this result set is ~9.3M rows, which costs ~7 GB as row
-    # tuples plus lists and OOM-kills the 8 GB host before the DataFrame is even built.
+    # into per-column Python lists: this result set runs to millions of rows, which costs
+    # several GB as row tuples plus lists and OOM-kills the 8 GB host before the DataFrame
+    # is even built.
     with engine.connect().execution_options(stream_results=True, max_row_buffer=LOAD_BATCH_ROWS) as conn:
         df = pl.concat(
             pl.read_database(
@@ -156,7 +163,7 @@ def load_bars(engine: sa.Engine, start: date) -> pl.DataFrame:
                 connection=conn,
                 iter_batches=True,
                 batch_size=LOAD_BATCH_ROWS,
-                execute_options={"parameters": {"data_start": start}},
+                execute_options={"parameters": {"data_start": start, "data_end": end}},
             ),
             rechunk=True,
         )
@@ -322,13 +329,14 @@ def main() -> None:
 
     data_start = EVAL_START - timedelta(days=WARMUP_DAYS)
     settings = Settings.from_toml()
+    print(f"Eval {EVAL_START} – {EVAL_END}  |  bars {data_start} – {EVAL_END}", flush=True)
     print("Loading SPY …", flush=True)
-    spy = load_spy(settings.engine, data_start - timedelta(days=SPY_WARMUP_DAYS))
+    spy = load_spy(settings.engine, data_start - timedelta(days=SPY_WARMUP_DAYS), EVAL_END)
     if spy.is_empty() or spy["date"].max() < EVAL_START:
         raise ValueError(f"no SPY bars on or after {EVAL_START}; the requested window has no data")
     bull_dates = set(spy.filter(pl.col("close") > pl.col("sma200"))["date"].to_list())
     print("Loading bars …", flush=True)
-    df = load_bars(settings.engine, data_start)
+    df = load_bars(settings.engine, data_start, EVAL_END)
     valid = df.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"]
     df = df.filter(pl.col("symbol").is_in(valid.to_list()))
     print("Computing indicators …", flush=True)
@@ -338,14 +346,12 @@ def main() -> None:
     sym_dates: dict[str, np.ndarray] = {}
     sym_closes: dict[str, np.ndarray] = {}
     sym_opens: dict[str, np.ndarray] = {}
-    sym_lows: dict[str, np.ndarray] = {}
     sym_sma200: dict[str, np.ndarray] = {}
     for (sym,), grp in df.sort(["symbol", "date"]).group_by(["symbol"], maintain_order=False):
         g = grp.sort("date")
         sym_dates[sym] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int64)
         sym_closes[sym] = g["close"].cast(pl.Float64).to_numpy(allow_copy=True)
         sym_opens[sym] = g["open"].cast(pl.Float64).to_numpy(allow_copy=True)
-        sym_lows[sym] = g["low"].cast(pl.Float64).to_numpy(allow_copy=True)
         sym_sma200[sym] = g["sma200"].cast(pl.Float64).to_numpy(allow_copy=True)
 
     def _idx_on(sym: str, dint: int) -> int:
@@ -373,25 +379,6 @@ def main() -> None:
         while idx < len(dates) and dates[idx] <= dint + 7:
             if opens[idx] > 0 and not np.isnan(opens[idx]):
                 return int(dates[idx]), float(opens[idx])
-            idx += 1
-        return None
-
-    def limit_fill(sym: str, dint: int, limit_px: float) -> tuple[int, float] | None:
-        """First bar within LIMIT_WINDOW_CAL calendar days after `dint` whose adjusted low touches
-        `limit_px`, as (date_int, fill price).
-
-        Mirrors scripts/qullamaggie-cohorts-limit-order.py: the order rests from the day after the
-        signal, fills on the first day whose low reaches the limit, and fills *at* the limit — a
-        bar that gaps below it would really fill better, so this is the conservative side.
-        """
-        dates = sym_dates.get(sym)
-        if dates is None:
-            return None
-        idx = int(np.searchsorted(dates, dint, side="right"))
-        lows = sym_lows[sym]
-        while idx < len(dates) and dates[idx] <= dint + LIMIT_WINDOW_CAL:
-            if lows[idx] <= limit_px:
-                return int(dates[idx]), limit_px
             idx += 1
         return None
 
@@ -622,82 +609,6 @@ def main() -> None:
         out(f"Trades scored: {n}  |  size: {pos_fraction:.0%}")
         table(hdr, rows)
 
-    def run_blend(s20_by_day: dict, s15_by_day: dict, pos_fraction: float) -> dict:
-        """One cash pool. Each day fund s20 signals first, then s15 with leftover
-        liquidity. Same-day same-symbol kept once (s20 priority)."""
-        cash = INIT_EQUITY
-        positions: list[dict] = []
-        equity_curve: list[tuple[date, float]] = []
-        cash_curve: list[float] = []
-        n_s20 = n_s15 = n_skipped = 0
-
-        for d, dint in zip(cal, cal_int, strict=False):
-            still_open = []
-            for p in positions:
-                if dint >= p["exit_int"]:
-                    px = price_on(p["sym"], dint)
-                    if px is not None:
-                        cash += p["shares"] * px
-                else:
-                    still_open.append(p)
-            positions = still_open
-
-            mtm = cash + sum(p["shares"] * (price_on(p["sym"], dint) or 0.0) for p in positions)
-
-            s20_syms = {s["symbol"] for s in s20_by_day.get(dint, [])}
-            day_sigs = [{**s, "src": "s20"} for s in s20_by_day.get(dint, [])] + [
-                {**s, "src": "s15"} for s in s15_by_day.get(dint, []) if s["symbol"] not in s20_syms
-            ]
-            for s in day_sigs:
-                target = pos_fraction * mtm
-                entry_px = s["entry_px"]
-                if cash + 1e-9 < target:
-                    n_skipped += 1
-                    continue
-                cash -= target
-                positions.append({"sym": s["symbol"], "shares": target / entry_px, "exit_int": dint + HOLD_CAL})
-                if s["src"] == "s20":
-                    n_s20 += 1
-                else:
-                    n_s15 += 1
-
-            equity = cash + sum(p["shares"] * (price_on(p["sym"], dint) or 0.0) for p in positions)
-            equity_curve.append((d, equity))
-            cash_curve.append(cash)
-
-        dates = [e[0] for e in equity_curve]
-        eq = np.array([e[1] for e in equity_curve])
-        cash_arr = np.array(cash_curve)
-        daily_ret = eq[1:] / eq[:-1] - 1.0
-        max_dd = float((eq / np.maximum.accumulate(eq) - 1.0).min())
-        n_days = (dates[-1] - dates[0]).days
-        cagr = (eq[-1] / eq[0]) ** (365.0 / n_days) - 1.0
-        calmar = cagr / abs(max_dd) if max_dd < 0 else float("inf")
-        neg = daily_ret[daily_ret < 0]
-        dd_daily = float(np.sqrt(np.mean(neg**2))) if len(neg) else float("nan")
-        sortino = float(np.mean(daily_ret) * np.sqrt(252) / dd_daily) if dd_daily > 0 else float("nan")
-        eq_df = pl.DataFrame({"date": pl.Series(dates, dtype=pl.Date), "eq": eq}).with_columns(
-            [pl.col("date").dt.year().alias("year"), pl.col("date").dt.month().alias("month")]
-        )
-        eom = eq_df.group_by(["year", "month"]).agg(pl.col("eq").last().alias("eom")).sort(["year", "month"])
-        eom = eom.with_columns((pl.col("eom") / pl.col("eom").shift(1) - 1.0).alias("ret"))
-        eom = eom.with_columns(
-            pl.when(pl.col("ret").is_null()).then(pl.col("eom") / INIT_EQUITY - 1.0).otherwise(pl.col("ret")).alias("ret")
-        )
-        return {
-            "final": float(eq[-1]),
-            "cagr": cagr,
-            "max_dd": max_dd,
-            "calmar": calmar,
-            "sortino": sortino,
-            "n_s20": n_s20,
-            "n_s15": n_s15,
-            "skipped": n_skipped,
-            "avg_uninv_pct": float(np.mean(cash_arr / eq) * 100),
-            "avg_uninv_usd": float(np.mean(cash_arr)),
-            "eom": eom,
-        }
-
     out("# Portfolio Simulation — size sweep + ranking deciles")
     out("")
     out(f"Run date: {date.today()}")
@@ -723,33 +634,33 @@ def main() -> None:
 
     # collect all baseline (366d) results first, then rank for monthly grids
     all_results: list[tuple[str, float, dict]] = []  # (name, pos_fraction, result)
-    entry_results: list[tuple[str, str, float, dict, dict, int]] = []  # cfg, label, pf, open_res, res, unfilled
     signals_by_day_by_config: dict[str, dict[int, list[dict]]] = {}
     hdr = f"{'size':<6} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} {'Sortino':>8} {'taken':>6} {'skip':>6} {'Uninv%':>7}"
 
-    def resolve(sig: pl.DataFrame, limit_pct: float | None) -> tuple[dict[int, list[dict]], int, int]:
+    def resolve(sig: pl.DataFrame, min_ranking: int) -> tuple[dict[int, list[dict]], int, int]:
         """Score every signal and attach its entry day and price, keyed by the day it is funded.
 
-        `limit_pct` None means the production rule: the next trading day's adjusted open. A value
-        places a resting limit at signal_day_close x (1 - limit_pct) instead. Resolved once here
-        rather than inside run_sim, because the size sweep and the decile re-simulations replay
-        the same signals many times over.
+        The entry is the production rule — the next trading day's adjusted open. Resolved once
+        here rather than inside run_sim, because the size sweep and the decile re-simulations
+        replay the same signals many times over.
 
-        Returns (signals keyed by entry date-int, dropped by ranking gate, unfilled).
+        Args:
+            sig: Signal frame for one config, from `get_signals`
+            min_ranking: QullamaggieRanking floor; 0 keeps every signal, which is how the
+                ungated half of each config's report is produced
+
+        Returns:
+            (signals keyed by entry date-int, dropped by the ranking gate, unfilled).
         """
         by_day: dict[int, list[dict]] = {}
         n_rank = n_unfilled = 0
         for row in sig.iter_rows(named=True):
             r = dict(row)
             r["ranking"] = compute_ranking(r)
-            if r["ranking"] < MIN_RANKING:
+            if r["ranking"] < min_ranking:
                 n_rank += 1
                 continue
-            sig_dint = (r["date"] - _EPOCH).days
-            if limit_pct is None:
-                fill = next_open(r["symbol"], sig_dint)
-            else:
-                fill = limit_fill(r["symbol"], sig_dint, r["close"] * (1.0 - limit_pct))
+            fill = next_open(r["symbol"], (r["date"] - _EPOCH).days)
             if fill is None or fill[0] not in cal_set:
                 n_unfilled += 1
                 continue
@@ -760,13 +671,6 @@ def main() -> None:
     for name, sma_t in CONFIGS:
         print(f"Simulating {name} …", flush=True)
         sig = get_signals(df, bull_dates, sma_t)
-        # Score and resolve the fill once here, not per entry inside run_sim: the sweep and
-        # the decile re-simulations replay the same signals many times over. Signals are
-        # keyed by their *entry* day (the next trading day), so run_sim funds a position on
-        # the day it is actually filled.
-        signals_by_day, n_below_rank, n_no_fill = resolve(sig, None)
-        signals_by_day_by_config[name] = signals_by_day
-
         out("")
         out(f"## {name}  (bk50d_{name}_v2.0 / {HOLD_CAL}d)")
         out("")
@@ -775,79 +679,33 @@ def main() -> None:
             f"ADR%(20)>={ADR_FLOOR * 100:.1f}%, ADR_change<{ADR_CHANGE_CAP * 100:.0f}%, "
             f"vol_surge<{VOL_SURGE_MAX:.1f}x, vol_dry_up<{VOL_DRY_UP * 100:.0f}%, roc_12m<{ROC_CAP * 100:.0f}%, "
             f"SPY>200d SMA, close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K, "
-            f"cooldown={COOLDOWN}d, hold={HOLD_CAL}d cal, QullamaggieRanking>={MIN_RANKING} "
-            f"({n_below_rank} signals dropped below it, {n_no_fill} with no fillable next-day open in period)"
+            f"cooldown={COOLDOWN}d, hold={HOLD_CAL}d cal"
         )
-        results: dict[float, dict] = {}
-        rows: list[str] = []
-        for pf in POS_FRACTIONS:
-            r = run_sim(signals_by_day, "time", pf)
-            results[pf] = r
-            all_results.append((name, pf, r))
-            rows.append(
-                f"{pf:<6.0%} {r['final']:>11,.0f} {r['cagr'] * 100:>+7.2f} {r['max_dd'] * 100:>8.2f} "
-                f"{r['calmar']:>7.3f} {r['sortino']:>8.3f} {r['taken']:>6} {r['skipped']:>6} "
-                f"{r['avg_uninv_pct']:>6.1f}%"
-            )
-        table(hdr, rows)
-        for pct in LIMIT_PCTS:
-            lim_sigs, _, n_unfilled = resolve(sig, pct)
-            label = "close" if pct == 0 else f"close -{pct * 100:.0f}%"
+        # Same signals, sized the same way, reported twice: once through the production
+        # QullamaggieRanking gate and once with no ranking condition at all. The pair is the
+        # only way to read what the gate is worth in *portfolio* terms — a gated run alone
+        # cannot show whether the signals it removed would have compounded better.
+        for gate_label, gate in ((f"QullamaggieRanking >= {MIN_RANKING}", MIN_RANKING), ("no ranking filter", 0)):
+            # Score and resolve the fill once per gate, not per entry inside run_sim: the sweep
+            # and the decile re-simulations replay the same signals many times over. Signals are
+            # keyed by their *entry* day (the next trading day), so run_sim funds a position on
+            # the day it is actually filled.
+            signals_by_day, n_below_rank, n_no_fill = resolve(sig, gate)
+            if gate == MIN_RANKING:
+                signals_by_day_by_config[name] = signals_by_day
+            out("")
+            out(f"**{gate_label}** — {n_below_rank} signals dropped by the gate, {n_no_fill} with no fillable next-day open in period.")
+            rows: list[str] = []
             for pf in POS_FRACTIONS:
-                entry_results.append((name, label, pf, results[pf], run_sim(lim_sigs, "time", pf), n_unfilled))
-
-    out("")
-    out("## Entry price: next-day open vs resting limit order")
-    out("")
-    out(
-        f"The production rule buys the next trading day's split/dividend-adjusted open. The "
-        f"alternatives place a resting limit at the signal day's adjusted close x (1 - X), good for "
-        f"{LIMIT_WINDOW_CAL} calendar days, filling on the first day whose adjusted low touches it "
-        f"and filling *at* the limit. Rule and window match `scripts/qullamaggie-cohorts-limit-order.py`."
-    )
-    out("")
-    out(
-        "`unfilled` counts signals whose limit was never touched inside the window — those trades "
-        "simply never happen, which is the cost the deeper limits pay for their better entry price."
-    )
-    ent_hdr = (
-        f"{'cfg':<5} {'size':<5} {'entry':<11} {'Final$':>10} {'CAGR%':>7} {'dCAGR':>7} "
-        f"{'MaxDD%':>8} {'Sortino':>8} {'dSrt':>7} {'Calmar':>7} {'taken':>6} {'unfil':>6}"
-    )
-    ent_rows: list[str] = []
-    prev: tuple[str, float] | None = None
-    for cfg_name, label, pf, base_r, r, n_unf in sorted(entry_results, key=lambda x: (x[0], x[2])):
-        if prev is not None and prev != (cfg_name, pf):
-            ent_rows.append("")
-        if prev != (cfg_name, pf):
-            ent_rows.append(
-                f"{cfg_name:<5} {pf:<5.0%} {'next open':<11} {base_r['final']:>10,.0f} "
-                f"{base_r['cagr'] * 100:>+7.2f} {'—':>7} {base_r['max_dd'] * 100:>8.2f} "
-                f"{base_r['sortino']:>8.3f} {'—':>7} {base_r['calmar']:>7.3f} {base_r['taken']:>6} {'—':>6}"
-            )
-        ent_rows.append(
-            f"{'':<5} {'':<5} {label:<11} {r['final']:>10,.0f} {r['cagr'] * 100:>+7.2f} "
-            f"{(r['cagr'] - base_r['cagr']) * 100:>+7.2f} {r['max_dd'] * 100:>8.2f} {r['sortino']:>8.3f} "
-            f"{r['sortino'] - base_r['sortino']:>+7.3f} {r['calmar']:>7.3f} {r['taken']:>6} {n_unf:>6}"
-        )
-        prev = (cfg_name, pf)
-    table(ent_hdr, ent_rows)
-
-    for pct in LIMIT_PCTS:
-        label = "close" if pct == 0 else f"close -{pct * 100:.0f}%"
-        cells = [(b, r, u) for _, lb, _, b, r, u in entry_results if lb == label]
-        wins_c = sum(1 for b, r, _ in cells if r["cagr"] > b["cagr"])
-        wins_s = sum(1 for b, r, _ in cells if r["sortino"] > b["sortino"])
-        mean_d = sum((r["cagr"] - b["cagr"]) * 100 for b, r, _ in cells) / len(cells)
-        mean_unf = sum(u for _, _, u in cells) / len(cells)
-        out("")
-        out(
-            f"`{label}`: beats the next-open entry on CAGR in **{wins_c} of {len(cells)}** "
-            f"config/size cells and on Sortino in **{wins_s} of {len(cells)}**; mean CAGR delta "
-            f"**{mean_d:+.2f}pp**, mean unfilled signals **{mean_unf:.0f}**."
-        )
-
-    # monthly grids for the top 5 by Final$ (366d baseline, RSI<70)
+                r = run_sim(signals_by_day, "time", pf)
+                all_results.append((f"{name} {'R>=' + str(MIN_RANKING) if gate else 'ungated'}", pf, r))
+                rows.append(
+                    f"{pf:<6.0%} {r['final']:>11,.0f} {r['cagr'] * 100:>+7.2f} {r['max_dd'] * 100:>8.2f} "
+                    f"{r['calmar']:>7.3f} {r['sortino']:>8.3f} {r['taken']:>6} {r['skipped']:>6} "
+                    f"{r['avg_uninv_pct']:>6.1f}%"
+                )
+            table(hdr, rows)
+    # monthly grids for the top 5 by Final$ (366d baseline, RSI<70), gated and ungated together
     ranked_final = sorted(all_results, key=lambda x: x[2]["final"], reverse=True)
     out("")
     out("## Monthly returns/transactions — top 5 by Final$")
