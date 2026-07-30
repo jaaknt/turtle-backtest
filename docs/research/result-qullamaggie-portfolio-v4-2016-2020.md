@@ -1,6 +1,6 @@
 # Portfolio Simulation — size sweep + ranking deciles
 
-Run date: 2026-07-29
+Run date: 2026-07-30
 Period: 2016-01-01 – 2020-12-31  |  Initial: $30,000  |  algorithm: RSI<70  |  sizes: 3%, 4%, 5%  |  hold: 366d  |  min ranking: 40
 
 ## Buy & Hold Benchmarks
@@ -16,172 +16,136 @@ QQQ         85,956  +23.46   -28.56   0.821    0.965
 
 ## s20  (bk50d_s20_v2.0 / 366d)
 
-Parameters: %abv_SMA50>20%, breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal, QullamaggieRanking>=40 (0 signals dropped below it, 1 with no fillable next-day open in period)
+Parameters: %abv_SMA50>20%, breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal
+
+**QullamaggieRanking >= 40** — 137 signals dropped by the gate, 0 with no fillable next-day open in period.
 
 ```text
 size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 --------------------------------------------------------------------------
-3%         102,352  +27.85   -20.23   1.377    1.101    135    448   25.8%
-4%         105,207  +28.56   -22.51   1.269    1.085    103    480   24.1%
-5%          99,263  +27.07   -31.47   0.860    1.038     83    500   24.7%
+3%         105,884  +28.72   -25.98   1.106    1.224    112    335   41.0%
+4%         117,685  +31.48   -33.37   0.943    1.213     93    354   34.1%
+5%         120,686  +32.14   -29.85   1.077    1.227     77    370   31.8%
+```
+
+**no ranking filter** — 0 signals dropped by the gate, 1 with no fillable next-day open in period.
+
+```text
+size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
+--------------------------------------------------------------------------
+3%         102,761  +27.96   -20.23   1.382    1.102    135    448   25.8%
+4%         107,430  +29.10   -22.80   1.276    1.100    103    480   24.0%
+5%         100,027  +27.27   -31.47   0.866    1.039     83    500   24.7%
 ```
 
 ## s16  (bk50d_s16_v2.0 / 366d)
 
-Parameters: %abv_SMA50>16%, breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal, QullamaggieRanking>=40 (204 signals dropped below it, 3 with no fillable next-day open in period)
+Parameters: %abv_SMA50>16%, breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal
+
+**QullamaggieRanking >= 40** — 390 signals dropped by the gate, 0 with no fillable next-day open in period.
 
 ```text
 size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 --------------------------------------------------------------------------
-3%         106,753  +28.94   -22.28   1.299    1.146    138    523   23.6%
-4%         106,657  +28.91   -26.91   1.074    1.128    106    555   22.4%
-5%         123,287  +32.71   -31.21   1.048    1.209     88    573   20.2%
+3%         122,392  +32.51   -30.44   1.068    1.256    121    357   35.5%
+4%         135,825  +35.31   -31.34   1.127    1.290    101    377   28.8%
+5%         137,170  +35.57   -28.98   1.227    1.266     81    397   26.3%
+```
+
+**no ranking filter** — 0 signals dropped by the gate, 3 with no fillable next-day open in period.
+
+```text
+size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
+--------------------------------------------------------------------------
+3%         114,266  +30.70   -22.92   1.340    1.208    143    722   22.3%
+4%         128,585  +33.83   -27.38   1.236    1.247    110    755   20.1%
+5%         120,939  +32.20   -37.11   0.868    1.139     90    775   18.4%
 ```
 
 ## s12  (bk50d_s12_v2.0 / 366d)
 
-Parameters: %abv_SMA50>12%, breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal, QullamaggieRanking>=40 (419 signals dropped below it, 3 with no fillable next-day open in period)
+Parameters: %abv_SMA50>12%, breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal
+
+**QullamaggieRanking >= 40** — 714 signals dropped by the gate, 0 with no fillable next-day open in period.
 
 ```text
 size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 --------------------------------------------------------------------------
-3%         111,992  +30.18   -20.85   1.448    1.258    141    672   23.3%
-4%         116,649  +31.24   -21.63   1.444    1.235    110    703   21.3%
-5%         104,004  +28.26   -32.90   0.859    1.093     88    725   20.6%
+3%         117,314  +31.39   -33.74   0.930    1.195    133    388   29.9%
+4%         122,974  +32.64   -26.24   1.244    1.205    105    416   23.5%
+5%         120,324  +32.06   -23.63   1.357    1.218     85    436   23.0%
 ```
 
-## Entry price: next-day open vs resting limit order
-
-The production rule buys the next trading day's split/dividend-adjusted open. The alternatives place a resting limit at the signal day's adjusted close x (1 - X), good for 30 calendar days, filling on the first day whose adjusted low touches it and filling *at* the limit. Rule and window match `scripts/qullamaggie-cohorts-limit-order.py`.
-
-`unfilled` counts signals whose limit was never touched inside the window — those trades simply never happen, which is the cost the deeper limits pay for their better entry price.
+**no ranking filter** — 0 signals dropped by the gate, 3 with no fillable next-day open in period.
 
 ```text
-cfg   size  entry           Final$   CAGR%   dCAGR   MaxDD%  Sortino    dSrt  Calmar  taken  unfil
---------------------------------------------------------------------------------------------------
-s12   3%    next open      111,992  +30.18       —   -20.85    1.258       —   1.448    141      —
-            close          118,341  +31.62   +1.45   -18.80    1.282  +0.024   1.682    139     25
-            close -1%      138,269  +35.79   +5.61   -18.50    1.415  +0.157   1.935    139     59
-            close -3%      141,541  +36.43   +6.25   -19.66    1.491  +0.233   1.852    139    131
-            close -5%      128,446  +33.80   +3.62   -23.71    1.368  +0.110   1.426    137    222
-
-s12   4%    next open      116,649  +31.24       —   -21.63    1.235       —   1.444    110      —
-            close          118,298  +31.61   +0.37   -18.69    1.228  -0.007   1.692    108     25
-            close -1%      120,352  +32.07   +0.82   -18.66    1.250  +0.014   1.718    108     59
-            close -3%      123,431  +32.74   +1.49   -23.57    1.337  +0.101   1.389    106    131
-            close -5%      156,341  +39.17   +7.93   -21.53    1.543  +0.308   1.820    103    222
-
-s12   5%    next open      104,004  +28.26       —   -32.90    1.093       —   0.859     88      —
-            close          118,567  +31.67   +3.41   -22.10    1.222  +0.129   1.433     88     25
-            close -1%      122,941  +32.63   +4.37   -23.00    1.213  +0.120   1.419     89     59
-            close -3%      150,492  +38.11   +9.85   -21.89    1.500  +0.406   1.741     86    131
-            close -5%      179,936  +43.14  +14.88   -22.51    1.580  +0.487   1.917     84    222
-
-s16   3%    next open      106,753  +28.94       —   -22.28    1.146       —   1.299    138      —
-            close          114,723  +30.81   +1.87   -18.82    1.239  +0.093   1.637    136     18
-            close -1%      113,974  +30.64   +1.70   -20.59    1.194  +0.048   1.488    137     45
-            close -3%      110,782  +29.90   +0.96   -22.08    1.198  +0.051   1.354    135    100
-            close -5%       95,283  +26.03   -2.90   -23.10    1.074  -0.072   1.127    133    174
-
-s16   4%    next open      106,657  +28.91       —   -26.91    1.128       —   1.074    106      —
-            close          106,219  +28.81   -0.11   -23.63    1.106  -0.022   1.219    105     18
-            close -1%      102,867  +27.98   -0.93   -28.66    1.058  -0.070   0.976    105     45
-            close -3%      128,945  +33.90   +4.99   -24.86    1.298  +0.169   1.364    102    100
-            close -5%      119,070  +31.79   +2.87   -21.48    1.244  +0.115   1.480    101    174
-
-s16   5%    next open      123,287  +32.71       —   -31.21    1.209       —   1.048     88      —
-            close          116,163  +31.13   -1.57   -25.10    1.165  -0.044   1.241     87     18
-            close -1%      107,822  +29.19   -3.51   -29.23    1.052  -0.157   0.999     85     45
-            close -3%      133,672  +34.87   +2.17   -31.22    1.240  +0.031   1.117     83    100
-            close -5%      123,309  +32.71   +0.00   -25.54    1.222  +0.013   1.281     82    174
-
-s20   3%    next open      102,352  +27.85       —   -20.23    1.101       —   1.377    135      —
-            close           98,055  +26.76   -1.09   -20.12    1.078  -0.023   1.330    134     12
-            close -1%       98,965  +26.99   -0.86   -20.83    1.098  -0.003   1.296    132     33
-            close -3%       86,849  +23.72   -4.14   -25.55    1.012  -0.089   0.928    127     82
-            close -5%       87,345  +23.86   -4.00   -29.19    1.025  -0.076   0.817    118    149
-
-s20   4%    next open      105,207  +28.56       —   -22.51    1.085       —   1.269    103      —
-            close          109,944  +29.70   +1.14   -22.04    1.153  +0.068   1.348    100     12
-            close -1%      114,961  +30.86   +2.30   -22.00    1.173  +0.087   1.403    101     33
-            close -3%      104,587  +28.41   -0.15   -20.40    1.117  +0.032   1.393     99     82
-            close -5%       89,553  +24.48   -4.08   -24.84    0.995  -0.090   0.986     97    149
-
-s20   5%    next open       99,263  +27.07       —   -31.47    1.038       —   0.860     83      —
-            close          109,736  +29.65   +2.58   -24.60    1.133  +0.095   1.205     82     12
-            close -1%      112,774  +30.36   +3.29   -24.70    1.128  +0.090   1.229     83     33
-            close -3%      104,960  +28.50   +1.43   -22.18    1.090  +0.052   1.285     80     82
-            close -5%      105,887  +28.73   +1.65   -20.36    1.124  +0.086   1.411     78    149
+size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
+--------------------------------------------------------------------------
+3%         105,758  +28.69   -45.23   0.634    0.968    158   1074   14.7%
+4%          90,430  +24.72   -47.10   0.525    0.851    120   1112   12.7%
+5%         112,292  +30.25   -43.71   0.692    0.992     96   1136   11.5%
 ```
-
-`close`: beats the next-open entry on CAGR in **6 of 9** config/size cells and on Sortino in **5 of 9**; mean CAGR delta **+0.89pp**, mean unfilled signals **18**.
-
-`close -1%`: beats the next-open entry on CAGR in **6 of 9** config/size cells and on Sortino in **6 of 9**; mean CAGR delta **+1.42pp**, mean unfilled signals **46**.
-
-`close -3%`: beats the next-open entry on CAGR in **7 of 9** config/size cells and on Sortino in **8 of 9**; mean CAGR delta **+2.54pp**, mean unfilled signals **104**.
-
-`close -5%`: beats the next-open entry on CAGR in **6 of 9** config/size cells and on Sortino in **6 of 9**; mean CAGR delta **+2.22pp**, mean unfilled signals **182**.
 
 ## Monthly returns/transactions — top 5 by Final$
 
-### #1  s16 — size 5%  (Final $123,287)
+### #1  s16 R>=40 — size 5%  (Final $137,170)
 
 ```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
- 2016 |    +0.0|0    +0.0|0   +0.1|19    +2.3|1    +1.0|0    -1.5|0    +8.3|0    +6.0|0    +3.5|0    -4.5|0   +14.6|0    +0.0|0 |   +32.5    20
- 2017 |    +6.0|0    +3.2|0    +1.4|1    -0.0|0    -0.1|3    +4.2|3    +3.0|5    -1.7|2    +4.1|3    +3.7|2    +7.6|0    +2.7|0 |   +39.5    19
- 2018 |    +3.5|0    -6.9|0    +2.8|0    +2.7|1   +11.1|3    +0.9|2    -0.9|2    +3.9|1    -4.1|0    -6.1|0    -1.6|0    -5.9|1 |    -1.9    10
- 2019 |   +12.2|0    +5.5|9    -2.5|0    +1.6|1   -15.4|0    +9.9|2    -2.6|5   -13.7|1    +4.1|1    +2.4|1    +4.1|0    +6.1|0 |    +7.9    20
- 2020 |    -5.5|0    +6.5|2   -13.8|0   +11.0|0    +6.3|9   +10.5|2   +13.3|4   +13.4|0    -0.1|1    -7.6|1   +33.2|0   +17.4|0 |  +109.9    19
+ 2016 |    +0.0|0    +0.0|0   -0.3|16    +7.6|4    -1.2|0    +3.0|0   +10.0|0    +0.8|0    +3.5|0    -5.6|0    +9.6|0    +0.1|0 |   +29.6    20
+ 2017 |    +5.9|0    +2.4|0    +2.4|2    -0.3|0    -0.3|3    +5.0|2    +2.0|4    -0.3|2    +4.8|2    +3.1|1    +3.8|0    +1.8|2 |   +34.6    18
+ 2018 |    +6.9|0    -7.2|0    +4.8|0    +3.8|2    +8.1|0    -1.6|0    +3.1|0    +4.2|1    -0.2|0    -1.8|0    +0.3|0    -5.2|1 |   +14.8     4
+ 2019 |    +6.0|0    +1.5|7    -0.0|2    -0.7|1    -4.9|0   +14.1|2    -0.1|5   -17.3|1    -2.5|1    +2.5|0    +6.1|0    +8.5|1 |   +10.0    20
+ 2020 |    -8.7|0    +6.5|1   -12.5|0   +10.5|0   +3.9|10   +11.7|1   +13.6|4   +14.5|0    +1.1|2    -8.9|0   +34.9|0   +17.7|1 |  +107.5    19
 ```
 
-### #2  s12 — size 4%  (Final $116,649)
+### #2  s16 R>=40 — size 4%  (Final $135,825)
 
 ```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
- 2016 |    +0.0|0    +0.0|0   -0.2|25    -0.3|0    -1.1|0    -2.4|0    +7.7|0    +6.4|0    +3.1|0    -3.3|0   +12.0|0    +0.5|0 |   +23.5    25
- 2017 |    +5.7|0    +2.9|0    +0.2|1    +0.2|0    -0.1|3    +3.4|3    +1.7|6    +0.1|5    +2.5|5    +2.8|0    +5.9|0    +2.1|0 |   +30.8    23
- 2018 |    +3.1|0    -6.0|0    +4.4|0    +2.9|2   +13.2|3    +0.4|2    +1.9|2    +3.1|3    -0.4|0    -8.1|0    -3.2|0    -7.4|1 |    +2.1    13
- 2019 |   +10.8|0   +5.1|13    -3.8|0    +5.0|1   -13.0|0   +10.2|2    -0.7|4    -8.6|1    +1.2|2    +0.7|2    +3.8|0    +4.5|0 |   +13.1    25
- 2020 |    -3.5|0    +4.5|2    -8.2|0    +8.3|0   +5.9|13   +10.1|2    +7.6|2   +10.7|1    -4.8|1    -3.4|3   +37.6|0   +18.3|0 |  +108.4    24
+ 2016 |    +0.0|0    +0.0|0   -0.2|16   +10.4|8    -1.9|0    +4.6|0    +9.1|0    -0.9|0    +3.6|0    -6.2|0    +8.4|0    -0.5|0 |   +27.9    24
+ 2017 |    +6.1|0    +0.8|0    +2.3|2    -0.2|0    -0.3|3    +4.0|2    +1.6|4    -0.2|2    +3.8|2    +2.6|1    +3.1|0    +1.7|3 |   +28.2    19
+ 2018 |    +5.9|4    -6.5|0    +6.2|0    +6.1|2    +9.3|0    -3.5|0    +2.9|0    +5.9|1    +1.6|0    -4.2|0    +7.6|0    -6.8|1 |   +25.2     8
+ 2019 |    +7.1|0    +1.1|7    -0.1|2    -0.5|1    -3.9|0   +11.1|2    -0.1|5   -13.8|1    -2.0|1    +1.8|4    +7.1|0    +6.7|2 |   +12.6    25
+ 2020 |    -9.9|0    +3.6|1   -16.7|0   +14.8|0   +2.7|10   +10.4|2   +13.6|4   +16.5|1    +0.5|1    -3.1|3   +32.6|1   +13.2|2 |   +95.8    25
 ```
 
-### #3  s12 — size 3%  (Final $111,992)
+### #3  s16 ungated — size 4%  (Final $128,585)
 
 ```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
- 2016 |    +0.0|0    +0.0|0   +0.3|33    +1.0|0    -0.7|0    -2.9|0    +8.0|0    +4.1|0    +2.4|0    -3.7|0    +9.6|0    -0.1|0 |   +18.7    33
- 2017 |    +5.3|0    +4.4|0    +1.0|1    +0.1|0    -0.0|3    +2.5|3    +1.3|6    +0.0|5    +1.9|5    +2.3|3    +4.9|2    +2.1|3 |   +28.9    31
- 2018 |    +3.0|0    -5.0|0    +5.7|0    +4.2|2   +11.5|3    +0.2|1    +2.8|2    +3.6|3    -1.9|0    -7.9|0    -2.7|0    -6.8|1 |    +5.1    12
- 2019 |    +7.2|0   +3.4|22    -2.6|0    +3.8|1   -13.0|0   +11.7|2    +0.2|4    -5.0|1    +3.9|2    +3.5|1    +2.7|0    +4.4|0 |   +19.5    33
- 2020 |    -4.1|0    +5.0|2    -5.3|0    +5.6|0   +2.1|22    +9.5|2    +5.3|3   +10.1|1    -7.1|1    +0.8|1   +35.2|0   +17.3|0 |   +94.1    32
+ 2016 |    +0.0|0    +0.0|0   -1.0|24    +0.4|0    -0.6|1    -2.9|0    +5.3|0    +5.4|0    +4.5|0    -3.2|0   +14.6|0    -1.7|0 |   +21.3    25
+ 2017 |    +5.0|0    +1.3|0    +1.8|2    -0.8|0    -0.6|3    +4.0|4    +2.1|8    -0.4|2    +3.8|4    +3.9|0    +6.5|0    +2.8|0 |   +33.6    23
+ 2018 |    +3.8|0    -3.5|0    +4.7|0    +2.9|3   +12.5|3    -0.8|1    +0.5|3    +5.0|1    -3.4|0    -6.5|0    -0.3|0    -6.6|2 |    +6.9    13
+ 2019 |   +10.5|0   +7.1|11    -3.5|0    +3.0|1   -15.9|1    +9.1|3    -2.4|5    -9.9|2    +6.1|1    +6.2|0    +8.0|0    +4.0|2 |   +20.2    26
+ 2020 |    -5.9|0    +6.0|2   -13.5|0   +12.0|0   +7.9|11    +8.8|3   +12.1|4   +10.8|2    -3.5|1    -3.9|0   +33.1|0   +18.4|0 |  +105.8    23
 ```
 
-### #4  s16 — size 3%  (Final $106,753)
+### #4  s12 R>=40 — size 4%  (Final $122,974)
 
 ```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
- 2016 |    +0.0|0    +0.0|0   +0.1|25    +5.8|8    -1.9|0    +1.8|0   +10.5|0    -0.1|0    +2.9|0    -4.0|0    +7.1|0    -1.1|0 |   +22.0    33
- 2017 |    +7.7|0    +1.8|0    +1.5|1    +0.4|0    -0.0|3    +2.5|3    +1.8|5    -1.0|2    +2.5|3    +2.2|3    +5.1|2    +1.9|4 |   +29.4    26
- 2018 |    +2.9|4    -5.0|0    +4.8|0    +6.0|2    +9.9|3    -1.4|2    +0.8|2    +5.4|1    -2.3|0    -9.0|0    +3.0|0    -8.6|1 |    +4.7    15
- 2019 |    +8.8|0   +2.4|20    -2.9|2    +4.1|1   -12.4|0   +13.7|2    +0.3|4    -9.9|1    +2.6|1    +3.0|1    +2.9|0    +7.8|0 |   +18.9    32
- 2020 |    -4.5|0    +4.4|2    -7.9|0    +4.6|0   +0.7|24    +8.9|2    +6.4|2    +9.8|1    -4.8|0    +0.8|1   +33.6|0   +14.8|0 |   +81.1    32
+ 2016 |    +0.0|0    +0.0|0   -0.1|21    +7.2|4    -0.6|0    +2.2|0    +8.5|0    +0.7|0    +2.7|0    -4.6|0    +8.3|0    +0.3|0 |   +26.3    25
+ 2017 |    +5.9|0    +4.3|0    +2.6|2    -0.3|0    -0.3|3    +4.0|2    +1.7|4    -0.0|4    +2.5|2    +1.8|1    +3.5|0    +2.0|3 |   +31.3    21
+ 2018 |    +6.4|2    -6.1|0    +5.0|0    +6.1|3    +9.0|2    -2.7|1    +4.3|0    +4.3|2    +2.5|0    -7.4|0    +3.4|0    -8.1|1 |   +15.7    11
+ 2019 |    +9.2|0    +2.3|9    -1.2|1    +0.2|3    -5.7|0   +13.1|2    +0.0|5   -13.3|1    -1.6|1    +4.2|2    +6.9|0    +6.7|0 |   +19.6    24
+ 2020 |    -9.4|1    +5.2|1   -13.9|0    +9.6|0   +4.2|13   +10.2|2    +8.0|3   +10.2|1    -5.1|1    -2.6|2   +32.0|0   +19.0|0 |   +78.6    24
 ```
 
-### #5  s16 — size 4%  (Final $106,657)
+### #5  s16 R>=40 — size 3%  (Final $122,392)
 
 ```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
- 2016 |    +0.0|0    +0.0|0   +0.1|25    +2.1|0    +0.2|0    -3.6|0    +8.4|0    +5.0|0    +3.3|0    -3.0|0   +11.5|0    -0.9|0 |   +24.3    25
- 2017 |    +5.7|0    +4.6|0    +0.5|1    +0.0|0    -0.1|3    +3.4|3    +2.4|5    -1.4|2    +3.3|3    +2.8|3    +6.7|2    +2.7|1 |   +35.0    23
- 2018 |    +2.9|0    -5.9|0    +4.5|0    +3.2|2   +10.4|3    -0.0|1    +0.7|2    +5.5|1    -5.0|0    -7.6|0    -2.2|0    -5.9|1 |    -1.3    10
- 2019 |    +8.9|0   +4.2|15    -2.4|0    +2.4|1   -16.4|0   +12.3|2    -0.4|3    -9.6|1    +6.1|1    +3.0|1    +1.7|0    +6.6|1 |   +13.8    25
- 2020 |    -4.8|0    +4.8|2   -10.9|0    +6.9|0   +2.7|15    +9.9|2    +8.6|2   +11.8|1    -5.0|0    -0.6|1   +32.3|0   +16.1|0 |   +88.6    23
+ 2016 |    +0.0|0    +0.0|0   -0.2|16  +14.1|17    -3.6|0    +8.5|0   +12.0|0    -3.5|0    +2.5|0    -6.0|0    +7.8|0    -1.6|0 |   +31.6    33
+ 2017 |    +6.3|0    +0.4|0    +1.7|2    -0.4|0    -0.2|3    +3.0|2    +1.2|4    -0.2|2    +2.9|2    +2.0|1    +2.4|0    +1.3|3 |   +22.2    19
+ 2018 |    +4.4|5    -5.6|0    +4.4|1    +4.2|2    +8.5|0    -1.9|0    +2.0|0    +5.1|1    +1.6|0    -3.7|0    +5.4|0    -5.7|1 |   +19.1    10
+ 2019 |    +6.1|0    +0.8|7    -0.1|2    -0.4|1    -3.0|0    +8.2|2    -0.1|5   -10.4|1    -1.5|1    +1.3|4    +5.2|0    +5.0|2 |   +10.3    25
+ 2020 |    -7.6|3    +1.6|3   -16.8|0   +15.2|0   +3.6|14    +9.4|2    +9.9|3   +16.5|1    -1.5|1    -2.3|3   +35.6|1   +13.4|3 |   +93.2    34
 ```
 
 ## Ranking Deciles (QullamaggieRanking)
@@ -190,92 +154,89 @@ Every taken trade of every config (at 4% sizing, the middle of the 3%/4%/5% swee
 
 ### s20  (bk50d_s20_v2.0)
 
-Trades scored: 103  |  size: 4%
+Trades scored: 93  |  size: 4%
 
 ```text
 Decile     Ranking     N   CAGR%   MaxDD%  Calmar  Sortino
 ----------------------------------------------------------
-D1        48-52       10   +0.94    -5.17   0.182    0.268
-D2        52-55       10   +3.45    -5.26   0.655    0.696
-D3        55-57       10   +0.39    -8.16   0.048    0.112
-D4        57-63       11   +3.05    -4.27   0.714    0.717
-D5        63-67       10   +1.54    -8.06   0.192    0.330
-D6        67-68       10   +2.34    -6.30   0.371    0.481
-D7        68-73       11   +0.75   -10.73   0.070    0.157
-D8        73-83       10   +9.00    -5.36   1.681    1.591
-D9        83-88       10   +4.47    -8.85   0.505    0.558
-D10       88-99       11   +4.12   -15.67   0.263    0.182
+D1        43-43        9   +3.01    -4.37   0.689    0.671
+D2        43-47        9   +2.78    -2.91   0.954    0.936
+D3        49-52        9   +0.12    -8.79   0.013    0.038
+D4        52-60       10   +1.53    -8.46   0.181    0.449
+D5        60-66        9   +2.18    -7.81   0.280    0.406
+D6        66-66        9   +2.17    -5.55   0.390    0.423
+D7        66-70       10   +3.81    -8.92   0.427    0.648
+D8        70-83        9   +3.37    -5.07   0.666    0.721
+D9        83-87        9   +8.99   -10.55   0.852    1.194
+D10       87-100      10   +5.42   -10.55   0.514    0.331
 ```
 
 ### s16  (bk50d_s16_v2.0)
 
-Trades scored: 106  |  size: 4%
+Trades scored: 101  |  size: 4%
 
 ```text
 Decile     Ranking     N   CAGR%   MaxDD%  Calmar  Sortino
 ----------------------------------------------------------
-D1        40-43       10   +1.48    -7.07   0.209    0.365
-D2        43-48       11   +4.88    -5.57   0.875    1.089
-D3        48-50       10   +0.96    -6.70   0.143    0.231
-D4        50-54       11   +1.64    -7.72   0.213    0.512
-D5        54-56       11   +3.49    -5.84   0.598    0.750
-D6        57-63       10   +1.60    -5.04   0.318    0.449
-D7        63-68       11   +0.92   -10.78   0.085    0.224
-D8        68-73       10   +1.86    -7.17   0.260    0.456
-D9        73-88       11   +8.80    -6.09   1.445    1.481
-D10       88-99       11   +4.12   -15.67   0.263    0.182
+D1        40-43       10   +4.44    -3.56   1.248    1.006
+D2        43-43       10   +3.31    -4.42   0.749    0.799
+D3        46-47       10   +1.78    -8.76   0.203    0.420
+D4        49-51       10   +0.87    -7.72   0.113    0.171
+D5        52-60       10   +1.34    -7.44   0.180    0.395
+D6        60-64       10   +2.27    -7.77   0.293    0.452
+D7        64-66       10   +2.46    -5.55   0.443    0.513
+D8        66-70       10   +3.52    -5.23   0.674    0.851
+D9        73-83       10  +10.44    -5.69   1.834    1.507
+D10       83-100      11   +6.49   -10.50   0.619    0.508
 ```
 
 ### s12  (bk50d_s12_v2.0)
 
-Trades scored: 110  |  size: 4%
+Trades scored: 105  |  size: 4%
 
 ```text
 Decile     Ranking     N   CAGR%   MaxDD%  Calmar  Sortino
 ----------------------------------------------------------
-D1        40-42       11   -0.12    -8.09  -0.015   -0.027
-D2        42-45       11   +5.10   -11.84   0.431    0.917
-D3        45-47       11   +0.69    -7.40   0.093    0.179
-D4        47-50       11   +3.58    -3.81   0.939    0.834
-D5        51-55       11   +3.32    -3.88   0.855    0.894
-D6        55-57       11   +2.96    -6.87   0.431    0.506
-D7        57-64       11   +2.11    -3.97   0.530    0.590
-D8        65-72       11   -0.16   -12.58  -0.013   -0.008
-D9        73-88       11  +10.68    -4.16   2.566    1.602
-D10       88-99       11   +4.12   -15.67   0.263    0.182
+D1        40-40       10   +1.18    -6.58   0.180    0.284
+D2        41-43       11   +5.33    -3.27   1.632    1.086
+D3        43-47       10   +2.82    -2.96   0.953    0.763
+D4        47-50       11   +0.47   -12.24   0.038    0.113
+D5        50-53       10   +2.81    -6.28   0.448    0.543
+D6        56-60       11   +1.77    -7.40   0.240    0.506
+D7        60-66       10   +2.53    -7.71   0.329    0.430
+D8        66-70       11   +1.64    -8.61   0.191    0.344
+D9        73-83       10  +10.30    -4.83   2.131    1.514
+D10       83-100      11   +4.44   -13.77   0.322    0.328
 ```
 
-## Findings (2026-07-29 run, 2016-01-01 – 2020-12-31 — tables above regenerate on re-run)
+## Findings (2026-07-30 run, 2016-01-01 – 2020-12-31 — tables above regenerate on re-run)
 
-1. **Every cell beats both benchmarks.** The worst of the nine still clears QQQ (+23.46%, Calmar
-   0.821) and more than triples SPY's Calmar (0.388). This is the strategy's natural habitat — a
-   long trending bull punctuated by one sharp, quickly-reversed drawdown.
-2. **Looser thresholds win, agreeing with 2021-2026.** At 3%: s12 (+30.18%, Calmar 1.448) > s16
-   (+28.94%) > s20 (+27.85%). Two of three periods put s12 first, and the dissenter (2010-2015) is
-   the window where the strategy fails outright — so `s12` is the better default than the
-   historical `s20` preference.
-3. **3-4% sizing is right here, unlike 2010-2015.** Skip counts of 448-672 at 3% confirm capital,
-   not signal supply, is binding — the reverse of the earlier window, where 5% won on single-digit skips.
-4. **This is the one window where limit entries clearly help — and that is exactly why they cannot
-   be trusted.** All four variants win: `close` +0.89pp (6 of 9 cells), `close -1%` +1.42pp (6 of 9),
-   `close -3%` +2.54pp (7 of 9 CAGR, 8 of 9 Sortino), `close -5%` +2.22pp (6 of 9). The standout is
-   s12 @5% at `close -5%`: +43.14% against +28.26%, a +14.88pp swing. But the same rules lose
-   −7.82pp in 2021-2026 and −1.49pp in 2010-2015. The V-shaped COVID drawdown inside this window
-   hands resting limit orders an unusually good fill on names that then recovered immediately; that
-   is a property of the period, not of the rule.
-5. **The ranking's top decile earns more but rides far worse, and it is not config-specific.** D10
-   returns +4.12% standalone in all three configs against +0.94 / +1.48 / −0.12 for D1, but carries
-   −15.67% MaxDD against −5.17 / −7.07 / −8.09, so D10's Sortino (0.182) sits *below* D1's. D10 is
-   numerically identical across s20, s16 and s12 — same N=11, same 88-99 score range, same metrics.
-   The ranking is dominated by the %-above-SMA50 term (50 of its 100 points), so the top-scoring
-   signals are the most extended names, which clear all three thresholds and form one shared cohort.
+**What changed in this run.** Each config is now reported twice — through the `MIN_RANKING >= 40`
+gate and with no ranking condition. This is also the first portfolio run on the 40/35/25
+`QullamaggieRanking` weights (changed 2026-07-29), so the gated figures moved against the previously
+committed tables. The bar load bound added in the same pass has no measurable effect (verified
+byte-for-byte on the 2010-2015 window), and the limit-order entry comparison was removed.
 
-**How to improve performance:** prefer `s12` at 3-4%. Do not read this window's limit-order result
-as a recommendation — point 4 is the strongest single-window case for any variation tested, and it
-reverses in the other two periods.
+1. **The ranking gate wins all nine cells, but modestly** — mean +3.01pp CAGR, range +0.76 to
+   +7.92pp. This sits exactly between the two other windows (−4.86pp in 2010-2015, +12.09pp in
+   2021-2026), and it is the middle term of a monotone progression: the gate's value tracks how
+   recent the window is, not how many signals it has.
+2. **Here the gate's real contribution is drawdown, not return.** At s12 it cuts MaxDD from
+   −45.23% / −47.10% / −43.71% (ungated, 3/4/5%) to −33.74% / −26.24% / −23.63%. A ~20pp reduction
+   at roughly equal CAGR is the strongest single argument for the gate anywhere in this study — and
+   it does *not* reproduce in 2021-2026, where gated s12 drawdown is the worse of the two.
+3. **s16 is the best config gated** (+35.57% at 5%), s16 also ungated (+33.83% at 4%). The clean
+   s12 > s16 > s20 ordering of 2021-2026 does not survive this window under either treatment, so
+   "looser is better" remains a property of the recent tape.
+4. **Every gated cell beats both benchmarks** (SPY +13.23%, QQQ +23.46%) — the only window where
+   that is true of all nine.
+5. **23-41% of capital sits uninvested gated**, against 11-26% ungated, alongside skip counts far
+   below 2021-2026's: signal supply is still closer to the binding constraint than liquidity.
+6. **The deciles are non-monotone at the top**: s12's D9 returns +10.30% standalone with Calmar
+   2.131, against D10's +4.44% and 0.322. On 10-11 trades per decile that is not evidence the score
+   inverts, only that it does not resolve at this sample size.
 
-**Deferred exit filters, measured here:** this window rejects both outright — **0 of 9 cells on
-CAGR *and* Sortino** for each, at roughly −9.2pp (`sma200x5`) and −9.7pp (`dead120`) mean CAGR.
-The telling detail is that drawdown gets *worse*, not better: on s12 @3% MaxDD went from −20.85% to
-−27.45% and −27.54% while trade count roughly doubled. An exit filter that cuts positions is meant
-to trade return for safety; here it gave up both.
+**How to read this window:** its absolute figures are the most flattering of the three and the least
+trustworthy — the universe is fixed by a 2026 market-cap snapshot, and the 366d holds on 2020 signals
+exit into 2021, a year outside the window. Its most useful contribution is the drawdown result in
+point 2, which is the one gate benefit that is not a pure bull-market amplifier.

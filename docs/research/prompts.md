@@ -333,20 +333,37 @@ All cohort studies below share the same setup unless stated otherwise:
 
 - **Period:** 2021-01-01 : 2026-06-26
 - **Algorithms:** `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` (366d hold)
-- **Ranking:** Calculate ranking (turtlex/strategy/ranking/qullamaggie.py) for all transactions, prefer signals with higher ranking, apply filter `MIN_RANKING >= 40`
+- **Ranking:** Calculate ranking (turtlex/strategy/ranking/qullamaggie.py) for all transactions, prefer signals with higher ranking.
+Calculate results with applying filter `MIN_RANKING >= 40` and without applying it.
 - **Initial portfolio:** $30,000
 - **Position sizing:** invest {3%, 4%, 5%} of portfolio at a time per trade; if there is no liquidity, skip the trade.
 - **Header:** `All filter conditions from algorithm`
-- **Output format:**
+- **Output format:** one table per algorithm per ranking treatment — gated first, then ungated, so
+  the pair can be read side by side. Everything else (period, sizing, entry, exit) is identical
+  between the two, so the difference isolates the gate.
 
   ```text
-  
+  **QullamaggieRanking >= 40** — 143 signals dropped by the gate, 0 with no fillable next-day open in period.
+
   size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
   --------------------------------------------------------------------------
-  3%         145,397  +20.44   -30.34   0.674    0.885    261    977   14.4%
-  4%         162,566  +22.04   -29.08   0.758    0.938    198   1040   13.5%
-  5%         187,419  +24.10   -28.07   0.859    0.977    160   1078   11.8%
+  3%         159,762  +35.71   -22.73   1.571    1.252    151    222   21.8%
+  4%         148,736  +33.95   -24.43   1.390    1.165    120    253   18.6%
+  5%         152,319  +34.54   -28.11   1.229    1.110    100    273   16.3%
+
+  **no ranking filter** — 0 signals dropped by the gate, 0 with no fillable next-day open in period.
+
+  size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
+  --------------------------------------------------------------------------
+  3%         136,114  +31.80   -23.95   1.328    1.174    163    353   18.4%
+  4%         117,221  +28.25   -31.34   0.902    1.020    132    384   15.9%
+  5%         116,341  +28.08   -28.67   0.979    0.968    110    406   13.7%
   ```
+
+- The **monthly grid's** "top 5 by Final$" ranks across both treatments together, so each entry is
+  labelled `s12 R>=40` or `s12 ungated`. The **ranking-decile** tables stay on the gated set only —
+  they span `MIN_RANKING..100` by construction, and the ungated size-sweep table above is what
+  answers whether the gate earns its keep.
 
 - For the top 5 algorithms by `Final$`, print `monthly returns` and `trades count in particular month` by years (years are rows, months are columns):
 
@@ -359,20 +376,33 @@ All cohort studies below share the same setup unless stated otherwise:
 - Compare what the result would be if the whole amount were invested in SPY or QQQ on the first day of the period and sold on the last day of the period
 - <!-- Provide a comparison with an alternative approach where a limit order is added to buy the stock 
     3% below closing price during the next 30 days (instead of buying on closing price). 
-    - Provide comparison with an alternative holding lengths (90d, 120d, 180d, 240d, 360d) -->
-- Provide all algorithms comparison with approach that instead of buying next day open price use limit order with values (close price, close price -1%, close price -3%, close price -5%)
-- Provide N CAGR%   MaxDD%  Calmar  Sortino for different ranking deciles grouped by algorithms
+    - Provide comparison with an alternative holding lengths (90d, 120d, 180d, 240d, 360d) 
+  - Provide all algorithms comparison with approach that instead of buying next day open price use limit order with values (close price, close price -1%, close price -3%, close price -5%)
+  - Provide N CAGR%   MaxDD%  Calmar  Sortino for different ranking deciles grouped by algorithms
+  -->
 - Add your findings on how to improve the portfolio performance (Mean%, Sortino, Calmar).
 - Run the same portfolio simulation for periods 2010 : 2015, 2016 : 2020 and results to @docs/research/result-qullamaggie-portfolio-v4-2010-2015.md and @docs/research/result-qullamaggie-portfolio-v4-2016-2020.md
-- **Deferred/considered ideas** (commented out in the original prompt):
+- <!-- **Deferred/considered ideas** (commented out in the original prompt):
   - Prefer always bk50d_s20_tr10_v1.3_roc100 signals, but if there is liquidity use bk50d_s15_tr15_v1.3_roc100 signals to reduce uninvested amounts.
   - Implement rank-based funding to choose the trade if several trades are available on the same day.
   - Sell the position if the stock closes below the 200-day SMA for 3 consecutive trades.
   - Provide existing algorithms comparison with additional filter - sell stock if stock price is 5 days < 200SMA
   - Provide existing algorithms comparison with additional filter - sell stock if stock price has raised <5% during 120 days
-- **Script:** `scripts/qullamaggie-portfolio-sim.py`
-- **Results:** `docs/research/result-qullamaggie-portfolio-v4.md`
+  -->
+- **Results:** `docs/research/result-qullamaggie-portfolio-v4.md` (2021-2026 baseline) and
+  `docs/research/result-qullamaggie-portfolio-v4-2010-2015.md` (2010-2015 period) and
+  `docs/research/result-qullamaggie-portfolio-v4-2016-2020.md` (2016-2020 period).
+- **Scripts:**
+  `uv run scripts/qullamaggie-portfolio-sim.py --start-date 2010-01-01 --end-date 2015-12-31 --output docs/research/result-qullamaggie-portfolio-v4-2010-2015.md`
+  `uv run scripts/qullamaggie-portfolio-sim.py --start-date 2016-01-01 --end-date 2020-12-31 --output docs/research/result-qullamaggie-portfolio-v4-2016-2020.md`
+  `uv run scripts/qullamaggie-portfolio-sim.py --start-date 2021-01-01 --end-date 2026-06-26 --output docs/research/result-qullamaggie-portfolio-v4.md`
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `scripts/qullamaggie-backtest-v4.py`, `scripts/qullamaggie-exit-sweep.py`
+- **Note — entry is the next-day open, and only that.** The limit-order entry comparison the script
+  used to print (`close`, `close -1%`, `close -3%`, `close -5%`) was removed 2026-07-30 along with its
+  `limit_fill` helper, per the commented-out bullet above. That dimension keeps its own two studies:
+  [Limit-order entry cohorts](#limit-order-entry-cohorts) and [Limit-order fill rate](#limit-order-fill-rate).
+  The `run_blend` function — an unreachable implementation of the deferred "fund s20 first, then s15
+  with leftover liquidity" idea — was deleted in the same pass; nothing called it.
 
 ### Exit strategy analyze
 
@@ -387,7 +417,7 @@ All cohort studies below share the same setup unless stated otherwise:
   - `dead` — exit if the trade is not up at least R% after N trading bars
   - `trend` — exit after N consecutive closes below the position's own EMA20 / SMA50 / SMA200
   - `atr` — fixed stop at entry - k x ATR(14) measured at entry
-- **Controls:** the three exit modes already coded but unreachable in `qullamaggie-portfolio-sim.py:run_sim` (`stop30`, `trail25`, `sma200x3` — `EXIT_MODES = ["time"]` never selects them)
+- **Controls:** the four exit modes already coded but unreachable in `qullamaggie-portfolio-sim.py:run_sim` (`stop30`, `trail25`, `sma200x5`, `dead120` — `EXIT_MODES = ["time"]` never selects them)
 - **Overfit guards:** baseline reconciliation against the committed portfolio-sim numbers; the full metric surface per idea rather than the winning cell alone (a real effect is a plateau, an artifact is a spike); per-year decomposition; stationary block bootstrap (1,000 resamples of 21-day blocks, paired on day indices)
 - **Robustness matrix:** the winning rule re-run across `s20` / `s15` / `s12` x 2010-2015 / 2016-2020 / 2021-2026
 - **Output format:**
