@@ -1,66 +1,60 @@
 # Qullamaggie Sector Cohort Analysis
 
-Run date: 2026-07-24
+Run date: 2026-07-30
 
 ```text
 Company-sector cohort analysis | Hold: 366d | Period: 2015-01-01 – 2026-06-26
 Filters: RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, breakout>50d high, %abv_sma50>12%/15%/20% (swept), SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal, tight_range disabled; Comm Services/Real Estate sector exclusion removed for cohort view
 
-### bk50d_s20_v1.3_roc100
+### bk50d_s20_v2.0
 
 Cohort                        N     Med%    Mean%    Win%   Sortino      PF
 ───────────────────────────────────────────────────────────────────────────
-Communication Services       46   +12.39   +32.48    52.2     0.839    3.00
-Consumer Discretionary      174   +39.72   +56.05    81.6     1.866   13.89
-Consumer Staples             15   +33.76   +90.34    86.7       n/a   15.65
-Energy                      138   +35.96   +46.37    76.1     1.523    9.35
-Financials                  135   +42.48   +44.25    81.5     1.113    8.51
-Health Care                 146   +16.56   +36.06    59.6     1.090    4.21
-Industrials                 121   +54.61   +75.71    80.2     2.476   18.21
-Information Technology      126   +37.67   +76.46    70.6     2.098    9.87
-Materials                   109   +40.00   +50.82    74.3     1.569    8.43
-Real Estate                  36   +39.38   +34.37    86.1     0.577    6.01
-Utilities                     8    +0.02    -8.14    50.0       n/a    0.52
+Consumer Discretionary      121   +57.04   +70.22    86.0     2.403   24.52
+Consumer Staples             12   +37.45  +106.14    75.0       n/a   24.31
+Energy                      115   +41.23   +53.14    80.0     1.874   12.76
+Financials                  104   +57.64   +56.64    84.6     1.378   11.59
+Health Care                 124   +16.92   +35.18    58.9     1.035    3.95
+Industrials                  89   +54.07   +77.26    78.7     2.457   16.16
+Information Technology       65   +39.37   +64.05    73.8     1.332    6.83
+Materials                    82   +42.21   +58.74    73.2     1.737    8.81
+Utilities                     6    -1.84    -0.95    50.0       n/a    0.94
 ───────────────────────────────────────────────────────────────────────────
-ALL                        1054   +35.12   +52.89    74.3     1.516    8.39
-excl Comm/RE (cap)          972   +37.11   +54.54    74.9     1.613    9.09
+ALL                         718   +44.02   +58.48    76.2     1.668    9.66
+excl Comm/RE (cap)          718   +44.02   +58.48    76.2     1.668    9.66
 
-### bk50d_s15_v1.3_roc100
+### bk50d_s16_v2.0
 
 Cohort                        N     Med%    Mean%    Win%   Sortino      PF
 ───────────────────────────────────────────────────────────────────────────
-Communication Services       98   +18.82   +27.02    58.2     0.733    3.02
-Consumer Discretionary      319   +27.42   +39.02    72.1     1.140    6.11
-Consumer Staples             30   +24.42   +53.02    76.7     1.490   10.45
-Energy                      209   +24.80   +34.66    67.9     1.115    5.38
-Financials                  211   +34.84   +40.32    81.5     1.089    8.66
-Health Care                 264   +15.89   +29.59    59.5     0.865    3.49
-Industrials                 198   +37.04   +59.79    79.3     2.243   15.51
-Information Technology      274   +25.03   +56.06    70.4     1.551    7.46
-Materials                   178   +27.25   +41.84    68.5     1.317    6.21
-Real Estate                  70   +34.67   +39.32    87.1     0.788    8.89
-Utilities                    16    +2.52    +8.04    62.5     0.231    1.81
+Consumer Discretionary      141   +48.73   +62.58    80.1     1.922   13.24
+Consumer Staples             14   +27.19   +90.18    71.4       n/a   18.07
+Energy                      128   +37.50   +50.63    77.3     1.758   11.02
+Financials                  109   +56.72   +56.42    84.4     1.429   12.23
+Health Care                 155   +16.86   +33.49    56.8     1.010    3.71
+Industrials                  93   +50.63   +75.64    77.4     2.425   15.20
+Information Technology       70   +33.86   +70.06    71.4     1.533    7.37
+Materials                    91   +41.43   +58.39    72.5     1.805    9.09
+Utilities                     7    +0.69    +7.56    71.4       n/a    1.72
 ───────────────────────────────────────────────────────────────────────────
-ALL                        1867   +27.20   +41.66    70.9     1.219    6.20
-excl Comm/RE (cap)         1699   +27.54   +42.60    71.0     1.269    6.45
+ALL                         808   +41.20   +55.96    73.6     1.633    8.66
+excl Comm/RE (cap)          808   +41.20   +55.96    73.6     1.633    8.66
 
-### bk50d_s12_v1.3_roc100
+### bk50d_s12_v2.0
 
 Cohort                        N     Med%    Mean%    Win%   Sortino      PF
 ───────────────────────────────────────────────────────────────────────────
-Communication Services      130   +15.17   +26.17    60.0     0.757    3.20
-Consumer Discretionary      440   +24.57   +34.74    69.8     1.003    5.10
-Consumer Staples             43   +22.22   +43.35    69.8     1.187    6.50
-Energy                      263   +16.65   +27.24    63.5     0.792    3.74
-Financials                  275   +32.79   +37.49    80.7     1.038    7.93
-Health Care                 359   +11.87   +27.84    59.3     0.850    3.46
-Industrials                 259   +32.36   +50.86    75.7     1.633    9.74
-Information Technology      363   +26.04   +52.89    70.2     1.554    7.47
-Materials                   223   +25.76   +40.96    68.6     1.325    6.23
-Real Estate                  97   +29.75   +33.46    86.6     0.671    7.28
-Utilities                    21    +4.05   +11.10    66.7     0.327    2.24
+Consumer Discretionary      160   +44.63   +57.61    76.2     1.813   10.41
+Consumer Staples             15   +31.52   +87.17    73.3       n/a   18.68
+Energy                      147   +34.91   +46.07    76.2     1.457    8.84
+Financials                  123   +51.85   +53.76    81.3     1.428   10.38
+Health Care                 174   +16.92   +32.64    58.0     0.994    3.73
+Industrials                 106   +50.18   +79.10    79.2     2.568   17.30
+Information Technology       79   +39.37   +71.11    73.4     1.594    8.24
+Materials                   107   +39.90   +57.44    70.1     1.830    8.41
+Utilities                     8    +0.48    +3.51    62.5       n/a    1.28
 ───────────────────────────────────────────────────────────────────────────
-ALL                        2473   +24.58   +37.61    69.5     1.106    5.49
-excl Comm/RE (cap)         2246   +24.77   +38.45    69.3     1.145    5.63
+ALL                         919   +38.84   +54.15    72.7     1.601    8.19
+excl Comm/RE (cap)          919   +38.84   +54.15    72.7     1.601    8.19
 
 ```
