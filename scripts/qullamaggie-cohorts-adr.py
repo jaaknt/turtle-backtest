@@ -13,9 +13,10 @@ one-day move) and next-trading-day open entries. Only the cohort filter is local
 `qm.get_signals` hardcodes the full production filter set and this study must drop one of
 its conditions.
 
-Signals are gated at QullamaggieRanking >= MIN_RANKING. Note the gate reads adr_pct as its
-highest-weighted dimension, so on this particular study it is partly a function of the
-variable being cohorted -- the sub-3% cohorts are thinned by the gate, not only by the market.
+This study runs UNGATED, unlike the other cohort studies. QullamaggieRanking scores adr_pct as
+its 40-point dimension and awards 0 below 4.0%, so a >=40 gate filters on the very variable
+being cohorted: a gated run collapsed [0-1.0) to N=1 and wiped out the sub-3% comparison this
+study exists to make. `compute_ranking` is kept so the score can still be reported per signal.
 
 Period: 2015-01-01 - 2026-06-26  (warmup handled by qm.load_bars)
 """
@@ -128,8 +129,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
         prev = last_trigger.get(sym)
         if prev is None or (d - prev).days > COOLDOWN:
             last_trigger[sym] = d
-            if compute_ranking(row) >= MIN_RANKING:
-                rows_out.append(row)
+            rows_out.append(row)
     return pl.DataFrame(rows_out) if rows_out else cands.clear()
 
 
@@ -244,7 +244,7 @@ def main() -> None:
         f"Period: {EVAL_START} – {EVAL_END}\n"
         f"Filters: RSI(14)<70, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, breakout>50d high, "
         f"%abv_sma50>12%/16%/20% (swept), SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal, "
-        f"tight_range disabled; adr_pct>=3.0% floor removed for cohort view; ranking>=40 gate; next-day-open entry\n"
+        f"tight_range disabled; adr_pct>=3.0% floor removed for cohort view; ungated (see docstring); next-day-open entry\n"
         f"Sortino: mean / RMS(min(r,0)) over all N × sqrt(365/hold), min {MIN_NEG} losers "
         f"(turtlex/backtest/metrics.py)\n"
     )
