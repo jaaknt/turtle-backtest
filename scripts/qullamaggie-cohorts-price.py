@@ -5,6 +5,10 @@ Entry-price cohort analysis for bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (
 All strategy filters applied EXCEPT the close>$5&<$250 price bounds, so we can see
 performance across the full entry-price range including sub-$5 and $250+ cohorts.
 
+This study runs UNGATED, like the ADR% study. QullamaggieRanking scores the raw close as its
+25-point dimension and awards 0 above $100, so a >=40 gate filters on the very variable being
+cohorted and would thin the expensive cohorts this study exists to measure.
+
 Period: 2015-01-01 – 2026-06-26  (burn-in from 2013-01-01)
 """
 
@@ -17,7 +21,6 @@ import polars as pl
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.research import qullamaggie as qm
-from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2015, 1, 1)
@@ -36,8 +39,6 @@ ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 ROC_CAP = 1.00
 MIN_NEG = 5
-
-MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
 
 STRATEGIES = [
     ("bk50d_s20_v2.0", 0.20),
@@ -60,31 +61,13 @@ COHORTS: list[tuple[str, float, float]] = [
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-cohorts-price.md"
 
 
-# ── Ranking ──────────────────────────────────────────────────────────────────
-
-_ranker = QullamaggieRanking()
-
-
-def compute_ranking(row: dict) -> int:
-    """Score one signal 0-100 with the production QullamaggieRanking.
-
-    `raw_close` is mapped onto the `close` column the ranking reads: QullamaggieStrategy
-    keeps `close` unadjusted and the price bands are dollar-denominated.
-    """
-    row_df = pl.DataFrame(
-        [{"date": row["date"], "close": row["raw_close"], "adr_pct": row["adr_pct"], "pct_vs_sma50": row["pct_vs_sma50"]}]
-    )
-    return _ranker.ranking(row_df, row["date"])
-
-
 # ── Signal generation (no price bounds) ───────────────────────────────────────
 
 
 def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
     cands = (
         df.filter(
-            (pl.col("date") >= EVAL_START)
-            & (pl.col("date") <= EVAL_END)
+            (pl.col("date") <= EVAL_END)
             & pl.col("sma50").is_not_null()
             & pl.col("max_c_50d").is_not_null()
             & pl.col("rsi14").is_not_null()
@@ -109,12 +92,16 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
         return cands
     rows_out: list[dict] = []
     last_trigger: dict[str, date] = {}
+    # Cooldown runs from the warmup window rather than EVAL_START, so a trigger just before
+    # the window suppresses an early in-window signal — the ordering qm.get_signals uses.
+    # Only accepted triggers on or after EVAL_START are emitted.
     for row in cands.iter_rows(named=True):
         sym, d = row["symbol"], row["date"]
         prev = last_trigger.get(sym)
         if prev is None or (d - prev).days > COOLDOWN:
             last_trigger[sym] = d
-            rows_out.append(row)
+            if d >= EVAL_START:
+                rows_out.append(row)
     return pl.DataFrame(rows_out) if rows_out else cands.clear()
 
 
@@ -216,13 +203,16 @@ def main() -> None:
     bull_dates = qm.load_spy_regime(bars_history, EVAL_START, EVAL_END)
 
     print("Loading bars …", flush=True)
-    df = qm.load_bars(bars_history, EVAL_START, EVAL_END)
+    # Bars run past EVAL_END: a 366d hold needs forward data beyond the last signal date.
+    df = qm.load_bars(bars_history, EVAL_START, date.today())
     valid_syms = df.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"]
     df = df.filter(pl.col("symbol").is_in(valid_syms.to_list()))
 
     print("Computing indicators …", flush=True)
-    bars = df
-    df = qm.add_indicators(bars)
+    # Project down to the columns qm.resolve_entries reads before building the indicator
+    # frame, so the full-width bar frame is released rather than held alongside it.
+    bars = df.select("symbol", "date", "adj_open")
+    df = qm.add_indicators(df)
 
     sym_dates: dict[str, np.ndarray] = {}
     sym_closes: dict[str, np.ndarray] = {}
@@ -235,8 +225,9 @@ def main() -> None:
         f"Entry-price cohort analysis | Hold: {HOLD_CAL}d | "
         f"Period: {EVAL_START} – {EVAL_END}\n"
         f"Filters: RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, "
-        f"breakout>50d high, %abv_sma50>12%/15%/20% (swept), SPY>200d SMA, avg_vol>=500K, cooldown=30d, "
-        f"hold=366d cal, tight_range disabled; close>$5&<$250 price band removed for cohort view\n"
+        f"breakout>50d high, %abv_sma50>12%/16%/20% (swept), SPY>200d SMA, avg_vol>=500K, cooldown=30d, "
+        f"hold=366d cal, tight_range disabled; close>$5&<$250 price band removed for cohort view; "
+        f"ungated (see docstring)\n"
     )
     print("\n" + header)
 

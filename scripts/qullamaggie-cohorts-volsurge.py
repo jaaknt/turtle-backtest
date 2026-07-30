@@ -32,6 +32,8 @@ MIN_HISTORY = 300
 COOLDOWN = 30
 VOL_DRY_UP = 0.90
 ROC_CAP = 1.00
+ADR_MIN = 0.03
+ADR_CHANGE_CAP = 0.90
 MIN_NEG = 5
 
 MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
@@ -94,17 +96,18 @@ def compute_ranking(row: dict) -> int:
 def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
     cands = (
         df.filter(
-            (pl.col("date") >= EVAL_START)
-            & (pl.col("date") <= EVAL_END)
+            (pl.col("date") <= EVAL_END)
             & pl.col("sma50").is_not_null()
             & pl.col("max_c_50d").is_not_null()
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
+            & pl.col("adr_pct_change").is_not_null()
             & (pl.col("rsi14") < 70.0)
             & (pl.col("raw_close") > MIN_PRICE)
             & (pl.col("raw_close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
-            & (pl.col("adr_pct") >= 0.025)
+            & (pl.col("adr_pct") >= ADR_MIN)
+            & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
             & (pl.col("adj_close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") >= sma_t)
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
@@ -118,12 +121,15 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
         return cands
     rows_out: list[dict] = []
     last_trigger: dict[str, date] = {}
+    # Cooldown runs from the warmup window rather than EVAL_START, so a trigger just before
+    # the window suppresses an early in-window signal — the ordering qm.get_signals uses.
+    # Only accepted triggers on or after EVAL_START are emitted.
     for row in cands.iter_rows(named=True):
         sym, d = row["symbol"], row["date"]
         prev = last_trigger.get(sym)
         if prev is None or (d - prev).days > COOLDOWN:
             last_trigger[sym] = d
-            if compute_ranking(row) >= MIN_RANKING:
+            if d >= EVAL_START and compute_ranking(row) >= MIN_RANKING:
                 rows_out.append(row)
     return pl.DataFrame(rows_out) if rows_out else cands.clear()
 
@@ -227,13 +233,16 @@ def main() -> None:
     bull_dates = qm.load_spy_regime(bars_history, EVAL_START, EVAL_END)
 
     print("Loading bars …", flush=True)
-    df = qm.load_bars(bars_history, EVAL_START, EVAL_END)
+    # Bars run past EVAL_END: a 366d hold needs forward data beyond the last signal date.
+    df = qm.load_bars(bars_history, EVAL_START, date.today())
     valid_syms = df.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"]
     df = df.filter(pl.col("symbol").is_in(valid_syms.to_list()))
 
     print("Computing indicators …", flush=True)
-    bars = df
-    df = add_study_indicators(qm.add_indicators(bars))
+    # Project down to the columns qm.resolve_entries reads before building the indicator
+    # frame, so the full-width bar frame is released rather than held alongside it.
+    bars = df.select("symbol", "date", "adj_open")
+    df = add_study_indicators(qm.add_indicators(df))
 
     sym_dates: dict[str, np.ndarray] = {}
     sym_closes: dict[str, np.ndarray] = {}
@@ -245,9 +254,10 @@ def main() -> None:
     header = (
         f"Vol-surge cohort analysis | Hold: {HOLD_CAL}d | "
         f"Period: {EVAL_START} – {EVAL_END}\n"
-        f"Filters: RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_dry_up<90%, roc_12m<100%, breakout>50d high, "
-        f"%abv_sma50>12%/15%/20% (swept), SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal, "
-        f"tight_range disabled; vol_surge<2.0x cap removed for cohort view\n"
+        f"Filters: RSI(14)<70, ADR%(20)>={ADR_MIN * 100:.1f}%, ADR_change<{int(ADR_CHANGE_CAP * 100)}%, "
+        f"vol_dry_up<90%, roc_12m<100%, breakout>50d high, "
+        f"%abv_sma50>12%/16%/20% (swept), SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal, "
+        f"tight_range disabled; vol_surge<2.0x cap removed for cohort view; QullamaggieRanking>={MIN_RANKING}\n"
     )
     print("\n" + header)
 

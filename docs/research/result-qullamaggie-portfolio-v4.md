@@ -14,7 +14,7 @@ SPY         59,301  +13.25   -25.36   0.522    0.803
 QQQ         68,525  +16.28   -35.62   0.457    0.760
 ```
 
-## s20  (bk50d_s20_v1.3_roc100 / 366d)
+## s20  (bk50d_s20_v2.0 / 366d)
 
 Parameters: %abv_SMA50>20%, breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal, QullamaggieRanking>=40 (0 signals dropped below it, 0 with no fillable next-day open in period)
 
@@ -26,7 +26,7 @@ size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 5%         122,568  +29.30   -28.67   1.022    1.007    110    406   13.6%
 ```
 
-## s16  (bk50d_s16_v1.3_roc100 / 366d)
+## s16  (bk50d_s16_v2.0 / 366d)
 
 Parameters: %abv_SMA50>16%, breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal, QullamaggieRanking>=40 (235 signals dropped below it, 1 with no fillable next-day open in period)
 
@@ -38,7 +38,7 @@ size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 5%         185,724  +39.50   -29.00   1.362    1.223    115    511    9.3%
 ```
 
-## s12  (bk50d_s12_v1.3_roc100 / 366d)
+## s12  (bk50d_s12_v2.0 / 366d)
 
 Parameters: %abv_SMA50>12%, breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal, QullamaggieRanking>=40 (552 signals dropped below it, 1 with no fillable next-day open in period)
 
@@ -193,7 +193,7 @@ s20   5%    next open      122,568  +29.30       —   -28.67    1.007       —
 
 Every taken trade of every config (at 4% sizing, the middle of the 3%/4%/5% sweep) is scored 0-100 with turtlex/strategy/ranking/qullamaggie.py at entry, split into 10 equal-count deciles (D1=lowest score .. D10=highest), and each decile's own signal subset is re-simulated in isolation (same sizing, same universe) to report that decile's standalone portfolio metrics — this tests whether higher-ranked signals produce a better standalone portfolio, not just a higher per-trade return.
 
-### s20  (bk50d_s20_v1.3_roc100)
+### s20  (bk50d_s20_v2.0)
 
 Trades scored: 131  |  size: 4%
 
@@ -212,7 +212,7 @@ D9        75-80       13   +4.89    -9.76   0.502    0.758
 D10       81-95       14   +7.82   -11.03   0.709    0.809
 ```
 
-### s16  (bk50d_s16_v1.3_roc100)
+### s16  (bk50d_s16_v2.0)
 
 Trades scored: 140  |  size: 4%
 
@@ -231,7 +231,7 @@ D9        76-81       14   +2.96    -8.63   0.343    0.576
 D10       82-95       14  +10.30   -11.27   0.914    1.012
 ```
 
-### s12  (bk50d_s12_v1.3_roc100)
+### s12  (bk50d_s12_v2.0)
 
 Trades scored: 142  |  size: 4%
 

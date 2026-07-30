@@ -2,7 +2,7 @@
 
 Run date: 2026-07-29
 
-Config: `bk50d_s20_v1.3_roc100` | 2020-01-01 – 2026-06-26 | initial $30,000 | sizing 3% of portfolio value | ranking >= 40 | time-cap backstop 366d
+Config: `bk50d_s20_v2.0` | 2020-01-01 – 2026-06-26 | initial $30,000 | sizing 3% of portfolio value | ranking >= 40 | time-cap backstop 366d
 
 896 signals entered the simulation (0 dropped below the ranking gate, 0 with no entry bar in the window). Exits fill at the day's adjusted close.
 

@@ -681,7 +681,7 @@ def main() -> None:
     out(f"Run date: {date.today()}")
     out("")
     out(
-        f"Config: `bk50d_s20_v1.3_roc100` | {EVAL_START} – {EVAL_END} | initial ${INIT_EQUITY:,.0f} | "
+        f"Config: `bk50d_s20_v2.0` | {EVAL_START} – {EVAL_END} | initial ${INIT_EQUITY:,.0f} | "
         f"sizing {POS_FRACTION:.0%} of portfolio value | ranking >= {MIN_RANKING} | "
         f"time-cap backstop {HOLD_CAL}d"
     )

@@ -16,7 +16,7 @@ its conditions.
 This study runs UNGATED, unlike the other cohort studies. QullamaggieRanking scores adr_pct as
 its 40-point dimension and awards 0 below 4.0%, so a >=40 gate filters on the very variable
 being cohorted: a gated run collapsed [0-1.0) to N=1 and wiped out the sub-3% comparison this
-study exists to make. `compute_ranking` is kept so the score can still be reported per signal.
+study exists to make.
 
 Period: 2015-01-01 - 2026-06-26  (warmup handled by qm.load_bars)
 """
@@ -31,7 +31,6 @@ from turtlex.backtest.metrics import compute_trade_metrics
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.research import qullamaggie as qm
-from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2015, 1, 1)
@@ -50,7 +49,6 @@ ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 ROC_CAP = 1.00
 MIN_NEG = 5
-MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
 
 STRATEGIES = [
     ("bk50d_s20_v2.0", 0.20),
@@ -74,31 +72,13 @@ COHORTS: list[tuple[str, float, float]] = [
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-cohorts-adr.md"
 
 
-# ── Ranking ──────────────────────────────────────────────────────────────────
-
-_ranker = QullamaggieRanking()
-
-
-def compute_ranking(row: dict) -> int:
-    """Score one signal 0-100 with the production QullamaggieRanking.
-
-    `raw_close` is mapped onto the `close` column the ranking reads: QullamaggieStrategy
-    keeps `close` unadjusted and the price bands are dollar-denominated.
-    """
-    row_df = pl.DataFrame(
-        [{"date": row["date"], "close": row["raw_close"], "adr_pct": row["adr_pct"], "pct_vs_sma50": row["pct_vs_sma50"]}]
-    )
-    return _ranker.ranking(row_df, row["date"])
-
-
 # ── Signal generation (no adr_pct floor) ─────────────────────────────────────
 
 
 def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
     cands = (
         df.filter(
-            (pl.col("date") >= EVAL_START)
-            & (pl.col("date") <= EVAL_END)
+            (pl.col("date") <= EVAL_END)
             & pl.col("sma50").is_not_null()
             & pl.col("max_c_50d").is_not_null()
             & pl.col("rsi14").is_not_null()
@@ -124,12 +104,16 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
         return cands
     rows_out: list[dict] = []
     last_trigger: dict[str, date] = {}
+    # Cooldown runs from the warmup window rather than EVAL_START, so a trigger just before
+    # the window suppresses an early in-window signal — the ordering qm.get_signals uses.
+    # Only accepted triggers on or after EVAL_START are emitted.
     for row in cands.iter_rows(named=True):
         sym, d = row["symbol"], row["date"]
         prev = last_trigger.get(sym)
         if prev is None or (d - prev).days > COOLDOWN:
             last_trigger[sym] = d
-            rows_out.append(row)
+            if d >= EVAL_START:
+                rows_out.append(row)
     return pl.DataFrame(rows_out) if rows_out else cands.clear()
 
 
@@ -225,7 +209,8 @@ def main() -> None:
     bull_dates = qm.load_spy_regime(bars_history, EVAL_START, EVAL_END)
 
     print("Loading bars …", flush=True)
-    bars = qm.load_bars(bars_history, EVAL_START, EVAL_END)
+    # Bars run past EVAL_END: a 366d hold needs forward data beyond the last signal date.
+    bars = qm.load_bars(bars_history, EVAL_START, date.today())
     valid_syms = bars.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"]
     bars = bars.filter(pl.col("symbol").is_in(valid_syms.to_list()))
 
