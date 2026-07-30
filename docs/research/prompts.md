@@ -10,7 +10,7 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 
 | Prompt | Script | Results |
 | -------- | -------- | --------- |
-| [Validate & run backtest v4](#validate--run-backtest-v4) | `scripts/qullamaggie-backtest-v4.py` | `result-qullamaggie-backtest-v4.md`, `-2010-2015.md` |
+| [Validate & run backtest v4](#validate--run-backtest-v4) | `scripts/qullamaggie-backtest-v4.py` | `result-qullamaggie-backtest-v4.md`, `-2010-2015.md`, `-2016-2020.md` |
 | [Long-term monthly analysis](#long-term-monthly-analysis) | `scripts/qullamaggie-longterm-monthly.py` | `result-qullamaggie-longterm-monthly.md` |
 | [ROC 12m cohorts](#roc-12m-cohorts) | `scripts/qullamaggie-cohorts-roc.py` | `result-qullamaggie-cohorts-roc.md` |
 | [ADR% cohorts](#adr-cohorts) | `scripts/qullamaggie-cohorts-adr.py` | `result-qullamaggie-cohorts-adr.md` |
@@ -45,8 +45,12 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 - Validate that `docs/research/qullamaggie-backtest-v4.md` and `scripts/qullamaggie-backtest-v4.py` are consistent.
 - Run the backtest described in `docs/research/qullamaggie-backtest-v4.md`.
 - **Results:** `docs/research/result-qullamaggie-backtest-v4.md` (2021-2026 baseline) and
-  `docs/research/result-qullamaggie-backtest-v4-2010-2015.md` (earlier-window cross-check, run 2026-07-20 — predates
-  both the s15 → s16 switch and the `MIN_RANKING` gate sweep, so it still shows a 12/15/17/20 sweep over 91d/184d/366d holds).
+  `docs/research/result-qullamaggie-backtest-v4-2010-2015.md` (2010-2015 period) and
+  `docs/research/result-qullamaggie-backtest-v4-2016-2020.md` (2016-2020 period).
+- **Scripts:**
+  `uv run scripts/qullamaggie-backtest-v4.py --start-date 2010-01-01 --end-date 2015-12-31 --output docs/research/result-qullamaggie-backtest-v4-2010-2015.md`
+  `uv run scripts/qullamaggie-backtest-v4.py --start-date 2016-01-01 --end-date 2020-12-31 --output docs/research/result-qullamaggie-backtest-v4-2016-2020.md`
+  `uv run scripts/qullamaggie-backtest-v4.py --start-date 2021-01-01                       --output docs/research/result-qullamaggie-backtest-v4.md`
 
 ### Long-term monthly analysis
 

@@ -27,55 +27,58 @@ Run date: 2026-07-30
 | Min avg vol (20d) | ≥ 500K |
 | Min history | ≥ 300 trading days |
 | Cooldown | 30 calendar days |
-| Eval period | 2010-01-01 – 2015-12-31 |
-| Burn-in (indicators only) | 2008-01-02 – 2010-01-01 |
+| Eval period | 2016-01-01 – 2020-12-31 |
+| Burn-in (indicators only) | 2014-01-01 – 2016-01-01 |
 | Universe | US common stocks, market_cap ≥ 1.5B, excl. Comm/RE |
 
 ## Rankings — No Ranking Condition
 
 ```text
-Period: 2010-01-01 – 2015-12-31  |  HOLD_MAX_CAL=366d
+Period: 2016-01-01 – 2020-12-31  |  HOLD_MAX_CAL=366d
 Fixed: vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K
 Sortino: mean / RMS(min(r,0)) over all N × sqrt(365/hold), min 10 losers (turtlex/backtest/metrics.py)
 
    #  Entry Signal                      Exit     N   Win%    Mean%  AnnMean%     Med%     Q75%     PF  Sortino   MaxDD%    CVaR%   F/mo  RkAvg  RkMed   Yrs+  C
 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-   1  bk50d_s16_v2.0                   366d   233   60.5   +18.08    +18.03   +10.68   +41.78   2.60    0.847    38.30   -62.59    3.3   38.2     34    3/4  ✓
-   2  bk50d_s20_v2.0                   366d   107   57.9   +16.95    +16.90    +6.13   +40.95   2.27    0.706    40.94   -65.04    1.5   51.6     49    2/3   
-   3  bk50d_s12_v2.0                   366d   450   57.1   +13.11    +13.07    +7.17   +35.52   2.16    0.613    38.10   -62.79    6.3   31.6     24    4/5  ✓
+   1  bk50d_s20_v2.0                   366d   584   84.8   +59.26    +59.06   +49.37   +85.96  16.27    4.597    31.95   -50.55    9.9   54.8     56    3/3  ✓
+   2  bk50d_s16_v2.0                   366d   868   80.9   +50.89    +50.72   +42.59   +77.61  12.04    3.733    32.24   -51.60   14.7   44.3     43    5/5  ✓
+   3  bk50d_s12_v2.0                   366d  1235   79.5   +46.37    +46.22   +38.75   +73.18  10.14    3.234    32.00   -52.79   20.9   38.5     33    5/5  ✓
 
-Valid combinations: 3  |  Consistent: 2
+Valid combinations: 3  |  Consistent: 3
 ```
 
 ## Consistent Combinations
 
 Sortino > 0 in ≥70% of complete calendar years with ≥10 negative trades, and ≥3 valid years.
 
-- `bk50d_s16_v2.0` | `366d` — SR=0.847, Win%=60.5, Med%=+10.68, AnnMean%=+18.03, Q75%=+41.78, MaxDD%=38.30, CVaR%=-62.59, Yrs+=3/4, N=233
-- `bk50d_s12_v2.0` | `366d` — SR=0.613, Win%=57.1, Med%=+7.17, AnnMean%=+13.07, Q75%=+35.52, MaxDD%=38.10, CVaR%=-62.79, Yrs+=4/5, N=450
+- `bk50d_s20_v2.0` | `366d` — SR=4.597, Win%=84.8, Med%=+49.37, AnnMean%=+59.06, Q75%=+85.96, MaxDD%=31.95, CVaR%=-50.55, Yrs+=3/3, N=584
+- `bk50d_s16_v2.0` | `366d` — SR=3.733, Win%=80.9, Med%=+42.59, AnnMean%=+50.72, Q75%=+77.61, MaxDD%=32.24, CVaR%=-51.60, Yrs+=5/5, N=868
+- `bk50d_s12_v2.0` | `366d` — SR=3.234, Win%=79.5, Med%=+38.75, AnnMean%=+46.22, Q75%=+73.18, MaxDD%=32.00, CVaR%=-52.79, Yrs+=5/5, N=1235
 
 ## Rankings — Ranking Gate Sweep (R ≥ 40)
 
 Same signals, but a trade is taken only if its `QullamaggieRanking` score (`turtlex/strategy/ranking/qullamaggie.py`) is ≥ R, swept over 40 (40 is the `--min-signal-ranking` default). The score is computed from the same shift-1 indicators the entry filter used (`adr_pct`, `pct_vs_sma50`) plus the raw signal-date close, so it adds no look-ahead.
 
 ```text
-Period: 2010-01-01 – 2015-12-31  |  HOLD_MAX_CAL=366d
+Period: 2016-01-01 – 2020-12-31  |  HOLD_MAX_CAL=366d
 Fixed: vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K
 Sortino: mean / RMS(min(r,0)) over all N × sqrt(365/hold), min 10 losers (turtlex/backtest/metrics.py)
 Ranking gate sweep: QullamaggieRanking ≥ 40
 
    #  Entry Signal                      Exit     N   Win%    Mean%  AnnMean%     Med%     Q75%     PF  Sortino   MaxDD%    CVaR%   F/mo  RkAvg  RkMed   Yrs+  C
 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-   1  bk50d_s16_v2.0 R≥40              366d    91   54.9   +17.99    +17.93   +10.38   +47.86   2.42    0.799    42.05   -63.05    1.3   58.2     57    0/1   
-   2  bk50d_s20_v2.0 R≥40              366d    71   57.7   +17.12    +17.07   +11.04   +44.46   2.24    0.716    43.28   -62.20    1.0   60.1     60    0/0   
-   3  bk50d_s12_v2.0 R≥40              366d   119   56.3   +15.47    +15.42   +10.38   +43.53   2.21    0.670    42.50   -66.98    1.7   55.3     52    1/2   
+   1  bk50d_s20_v2.0 R≥40              366d   447   86.4   +67.49    +67.25   +56.34   +97.68  21.25    5.685    33.03   -47.85    7.6   61.2     60    2/2   
+   2  bk50d_s16_v2.0 R≥40              366d   478   84.9   +66.96    +66.73   +56.61   +97.75  20.18    5.619    33.48   -47.99    8.1   60.2     60    2/2   
+   3  bk50d_s12_v2.0 R≥40              366d   521   83.3   +63.60    +63.38   +54.42   +95.13  16.09    4.839    33.90   -49.97    8.8   59.0     60    3/3  ✓
 
-Valid combinations: 3  |  Consistent: 0
+Valid combinations: 3  |  Consistent: 1
 ```
 
 ## Consistent Combinations (Ranking ≥ 40)
 
-No combinations met the consistency criteria.
+Sortino > 0 in ≥70% of complete calendar years with ≥10 negative trades, and ≥3 valid years.
+
+- `bk50d_s12_v2.0 R≥40` | `366d` — SR=4.839, Win%=83.3, Med%=+54.42, AnnMean%=+63.38, Q75%=+95.13, MaxDD%=33.90, CVaR%=-49.97, Yrs+=3/3, N=521
 
 ## Ranking Gate Selectivity
 
@@ -84,9 +87,9 @@ How many signals each gate removes, at signal level.
 ```text
 Entry Signal               Gate   Signals   Passing   Rejected   Reject%
 ────────────────────────────────────────────────────────────────────────
-bk50d_s12_v2.0               40       450       119        331     73.6%
-bk50d_s16_v2.0               40       233        91        142     60.9%
-bk50d_s20_v2.0               40       107        71         36     33.6%
+bk50d_s12_v2.0               40      1235       521        714     57.8%
+bk50d_s16_v2.0               40       868       478        390     44.9%
+bk50d_s20_v2.0               40       584       447        137     23.5%
 ```
 
 ## Findings & Caveats
@@ -105,18 +108,19 @@ bk50d_s20_v2.0               40       107        71         36     33.6%
 
 ### Window notes (hand-written, 2026-07-30 run)
 
-- **This is the weakest of the three windows by a wide margin** — ungated Sortino 0.61-0.85 against
-  1.85-2.72 in 2021-2026 and 3.23-4.60 in 2016-2020, on identical rules. SPY returned +13.1 / +0.9 /
-  +14.2 / +29.0 / +14.6 / +1.3 % over 2010-2015 (mean +12.2%/yr), the flattest tape of the three.
-- **s16 beats s20 here, reversing the other two windows.** On 107 s20 trades against 233 s16 trades
-  that ordering is inside sampling noise; it is not evidence that a lower threshold is better in
-  chop.
-- **The ranking gate is a wash in this window** (+0.06 / −0.05 / +0.01 Sortino on s12 / s16 / s20),
-  and it destroys the consistency flag: gated, no combination is flagged consistent, because gating
-  leaves fewer than 10 losing trades in nearly every year and those years fall out of the `Yrs+`
-  denominator (`0/0` for s20, `0/1` for s16). The ✓ column is uninformative on the gated table here.
-- **Signal frequency is 1.5-6.3/mo against 9.9-20.9/mo in 2016-2020.** Most of that gap is the
-  universe thinning backwards in time: the market-cap filter is a 2026 snapshot, so far fewer names
-  qualify in 2010 — 1,000 of the 2,272 sector-eligible US common stocks that traded in 2010 are
-  excluded by a threshold measured 16 years later. This window is the one where that bias bites
-  hardest, and it biases results *upward*, which makes the weak numbers here more damning, not less.
+- **Treat these figures as an upper bound, not a result.** Win rates of 79.5-84.8%, profit factors of
+  10-21 and ungated Sortino of 3.23-4.60 are the highest of the three windows by a factor of ~2 over
+  2021-2026 and ~5 over 2010-2015, on identical rules.
+- **A third of the return is earned outside the window.** A 366-day hold on a 2020 signal exits in
+  2021 (SPY +30.5%, QQQ +29.2%). The window's own tape was also the strongest of the three: QQQ
+  averaged +24.7%/yr over 2016-2020 (+46.2% in 2020 alone) against +16.4%/yr over 2010-2015.
+- **The gate helps every configuration here, uniquely.** Gated-minus-ungated Sortino is +1.61 (s12),
+  +1.89 (s16), +1.09 (s20) — the only window where s20 improves under the gate. In 2021-2026 s20
+  *loses* 0.34 under the same gate, so this is not a stable property of the score.
+- **The consistency flag thins under the gate**: only s12 keeps ≥3 valid years, because gating drops
+  s16 and s20 below 10 losing trades in most years (`Yrs+` = `2/2` for both). Ungated, s16 and s12
+  are 5/5 and s20 is 3/3 — s20's own 2 missing years also failed the 10-loser bar, not the Sortino
+  test.
+- **Survivorship applies here too.** The universe is fixed by a 2026 market-cap snapshot, so a 2016
+  signal only exists if the company was ≥$1.5B ten years later. Combined with the bull tape, this is
+  the window least suited to validating a rule and most likely to flatter one.
