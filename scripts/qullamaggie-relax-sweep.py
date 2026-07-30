@@ -1,39 +1,48 @@
 #!/usr/bin/env python3
 """
-Relaxation sweep for bk50d_s20_v1.3_roc100 / 366d hold.
+Relaxation sweep for bk50d_s20_v2.0 / 366d hold.
 
 Goal: increase signals per month (F/mo) without degrading Sortino and Mean%.
 Each variant relaxes exactly ONE dimension of the baseline (all other filters
 unchanged); the best 2 and 3 quality-preserving relaxations are then combined.
 
-Baseline filters match scripts/qullamaggie-backtest-v4.py (tight_range and
-sma_alignment disabled): vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x, RSI<70,
-ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K,
-cooldown 30d, mcap>=1.5B excl Comm/RE.
+Indicators and entries come from turtlex.research.qullamaggie, which is parity-tested
+against QullamaggieStrategy: baseline filters are vol_dry_up<90%, roc_12m<100%,
+vol_surge<2.0x, RSI<70, ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250,
+avg_vol>=500K, cooldown 30d, mcap>=1.5B excl Comm/RE, tight_range and sma_alignment
+disabled. Entry is the next trading bar's adjusted open and every variant — baseline
+included — is gated at QullamaggieRanking >= MIN_RANKING, so the sweep measures a
+relaxation against the algorithm as actually traded.
+
+The three dimensions the shared layer does not parameterise (min price, vol_dry_up,
+cooldown) are re-filtered here from the same indicator frame; the two universe
+dimensions (market cap, sector) come from TickerQueryRepository symbol lists.
 
 Variants: cd15 (cooldown 15d), p3 (min price $3), mcap1.0B (mcap floor $1.0B),
 sect+CommRE (re-admit Comm Services/Real Estate).
 
-Eval: 2015-01-01 – 2026-06-26 | 366d calendar hold | bars loaded from 2013-01-01
+Eval: 2015-01-01 – 2026-06-26 | 366d calendar hold | warmup handled by qm.load_bars
 References: docs/research/qullamaggie-backtest-v4.md,
             docs/research/result-qullamaggie-backtest-v4.md,
             docs/research/result-qullamaggie-cohorts-tightrange.md,
             docs/research/result-qullamaggie-cohorts-price.md
 """
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import numpy as np
 import polars as pl
-import sqlalchemy as sa
 
 from turtlex.config.settings import Settings
+from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
+from turtlex.repository.query.ticker import TickerQueryRepository
+from turtlex.research import qullamaggie as qm
+from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2015, 1, 1)
 EVAL_END = date(2026, 6, 26)
-BAR_LOAD_START = date(2013, 1, 1)
 HOLD_CAL = 366
 MIN_AVG_VOL = 500_000
 MAX_PRICE = 250.0
@@ -45,7 +54,24 @@ ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 SMA_T = 0.20
 MIN_NEG = 10
-EXCLUDED_SECTORS = ("Communication Services", "Real Estate")
+MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
+
+# Loosest universe any variant asks for; loaded once, then narrowed per variant.
+LOOSEST_MCAP = 1_000_000_000
+
+# The universe query drops a company whose sector is NULL, because `sector NOT IN (...)`
+# is NULL for those rows — 21 names above the $1.0B floor. Excluding a sector no company
+# has keeps that behaviour wherever no real sector is being excluded: for the bar load,
+# and for the sect+CommRE variant, so re-admitting Communication Services and Real Estate
+# stays a one-dimension change instead of also pulling in every unknown-sector name.
+#
+# Note this moved the baseline relative to the pre-migration run of this study, which
+# used a symbol-metadata dict that coerced a NULL sector to "" and therefore admitted
+# those names into every variant. Excluding them matches the production universe, but
+# the baseline row is not comparable with the previous result-qullamaggie-relax-sweep.md.
+NO_SUCH_SECTOR = "__no_such_sector__"
+
+LABEL = "bk50d_s20_v2.0"
 
 # Baseline parameter values; each variant overrides exactly one.
 BASE_PARAMS = {"cooldown": 30, "min_price": 5.0, "min_mcap": 1.5e9, "include_comm_re": False, "vol_dry_up": 0.90}
@@ -63,153 +89,72 @@ QUALITY_TOL = 0.95
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-relax-sweep.md"
 
 
-def load_spy_regime(engine: sa.Engine) -> set[date]:
-    sql = """
-        SELECT date::date, close::float8
-        FROM   turtle.daily_bars
-        WHERE  symbol = 'SPY.US' AND date >= '2012-01-01'
-        ORDER  BY date
+def load_loosest_bars(bars_history: DailyBarsQueryRepository) -> pl.DataFrame:
+    """Load bars for the LOOSEST universe (mcap >= 1.0B, no real sector excluded);
+    per-variant universe constraints are applied later via the symbol lists, so the DB
+    is hit only once. Adjustment and unusable-bar handling come from qm.prepare_bars,
+    the same path qm.load_bars uses — only the universe predicate is widened here.
+
+    `NO_SUCH_SECTOR` rather than `[]`: an empty list renders an always-true predicate
+    that retains NULL-sector names, which `universe()` would then drop anyway. Passing
+    the sentinel excludes them here too, so the bar frame and every variant's symbol
+    list agree on the universe.
+
+    Bars run past EVAL_END because a 366d hold needs forward data beyond the last
+    signal date; `get_signals` bounds the signal window itself.
     """
-    with engine.connect() as conn:
-        rows = conn.execute(sa.text(sql)).fetchall()
-    spy = pl.DataFrame(
-        {
-            "date": pl.Series([r[0] for r in rows], dtype=pl.Date),
-            "close": [float(r[1]) for r in rows],
-        }
+    fetch_start = EVAL_START - timedelta(days=qm.WARMUP_DAYS)
+    df = bars_history.get_qualified_universe_bars_pl(
+        fetch_start,
+        date.today(),
+        min_market_cap=LOOSEST_MCAP,
+        excluded_sectors=[NO_SUCH_SECTOR],
     )
-    spy = spy.with_columns(pl.col("close").shift(1).rolling_mean(200, min_samples=200).alias("sma200"))
-    return set(spy.filter(pl.col("close") > pl.col("sma200"))["date"].to_list())
+    return qm.prepare_bars(df.rename({"close": "raw_close"}))
 
 
-def load_bars(engine: sa.Engine) -> pl.DataFrame:
-    """Load bars for the LOOSEST universe (mcap >= 1.0B, all sectors); per-variant
-    universe constraints are applied later via the symbol metadata, so the DB is
-    hit only once. close/high/low are split/dividend-adjusted (adjusted_close/close
-    scaling), raw_close kept for the point-in-time price band — same methodology as
-    scripts/qullamaggie-backtest-v4.py."""
-    sql = """
-        SELECT db.symbol,
-               db.date::date             AS date,
-               db.close::float8          AS raw_close,
-               db.adjusted_close::float8 AS close,
-               db.high::float8           AS high,
-               db.low::float8            AS low,
-               db.volume::int8           AS volume
-        FROM   turtle.daily_bars db
-        JOIN   turtle.ticker  t  ON t.code        = db.symbol
-        JOIN   turtle.company c  ON c.ticker_code = t.code
-        WHERE  t.country = 'USA'
-          AND  t.type    = 'Common Stock'
-          AND  c.market_cap >= 1000000000
-          AND  db.date >= :start
-          AND  db.close > 0
-          AND  db.adjusted_close > 0
-          AND  db.volume > 0
-        ORDER  BY db.symbol, db.date
+# ── Ranking ──────────────────────────────────────────────────────────────────
+
+_ranker = QullamaggieRanking()
+
+
+def compute_ranking(row: dict) -> int:
+    """Score one signal 0-100 with the production QullamaggieRanking.
+
+    `raw_close` is mapped onto the `close` column the ranking reads: QullamaggieStrategy
+    keeps `close` unadjusted and the price bands are dollar-denominated.
     """
-    with engine.connect() as conn:
-        rows = conn.execute(sa.text(sql), {"start": BAR_LOAD_START}).fetchall()
-    factor = [float(r[3]) / float(r[2]) for r in rows]  # adjusted_close / raw_close
-    return pl.DataFrame(
-        {
-            "symbol": [r[0] for r in rows],
-            "date": pl.Series([r[1] for r in rows], dtype=pl.Date),
-            "raw_close": [float(r[2]) for r in rows],
-            "close": [float(r[3]) for r in rows],
-            "high": [float(r[4]) * f for r, f in zip(rows, factor, strict=True)],
-            "low": [float(r[5]) * f for r, f in zip(rows, factor, strict=True)],
-            "volume": [int(r[6]) for r in rows],
-        }
+    row_df = pl.DataFrame(
+        [{"date": row["date"], "close": row["raw_close"], "adr_pct": row["adr_pct"], "pct_vs_sma50": row["pct_vs_sma50"]}]
     )
-
-
-def load_symbol_meta(engine: sa.Engine) -> dict[str, tuple[float, str]]:
-    """symbol -> (market_cap, sector) for per-variant universe filtering."""
-    sql = """
-        SELECT t.code, c.market_cap::float8, c.sector
-        FROM   turtle.ticker t
-        JOIN   turtle.company c ON c.ticker_code = t.code
-        WHERE  t.country = 'USA' AND t.type = 'Common Stock' AND c.market_cap >= 1000000000
-    """
-    with engine.connect() as conn:
-        rows = conn.execute(sa.text(sql)).fetchall()
-    return {r[0]: (float(r[1]), r[2] or "") for r in rows}
-
-
-def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
-    df = df.sort(["symbol", "date"])
-    df = df.with_columns(
-        [
-            pl.col("close").shift(1).over("symbol").alias("_c1"),
-            pl.col("volume").cast(pl.Float64).shift(1).over("symbol").alias("_v1"),
-            ((pl.col("high") - pl.col("low")) / pl.col("low")).shift(1).over("symbol").alias("_rp1"),
-        ]
-    )
-    # RSI(14)
-    df = df.with_columns(pl.col("_c1").diff(1).over("symbol").alias("_diff"))
-    df = df.with_columns(
-        [
-            pl.when(pl.col("_diff") > 0).then(pl.col("_diff")).otherwise(0.0).alias("_gain"),
-            pl.when(pl.col("_diff") < 0).then(-pl.col("_diff")).otherwise(0.0).alias("_loss"),
-        ]
-    )
-    df = df.with_columns(
-        [
-            pl.col("_gain").rolling_mean(14, min_samples=14).over("symbol").alias("_avg_gain"),
-            pl.col("_loss").rolling_mean(14, min_samples=14).over("symbol").alias("_avg_loss"),
-        ]
-    )
-    df = df.with_columns((100.0 - 100.0 / (1.0 + pl.col("_avg_gain") / pl.col("_avg_loss"))).alias("rsi14"))
-    df = df.drop(["_diff", "_gain", "_loss", "_avg_gain", "_avg_loss"])
-    df = df.with_columns(
-        [
-            pl.col("_c1").rolling_mean(50, min_samples=50).over("symbol").alias("sma50"),
-            pl.col("_v1").rolling_mean(50, min_samples=50).over("symbol").alias("avg_vol_50"),
-            pl.col("_v1").rolling_mean(20, min_samples=20).over("symbol").alias("avg_vol_20"),
-            pl.col("_v1").rolling_mean(10, min_samples=10).over("symbol").alias("avg_vol_10"),
-            pl.col("_c1").rolling_max(50, min_samples=50).over("symbol").alias("max_c_50d"),
-            pl.col("_rp1").rolling_mean(20, min_samples=20).over("symbol").alias("adr_pct"),
-            pl.col("_rp1").rolling_mean(10, min_samples=10).over("symbol").alias("_adr10"),
-            pl.col("_rp1").rolling_mean(50, min_samples=50).over("symbol").alias("_adr50"),
-            pl.col("_c1").shift(251).over("symbol").alias("_c_252d"),
-        ]
-    )
-    df = df.with_columns(
-        [
-            ((pl.col("close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
-            (pl.col("_adr10") / pl.col("_adr50")).alias("adr_pct_change"),
-            (pl.col("close") / pl.col("_c_252d") - 1.0).alias("roc_252d"),
-        ]
-    )
-    return df.drop(["_c1", "_v1", "_rp1", "_adr10", "_adr50", "_c_252d"])
+    return _ranker.ranking(row_df, row["date"])
 
 
 def get_signals(df: pl.DataFrame, bull_dates: set[date], allowed_syms: set[str], params: dict) -> pl.DataFrame:
     cands = (
         df.filter(
-            (pl.col("date") >= EVAL_START)
-            & (pl.col("date") <= EVAL_END)
+            (pl.col("date") <= EVAL_END)
             & pl.col("symbol").is_in(list(allowed_syms))
             & pl.col("sma50").is_not_null()
             & pl.col("max_c_50d").is_not_null()
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
             & pl.col("adr_pct_change").is_not_null()
+            & pl.col("adr_pct").is_not_null()
             & (pl.col("rsi14") < RSI_CAP)
             & (pl.col("raw_close") > params["min_price"])
             & (pl.col("raw_close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
             & (pl.col("adr_pct") >= ADR_MIN)
             & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
-            & (pl.col("close") > pl.col("max_c_50d"))
+            & (pl.col("adj_close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") > SMA_T)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < params["vol_dry_up"] * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
         )
-        .select(["symbol", "date"])
+        .select(["symbol", "date", "raw_close", "adr_pct", "pct_vs_sma50"])
         .sort(["symbol", "date"])
     )
     if cands.is_empty():
@@ -217,12 +162,16 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], allowed_syms: set[str],
     cooldown = params["cooldown"]
     rows_out: list[dict] = []
     last_trigger: dict[str, date] = {}
+    # Cooldown runs from the warmup window rather than EVAL_START, so a trigger just before
+    # the window suppresses an early in-window signal — the ordering qm.get_signals uses.
+    # Only accepted triggers on or after EVAL_START are emitted.
     for row in cands.iter_rows(named=True):
         sym, d = row["symbol"], row["date"]
         prev = last_trigger.get(sym)
         if prev is None or (d - prev).days > cooldown:
-            rows_out.append(row)
             last_trigger[sym] = d
+            if d >= EVAL_START and compute_ranking(row) >= MIN_RANKING:
+                rows_out.append(row)
     return pl.DataFrame(rows_out) if rows_out else cands.clear()
 
 
@@ -234,7 +183,7 @@ def run_trades(signals: pl.DataFrame, sym_dates: dict[str, np.ndarray], sym_clos
             continue
         dates = sym_dates[sym]
         closes = sym_closes[sym]
-        entry_int = (row["date"] - _EPOCH).days
+        entry_int = (row["entry_date"] - _EPOCH).days
         idx_entry = int(np.searchsorted(dates, entry_int))
         if idx_entry >= len(dates) or dates[idx_entry] != entry_int:
             continue
@@ -243,8 +192,10 @@ def run_trades(signals: pl.DataFrame, sym_dates: dict[str, np.ndarray], sym_clos
         idx_exit = int(np.searchsorted(dates, entry_int + HOLD_CAL))
         if idx_exit >= len(dates):
             continue
-        window = closes[idx_entry : idx_exit + 1]
-        ret = float((closes[idx_exit] - closes[idx_entry]) / closes[idx_entry])
+        entry_px = float(row["entry_price"])
+        # Seed the drawdown window with the entry fill, so a gap down from the open counts.
+        window = np.concatenate(([entry_px], closes[idx_entry : idx_exit + 1]))
+        ret = float((closes[idx_exit] - entry_px) / entry_px)
         running_max = np.maximum.accumulate(window)
         mdd = float((1.0 - window / running_max).max())
         records.append({"ret": ret, "mdd": mdd})
@@ -288,43 +239,54 @@ def fmt_row(label: str, m: dict) -> str:
 def main() -> None:
     settings = Settings.from_toml()
 
+    bars_history = DailyBarsQueryRepository(engine=settings.engine)
+    ticker_repo = TickerQueryRepository(engine=settings.engine)
+
     print("Loading SPY regime …", flush=True)
-    bull_dates = load_spy_regime(settings.engine)
+    bull_dates = qm.load_spy_regime(bars_history, EVAL_START, EVAL_END)
 
     print("Loading bars (loosest universe: mcap>=1.0B, all sectors) …", flush=True)
-    df = load_bars(settings.engine)
-    meta = load_symbol_meta(settings.engine)
-    valid_syms = set(df.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"].to_list())
-    df = df.filter(pl.col("symbol").is_in(list(valid_syms)))
-    print(f"  {df.height:,} bars, {len(valid_syms):,} symbols", flush=True)
+    bars = load_loosest_bars(bars_history)
+    valid_syms = set(bars.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"].to_list())
+    bars = bars.filter(pl.col("symbol").is_in(list(valid_syms)))
+    print(f"  {bars.height:,} bars, {len(valid_syms):,} symbols", flush=True)
 
     print("Computing indicators …", flush=True)
-    df = add_indicators(df)
+    # Project down to the columns qm.resolve_entries reads before building the indicator
+    # frame, so the full-width bar frame is released rather than held alongside it. This is
+    # the widest universe of any study here, so it is also the one most likely to be OOM-killed.
+    df = qm.add_indicators(bars)
+    bars = bars.select("symbol", "date", "adj_open")
 
     sym_dates: dict[str, np.ndarray] = {}
     sym_closes: dict[str, np.ndarray] = {}
-    for (sym,), grp in df.group_by(["symbol"], maintain_order=False):
+    for (sym,), grp in df.sort(["symbol", "date"]).group_by(["symbol"], maintain_order=False):
         g = grp.sort("date")
         sym_dates[sym] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int32)
-        sym_closes[sym] = g["close"].cast(pl.Float64).to_numpy(allow_copy=True)
+        sym_closes[sym] = g["adj_close"].cast(pl.Float64).to_numpy(allow_copy=True)
+
+    universe_cache: dict[tuple[float, bool], set[str]] = {}
 
     def universe(params: dict) -> set[str]:
-        return {
-            sym
-            for sym in valid_syms
-            if sym in meta and meta[sym][0] >= params["min_mcap"] and (params["include_comm_re"] or meta[sym][1] not in EXCLUDED_SECTORS)
-        }
+        key = (params["min_mcap"], params["include_comm_re"])
+        if key not in universe_cache:
+            qualified = ticker_repo.get_qullamaggie_qualified_symbols(
+                min_market_cap=int(key[0]),
+                excluded_sectors=[NO_SUCH_SECTOR] if key[1] else None,
+            )
+            universe_cache[key] = valid_syms & set(qualified)
+        return universe_cache[key]
 
     def run_variant(label: str, params: dict) -> dict:
         print(f"  {label} …", flush=True)
-        signals = get_signals(df, bull_dates, universe(params), params)
+        signals = qm.resolve_entries(get_signals(df, bull_dates, universe(params), params), bars)
         records = run_trades(signals, sym_dates, sym_closes)
         m = compute_metrics(records)
         print(f"    {fmt_row(label, m)}", flush=True)
         return m
 
     print("Running baseline + single-dimension variants …", flush=True)
-    base_m = run_variant("baseline (bk50d_s20_v1.3_roc100)", BASE_PARAMS)
+    base_m = run_variant(f"baseline ({LABEL})", BASE_PARAMS)
     single_results: list[tuple[str, dict, dict]] = []  # (label, overrides, metrics)
     for label, overrides in VARIANTS:
         m = run_variant(label, {**BASE_PARAMS, **overrides})
@@ -363,7 +325,7 @@ def main() -> None:
             combo_results.append((combo_label, run_variant(combo_label, combo_params)))
 
     # ── Assemble report ────────────────────────────────────────────────────────
-    table_lines = [_HDR, _SEP, fmt_row("baseline (bk50d_s20_v1.3_roc100)", base_m)]
+    table_lines = [_HDR, _SEP, fmt_row(f"baseline ({LABEL})", base_m)]
     for label, _, m in sorted(single_results, key=lambda x: x[2]["sr"], reverse=True):
         table_lines.append(fmt_row(label, m))
     for label, m in combo_results:
@@ -394,17 +356,24 @@ def main() -> None:
 
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with RESULT_PATH.open("w") as fh:
-        fh.write("# Qullamaggie Relax Sweep — bk50d_s20_v1.3_roc100 / 366d\n\n")
+        fh.write(f"# Qullamaggie Relax Sweep — {LABEL} / 366d\n\n")
         fh.write(f"Run date: {date.today()}\n\n")
         fh.write("## Configuration\n\n")
         fh.write("| Parameter | Value |\n|---|---|\n")
         fh.write(f"| Eval period | {EVAL_START} – {EVAL_END} |\n")
         fh.write(f"| Hold | {HOLD_CAL}d (calendar); entries without {HOLD_CAL}d of forward data skipped |\n")
-        fh.write("| Baseline | bk50d_s20_v1.3_roc100: 50d-high breakout, close >20% above SMA50 |\n")
+        fh.write(f"| Baseline | {LABEL}: 50d-high breakout, close >20% above SMA50, next-day adjusted-open entry |\n")
         fh.write(
             "| Baseline fixed filters | vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x, RSI<70, ADR>=3.0%, "
             "ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown 30d, "
             "mcap>=1.5B excl Comm/RE |\n"
+        )
+        fh.write(f"| Ranking gate | QullamaggieRanking >= {MIN_RANKING}, applied to every variant including baseline |\n")
+        fh.write("| Signal layer | turtlex/research/qullamaggie.py (parity-tested against QullamaggieStrategy) |\n")
+        fh.write(
+            "| Universe note | companies with a NULL sector are excluded from every variant, matching the "
+            "production universe; the pre-migration run of this study admitted them, so the baseline row "
+            "is not comparable with earlier versions of this document |\n"
         )
         fh.write("| Variants | each relaxes exactly one dimension (see table) |\n")
         fh.write(

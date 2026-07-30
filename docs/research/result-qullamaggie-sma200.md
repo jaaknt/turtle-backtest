@@ -5,7 +5,7 @@ Run date: 2026-07-30
 ```text
 SMA(200) cohort analysis | Hold: 366d | Period: 2015-01-01 – 2026-06-26
 Cohort variable: close / SMA200(prev 200 closes) − 1 on entry date, in %.
-Filters: RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, breakout>50d high, %abv_sma50>12%/15%/20% (swept), SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal, tight_range disabled; no stock-level SMA200 filter in the baseline -- cohorts just slice the existing signal population by pct_vs_sma200
+Filters: RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, breakout>50d high, %abv_sma50>12%/16%/20% (swept), SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal, tight_range disabled; no stock-level SMA200 filter in the baseline -- cohorts just slice the existing signal population by pct_vs_sma200
 
 ### bk50d_s20_v2.0
 

@@ -25,6 +25,9 @@ import polars as pl
 import sqlalchemy as sa
 
 from turtlex.config.settings import Settings
+from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
+from turtlex.research import qullamaggie as qm
+from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2007, 1, 1)
@@ -44,11 +47,12 @@ ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 MIN_NEG = 3
 
+MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
+
 STRATEGIES = [
-    ("bk50d_s12_v1.3_roc100", 0.12),
-    ("bk50d_s15_v1.3_roc100", 0.15),
-    ("bk50d_s17_v1.3_roc100", 0.17),
-    ("bk50d_s20_v1.3_roc100", 0.20),
+    ("bk50d_s20_v2.0", 0.20),
+    ("bk50d_s16_v2.0", 0.16),
+    ("bk50d_s12_v2.0", 0.12),
 ]
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -56,30 +60,14 @@ MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-longterm-monthly.md"
 
 
-# ── Data loading ─────────────────────────────────────────────────────────────
-
-
-def load_spy_regime(engine: sa.Engine) -> set[date]:
-    sql = """
-        SELECT date::date, close::float8
-        FROM   turtle.daily_bars
-        WHERE  symbol = 'SPY.US' AND date >= '2004-06-01'
-        ORDER  BY date
-    """
-    with engine.connect() as conn:
-        rows = conn.execute(sa.text(sql)).fetchall()
-    spy = pl.DataFrame(
-        {
-            "date": pl.Series([r[0] for r in rows], dtype=pl.Date),
-            "close": [float(r[1]) for r in rows],
-        }
-    )
-    spy = spy.with_columns(pl.col("close").shift(1).rolling_mean(200, min_samples=200).alias("sma200"))
-    return set(spy.filter(pl.col("close") > pl.col("sma200"))["date"].to_list())
+# ── Benchmarks (study-specific) ───────────────────────────────────────────────
 
 
 def load_benchmark_yearly_returns(engine: sa.Engine, symbol: str) -> dict[int, float]:
-    """Buy-and-hold return per calendar year for a benchmark ticker."""
+    """Calendar-year close-to-close return for a benchmark ticker, in percent.
+
+    Kept local: the shared signal layer loads the qualified stock universe, not index proxies.
+    """
     sql = """
         SELECT date::date, close::float8
         FROM   turtle.daily_bars
@@ -88,104 +76,27 @@ def load_benchmark_yearly_returns(engine: sa.Engine, symbol: str) -> dict[int, f
     """
     with engine.connect() as conn:
         rows = conn.execute(sa.text(sql), {"symbol": symbol, "start": EVAL_START, "end": EVAL_END}).fetchall()
-    df = pl.DataFrame({"date": pl.Series([r[0] for r in rows], dtype=pl.Date), "close": [float(r[1]) for r in rows]}).with_columns(
-        pl.col("date").dt.year().alias("year")
-    )
-
-    yearly: dict[int, float] = {}
-    for (yr,), grp in df.group_by(["year"], maintain_order=False):
-        g = grp.sort("date")
-        if len(g) >= 2:
-            yearly[yr] = float(g["close"][-1] / g["close"][0] - 1.0) * 100.0
-    return yearly
+    by_year: dict[int, list[float]] = {}
+    for d, c in rows:
+        by_year.setdefault(d.year, []).append(float(c))
+    return {y: (v[-1] / v[0] - 1.0) * 100.0 for y, v in by_year.items() if len(v) > 1}
 
 
-def load_bars(engine: sa.Engine) -> pl.DataFrame:
-    sql = """
-        SELECT db.symbol,
-               db.date::date             AS date,
-               db.close::float8          AS raw_close,
-               db.adjusted_close::float8 AS close,
-               db.high::float8           AS high,
-               db.low::float8            AS low,
-               db.volume::int8           AS volume
-        FROM   turtle.daily_bars db
-        JOIN   turtle.ticker  t  ON t.code        = db.symbol
-        JOIN   turtle.company c  ON c.ticker_code = t.code
-        WHERE  t.country = 'USA'
-          AND  t.type    = 'Common Stock'
-          AND  c.market_cap >= 1500000000
-          AND  c.sector NOT IN ('Communication Services', 'Real Estate')
-          AND  db.date >= '2005-01-01'
-          AND  db.close > 0
-          AND  db.adjusted_close > 0
-          AND  db.volume > 0
-        ORDER  BY db.symbol, db.date
+# ── Ranking ──────────────────────────────────────────────────────────────────
+
+_ranker = QullamaggieRanking()
+
+
+def compute_ranking(row: dict) -> int:
+    """Score one signal 0-100 with the production QullamaggieRanking.
+
+    `raw_close` is mapped onto the `close` column the ranking reads: QullamaggieStrategy
+    keeps `close` unadjusted and the price bands are dollar-denominated.
     """
-    with engine.connect() as conn:
-        rows = conn.execute(sa.text(sql)).fetchall()
-    factor = [float(r[3]) / float(r[2]) for r in rows]  # adjusted_close / raw_close
-    return pl.DataFrame(
-        {
-            "symbol": [r[0] for r in rows],
-            "date": pl.Series([r[1] for r in rows], dtype=pl.Date),
-            "raw_close": [float(r[2]) for r in rows],
-            "close": [float(r[3]) for r in rows],
-            "high": [float(r[4]) * f for r, f in zip(rows, factor, strict=True)],
-            "low": [float(r[5]) * f for r, f in zip(rows, factor, strict=True)],
-            "volume": [int(r[6]) for r in rows],
-        }
+    row_df = pl.DataFrame(
+        [{"date": row["date"], "close": row["raw_close"], "adr_pct": row["adr_pct"], "pct_vs_sma50": row["pct_vs_sma50"]}]
     )
-
-
-# ── Indicators ───────────────────────────────────────────────────────────────
-
-
-def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
-    df = df.sort(["symbol", "date"])
-    df = df.with_columns(
-        [
-            pl.col("close").shift(1).over("symbol").alias("_c1"),
-            pl.col("volume").cast(pl.Float64).shift(1).over("symbol").alias("_v1"),
-            ((pl.col("high") - pl.col("low")) / pl.col("low")).shift(1).over("symbol").alias("_rp1"),
-        ]
-    )
-    df = df.with_columns(pl.col("_c1").diff(1).over("symbol").alias("_diff"))
-    df = df.with_columns(
-        [
-            pl.when(pl.col("_diff") > 0).then(pl.col("_diff")).otherwise(0.0).alias("_gain"),
-            pl.when(pl.col("_diff") < 0).then(-pl.col("_diff")).otherwise(0.0).alias("_loss"),
-        ]
-    )
-    df = df.with_columns(
-        [
-            pl.col("_gain").rolling_mean(14, min_samples=14).over("symbol").alias("_avg_gain"),
-            pl.col("_loss").rolling_mean(14, min_samples=14).over("symbol").alias("_avg_loss"),
-        ]
-    )
-    df = df.with_columns((100.0 - 100.0 / (1.0 + pl.col("_avg_gain") / pl.col("_avg_loss"))).alias("rsi14"))
-    df = df.drop(["_diff", "_gain", "_loss", "_avg_gain", "_avg_loss"])
-    df = df.with_columns(
-        [
-            pl.col("_c1").rolling_mean(50, min_samples=50).over("symbol").alias("sma50"),
-            pl.col("_v1").rolling_mean(50, min_samples=50).over("symbol").alias("avg_vol_50"),
-            pl.col("_v1").rolling_mean(20, min_samples=20).over("symbol").alias("avg_vol_20"),
-            pl.col("_v1").rolling_mean(10, min_samples=10).over("symbol").alias("avg_vol_10"),
-            pl.col("_c1").rolling_max(50, min_samples=50).over("symbol").alias("max_c_50d"),
-            pl.col("_rp1").rolling_mean(20, min_samples=20).over("symbol").alias("adr_pct"),
-            pl.col("_rp1").rolling_mean(10, min_samples=10).over("symbol").alias("_adr10"),
-            pl.col("_rp1").rolling_mean(50, min_samples=50).over("symbol").alias("_adr50"),
-            pl.col("_c1").shift(251).over("symbol").alias("_c_252d"),
-        ]
-    )
-    df = df.with_columns(
-        [
-            ((pl.col("close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
-            (pl.col("_adr10") / pl.col("_adr50")).alias("adr_pct_change"),
-            (pl.col("close") / pl.col("_c_252d") - 1.0).alias("roc_252d"),
-        ]
-    )
-    return df.drop(["_c1", "_v1", "_rp1", "_adr10", "_adr50", "_c_252d"])
+    return _ranker.ranking(row_df, row["date"])
 
 
 # ── Signal generation ──────────────────────────────────────────────────────────
@@ -194,8 +105,7 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
 def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
     cands = (
         df.filter(
-            (pl.col("date") >= EVAL_START)
-            & (pl.col("date") <= EVAL_END)
+            (pl.col("date") <= EVAL_END)
             & pl.col("sma50").is_not_null()
             & pl.col("max_c_50d").is_not_null()
             & pl.col("rsi14").is_not_null()
@@ -207,26 +117,30 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
             & (pl.col("adr_pct") >= ADR_MIN)
             & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
-            & (pl.col("close") > pl.col("max_c_50d"))
+            & (pl.col("adj_close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") > sma_t)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
         )
-        .select(["symbol", "date", "close"])
+        .select(["symbol", "date", "raw_close", "adj_close", "adr_pct", "pct_vs_sma50"])
         .sort(["symbol", "date"])
     )
     if cands.is_empty():
         return cands
     rows_out: list[dict] = []
     last_trigger: dict[str, date] = {}
+    # Cooldown runs from the warmup window rather than EVAL_START, so a trigger just before
+    # the window suppresses an early in-window signal — the ordering qm.get_signals uses.
+    # Only accepted triggers on or after EVAL_START are emitted.
     for row in cands.iter_rows(named=True):
         sym, d = row["symbol"], row["date"]
         prev = last_trigger.get(sym)
         if prev is None or (d - prev).days > COOLDOWN:
-            rows_out.append(row)
             last_trigger[sym] = d
+            if d >= EVAL_START and compute_ranking(row) >= MIN_RANKING:
+                rows_out.append(row)
     return pl.DataFrame(rows_out) if rows_out else cands.clear()
 
 
@@ -245,16 +159,14 @@ def run_trades(
             continue
         dates = sym_dates[sym]
         closes = sym_closes[sym]
-        entry_int = (row["date"] - _EPOCH).days
-        idx_entry = int(np.searchsorted(dates, entry_int))
-        if idx_entry >= len(dates) or dates[idx_entry] != entry_int:
-            continue
+        entry_int = (row["entry_date"] - _EPOCH).days
         if dates[-1] < entry_int + HOLD_MAX_CAL:
             continue
         idx_exit = int(np.searchsorted(dates, entry_int + HOLD_CAL))
         if idx_exit >= len(dates):
             continue
-        ret = float((closes[idx_exit] - closes[idx_entry]) / closes[idx_entry])
+        entry_px = float(row["entry_price"])
+        ret = float((closes[idx_exit] - entry_px) / entry_px)
         records.append({"year": row["date"].year, "month": row["date"].month, "ret": ret})
     return records
 
@@ -342,34 +254,41 @@ def build_yearly_stats_table(
 def main() -> None:
     settings = Settings.from_toml()
 
+    bars_history = DailyBarsQueryRepository(engine=settings.engine)
+
     print("Loading SPY regime …", flush=True)
-    bull_dates = load_spy_regime(settings.engine)
+    bull_dates = qm.load_spy_regime(bars_history, EVAL_START, EVAL_END)
 
     print("Loading benchmark returns …", flush=True)
     qqq_yearly = load_benchmark_yearly_returns(settings.engine, "QQQ.US")
     spy_yearly = load_benchmark_yearly_returns(settings.engine, "SPY.US")
 
     print("Loading bars …", flush=True)
-    df = load_bars(settings.engine)
+    # Bars run past EVAL_END: a 366d hold needs forward data beyond the last signal date.
+    df = qm.load_bars(bars_history, EVAL_START, date.today())
     valid_syms = df.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"]
     df = df.filter(pl.col("symbol").is_in(valid_syms.to_list()))
 
     print("Computing indicators …", flush=True)
-    df = add_indicators(df)
+    # Project down to the columns qm.resolve_entries reads before building the indicator
+    # frame, so the full-width bar frame is released rather than held alongside it.
+    bars = df.select("symbol", "date", "adj_open")
+    df = qm.add_indicators(df)
 
     sym_dates: dict[str, np.ndarray] = {}
     sym_closes: dict[str, np.ndarray] = {}
     for (sym,), grp in df.sort(["symbol", "date"]).group_by(["symbol"], maintain_order=False):
         g = grp.sort("date")
         sym_dates[sym] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int32)
-        sym_closes[sym] = g["close"].cast(pl.Float64).to_numpy(allow_copy=True)
+        sym_closes[sym] = g["adj_close"].cast(pl.Float64).to_numpy(allow_copy=True)
 
     fixed_hdr = (
         f"Hold: {HOLD_CAL}d | Period: {EVAL_START} – {EVAL_END}\n"
         f"Fixed: vol_dry_up<{int(VOL_DRY_UP * 100)}%, roc_12m<{int(ROC_CAP * 100)}%, "
         f"vol_surge<{VOL_SURGE_MAX}x (no lower bound), RSI<{int(RSI_CAP)}, ADR>={ADR_MIN * 100:.1f}%, "
         f"ADR_change<{int(ADR_CHANGE_CAP * 100)}%, "
-        f"SPY>200d SMA, close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K\n"
+        f"SPY>200d SMA, close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K, "
+        f"QullamaggieRanking>={MIN_RANKING}\n"
     )
     print("\n" + fixed_hdr)
 
@@ -377,7 +296,7 @@ def main() -> None:
 
     for strat_label, sma_t in STRATEGIES:
         print(f"Generating signals for {strat_label} …", flush=True)
-        signals = get_signals(df, bull_dates, sma_t)
+        signals = qm.resolve_entries(get_signals(df, bull_dates, sma_t), bars)
         print(f"  {len(signals)} signals", flush=True)
         records = run_trades(signals, sym_dates, sym_closes)
 

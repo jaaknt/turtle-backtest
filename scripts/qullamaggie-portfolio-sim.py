@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Portfolio simulation for bk50d_s20 / s16 / s12 (v1.3_roc100, 366d).
+Portfolio simulation for bk50d_s20 / s16 / s12 (v2.0, 366d).
 
 Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
 ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA,
@@ -36,20 +36,27 @@ Outputs: monthly portfolio return + transaction-count grid (year x month), Max D
 Sortino, signals taken/skipped, average uninvested capital.
 """
 
-from datetime import date
+import argparse
+from datetime import date, timedelta
 from pathlib import Path
 
 import numpy as np
 import polars as pl
 import sqlalchemy as sa
 
+from turtlex.common.cli import iso_date_type
 from turtlex.config.settings import Settings
 from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2021, 1, 1)
 EVAL_END = date(2026, 6, 26)
-DATA_START = "2000-01-01"
+# Calendar days of history loaded before the eval window so roc_252d/SMA50/MIN_HISTORY are
+# warm at its first day, and the extra SPY history its 200d SMA needs on top of that. Derived
+# from the requested --start-date rather than hardcoded, so a different window loads the
+# history that window actually needs. Mirrors qm.WARMUP_DAYS / qm.MARKET_SMA_WARMUP_DAYS.
+WARMUP_DAYS = 730
+SPY_WARMUP_DAYS = 300
 LOAD_BATCH_ROWS = 200_000  # server-side cursor batch for load_bars; see the note there
 INIT_EQUITY = 30_000.0
 POS_FRACTIONS = [0.03, 0.04, 0.05]  # position-size sweep
@@ -96,13 +103,20 @@ MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-portfolio-v4.md"
 
 
-def load_spy(engine: sa.Engine) -> pl.DataFrame:
+def load_spy(engine: sa.Engine, start: date) -> pl.DataFrame:
+    """Load SPY closes with their prior-day 200d SMA, from `start` onward.
+
+    Args:
+        engine: SQLAlchemy engine for the trading database
+        start: First bar date to load; callers pass the eval-window start less enough
+            warmup that the 200d SMA is already warm on the window's first day
+    """
     sql = """
         SELECT date::date, close::float8 FROM turtle.daily_bars
-        WHERE symbol = 'SPY.US' AND date >= '1999-01-01' ORDER BY date
+        WHERE symbol = 'SPY.US' AND date >= :start ORDER BY date
     """
     with engine.connect() as conn:
-        rows = conn.execute(sa.text(sql)).fetchall()
+        rows = conn.execute(sa.text(sql), {"start": start}).fetchall()
     spy = pl.DataFrame(
         {
             "date": pl.Series([r[0] for r in rows], dtype=pl.Date),
@@ -112,7 +126,13 @@ def load_spy(engine: sa.Engine) -> pl.DataFrame:
     return spy.with_columns(pl.col("close").shift(1).rolling_mean(200, min_samples=200).alias("sma200"))
 
 
-def load_bars(engine: sa.Engine) -> pl.DataFrame:
+def load_bars(engine: sa.Engine, start: date) -> pl.DataFrame:
+    """Load adjusted daily bars for the qualified universe from `start` onward.
+
+    Args:
+        engine: SQLAlchemy engine for the trading database
+        start: First bar date to load; callers pass the eval-window start less WARMUP_DAYS
+    """
     sql = """
         SELECT db.symbol, db.date::date AS date, db.close::float8 AS raw_close,
                db.adjusted_close::float8 AS close, db.open::float8 AS open,
@@ -136,7 +156,7 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
                 connection=conn,
                 iter_batches=True,
                 batch_size=LOAD_BATCH_ROWS,
-                execute_options={"parameters": {"data_start": DATA_START}},
+                execute_options={"parameters": {"data_start": start}},
             ),
             rechunk=True,
         )
@@ -277,13 +297,38 @@ def compute_ranking(s: dict) -> int:
     return _ranker.ranking(row_df, s["date"])
 
 
+def parse_args() -> argparse.Namespace:
+    """Parse the evaluation window and output path.
+
+    prompts.md asks for this study at three windows (2021-2026 plus 2010-2015 and 2016-2020),
+    so the period is a flag rather than an edit. Defaults reproduce the committed baseline run.
+    """
+    parser = argparse.ArgumentParser(description="Qullamaggie portfolio simulation (size sweep + ranking deciles)")
+    parser.add_argument("--start-date", type=iso_date_type, default=EVAL_START, help="evaluation window start (YYYY-MM-DD)")
+    parser.add_argument("--end-date", type=iso_date_type, default=EVAL_END, help="evaluation window end (YYYY-MM-DD)")
+    parser.add_argument("--output", type=Path, default=RESULT_PATH, help="markdown result path")
+    return parser.parse_args()
+
+
 def main() -> None:
+    global EVAL_START, EVAL_END, RESULT_PATH
+
+    args = parse_args()
+    if args.start_date >= args.end_date:
+        raise ValueError(f"--start-date {args.start_date} must be before --end-date {args.end_date}")
+    # Rebound as module globals because the window is read at a dozen points across this
+    # script; threading it through every one of them would be a far larger change.
+    EVAL_START, EVAL_END, RESULT_PATH = args.start_date, args.end_date, args.output
+
+    data_start = EVAL_START - timedelta(days=WARMUP_DAYS)
     settings = Settings.from_toml()
     print("Loading SPY …", flush=True)
-    spy = load_spy(settings.engine)
+    spy = load_spy(settings.engine, data_start - timedelta(days=SPY_WARMUP_DAYS))
+    if spy.is_empty() or spy["date"].max() < EVAL_START:
+        raise ValueError(f"no SPY bars on or after {EVAL_START}; the requested window has no data")
     bull_dates = set(spy.filter(pl.col("close") > pl.col("sma200"))["date"].to_list())
     print("Loading bars …", flush=True)
-    df = load_bars(settings.engine)
+    df = load_bars(settings.engine, data_start)
     valid = df.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"]
     df = df.filter(pl.col("symbol").is_in(valid.to_list()))
     print("Computing indicators …", flush=True)
@@ -723,7 +768,7 @@ def main() -> None:
         signals_by_day_by_config[name] = signals_by_day
 
         out("")
-        out(f"## {name}  (bk50d_{name}_v1.3_roc100 / {HOLD_CAL}d)")
+        out(f"## {name}  (bk50d_{name}_v2.0 / {HOLD_CAL}d)")
         out("")
         out(
             f"Parameters: %abv_SMA50>{sma_t * 100:.0f}%, breakout>50d high, RSI(14)<{RSI_CAP:.0f}, "
@@ -826,7 +871,7 @@ def main() -> None:
     for name, _ in CONFIGS:
         print(f"Scoring ranking deciles for {name} …", flush=True)
         out("")
-        out(f"### {name}  (bk50d_{name}_v1.3_roc100)")
+        out(f"### {name}  (bk50d_{name}_v2.0)")
         out("")
         ranking_decile_table(name, signals_by_day_by_config[name], DECILE_POS_FRACTION)
 
