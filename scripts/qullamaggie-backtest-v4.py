@@ -6,12 +6,14 @@ Spec: docs/research/qullamaggie-backtest-v4.md
 Fixed filters: vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%,
                ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K
 Sweep: SMA_THRESH ∈ {12%,16%,20%} × HOLD_CAL ∈ {366 cal days}  (tight_range and sma_alignment disabled)
-Eval: 2021-01-01 – present  |  Burn-in data from 2020-01-01
+Eval: --start-date .. --end-date, default 2021-01-01 – today; bars are loaded from WARMUP_DAYS
+      before the window (burn-in, indicators only) to FORWARD_DAYS after it (exit data).
 Entry: next trading day's split/dividend-adjusted open (not the signal-day close).
 Every signal is scored 0-100 by the production QullamaggieRanking; results are reported both
 without a ranking condition and gated at each threshold in MIN_RANKINGS.
 """
 
+import argparse
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -20,12 +22,21 @@ import polars as pl
 import sqlalchemy as sa
 
 from turtlex.backtest.metrics import compute_trade_metrics
+from turtlex.common.cli import iso_date_type
 from turtlex.config.settings import Settings
 from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2021, 1, 1)
+EVAL_END = date.today()
 HOLD_MAX_CAL = 366  # skip entries without 366 cal days of fwd data
+# Calendar days of bars loaded either side of the eval window: before it so roc_252d/SMA50/
+# MIN_HISTORY are warm on its first day (the burn-in — indicators only, no signals evaluated),
+# and after it so a signal on the last day still has its 366d exit. Mirrors
+# turtlex/research/qullamaggie.py's WARMUP_DAYS / MARKET_SMA_WARMUP_DAYS.
+WARMUP_DAYS = 730
+SPY_WARMUP_DAYS = 300
+LOAD_BATCH_ROWS = 200_000  # server-side cursor batch for load_bars; see the note there
 MIN_AVG_VOL = 500_000
 MIN_PRICE = 5.0
 MAX_PRICE = 250.0
@@ -40,11 +51,12 @@ ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 MIN_TRADES = 30
 MIN_NEG = 10
-MIN_RANKINGS = [40, 45, 50]  # QullamaggieRanking gates to sweep; 40 is the portfolio-runner default
+MIN_RANKINGS = [40]  # QullamaggieRanking gates to sweep; 40 is the portfolio-runner default
 ALGO_VERSION = "2.0"  # version encoded in the bk50d_sX_vN labels — an identity, not a filter value
 
 SMA_THRESHS = [0.12, 0.16, 0.20]
 HOLD_CALS = [366]
+FORWARD_DAYS = HOLD_MAX_CAL + ENTRY_SEARCH_DAYS + 10  # bars needed past EVAL_END to exit its last signals
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-backtest-v4.md"
 
@@ -52,15 +64,15 @@ RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qulla
 # ── Data loading ───────────────────────────────────────────────────────────────
 
 
-def load_spy_regime(engine: sa.Engine) -> set[date]:
+def load_spy_regime(engine: sa.Engine, start: date) -> set[date]:
     sql = """
         SELECT date::date, close::float8
         FROM   turtle.daily_bars
-        WHERE  symbol = 'SPY.US' AND date >= '2019-06-01'
+        WHERE  symbol = 'SPY.US' AND date >= :start
         ORDER  BY date
     """
     with engine.connect() as conn:
-        rows = conn.execute(sa.text(sql)).fetchall()
+        rows = conn.execute(sa.text(sql), {"start": start}).fetchall()
     spy = pl.DataFrame(
         {
             "date": pl.Series([r[0] for r in rows], dtype=pl.Date),
@@ -71,8 +83,8 @@ def load_spy_regime(engine: sa.Engine) -> set[date]:
     return set(spy.filter(pl.col("close") > pl.col("sma200"))["date"].to_list())
 
 
-def load_bars(engine: sa.Engine) -> pl.DataFrame:
-    """Load daily bars with high/low/close adjusted for splits and dividends.
+def load_bars(engine: sa.Engine, start: date, end: date) -> pl.DataFrame:
+    """Load daily bars with open/high/low/close adjusted for splits and dividends.
 
     `raw_close` (unadjusted) is kept separately for the absolute MIN_PRICE/MAX_PRICE
     filter, since adjusting it would leak knowledge of splits that hadn't happened yet
@@ -80,6 +92,11 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
     adjusted_close/close) so rolling indicators and trade returns aren't corrupted by
     the price discontinuity a raw close shows on a split date. `open` is the entry fill
     price: trades are bought at the bar after the signal, not at the signal close.
+
+    Args:
+        engine: SQLAlchemy engine for the trading database
+        start: First bar date to load — the eval-window start less WARMUP_DAYS
+        end: Last bar date to load — the eval-window end plus FORWARD_DAYS
     """
     sql = """
         SELECT db.symbol,
@@ -97,29 +114,31 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
           AND  t.type    = 'Common Stock'
           AND  c.market_cap >= 1500000000
           AND  c.sector NOT IN ('Communication Services', 'Real Estate')
-          AND  db.date >= '2020-01-01'
+          AND  db.date >= :data_start
+          AND  db.date <= :data_end
           AND  db.close > 0
           AND  db.adjusted_close > 0
           AND  db.volume > 0
         ORDER  BY db.symbol, db.date
     """
-    with engine.connect() as conn:
-        rows = conn.execute(sa.text(sql)).fetchall()
-    factor = [float(r[3]) / float(r[2]) for r in rows]  # adjusted_close / raw_close
-    return pl.DataFrame(
-        {
-            "symbol": [r[0] for r in rows],
-            "date": pl.Series([r[1] for r in rows], dtype=pl.Date),
-            "raw_close": [float(r[2]) for r in rows],
-            "close": [float(r[3]) for r in rows],
-            # a null/zero open leaves the bar usable for close-based indicators; run_trades
-            # skips it as an entry bar instead of dropping the row
-            "open": [float(r[4] or 0.0) * f for r, f in zip(rows, factor, strict=True)],
-            "high": [float(r[5]) * f for r, f in zip(rows, factor, strict=True)],
-            "low": [float(r[6]) * f for r, f in zip(rows, factor, strict=True)],
-            "volume": [int(r[7]) for r in rows],
-        }
-    )
+    # Streamed through a server-side cursor and adjusted in polars rather than fetchall()'d
+    # into per-column Python lists: the earlier windows pull ~7M rows, which costs several GB
+    # as row tuples plus lists and OOM-kills the host before the DataFrame is even built.
+    with engine.connect().execution_options(stream_results=True, max_row_buffer=LOAD_BATCH_ROWS) as conn:
+        df = pl.concat(
+            pl.read_database(
+                query=sa.text(sql),
+                connection=conn,
+                iter_batches=True,
+                batch_size=LOAD_BATCH_ROWS,
+                execute_options={"parameters": {"data_start": start, "data_end": end}},
+            ),
+            rechunk=True,
+        )
+    factor = pl.col("close") / pl.col("raw_close")  # adjusted_close / raw_close
+    # a null/zero open leaves the bar usable for close-based indicators; run_trades rejects it
+    # as an entry bar instead of dropping the row
+    return df.with_columns(pl.col("open", "high", "low") * factor)
 
 
 # ── Indicators ─────────────────────────────────────────────────────────────────
@@ -153,8 +172,6 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
     # Rolling averages and reference levels
     df = df.with_columns(
         [
-            pl.col("_c1").rolling_mean(10, min_samples=10).over("symbol").alias("sma10"),
-            pl.col("_c1").rolling_mean(20, min_samples=20).over("symbol").alias("sma20"),
             pl.col("_c1").rolling_mean(50, min_samples=50).over("symbol").alias("sma50"),
             pl.col("_v1").rolling_mean(50, min_samples=50).over("symbol").alias("avg_vol_50"),
             pl.col("_v1").rolling_mean(20, min_samples=20).over("symbol").alias("avg_vol_20"),
@@ -206,9 +223,16 @@ def compute_ranking(row: dict) -> int:
 
 
 def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
+    """Apply the entering condition, then the per-symbol cooldown.
+
+    The cooldown chain runs over the whole frame including the burn-in window, so a trigger
+    just before EVAL_START correctly suppresses an early in-range signal; only accepted
+    triggers inside [EVAL_START, EVAL_END] are returned. Mirrors
+    `turtlex/research/qullamaggie.py:get_signals`.
+    """
     cands = (
         df.filter(
-            (pl.col("date") >= EVAL_START)
+            (pl.col("date") <= EVAL_END)
             & pl.col("sma50").is_not_null()
             & pl.col("max_c_50d").is_not_null()
             & pl.col("rsi14").is_not_null()
@@ -225,7 +249,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
-            & pl.col("date").is_in(bull_dates)
+            & pl.col("date").is_in(sorted(bull_dates))
         )
         .select(["symbol", "date", "close", "raw_close", "adr_pct", "pct_vs_sma50"])
         .sort(["symbol", "date"])
@@ -237,9 +261,11 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
     for row in cands.iter_rows(named=True):
         sym, d = row["symbol"], row["date"]
         prev = last_trigger.get(sym)
-        if prev is None or (d - prev).days > COOLDOWN:
+        if prev is not None and (d - prev).days <= COOLDOWN:
+            continue
+        last_trigger[sym] = d
+        if d >= EVAL_START:
             rows_out.append({**row, "ranking": compute_ranking(row)})
-            last_trigger[sym] = d
     return pl.DataFrame(rows_out) if rows_out else cands.clear()
 
 
@@ -255,10 +281,11 @@ def run_trades(
 ) -> list[dict]:
     """Turn signals into round-trip trades bought at the next trading day's adjusted open.
 
-    The entry bar is the first bar strictly after the signal date with a positive adjusted
-    open, given up on after ENTRY_SEARCH_DAYS calendar days — mirroring
-    `SignalProcessor.calculate_entry_data`. The exit is the close of the first bar at or
-    after `entry_date + hold_cal`; signals without that much forward data are dropped.
+    The entry bar is the first bar strictly after the signal date; the signal is dropped if no
+    bar appears within ENTRY_SEARCH_DAYS calendar days or that bar's adjusted open is not
+    positive — mirroring `SignalProcessor.calculate_entry_data` and `resolve_entries` in
+    `turtlex/research/qullamaggie.py`. The exit is the close of the first bar at or after
+    `entry_date + hold_cal`; signals without that much forward data are dropped.
     """
     records: list[dict] = []
     for row in signals.iter_rows(named=True):
@@ -269,12 +296,10 @@ def run_trades(
         closes = sym_closes[sym]
         opens = sym_opens[sym]
         signal_int = (row["date"] - _EPOCH).days
-        last_entry_int = signal_int + ENTRY_SEARCH_DAYS
-        # advance past bars with no usable open; `not (open > 0)` also skips NaN
         idx_entry = int(np.searchsorted(dates, signal_int, side="right"))
-        while idx_entry < len(dates) and dates[idx_entry] <= last_entry_int and not opens[idx_entry] > 0:
-            idx_entry += 1
-        if idx_entry >= len(dates) or dates[idx_entry] > last_entry_int:
+        if idx_entry >= len(dates) or dates[idx_entry] > signal_int + ENTRY_SEARCH_DAYS:
+            continue
+        if not opens[idx_entry] > 0:  # `not (x > 0)` also rejects a null open, read back as NaN
             continue
         entry_int = int(dates[idx_entry])
         entry_px = float(opens[idx_entry])
@@ -317,8 +342,7 @@ def compute_metrics(records: list[dict], hold_cal: int) -> dict | None:
     m = compute_trade_metrics(a * 100, hold_cal, trade_drawdowns_pct=mdds * 100, min_losers=MIN_NEG)
     if m is None or np.isnan(m.sortino) or m.sortino <= 0:
         return None
-    today = date.today()
-    months = (today.year - EVAL_START.year) * 12 + (today.month - EVAL_START.month)
+    months = (EVAL_END.year - EVAL_START.year) * 12 + (EVAL_END.month - EVAL_START.month)
     return {
         "n": m.n,
         "rank_avg": float(ranks.mean()),
@@ -340,10 +364,9 @@ def consistency_flag(records: list[dict], hold_cal: int) -> tuple[str, bool]:
     by_year: dict[int, list[float]] = {}
     for r in records:
         by_year.setdefault(r["year"], []).append(r["ret"])
-    today = date.today()
     valid = pos = 0
     for yr, rets in sorted(by_year.items()):
-        if yr >= today.year:
+        if date(yr, 12, 31) > EVAL_END:  # incomplete calendar year
             continue
         m = compute_trade_metrics(np.array(rets) * 100, hold_cal, min_losers=MIN_NEG)
         if m is None or np.isnan(m.sortino):  # too few losing trades to judge the year
@@ -409,14 +432,37 @@ def consistent_md(title: str, consistent_rows: list[tuple[int, str, int, dict, s
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 
+def parse_args() -> argparse.Namespace:
+    """Parse the evaluation window and output path.
+
+    Returns:
+        Namespace with start_date, end_date and output.
+    """
+    parser = argparse.ArgumentParser(description="Qullamaggie breakout backtest v4 (SMA-threshold × ranking-gate sweep)")
+    parser.add_argument("--start-date", type=iso_date_type, default=EVAL_START, help="evaluation window start (YYYY-MM-DD)")
+    parser.add_argument("--end-date", type=iso_date_type, default=EVAL_END, help="evaluation window end (YYYY-MM-DD)")
+    parser.add_argument("--output", type=Path, default=RESULT_PATH, help="markdown result path")
+    return parser.parse_args()
+
+
 def main() -> None:
+    global EVAL_START, EVAL_END, RESULT_PATH
+
+    args = parse_args()
+    EVAL_START, EVAL_END, RESULT_PATH = args.start_date, args.end_date, args.output
+    if EVAL_END <= EVAL_START:
+        raise ValueError(f"--end-date {EVAL_END} must be after --start-date {EVAL_START}")
+
     settings = Settings.from_toml()
+    data_start = EVAL_START - timedelta(days=WARMUP_DAYS)
+    data_end = EVAL_END + timedelta(days=FORWARD_DAYS)
+    print(f"Eval {EVAL_START} – {EVAL_END}  |  bars {data_start} – {data_end}", flush=True)
 
     print("Loading SPY regime …", flush=True)
-    bull_dates = load_spy_regime(settings.engine)
+    bull_dates = load_spy_regime(settings.engine, data_start - timedelta(days=SPY_WARMUP_DAYS))
 
     print("Loading bars …", flush=True)
-    df = load_bars(settings.engine)
+    df = load_bars(settings.engine, data_start, data_end)
     valid_syms = df.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"]
     df = df.filter(pl.col("symbol").is_in(valid_syms.to_list()))
 
@@ -463,7 +509,7 @@ def main() -> None:
 
     # ── Print tables ───────────────────────────────────────────────────────────
     header_lines = [
-        f"Period: {EVAL_START} – {date.today()}  |  HOLD_MAX_CAL={HOLD_MAX_CAL}d",
+        f"Period: {EVAL_START} – {EVAL_END}  |  HOLD_MAX_CAL={HOLD_MAX_CAL}d",
         f"Fixed: vol_dry_up<{int(VOL_DRY_UP * 100)}%, roc_12m<{int(ROC_CAP * 100)}%, "
         f"vol_surge<{VOL_SURGE_MAX}x (no lower bound), RSI<{int(RSI_CAP)}, ADR>={ADR_MIN * 100:.1f}%, "
         f"ADR_change<{int(ADR_CHANGE_CAP * 100)}%, SPY>200d SMA, "
@@ -537,7 +583,8 @@ def main() -> None:
         fh.write(f"| Min avg vol (20d) | ≥ {MIN_AVG_VOL // 1000}K |\n")
         fh.write(f"| Min history | ≥ {MIN_HISTORY} trading days |\n")
         fh.write(f"| Cooldown | {COOLDOWN} calendar days |\n")
-        fh.write(f"| Eval period | {EVAL_START} – {date.today()} |\n")
+        fh.write(f"| Eval period | {EVAL_START} – {EVAL_END} |\n")
+        fh.write(f"| Burn-in (indicators only) | {EVAL_START - timedelta(days=WARMUP_DAYS)} – {EVAL_START} |\n")
         fh.write("| Universe | US common stocks, market_cap ≥ 1.5B, excl. Comm/RE |\n\n")
         fh.write("## Rankings — No Ranking Condition\n\n```text\n")
         fh.write(output)
@@ -568,6 +615,12 @@ def main() -> None:
             f"widen the gate sweep past {max(MIN_RANKINGS)} to find where the score stops separating outcomes",
             "report the ranking's own decile spread within a fixed X so the gate's effect can be read independently of the SMA threshold",
             "account for trade overlap (e.g. block-bootstrap or effective-sample-size adjustment) when judging Sortino confidence",
+            "re-run all three windows (2010-2015, 2016-2020, 2021-present) before accepting any parameter change — "
+            "a change that only improves the window it was chosen on is fitted to that window",
+            f"pick the ranking gate per SMA threshold rather than one R≥{MIN_RANKINGS[0]} across s12/s16/s20; the same "
+            "score rejects a very different share of each, so it is not the same filter at each",
+            "report each year's negative-trade count next to its Sortino — under the gate a thin window can fall below "
+            f"the {MIN_NEG}-loser bar and silently drop out of the Yrs+ denominator",
         ]
         for idea in ideas:
             fh.write(f"- {idea}\n")

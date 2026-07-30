@@ -11,7 +11,7 @@ Using the `turtle.daily_bars`, `turtle.company` and `turtle.ticker` PostgreSQL t
 - Universe: US common stocks (`turtle.ticker` where `country = 'USA'` and `type = 'Common Stock'`)
 - Minimum filters: `close > 5` and `close < 250` and `mean(volume[-21:-1]) >= 500_000`, all evaluated on the signal date
 - Market cap is ≥ 1.5B (`turtle.company` where `market_cap >= 1500000000` and `company.ticker_code = ticker.code`)
-- Historical range: Jan 2020 onward in `turtle.daily_bars`
+- Historical range: `turtle.daily_bars` from 730 calendar days before the evaluation window (burn-in, indicators only) to 383 calendar days after it, so a signal on the window's last day still has its 366-day exit
 - Exclude tickers with fewer than 300 trading days of history
 - Exclude tickers in sectors: Communication Services, Real Estate (`turtle.company` where `company.sector not in ('Communication Services', 'Real Estate')` and `company.ticker_code = ticker.code`)
 
@@ -94,8 +94,16 @@ Skip any signal where 366 calendar days past its entry date are not available in
 
 ## Step 3 — Evaluation Methodology
 
-- **Burn-in period**: Jan 2020 – Dec 2020. Used only for indicator warm-up; no signals evaluated.
-- **Evaluation period**: Jan 2021 – present. All entry signals and forward returns computed here.
+- **Burn-in period**: the 730 calendar days before the evaluation window. Used only for indicator warm-up; no signals are evaluated in it. The 30-day cooldown chain does run across it, so a trigger just before the window opens correctly suppresses an early in-window one.
+- **Evaluation period**: the window itself. All entry signals and forward returns computed here.
+
+Three windows are run, each written to its own result file:
+
+| Window | Result file |
+|---|---|
+| 2021-01-01 – present (baseline) | `docs/research/result-qullamaggie-backtest-v4.md` |
+| 2010-01-01 – 2015-12-31 | `docs/research/result-qullamaggie-backtest-v4-2010-2015.md` |
+| 2016-01-01 – 2020-12-31 | `docs/research/result-qullamaggie-backtest-v4-2016-2020.md` |
 
 Trade return formula: `return = close[entry_date + holding_days] / open[entry_date] − 1` — bought at the
 entry bar's adjusted open, sold at the close of the first trading day at or after `entry_date + holding_days`.
@@ -178,7 +186,7 @@ Rank all (entry signal × exit rule) combinations by **Sortino ratio** on the fu
 Report two ranking tables, same columns and ranking rule, side by side:
 
 1. **No ranking condition** — every entry signal that meets the entering condition is taken as a trade.
-2. **Ranking R ≥ {40%, 45%, 50%}** — same signals, but a trade is taken only if its `QullamaggieRanking` score is ≥ R. Report the mean and median score of the accepted trades, and how many signals the gate rejected.
+2. **Ranking R ≥ {40%}** — same signals, but a trade is taken only if its `QullamaggieRanking` score is ≥ R. Report the mean and median score of the accepted trades, and how many signals the gate rejected.
 
 **Year-by-year consistency flag**: for each complete calendar year in the evaluation period, compute the annual Sortino ratio. A combination is flagged ✓ consistent if:
 
@@ -204,6 +212,6 @@ Rank | Entry Signal        | Exit  | Win% | Mean Ret | AnnMean Ret |Median Ret |
 ## Implementation
 
 - create/overwrite script scripts/qullamaggie-backtest-v4.py
-- save research results in file docs/research/result-qullamaggie-backtest-v4.md overwriting existing file if file exists
+- the evaluation window and output path are CLI arguments (`--start-date`, `--end-date`, `--output`), defaulting to the baseline window and `docs/research/result-qullamaggie-backtest-v4.md`; run it once per window in the Step 3 table, overwriting existing result files
 - always update ## Configuration values to reflect latest setup
-- add your findings and ideas how to improve the algorithm to end of docs/research/result-qullamaggie-backtest-v4.md file each improvement on separate line in the list
+- add your findings and ideas how to improve the algorithm to end of each result file, each improvement on a separate line in the list
