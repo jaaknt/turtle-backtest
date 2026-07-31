@@ -14,12 +14,22 @@ disabled. Entry is the next trading bar's adjusted open and every variant — ba
 included — is gated at QullamaggieRanking >= MIN_RANKING, so the sweep measures a
 relaxation against the algorithm as actually traded.
 
-The three dimensions the shared layer does not parameterise (min price, vol_dry_up,
-cooldown) are re-filtered here from the same indicator frame; the two universe
-dimensions (market cap, sector) come from TickerQueryRepository symbol lists.
+The dimensions the shared layer does not parameterise (min price, vol_dry_up, cooldown,
+SMA distance, ADR floor) are re-filtered here from the same indicator frame; the two
+universe dimensions (market cap, sector) come from TickerQueryRepository symbol lists.
 
 Variants: cd15 (cooldown 15d), p3 (min price $3), mcap1.0B (mcap floor $1.0B),
-sect+CommRE (re-admit Comm Services/Real Estate).
+sect+CommRE (re-admit Comm Services/Real Estate), p2 (min price $2), sma16/sma12 (SMA
+distance 20%->16%/12%), adr2.5 (ADR floor 3.0%->2.5%), vdu1.0 (vol_dry_up 90%->100%).
+
+The last four come from the cohort tables rather than from a guess: `p2` because
+result-qullamaggie-cohorts-price.md puts the [0-5) band above the $5-$250 aggregate on
+every metric at all three SMA thresholds; `sma16` because under the R>=40 gate
+result-qullamaggie-cohorts-ranking.md shows s16 within 0.03 Sortino of s20 (the score's
+35-point SMA50 term re-imposes most of what the hard threshold does); `adr2.5` because
+result-qullamaggie-cohorts-adr.md's [2.5-3.0) band carries the same Sortino as the whole
+population at s20; and `vdu1.0` because vol_dry_up is the one fixed filter with no cohort
+study behind it at all, so its cost is unmeasured.
 
 Eval: 2015-01-01 – 2026-06-26 | 366d calendar hold | warmup handled by qm.load_bars
 References: docs/research/qullamaggie-backtest-v4.md,
@@ -51,9 +61,7 @@ MIN_HISTORY = 300
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
-ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
-SMA_T = 0.20
 MIN_NEG = 10
 MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
 
@@ -75,13 +83,26 @@ NO_SUCH_SECTOR = "__no_such_sector__"
 LABEL = "bk50d_s20_v2.0"
 
 # Baseline parameter values; each variant overrides exactly one.
-BASE_PARAMS = {"cooldown": 30, "min_price": 5.0, "min_mcap": 1.5e9, "include_comm_re": False, "vol_dry_up": 0.90}
+BASE_PARAMS = {
+    "cooldown": 30,
+    "min_price": 5.0,
+    "min_mcap": 1.5e9,
+    "include_comm_re": False,
+    "vol_dry_up": 0.90,
+    "sma_t": 0.20,
+    "adr_min": 0.03,
+}
 
 VARIANTS: list[tuple[str, dict]] = [
     ("cd15", {"cooldown": 15}),
     ("p3", {"min_price": 3.0}),
     ("mcap1.0B", {"min_mcap": 1.0e9}),
     ("sect+CommRE", {"include_comm_re": True}),
+    ("p2", {"min_price": 2.0}),
+    ("sma16", {"sma_t": 0.16}),
+    ("sma12", {"sma_t": 0.12}),
+    ("adr2.5", {"adr_min": 0.025}),
+    ("vdu1.0", {"vol_dry_up": 1.00}),
 ]
 
 # "Same level" tolerance for the combo-selection quality gate.
@@ -146,10 +167,10 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], allowed_syms: set[str],
             & (pl.col("raw_close") > params["min_price"])
             & (pl.col("raw_close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
-            & (pl.col("adr_pct") >= ADR_MIN)
+            & (pl.col("adr_pct") >= params["adr_min"])
             & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
             & (pl.col("adj_close") > pl.col("max_c_50d"))
-            & (pl.col("pct_vs_sma50") > SMA_T)
+            & (pl.col("pct_vs_sma50") > params["sma_t"])
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("avg_vol_10") < params["vol_dry_up"] * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
@@ -261,7 +282,11 @@ def main() -> None:
 
     sym_dates: dict[str, np.ndarray] = {}
     sym_closes: dict[str, np.ndarray] = {}
-    for (sym,), grp in df.sort(["symbol", "date"]).group_by(["symbol"], maintain_order=False):
+    # Project to the three columns the trade loop reads before grouping. Grouping the full
+    # indicator frame materialised all ~20 columns per group, and the leading sort was a
+    # redundant full copy of the widest frame in the study — prepare_bars and add_indicators
+    # both already sort by (symbol, date), and each group is re-sorted by date below.
+    for (sym,), grp in df.select("symbol", "date", "adj_close").group_by(["symbol"], maintain_order=False):
         g = grp.sort("date")
         sym_dates[sym] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int32)
         sym_closes[sym] = g["adj_close"].cast(pl.Float64).to_numpy(allow_copy=True)
@@ -384,7 +409,9 @@ def main() -> None:
         fh.write("| Universe load | mcap >= 1.0B, all sectors (variant filters applied per run) |\n\n")
         fh.write(
             "Variant key: `cd15` cooldown 30→15d; `p3` min price $5→$3; `mcap1.0B` market-cap floor "
-            "$1.5B→$1.0B; `sect+CommRE` re-admit Communication Services/Real Estate.\n\n"
+            "$1.5B→$1.0B; `sect+CommRE` re-admit Communication Services/Real Estate; `p2` min price "
+            "$5→$2; `sma16`/`sma12` close-above-SMA50 threshold 20%→16%/12%; `adr2.5` ADR%(20) floor 3.0%→2.5%; "
+            "`vdu1.0` vol_dry_up avg_vol_10 < 90%→100% of avg_vol_50 (i.e. filter effectively off).\n\n"
         )
         fh.write("## Results\n\n```text\n")
         fh.write(table)
