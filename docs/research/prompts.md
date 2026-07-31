@@ -90,11 +90,12 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 All cohort studies below share the same setup unless stated otherwise:
 
 - **Algorithms:** `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` (366d hold)
-- **Ranking gate:** `MIN_RANKING >= 40`, **except** the three studies whose cohort variable *is* a
-  `QullamaggieRanking` dimension — ADR% (40 pts), pct-above-sma50 (35 pts) and entry price (25 pts). Those run
-  **ungated**, because a >=40 gate filters on the very variable being cohorted and empties the cohorts the study
-  exists to measure (a gated ADR run collapsed `[0-1.0)` to N=1). Each of the three records the reason in its
-  docstring.
+- **Ranking gate:** `MIN_RANKING >= 40`, **except** the four studies whose cohort variable is the
+  `QullamaggieRanking` score or one of its three dimensions — ADR% (40 pts), pct-above-sma50 (35 pts), entry
+  price (25 pts) and the ranking itself. Those run **ungated**, because a >=40 gate filters on the very variable
+  being cohorted and empties the cohorts the study exists to measure (a gated ADR run collapsed `[0-1.0)` to
+  N=1). Each of the four records the reason in its docstring; the ranking study additionally reports the `>=40`
+  population as a reference row, so what the gate would keep can still be read off.
 - **Period:** 2015-01-01 : 2026-06-26 — longer than the `backtest-v4` baseline window on purpose, so individual
   cohorts still carry enough trades to read
 - **Output columns:** `Cohort  N  Med%  Mean%  Win%  Sortino  PF`
