@@ -45,6 +45,7 @@ import polars as pl
 import sqlalchemy as sa
 
 from turtlex.backtest.metrics import compute_trade_metrics
+from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
@@ -485,7 +486,7 @@ def main() -> None:
 
     output = "\n".join(lines)
     print(f"\n=== {BASE_LABEL} vs {COMPARE_LABEL} — Signal Report ===")
-    print(f"Run date: {date.today()}  |  Period: {DISPLAY_START} – {DISPLAY_END}")
+    print(f"Run date: {run_timestamp()}  |  Period: {DISPLAY_START} – {DISPLAY_END}")
     print("\n" + output)
 
     excluded_lines: list[str] = []

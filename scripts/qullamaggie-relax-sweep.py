@@ -34,6 +34,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
+from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.repository.query.ticker import TickerQueryRepository
@@ -357,7 +358,7 @@ def main() -> None:
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with RESULT_PATH.open("w") as fh:
         fh.write(f"# Qullamaggie Relax Sweep — {LABEL} / 366d\n\n")
-        fh.write(f"Run date: {date.today()}\n\n")
+        fh.write(f"Run date: {run_timestamp()}\n\n")
         fh.write("## Configuration\n\n")
         fh.write("| Parameter | Value |\n|---|---|\n")
         fh.write(f"| Eval period | {EVAL_START} – {EVAL_END} |\n")

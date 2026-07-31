@@ -29,6 +29,7 @@ import numpy as np
 import polars as pl
 import sqlalchemy as sa
 
+from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 
 _EPOCH = date(1970, 1, 1)
@@ -513,7 +514,7 @@ def main() -> None:
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with RESULT_PATH.open("w") as fh:
         fh.write("# Qullamaggie Dynamic Cohort Ranking (s15)\n\n")
-        fh.write(f"Run date: {date.today()}\n\n")
+        fh.write(f"Run date: {run_timestamp()}\n\n")
         fh.write("```text\n")
         fh.write(output)
         fh.write("\n```\n")

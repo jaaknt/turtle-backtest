@@ -47,6 +47,7 @@ import numpy as np
 import polars as pl
 
 from turtlex.backtest.metrics import compute_trade_metrics
+from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.research import qullamaggie as qm
@@ -678,7 +679,7 @@ def main() -> None:
 
     out("# Qullamaggie Exit-Strategy Sweep")
     out("")
-    out(f"Run date: {date.today()}")
+    out(f"Run date: {run_timestamp()}")
     out("")
     out(
         f"Config: `bk50d_s20_v2.0` | {EVAL_START} – {EVAL_END} | initial ${INIT_EQUITY:,.0f} | "

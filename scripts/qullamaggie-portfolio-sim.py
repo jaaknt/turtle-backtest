@@ -48,6 +48,7 @@ import polars as pl
 import sqlalchemy as sa
 
 from turtlex.common.cli import iso_date_type
+from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
@@ -611,7 +612,7 @@ def main() -> None:
 
     out("# Portfolio Simulation — size sweep + ranking deciles")
     out("")
-    out(f"Run date: {date.today()}")
+    out(f"Run date: {run_timestamp()}")
     out(
         f"Period: {EVAL_START} – {EVAL_END}  |  Initial: ${INIT_EQUITY:,.0f}  |  "
         f"algorithm: RSI<70  |  sizes: {', '.join(f'{f:.0%}' for f in POS_FRACTIONS)}  |  "
