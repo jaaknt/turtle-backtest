@@ -37,8 +37,10 @@ import numpy as np
 import polars as pl
 import sqlalchemy as sa
 
+from turtlex.backtest.metrics import compute_trade_metrics
 from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
+from turtlex.repository.query.daily_bars import LOAD_BATCH_ROWS
 from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
@@ -137,20 +139,17 @@ def load_bars(engine: sa.Engine) -> pl.DataFrame:
           AND  db.date >= '2013-01-01' AND db.close > 0 AND db.adjusted_close > 0 AND db.volume > 0
         ORDER  BY db.symbol, db.date
     """
-    with engine.connect() as conn:
-        rows = conn.execute(sa.text(sql)).fetchall()
-    factor = [float(r[3]) / float(r[2]) for r in rows]
-    return pl.DataFrame(
-        {
-            "symbol": [r[0] for r in rows],
-            "date": pl.Series([r[1] for r in rows], dtype=pl.Date),
-            "raw_close": [float(r[2]) for r in rows],
-            "close": [float(r[3]) for r in rows],
-            "high": [float(r[4]) * f for r, f in zip(rows, factor, strict=True)],
-            "low": [float(r[5]) * f for r, f in zip(rows, factor, strict=True)],
-            "volume": [int(r[6]) for r in rows],
-        }
-    )
+    # Streamed through a server-side cursor for the same reason as
+    # DailyBarsQueryRepository.get_qualified_universe_bars_pl: a buffered fetchall materialises
+    # every row of the ~7M-row universe as a Python tuple, then again as float lists, before the
+    # frame exists. That spike OOM-killed this study under a 4G cap.
+    with engine.connect().execution_options(stream_results=True, max_row_buffer=LOAD_BATCH_ROWS) as conn:
+        batches = list(pl.read_database(query=sa.text(sql), connection=conn, iter_batches=True, batch_size=LOAD_BATCH_ROWS))
+    if not batches:
+        return pl.DataFrame()
+    df = pl.concat(batches, rechunk=True)
+    factor = pl.col("close") / pl.col("raw_close")
+    return df.with_columns((pl.col("high") * factor).alias("high"), (pl.col("low") * factor).alias("low"))
 
 
 def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
@@ -272,13 +271,9 @@ def sortino_by_bucket(records: list[dict], column: str, bounds: list[float]) -> 
             buckets[idx].append(r["ret"])
     out: dict[int, float] = {}
     for idx, rets in buckets.items():
-        a = np.array(rets)
-        neg = a[a < 0]
-        if len(neg) < MIN_NEG:
-            continue
-        dd = float(np.sqrt(np.mean(neg**2)))
-        if dd > 0:
-            out[idx] = float(np.mean(a) * np.sqrt(365 / HOLD_CAL) / dd)
+        m = compute_trade_metrics(np.array(rets) * 100, HOLD_CAL, min_losers=MIN_NEG)
+        if m is not None and not np.isnan(m.sortino):
+            out[idx] = m.sortino
     return out
 
 
@@ -389,21 +384,18 @@ def compute_deciles(records: list[dict], scores: list[int]) -> list[dict]:
             continue
         rets = np.array([records[i]["ret"] for i in idx])
         sc = np.array([scores[i] for i in idx])
-        neg = rets[rets < 0]
-        dd = float(np.sqrt(np.mean(neg**2))) if len(neg) else float("nan")
-        sr = float(np.mean(rets) * np.sqrt(365 / HOLD_CAL) / dd) if dd and dd > 0 else float("nan")
-        gross_win = float(rets[rets > 0].sum())
-        gross_loss = float(-rets[rets < 0].sum())
-        pf = gross_win / gross_loss if gross_loss > 0 else float("inf")
+        m = compute_trade_metrics(rets * 100, HOLD_CAL)
+        if m is None:
+            continue
         deciles.append(
             {
-                "n": len(idx),
+                "n": m.n,
                 "score": float(sc.mean()),
-                "med": float(np.median(rets) * 100),
-                "mean": float(rets.mean() * 100),
-                "win": float((rets > 0).mean() * 100),
-                "sortino": sr,
-                "pf": pf,
+                "med": m.median_pct,
+                "mean": m.mean_pct,
+                "win": m.win_pct,
+                "sortino": m.sortino,
+                "pf": m.profit_factor,
             }
         )
     return deciles

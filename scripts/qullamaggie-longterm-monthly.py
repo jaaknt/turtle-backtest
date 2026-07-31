@@ -24,6 +24,7 @@ import numpy as np
 import polars as pl
 import sqlalchemy as sa
 
+from turtlex.backtest.metrics import compute_trade_metrics
 from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
@@ -218,20 +219,14 @@ def build_yearly_stats_table(
         return f"{v:>+7.1f}" if not np.isnan(v) else f"{'—':>7}"
 
     def fmt_row(a: np.ndarray, qqq_pct: float, spy_pct: float) -> str:
-        n = len(a)
-        win = float((a > 0).sum() / n * 100)
-        mean = float(np.mean(a) * 100)
-        med = float(np.median(a) * 100)
-        neg = a[a < 0]
-        sr = float("nan")
-        if len(neg) >= MIN_NEG:
-            dd = float(np.sqrt(np.mean(neg**2)))
-            if dd > 0:
-                sr = float(np.mean(a) * np.sqrt(365 / HOLD_CAL) / dd)
-        p5 = max(1, int(np.floor(n * 0.05)))
-        cvar = float(np.sort(a)[:p5].mean() * 100)
-        sr_str = f"{sr:>8.3f}" if not np.isnan(sr) else f"{'n/a':>8}"
-        return f"{n:>5} {win:>6.1f} {mean:>+7.2f} {fmt_pct(qqq_pct)} {fmt_pct(spy_pct)} {med:>+7.2f} {sr_str} {cvar:>+8.2f}"
+        m = compute_trade_metrics(a * 100, HOLD_CAL, min_losers=MIN_NEG)
+        if m is None:  # unreachable: the years come from the trades themselves
+            return f"{0:>5} {'—':>6} {'—':>7} {fmt_pct(qqq_pct)} {fmt_pct(spy_pct)} {'—':>7} {'n/a':>8} {'—':>8}"
+        sr_str = f"{m.sortino:>8.3f}" if not np.isnan(m.sortino) else f"{'n/a':>8}"
+        return (
+            f"{m.n:>5} {m.win_pct:>6.1f} {m.mean_pct:>+7.2f} {fmt_pct(qqq_pct)} {fmt_pct(spy_pct)} "
+            f"{m.median_pct:>+7.2f} {sr_str} {m.cvar95_pct:>+8.2f}"
+        )
 
     for yr in years:
         a = trades.filter(pl.col("year") == yr)["ret"].to_numpy()
