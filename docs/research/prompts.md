@@ -296,7 +296,7 @@ All cohort studies below share the same setup unless stated otherwise:
 - Built a genuine out-of-sample validation: a train/test split confirms the new scheme separates forward Sortino/Mean% better than the old 4-dimension bands, and a further 5-fold stability check across independent cutoffs (2019-2023) confirms the weight split is robust to being refit on shorter sub-periods (which is noisier and performs worse on average, not better).
 - **Script:** `scripts/qullamaggie-ranking-validation.py` (new)
 - **Results:** `docs/research/result-qullamaggie-ranking-validation.md`
-- **References:** `turtlex/strategy/ranking/qullamaggie.py`, `docs/research/result-qullamaggie-cohorts-*.md`, `docs/research/result-qullamaggie-cohort-ranking.md`
+- **References:** `turtlex/strategy/ranking/qullamaggie.py`, `docs/research/result-qullamaggie-cohorts-*.md`, `docs/research/result-qullamaggie-cohorts-ranking.md`
 
 ### Three-feature ranking weights
 
