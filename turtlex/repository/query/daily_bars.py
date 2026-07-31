@@ -9,6 +9,9 @@ from turtlex.repository.tables import COMMON_STOCK_TYPE, company_table, daily_ba
 
 logger = logging.getLogger(__name__)
 
+# Server-side cursor batch for get_qualified_universe_bars_pl; see the note there.
+LOAD_BATCH_ROWS = 200_000
+
 
 class DailyBarsQueryRepository:
     """Dedicated repository for bulk analytical reads from daily_bars.
@@ -80,6 +83,13 @@ class DailyBarsQueryRepository:
         re-querying. Bars are returned as stored — non-positive or zero-volume rows are the
         caller's concern, so this matches what the per-ticker read returns.
 
+        The result is streamed through a server-side cursor and concatenated batch by batch
+        rather than buffered whole. The widest study universe is ~7M rows, and a plain
+        buffered read materialises every one of them as a Python row tuple before the
+        DataFrame exists — several GB of interpreter objects that live alongside the frame
+        being built. On WSL, where every user process shares one unbounded cgroup, that has
+        OOM-killed the whole distro. `iter_batches` bounds the tuple spike to LOAD_BATCH_ROWS.
+
         Args:
             start_date: First bar date to include (inclusive)
             end_date: Last bar date to include (inclusive)
@@ -109,5 +119,8 @@ class DailyBarsQueryRepository:
             )
             .order_by(b.c.symbol, b.c.date)
         )
-        with self._engine.connect() as conn:
-            return pl.read_database(query=stmt, connection=conn)
+        with self._engine.connect().execution_options(stream_results=True, max_row_buffer=LOAD_BATCH_ROWS) as conn:
+            batches = list(pl.read_database(query=stmt, connection=conn, iter_batches=True, batch_size=LOAD_BATCH_ROWS))
+        if not batches:
+            return pl.DataFrame()
+        return pl.concat(batches, rechunk=True)

@@ -73,6 +73,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - After non-trivial changes, run pytest and mypy before proposing a commit. Run mypy with no arguments (`uv run mypy`) — scanned paths are defined in `pyproject.toml` `[tool.mypy] files`.
 - Use the PR review subagent workflow (parallel agents) before commit/push on multi-file changes.
 - Polars for all new code. Pandas is intentionally retained in `turtlex/portfolio/analytics.py`, plus indirectly via `quantstats`. Don't introduce pandas elsewhere; flag any new pandas import in code review.
+- **Always run `scripts/*.py` studies under a memory cap** (see [Running Research Studies](#running-research-studies)). They load millions of rows; an uncapped runaway takes the whole WSL distro down, not just the script.
 
 ## Quick Start & Common Commands
 
@@ -88,6 +89,25 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | **Lint markdown docs** | `npx markdownlint-cli2` | Check README/CLAUDE.md/docs before committing (`--fix` to auto-fix) |
 | **Run Bruno API smoke tests** | `uv run pytest -m bruno` | Verify live EODHD endpoints still match expectations (requires `npm install -g @usebruno/cli` + real `EODHD_API_KEY` in `bruno/eodhd/.env`) |
 | **Start database** | `docker-compose up -d` | Before any data operations |
+
+### Running Research Studies
+
+The `scripts/*.py` studies load the whole qualified universe of daily bars (~7M rows for the
+widest one). Run them under a cgroup memory cap so a runaway dies alone:
+
+```bash
+systemd-run --user --scope -q -p MemoryMax=4G -p MemorySwapMax=0 uv run scripts/<name>.py
+```
+
+Why this matters on WSL: every user process — your shell, Claude Code, MCP servers, the
+script — shares one unbounded `/init.scope` cgroup, and `systemd-oomd` is not installed. An
+uncapped OOM therefore kills the terminal and can wedge the VM entirely (`Wsl/Service/E_UNEXPECTED`)
+rather than just failing the script. `MemorySwapMax=0` is the important half: it prevents the
+swap-thrash that makes the OOM kill unreapable.
+
+A capped run that dies exits **137** — that is the OOM killer, not a bug in the study. Raise the
+cap or narrow the input; don't re-run unchanged. Reference peaks: the relax sweep, the widest
+study, peaks at ~3.5 GB.
 
 ### Critical File Paths
 
