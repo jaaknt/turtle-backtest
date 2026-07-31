@@ -22,12 +22,12 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 | [pct-above-sma50 cohorts](#pct-above-sma50-cohorts) | `scripts/qullamaggie-cohorts-pct-above-sma50.py` | `result-qullamaggie-cohorts-pct-above-sma50.md` |
 | [SMA(200) analyze](#sma200-analyze) | `scripts/qullamaggie-sma200.py` | `result-qullamaggie-sma200.md` |
 | [Sector analyze](#sector-analyze) | `scripts/qullamaggie-cohorts-sector.py` | `result-qullamaggie-cohorts-sector.md` |
+| [Ranking cohorts analyze](#ranking-cohorts-analyze) | `scripts/qullamaggie-cohorts-ranking.py` | `result-qullamaggie-cohorts-ranking.md` |
 | [Limit-order entry cohorts](#limit-order-entry-cohorts) | `scripts/qullamaggie-cohorts-limit-order.py` | `result-qullamaggie-cohorts-limit-order.md` |
 | [Limit-order fill rate](#limit-order-fill-rate) | `scripts/qullamaggie-limit-fill-rate.py` | `result-qullamaggie-limit-fill-rate.md` |
 | [Relaxation brainstorm (s15)](#relaxation-brainstorm-s15) | — | — |
 | [Relaxation sweep (s20)](#relaxation-sweep-s20) | `scripts/qullamaggie-relax-sweep.py` | `result-qullamaggie-relax-sweep.md` |
 | [Ranking algorithm proposal](#ranking-algorithm-proposal) | — | — |
-| [Dynamic cohort ranking (s15)](#dynamic-cohort-ranking-s15) | `scripts/qullamaggie-cohort-ranking.py` | `result-qullamaggie-cohort-ranking.md` |
 | [Recalibrate ranking weights + validate](#recalibrate-ranking-weights--validate) | `scripts/qullamaggie-ranking-validation.py` | `result-qullamaggie-ranking-validation.md` |
 | [Three-feature ranking weights](#three-feature-ranking-weights) | `scripts/qullamaggie-ranking-weights.py` | `result-qullamaggie-ranking-weights.md` |
 | [Portfolio simulation](#portfolio-simulation) | `scripts/qullamaggie-portfolio-sim.py` | `result-qullamaggie-portfolio-v4.md`, `-2010-2015.md`, `-2016-2020.md` |
@@ -187,6 +187,14 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Script:** `scripts/qullamaggie-cohorts-sector.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-sector.md`
 
+### Ranking cohorts analyze
+
+**Goal:** How Qullamagie ranking different deciles affects performance.
+
+- **Cohorts:** Qullamagie ranking different deciles
+- **Script:** `scripts/qullamaggie-cohorts-ranking.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-ranking.md`
+
 ## Entry-timing / limit-order studies
 
 ### Limit-order entry cohorts
@@ -279,29 +287,6 @@ All cohort studies below share the same setup unless stated otherwise:
 ### Ranking algorithm proposal
 
 **Goal:** Propose a ranking algorithm for s15_tr15 trades that selects only the trades with the most potential based on technical data (higher ADR, (SMA10, SMA20), your own discoveries).
-
-### Dynamic cohort ranking (s15)
-
-**Goal:** Build a dynamic ranking score for `bk50d_s15_v1.3_roc100` signals that estimates the probability the signal will succeed (trade return > 0 at the 366d exit), derived from the per-dimension cohort statistics of the existing cohort studies.
-
-- **Dimensions** (all computed on the entry date, definitions identical to the cohort scripts): `adr_pct` (ADR% cohorts), `adr_pct_change` = ADR%(10)/ADR%(50) (compression cohorts), `rsi14` (RSI cohorts), entry close price (price cohorts), `vol_surge_ratio` (volsurge cohorts), `roc_252d` (ROC cohorts). Reuse each study's cohort boundaries.
-- **Per-dimension probability:** the Win% of the signal's cohort, computed **walk-forward** — from s15 trades whose 366d hold completed before the signal date (expanding window; no look-ahead). Shrink small cohorts toward the running pool win rate: `p̂ = (wins + k·p₀) / (n + k)` with `k = 20`.
-- **Composite score:** average the per-dimension log-odds and convert back: `P = σ( mean_d( ln(p̂_d / (1 − p̂_d)) ) )`. Report the score as a probability in [0, 1].
-- **Warm-up:** scoring starts once ≥ 300 completed trades exist (~2017); earlier signals are excluded from validation.
-- **Validation:** rank all scored signals by P and split into deciles; report per decile:
-
-  ```text
-  Decile   PredP%      N     Med%    Mean%    Win%   Sortino      PF
-  ```
-
-  - `PredP%` = mean predicted probability in the decile; compare with realized Win% (calibration).
-  - Check the Win%/Mean%/Sortino gradient is monotonic from D1 (lowest score) to D10 (highest).
-
-- **Period:** 2015-01-01 : 2026-06-26, hold 366d, all standardized v1.3 filters (vol_dry_up<90%, no tight_range).
-- **Script:** `scripts/qullamaggie-cohort-ranking.py` (create new; reuse the shared harness of the cohort scripts)
-- **Results:** `docs/research/result-qullamaggie-cohort-ranking.md`
-- **Note:** implementation adds a second, regime-neutral decile table (score minus running pool log-odds) because the raw walk-forward P proved anti-calibrated — dominated by pool-win-rate time drift; see Findings in the result doc. RSI uses the fine partition ([40-50), [50-60)) so bins are disjoint; values in cohort gaps (e.g. ADR [7-8)) fall back to the pool win rate via n=0 shrinkage.
-- **Important files:** `scripts/qullamaggie-cohorts-adr.py`, `scripts/qullamaggie-cohorts-roc.py`, `docs/research/result-qullamaggie-cohorts-adr.md`, `docs/research/result-qullamaggie-cohorts-adr-compression.md`, `docs/research/result-qullamaggie-cohorts-rsi.md`, `docs/research/result-qullamaggie-cohorts-price.md`, `docs/research/result-qullamaggie-cohorts-volsurge.md`, `docs/research/result-qullamaggie-cohorts-roc.md`, `docs/research/qullamaggie-backtest-v4.md`
 
 ### Recalibrate ranking weights + validate
 
