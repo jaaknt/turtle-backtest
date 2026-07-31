@@ -1,4 +1,4 @@
-"""Guard the canonical trade-metric convention across `scripts/`.
+"""Guard the canonical metric conventions across `scripts/`.
 
 Ten cohort studies each grew their own Sortino by copy-paste, and every copy divided the
 downside deviation by the number of *losers* instead of by N. That is not a rescaling: the
@@ -7,7 +7,10 @@ silently reorders cohorts — 17 of 255 pairwise comparisons flipped when they w
 Cohorting exists to compare buckets that differ in win rate, which is exactly the variable
 the losers-only denominator cancels out.
 
-These tests do not re-derive the metric; `tests/backtest/test_metrics.py` covers the maths.
+Every study now computes its Sortino through `turtlex.backtest.metrics`: trade series via
+`compute_trade_metrics`, daily equity-curve series via `compute_daily_sortino`.
+
+These tests do not re-derive the metrics; `tests/backtest/test_metrics.py` covers the maths.
 They exist so the *next* study cannot reintroduce a private copy unnoticed.
 """
 
@@ -18,64 +21,46 @@ import pytest
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
 
-# A file that reports a Sortino but never imports the shared helper is computing its own.
 _SORTINO_MENTION = re.compile(r"sortino", re.IGNORECASE)
-_CANONICAL_IMPORT = "compute_trade_metrics"
+_CANONICAL_IMPORTS = ("compute_trade_metrics", "compute_daily_sortino")
 
-# Studies that still carry a private Sortino. Each entry is recorded technical debt, not an
-# exemption on principle — the list may shrink, never grow. Migrating one means regenerating
-# its result doc, so they are handled deliberately rather than in bulk.
-#
-# The three trade-level offenders — qullamaggie-sma200.py, qullamaggie-longterm-monthly.py and
-# qullamaggie-ranking-validation.py — have been migrated and their docs regenerated.
-#
-# Daily equity-curve — Sortino over a daily return series annualized by sqrt(252), which
-# `compute_trade_metrics` deliberately does not cover (see its module docstring: equity-curve
-# metrics belong in turtlex/portfolio/analytics.py). They share the losers-only flaw but need
-# a daily-series helper, not this one:
-#   qullamaggie-portfolio-sim.py, qullamaggie-ranking-weights.py
-# Already correct, merely hand-rolled — divides by all N, so its numbers are right:
-#   qullamaggie-relax-sweep.py
-#
-# Not covered by this check: a script that imports the helper for its trade metrics *and*
-# keeps a private daily-series Sortino passes, because the rule is import-based.
-# qullamaggie-exit-sweep.py is that case — its `sortino_of` is still losers-only.
-KNOWN_PRIVATE_SORTINO = frozenset(
-    {
-        "qullamaggie-portfolio-sim.py",
-        "qullamaggie-ranking-weights.py",
-        "qullamaggie-relax-sweep.py",
-    }
-)
+# The RMS-of-a-squared-series idiom every private Sortino was built on. An import-only rule
+# cannot see this: qullamaggie-exit-sweep.py imported `compute_trade_metrics` for its trade
+# metrics while keeping a losers-only `sortino_of` for its daily series, and passed for it.
+_RMS_IDIOM = re.compile(r"np\.sqrt\(\s*np\.mean\(")
 
 
-def _scripts_with_private_sortino() -> set[str]:
-    """Names of `scripts/*.py` that report a Sortino without importing the shared helper."""
-    offenders: set[str] = set()
-    for path in SCRIPTS_DIR.glob("*.py"):
-        source = path.read_text(encoding="utf-8")
-        if _SORTINO_MENTION.search(source) and _CANONICAL_IMPORT not in source:
-            offenders.add(path.name)
-    return offenders
+def _scripts(name_glob: str = "*.py") -> list[Path]:
+    return sorted(SCRIPTS_DIR.glob(name_glob))
 
 
-def test_no_new_private_sortino() -> None:
-    """A new study must use `compute_trade_metrics`, not a private copy."""
-    new = _scripts_with_private_sortino() - KNOWN_PRIVATE_SORTINO
-    assert not new, (
-        f"{sorted(new)} report a Sortino without importing {_CANONICAL_IMPORT}. "
-        "Use turtlex.backtest.metrics.compute_trade_metrics — a private copy that divides "
-        "downside deviation by the loser count instead of N reorders cohorts by win rate."
+@pytest.mark.parametrize("path", _scripts(), ids=lambda p: p.name)
+def test_sortino_comes_from_the_shared_helpers(path: Path) -> None:
+    """A study that reports a Sortino imports one of the canonical helpers."""
+    source = path.read_text(encoding="utf-8")
+    if not _SORTINO_MENTION.search(source):
+        return
+    assert any(name in source for name in _CANONICAL_IMPORTS), (
+        f"{path.name} reports a Sortino without importing any of {_CANONICAL_IMPORTS}. "
+        "Use turtlex.backtest.metrics — a private copy that divides downside deviation by "
+        "the loser count instead of N reorders cohorts by win rate."
     )
 
 
-def test_known_private_sortino_list_has_no_stale_entries() -> None:
-    """The allowlist shrinks as studies migrate; a stale entry means it was never pruned."""
-    stale = KNOWN_PRIVATE_SORTINO - _scripts_with_private_sortino()
-    assert not stale, f"{sorted(stale)} now use the shared helper — remove them from KNOWN_PRIVATE_SORTINO."
+@pytest.mark.parametrize("path", _scripts(), ids=lambda p: p.name)
+def test_no_private_downside_deviation(path: Path) -> None:
+    """Importing the helper is not enough — the file must not also hand-roll one."""
+    source = path.read_text(encoding="utf-8")
+    if not _SORTINO_MENTION.search(source):
+        return
+    assert not _RMS_IDIOM.search(source), (
+        f"{path.name} mentions Sortino and computes an RMS itself. Downside deviation belongs "
+        "to turtlex.backtest.metrics; a second private copy alongside the imported helper is "
+        "how qullamaggie-exit-sweep.py kept a losers-only daily Sortino while passing this suite."
+    )
 
 
-@pytest.mark.parametrize("path", sorted(SCRIPTS_DIR.glob("qullamaggie-cohorts-*.py")), ids=lambda p: p.name)
+@pytest.mark.parametrize("path", _scripts("qullamaggie-cohorts-*.py"), ids=lambda p: p.name)
 def test_cohort_studies_use_canonical_metrics(path: Path) -> None:
-    """Every cohort study uses the shared helper — no allowlist, this is settled."""
-    assert _CANONICAL_IMPORT in path.read_text(encoding="utf-8"), f"{path.name} must compute metrics via {_CANONICAL_IMPORT}."
+    """Every cohort study computes its trade metrics via the shared helper."""
+    assert "compute_trade_metrics" in path.read_text(encoding="utf-8"), f"{path.name} must compute metrics via compute_trade_metrics."

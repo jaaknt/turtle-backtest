@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 from turtlex.backtest import metrics as metrics_module
-from turtlex.backtest.metrics import compute_trade_metrics, metrics_from_future_trades
+from turtlex.backtest.metrics import compute_daily_sortino, compute_trade_metrics, metrics_from_future_trades
 from turtlex.model import FutureTrade, Signal, Trade
 
 
@@ -242,6 +242,39 @@ class TestAdapterEquivalence:
         assert metrics_from_future_trades(trades) == compute_trade_metrics(
             [t.realized_pct for t in trades], [float(t.holding_days) for t in trades]
         )
+
+
+class TestDailySortino:
+    """The daily equity-curve counterpart, annualized by sqrt(252) rather than the hold."""
+
+    def test_matches_the_definition(self) -> None:
+        daily = [0.01, -0.02, 0.03, -0.01, 0.005]
+        downside = math.sqrt(sum(min(r, 0.0) ** 2 for r in daily) / len(daily))
+
+        expected = (sum(daily) / len(daily)) / downside * math.sqrt(252)
+        assert compute_daily_sortino(daily) == pytest.approx(expected)
+
+    def test_denominator_spans_all_days_not_just_down_days(self) -> None:
+        """The bug this helper replaced: dividing by the down-day count inflates by sqrt(N/n_down)."""
+        daily = [0.01, 0.01, 0.01, -0.02]
+        losers_only = (sum(daily) / len(daily)) / math.sqrt(0.02**2 / 1) * math.sqrt(252)
+
+        assert compute_daily_sortino(daily) == pytest.approx(losers_only * math.sqrt(len(daily) / 1))
+
+    def test_periods_per_year_scales_the_annualization(self) -> None:
+        daily = [0.01, -0.02, 0.03]
+
+        assert compute_daily_sortino(daily, periods_per_year=1) == pytest.approx(compute_daily_sortino(daily) / math.sqrt(252))
+
+    @pytest.mark.parametrize("factor", [0.01, 100.0])
+    def test_is_scale_invariant(self, factor: float) -> None:
+        daily = [0.01, -0.02, 0.03, -0.01]
+
+        assert compute_daily_sortino([r * factor for r in daily]) == pytest.approx(compute_daily_sortino(daily))
+
+    @pytest.mark.parametrize("series", [[], [0.01, 0.02], [0.0, 0.0]])
+    def test_nan_without_a_down_day(self, series: list[float]) -> None:
+        assert math.isnan(compute_daily_sortino(series))
 
 
 class TestImportContainment:

@@ -1,10 +1,24 @@
-"""Trade-level (round-trip) metrics shared by the backtest, portfolio and research paths.
+"""Return/risk metrics shared by the backtest, portfolio and research paths.
 
-Equity-curve metrics are a different problem: they live in `turtlex/portfolio/analytics.py`,
-which renders them with quantstats. Per-trade returns must never be fed to quantstats — it
-assumes a regularly sampled series at `periods_per_year=252`, so on a trade series its
-calendar-aware metrics (Sharpe, Sortino, CAGR, Calmar) come back silently wrong by orders of
-magnitude. That is why this module exists instead of a library call.
+Two sampling regimes live here, and they must not be mixed:
+
+- `compute_trade_metrics` takes round-trip trades — irregularly spaced, annualized by the
+  mean holding period.
+- `compute_daily_sortino` takes a daily equity-curve return series — regularly sampled,
+  annualized by `sqrt(252)`.
+
+Per-trade returns must never be fed to quantstats: it assumes a regularly sampled series at
+`periods_per_year=252`, so on a trade series its calendar-aware metrics (Sharpe, Sortino,
+CAGR, Calmar) come back silently wrong by orders of magnitude. That is why the trade-level
+half of this module exists instead of a library call.
+
+A daily series *is* quantstats' native input, and `qs.stats.sortino` uses the same all-N
+downside denominator this module does, so `compute_daily_sortino` agrees with it by
+construction. It exists anyway because quantstats requires a pandas Series with a datetime
+index, and pandas is confined to `turtlex/portfolio/analytics.py` — the numpy research
+scripts would otherwise each grow their own conversion. `analytics.py` remains the quantstats
+boundary and the place equity-curve *reporting* belongs; this is one number for callers that
+already hold a numpy array.
 
 Canonical conventions for the whole repo, resolving the variants that grew across
 `turtlex/service/backtest_service.py` and the `scripts/` studies:
@@ -106,6 +120,36 @@ def compute_trade_metrics(
         cvar95_pct=float(np.sort(arr)[:k].mean()),
         mean_trade_mdd_pct=dd_mean,
     )
+
+
+def compute_daily_sortino(daily_returns: FloatSeq, *, periods_per_year: int = 252) -> float:
+    """
+    Compute the annualized Sortino ratio of a daily equity-curve return series.
+
+    Downside deviation is the RMS of `min(return, 0)` over **all N** days, not over the down
+    days only — the same convention `compute_trade_metrics` applies to trades, and the same
+    one `quantstats.stats.sortino` applies to a daily series. The negatives-only variant
+    measures loss severity conditional on losing, which is not comparable between series with
+    different down-day frequencies.
+
+    Args:
+        daily_returns: Daily simple returns as fractions (0.01 for +1%). Scale is irrelevant —
+            the ratio is scale-invariant — but mixing percent and fractional inputs across
+            callers makes the intermediate downside deviation incomparable, so keep to
+            fractions here and percent in `compute_trade_metrics`.
+        periods_per_year: Trading periods per year used to annualize; 252 for daily bars
+
+    Returns:
+        The annualized ratio, or `nan` when the series is empty or has no down day
+    """
+    arr = np.asarray(daily_returns, dtype=float)
+    if arr.size == 0:
+        return float("nan")
+
+    downside_dev = float(np.sqrt(np.mean(np.minimum(arr, 0.0) ** 2)))
+    if downside_dev <= 0:
+        return float("nan")
+    return float(arr.mean() / downside_dev * math.sqrt(periods_per_year))
 
 
 def metrics_from_future_trades(trades: Sequence[FutureTrade], *, min_losers: int = 0) -> TradeMetrics | None:

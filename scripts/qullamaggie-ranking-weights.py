@@ -42,6 +42,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
+from turtlex.backtest.metrics import compute_daily_sortino
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.research import qullamaggie as qm
@@ -179,9 +180,7 @@ def run_sim(market: Market, calendar: list[date], signals: list[dict], score_key
     max_dd = float((eq / np.maximum.accumulate(eq) - 1.0).min())
     n_days = (calendar[-1] - calendar[0]).days
     cagr = float((eq[-1] / eq[0]) ** (365.0 / n_days) - 1.0)
-    neg = daily_ret[daily_ret < 0]
-    dd_daily = float(np.sqrt(np.mean(neg**2))) if len(neg) else float("nan")
-    sortino = float(np.mean(daily_ret) * np.sqrt(252) / dd_daily) if dd_daily > 0 else float("nan")
+    sortino = compute_daily_sortino(daily_ret)
     return {"cagr": cagr * 100, "max_dd": max_dd * 100, "sortino": sortino, "taken": n_taken}
 
 

@@ -47,6 +47,7 @@ import numpy as np
 import polars as pl
 import sqlalchemy as sa
 
+from turtlex.backtest.metrics import compute_daily_sortino
 from turtlex.common.cli import iso_date_type
 from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
@@ -189,9 +190,7 @@ def buy_and_hold(engine: sa.Engine, symbol: str) -> dict:
     n_days = (dates[-1] - dates[0]).days
     cagr = (eq[-1] / eq[0]) ** (365.0 / n_days) - 1.0
     calmar = cagr / abs(max_dd) if max_dd < 0 else float("inf")
-    neg = daily_ret[daily_ret < 0]
-    dd_daily = float(np.sqrt(np.mean(neg**2))) if len(neg) else float("nan")
-    sortino = float(np.mean(daily_ret) * np.sqrt(252) / dd_daily) if dd_daily > 0 else float("nan")
+    sortino = compute_daily_sortino(daily_ret)
     return {"final": float(eq[-1]), "cagr": cagr, "max_dd": max_dd, "calmar": calmar, "sortino": sortino}
 
 
@@ -525,9 +524,7 @@ def main() -> None:
         n_days = (dates[-1] - dates[0]).days
         cagr = (eq[-1] / eq[0]) ** (365.0 / n_days) - 1.0
         calmar = cagr / abs(max_dd) if max_dd < 0 else float("inf")
-        neg = daily_ret[daily_ret < 0]
-        dd_daily = float(np.sqrt(np.mean(neg**2))) if len(neg) else float("nan")
-        sortino = float(np.mean(daily_ret) * np.sqrt(252) / dd_daily) if dd_daily > 0 else float("nan")
+        sortino = compute_daily_sortino(daily_ret)
 
         eq_df = pl.DataFrame({"date": pl.Series(dates, dtype=pl.Date), "eq": eq}).with_columns(
             [

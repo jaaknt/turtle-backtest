@@ -46,7 +46,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-from turtlex.backtest.metrics import compute_trade_metrics
+from turtlex.backtest.metrics import compute_daily_sortino, compute_trade_metrics
 from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
@@ -63,12 +63,16 @@ SMA_THRESH = 0.20  # s20
 MIN_RANKING = 40  # QullamaggieRanking entry gate, matching the portfolio-runner default
 HOLD_CAL = 366
 
-# Committed baseline from docs/research/result-qullamaggie-portfolio-v4.md (run 2026-07-28),
-# s20 / 3% / 366d. Reproduced by this harness as a validity check before any sweep is believed.
-REF_CAGR_PCT = 36.17
-REF_SORTINO = 1.334
-REF_MAXDD_PCT = -26.00
-REF_FINAL = 222_166.0
+# Baseline from qullamaggie-portfolio-sim.py, s20 / R>=40 / 3% / 366d over this study's window
+# (2020-01-01 – 2026-06-26). Reproduced by this harness as a validity check before any sweep is
+# believed. The previous values here came from a 2026-07-28 run and were stale on two counts: they
+# predated the 40/35/25 QullamaggieRanking weights (2026-07-29), and their Sortino used the
+# losers-only denominator this repo retired on 2026-08-01. Refresh all four together — a partial
+# update makes the reconciliation table lie.
+REF_CAGR_PCT = 39.87
+REF_SORTINO = 2.082
+REF_MAXDD_PCT = -21.76
+REF_FINAL = 264_355.0
 RECONCILE_TOL_PP = 1.0  # max acceptable CAGR divergence, in percentage points
 
 MAXDD_GUARD_PP = 5.0  # a variant may not worsen baseline MaxDD by more than this
@@ -279,15 +283,6 @@ def add_exit_indicators(bars: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def sortino_of(daily_ret: np.ndarray) -> float:
-    """Annualised Sortino ratio of a daily return series, matching the portfolio sim."""
-    neg = daily_ret[daily_ret < 0]
-    if not len(neg):
-        return float("nan")
-    downside = float(np.sqrt(np.mean(neg**2)))
-    return float(np.mean(daily_ret) * np.sqrt(252) / downside) if downside > 0 else float("nan")
-
-
 def cagr_of(daily_ret: np.ndarray) -> float:
     """Annualised compound growth of a daily return series, for bootstrap resamples."""
     growth = float(np.prod(1.0 + daily_ret))
@@ -321,7 +316,7 @@ def bootstrap_win_rate(base_ret: np.ndarray, var_ret: np.ndarray) -> tuple[float
         base_sample, var_sample = base_ret[idx], var_ret[idx]
         if cagr_of(var_sample) > cagr_of(base_sample):
             wins_cagr += 1
-        base_s, var_s = sortino_of(base_sample), sortino_of(var_sample)
+        base_s, var_s = compute_daily_sortino(base_sample), compute_daily_sortino(var_sample)
         if math.isfinite(base_s) and math.isfinite(var_s) and var_s > base_s:
             wins_sortino += 1
     return wins_cagr / BOOT_RESAMPLES, wins_sortino / BOOT_RESAMPLES
@@ -606,7 +601,7 @@ def run_sim(market: MarketData, signals_by_entry: dict[int, list[Signal]], rule:
         cagr=cagr,
         max_dd=max_dd,
         calmar=cagr / abs(max_dd) if max_dd < 0 else float("inf"),
-        sortino=sortino_of(daily_ret),
+        sortino=compute_daily_sortino(daily_ret),
         avg_uninv_pct=float(np.mean(cash_arr / eq) * 100),
         taken=n_taken,
         skipped=n_skipped,
