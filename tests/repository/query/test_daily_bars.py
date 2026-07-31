@@ -5,7 +5,7 @@ import polars as pl
 import pytest
 
 from turtlex.common.enums import TimeFrameUnit
-from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
+from turtlex.repository.query.daily_bars import LOAD_BATCH_ROWS, DailyBarsQueryRepository
 
 
 @pytest.fixture
@@ -149,7 +149,7 @@ def _sample_universe_pl_df() -> pl.DataFrame:
 
 
 def test_get_qualified_universe_bars_pl_returns_multi_symbol_frame(mock_engine: MagicMock) -> None:
-    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=_sample_universe_pl_df()):
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=iter([_sample_universe_pl_df()])):
         result = _make_repo(mock_engine).get_qualified_universe_bars_pl(date(2024, 1, 2), date(2024, 1, 3))
 
     assert result.shape == (3, 8)
@@ -160,7 +160,7 @@ def test_get_qualified_universe_bars_pl_returns_multi_symbol_frame(mock_engine: 
 
 
 def test_get_qualified_universe_bars_pl_applies_default_filters(mock_engine: MagicMock) -> None:
-    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=_sample_universe_pl_df()) as read_database:
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=iter([_sample_universe_pl_df()])) as read_database:
         _make_repo(mock_engine).get_qualified_universe_bars_pl(date(2024, 1, 2), date(2024, 1, 3))
 
     sql = str(read_database.call_args.kwargs["query"])
@@ -171,7 +171,7 @@ def test_get_qualified_universe_bars_pl_applies_default_filters(mock_engine: Mag
 
 
 def test_get_qualified_universe_bars_pl_honours_overrides(mock_engine: MagicMock) -> None:
-    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=_sample_universe_pl_df()) as read_database:
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=iter([_sample_universe_pl_df()])) as read_database:
         _make_repo(mock_engine).get_qualified_universe_bars_pl(
             date(2024, 1, 2), date(2024, 1, 3), min_market_cap=5_000_000_000, excluded_sectors=["Energy"]
         )
@@ -182,7 +182,29 @@ def test_get_qualified_universe_bars_pl_honours_overrides(mock_engine: MagicMock
 
 
 def test_get_qualified_universe_bars_pl_returns_empty_frame(mock_engine: MagicMock) -> None:
-    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=pl.DataFrame()):
+    """No batches at all — an empty result set must not blow up in pl.concat."""
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=iter([])):
         result = _make_repo(mock_engine).get_qualified_universe_bars_pl(date(2024, 1, 2), date(2024, 1, 3))
 
     assert result.is_empty()
+
+
+def test_get_qualified_universe_bars_pl_concatenates_batches(mock_engine: MagicMock) -> None:
+    """The server-side cursor yields several batches; all rows must survive the concat."""
+    df = _sample_universe_pl_df()
+    batches = iter([df[:2], df[2:]])
+
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=batches) as read_database:
+        result = _make_repo(mock_engine).get_qualified_universe_bars_pl(date(2024, 1, 2), date(2024, 1, 3))
+
+    assert result.shape == (3, 8)
+    assert result["symbol"].to_list() == ["AAPL.US", "AAPL.US", "MSFT.US"]
+    assert read_database.call_args.kwargs["iter_batches"] is True
+
+
+def test_get_qualified_universe_bars_pl_streams_results(mock_engine: MagicMock) -> None:
+    """A buffered read materialises ~7M Python row tuples and has OOM-killed the host."""
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=iter([_sample_universe_pl_df()])):
+        _make_repo(mock_engine).get_qualified_universe_bars_pl(date(2024, 1, 2), date(2024, 1, 3))
+
+    mock_engine.connect.return_value.execution_options.assert_called_once_with(stream_results=True, max_row_buffer=LOAD_BATCH_ROWS)
