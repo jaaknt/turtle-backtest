@@ -1,6 +1,6 @@
 # Qullamaggie Sector Cohort Analysis
 
-Run date: 2026-07-31
+Run date: 2026-07-31 11:26:52 Tallinn time
 
 ```text
 Company-sector cohort analysis | Hold: 366d | Period: 2015-01-01 – 2026-06-26

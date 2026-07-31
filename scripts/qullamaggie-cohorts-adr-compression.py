@@ -43,6 +43,11 @@ RSI_CAP = 70.0
 ADR_MIN = 0.03
 MIN_NEG = 5
 
+# The production ADR_change cap. Not applied here — compression is the dimension under study,
+# so filtering on it would hide the very cohorts the table exists to show. Reported instead as
+# the `<0.9 (cap)` row, which is the slice the live filter actually keeps.
+ADR_CHANGE_CAP = 0.90
+
 MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
 
 STRATEGIES = [
@@ -203,6 +208,10 @@ def build_table(label: str, records: list[dict]) -> list[str]:
     m_all = compute_metrics(all_rets)
     if m_all:
         lines.append(fmt_cohort_row("ALL", m_all))
+    ref_rets = np.array([r["ret"] for r in records if r["comp"] < ADR_CHANGE_CAP])
+    m_ref = compute_metrics(ref_rets)
+    if m_ref:
+        lines.append(fmt_cohort_row(f"<{ADR_CHANGE_CAP:g} (cap)", m_ref))
     lines.append("")
     return lines
 
