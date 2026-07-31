@@ -20,9 +20,9 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 | [Volume surge cohorts](#volume-surge-cohorts) | `scripts/qullamaggie-cohorts-volsurge.py` | `result-qullamaggie-cohorts-volsurge.md` |
 | [Tight range cohorts](#tight-range-cohorts) | `scripts/qullamaggie-cohorts-tightrange.py` | `result-qullamaggie-cohorts-tightrange.md` |
 | [pct-above-sma50 cohorts](#pct-above-sma50-cohorts) | `scripts/qullamaggie-cohorts-pct-above-sma50.py` | `result-qullamaggie-cohorts-pct-above-sma50.md` |
-| [SMA(200) analyze](#sma200-analyze) | `scripts/qullamaggie-sma200.py` | `result-qullamaggie-sma200.md` |
-| [Sector analyze](#sector-analyze) | `scripts/qullamaggie-cohorts-sector.py` | `result-qullamaggie-cohorts-sector.md` |
-| [Ranking cohorts analyze](#ranking-cohorts-analyze) | `scripts/qullamaggie-cohorts-ranking.py` | `result-qullamaggie-cohorts-ranking.md` |
+| [SMA(200) cohorts](#sma200-cohorts) | `scripts/qullamaggie-cohorts-sma200.py` | `result-qullamaggie-cohorts-sma200.md` |
+| [Sector cohorts](#sector-cohorts) | `scripts/qullamaggie-cohorts-sector.py` | `result-qullamaggie-cohorts-sector.md` |
+| [Ranking cohorts](#ranking-cohorts) | `scripts/qullamaggie-cohorts-ranking.py` | `result-qullamaggie-cohorts-ranking.md` |
 | [Limit-order entry cohorts](#limit-order-entry-cohorts) | `scripts/qullamaggie-cohorts-limit-order.py` | `result-qullamaggie-cohorts-limit-order.md` |
 | [Limit-order fill rate](#limit-order-fill-rate) | `scripts/qullamaggie-limit-fill-rate.py` | `result-qullamaggie-limit-fill-rate.md` |
 | [Relaxation brainstorm (s15)](#relaxation-brainstorm-s15) | — | — |
@@ -171,16 +171,16 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Script:** `scripts/qullamaggie-cohorts-pct-above-sma50.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-pct-above-sma50.md`
 
-### SMA(200) analyze
+### SMA(200) cohorts
 
 **Goal:** How `signal above sma(200)` (`SMA(200)` on the signal date) affects performance.
 
 - **Cohorts:** (< -50%), [-50% : -20%), [-20% : 0%), [0% : 10%), [10% : 20%), [20% : 30%), [30% : 40%), [40% : 50%), [50% : 60%), [60% : 80%), [80% : 100%), (>100%)
 - **Output:** setup is the same as for cohort analyze
-- **Script:** `scripts/qullamaggie-sma200.py`
-- **Results:** `docs/research/result-qullamaggie-sma200.md`
+- **Script:** `scripts/qullamaggie-cohorts-sma200.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-sma200.md`
 
-### Sector analyze
+### Sector cohorts
 
 **Goal:** How company `sector` affects performance.
 
@@ -188,7 +188,7 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Script:** `scripts/qullamaggie-cohorts-sector.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-sector.md`
 
-### Ranking cohorts analyze
+### Ranking cohorts
 
 **Goal:** How Qullamagie ranking different deciles affects performance.
 

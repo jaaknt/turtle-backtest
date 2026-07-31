@@ -64,7 +64,7 @@ COHORTS: list[tuple[str, float, float]] = [
     ("(>100%)   ", 100.0, float("inf")),
 ]
 
-RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-sma200.md"
+RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-cohorts-sma200.md"
 
 
 def add_study_indicators(df: pl.DataFrame) -> pl.DataFrame:
