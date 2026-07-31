@@ -44,6 +44,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
+from turtlex.backtest.metrics import compute_trade_metrics
 from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
@@ -226,23 +227,21 @@ def run_trades(signals: pl.DataFrame, sym_dates: dict[str, np.ndarray], sym_clos
 
 def compute_metrics(records: list[dict]) -> dict:
     a = np.array([r["ret"] for r in records])
-    months = (EVAL_END.year - EVAL_START.year) * 12 + (EVAL_END.month - EVAL_START.month)
-    downside = np.where(a < 0, a, 0.0)
-    dd = float(np.sqrt(np.mean(downside**2)))
-    neg = a[a < 0]
-    sr = float(np.mean(a) * np.sqrt(365 / HOLD_CAL) / dd) if dd > 0 and len(neg) >= MIN_NEG else float("nan")
-    gross_win = float(a[a > 0].sum())
-    gross_loss = float(-a[a < 0].sum())
     mdds = np.array([r["mdd"] for r in records])
+    months = (EVAL_END.year - EVAL_START.year) * 12 + (EVAL_END.month - EVAL_START.month)
+    m = compute_trade_metrics(a * 100, HOLD_CAL, trade_drawdowns_pct=mdds * 100, min_losers=MIN_NEG)
+    if m is None:  # a variant whose filters admitted nothing
+        nan = float("nan")
+        return {"n": 0, "freq": 0.0, "win": nan, "mean": nan, "med": nan, "sr": nan, "pf": nan, "mdd": nan}
     return {
-        "n": len(a),
-        "freq": len(a) / max(months, 1),
-        "win": float((a > 0).mean() * 100),
-        "mean": float(a.mean() * 100),
-        "med": float(np.median(a) * 100),
-        "sr": sr,
-        "pf": gross_win / gross_loss if gross_loss > 0 else float("inf"),
-        "mdd": float(mdds.mean() * 100),
+        "n": m.n,
+        "freq": m.n / max(months, 1),
+        "win": m.win_pct,
+        "mean": m.mean_pct,
+        "med": m.median_pct,
+        "sr": m.sortino,
+        "pf": m.profit_factor,
+        "mdd": m.mean_trade_mdd_pct,
     }
 
 

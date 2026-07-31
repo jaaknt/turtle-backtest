@@ -4,11 +4,18 @@ This document describes the command-line scripts that provide convenient interfa
 
 All strategy name → class mappings used by `--trading-strategy`, `--exit-strategy`, and `--ranking-strategy` flags are defined in `turtlex/strategy/factory.py`. Add new strategies there to make them available across all scripts.
 
-Trade statistics (Win%, PF, Sortino, Med%, Mean%, CVaR, mean per-trade MaxDD) come from `turtlex/backtest/metrics.py`, which owns the canonical definitions — notably Sortino's downside deviation as the RMS of `min(r, 0)` over **all N** trades, annualized as a ratio. `backtest-runner`, `portfolio-runner`, `scripts/qullamaggie-backtest-v4.py`, `scripts/qullamaggie-signals-v4.py` and **all eleven `scripts/qullamaggie-cohorts-*.py` studies** use it, so their Sortino columns are directly comparable with each other and with the runners.
+Return/risk statistics come from `turtlex/backtest/metrics.py`, which owns the canonical definitions. It covers two sampling regimes, and they must not be mixed:
 
-Until 2026-08-01 ten of the eleven cohort studies divided instead by the RMS of the losers only — a different statistic, larger by `sqrt(N / n_losers)`. Because that factor depends on each cohort's own win rate it reordered cohorts rather than merely rescaling them (17 of 255 pairwise comparisons flipped on migration), which is why every cohort result doc was regenerated. Result docs published before that date are not comparable with the current ones.
+- **Trade series** — `compute_trade_metrics` (Win%, PF, Sortino, Med%, Mean%, CVaR, mean per-trade MaxDD), annualized by the mean holding period.
+- **Daily equity-curve series** — `compute_daily_sortino`, annualized by `sqrt(252)`.
 
-These `scripts/qullamaggie-*.py` studies still carry a private Sortino and are **not** comparable with the above — `sma200`, `longterm-monthly` and `ranking-validation` (trade-level, still losers-only), `portfolio-sim` and `ranking-weights` (daily equity-curve, losers-only), `exit-sweep` (canonical for trades, losers-only for its daily series), and `relax-sweep` (hand-rolled but already all-N, so its numbers are right). `tests/scripts/test_metric_conventions.py` tracks that list and fails if a new study adds to it.
+In both, Sortino's downside deviation is the RMS of `min(r, 0)` over **all N** observations, and the ratio — not its inputs — is annualized. Every `scripts/qullamaggie-*.py` study, plus `backtest-runner` and `portfolio-runner`, now goes through one of the two, so Sortino columns are directly comparable within each regime. They are *not* comparable across regimes: a daily-series Sortino and a trade-series Sortino answer different questions.
+
+Until 2026-08-01 most studies divided instead by the RMS of the losers only — a different statistic, smaller in the denominator and so **larger** in the ratio by exactly `sqrt(N / n_losers)`. Because that factor depends on each series' own win rate it reordered cohorts rather than merely rescaling them (17 of 255 pairwise comparisons flipped on migration), which is why every affected result doc was regenerated. **Result docs published before 2026-08-01 are not comparable with the current ones.**
+
+`tests/scripts/test_metric_conventions.py` enforces this: a study that reports a Sortino must import one of the two helpers, and must not also hand-roll an RMS itself. The second rule exists because an import-only check let `exit-sweep` keep a private losers-only daily Sortino alongside the imported trade helper.
+
+For a daily series, `quantstats.stats.sortino` uses the same all-N denominator and agrees with `compute_daily_sortino` by construction; the helper exists because quantstats needs a pandas Series with a datetime index, and pandas is confined to `turtlex/portfolio/analytics.py`.
 
 ## download-eodhd-data
 
