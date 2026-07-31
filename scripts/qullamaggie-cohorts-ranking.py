@@ -29,6 +29,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
+from turtlex.backtest.metrics import compute_trade_metrics
 from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
@@ -170,24 +171,18 @@ def run_trades(
 
 
 def compute_metrics(rets: np.ndarray) -> dict | None:
-    n = len(rets)
-    if n < 5:
+    if len(rets) < 5:
         return None
-    neg = rets[rets < 0]
-    sr = float("nan")
-    if len(neg) >= MIN_NEG:
-        dd = float(np.sqrt(np.mean(neg**2)))
-        if dd > 0:
-            sr = float(np.mean(rets) * np.sqrt(365 / HOLD_CAL) / dd)
-    gross_win = float(rets[rets > 0].sum())
-    gross_loss = float(-rets[rets < 0].sum())
+    m = compute_trade_metrics(rets * 100, HOLD_CAL, min_losers=MIN_NEG)
+    if m is None:
+        return None
     return {
-        "n": n,
-        "med": float(np.median(rets) * 100),
-        "mean": float(rets.mean() * 100),
-        "win": float((rets > 0).mean() * 100),
-        "sr": sr,
-        "pf": gross_win / gross_loss if gross_loss > 0 else float("inf"),
+        "n": m.n,
+        "med": m.median_pct,
+        "mean": m.mean_pct,
+        "win": m.win_pct,
+        "sr": m.sortino,
+        "pf": m.profit_factor,
     }
 
 
@@ -311,6 +306,8 @@ def main() -> None:
         f"breakout>50d high, %abv_sma50>12%/16%/20% (swept), SPY>200d SMA, close>$5&<$250, avg_vol>=500K, "
         f"cooldown=30d, hold=366d cal, tight_range disabled; UNGATED — the ranking is the cohort variable, "
         f"so MIN_RANKING>={MIN_RANKING} is reported as a reference row rather than applied\n"
+        f"Sortino: mean / RMS(min(r,0)) over all N × sqrt(365/hold), min {MIN_NEG} losers "
+        f"(turtlex/backtest/metrics.py)\n"
     )
     print("\n" + header)
 

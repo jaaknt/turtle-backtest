@@ -33,6 +33,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
+from turtlex.backtest.metrics import compute_trade_metrics
 from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
@@ -250,27 +251,17 @@ def run_trades_limit(
 # ── Metrics ────────────────────────────────────────────────────────────────────
 
 
-def sortino(a: np.ndarray) -> float:
-    neg = a[a < 0]
-    if len(neg) < MIN_NEG:
-        return float("nan")
-    dd = float(np.sqrt(np.mean(neg**2)))
-    return float(np.mean(a) * np.sqrt(365 / HOLD_CAL) / dd) if dd > 0 else float("nan")
-
-
 def compute_metrics(records: list[dict]) -> dict:
-    if not records:
+    m = compute_trade_metrics([r["ret"] * 100 for r in records], HOLD_CAL, min_losers=MIN_NEG) if records else None
+    if m is None:
         return {"n": 0, "win": float("nan"), "mean": float("nan"), "med": float("nan"), "pf": float("nan"), "sr": float("nan")}
-    a = np.array([r["ret"] for r in records])
-    gross_win = float(a[a > 0].sum())
-    gross_loss = float(-a[a < 0].sum())
     return {
-        "n": len(a),
-        "win": float((a > 0).mean() * 100),
-        "mean": float(a.mean() * 100),
-        "med": float(np.median(a) * 100),
-        "pf": gross_win / gross_loss if gross_loss > 0 else float("inf"),
-        "sr": sortino(a),
+        "n": m.n,
+        "win": m.win_pct,
+        "mean": m.mean_pct,
+        "med": m.median_pct,
+        "pf": m.profit_factor,
+        "sr": m.sortino,
     }
 
 
@@ -419,7 +410,8 @@ def main() -> None:
         fh.write(f"| Price range | > ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f} |\n")
         fh.write(f"| Min avg vol (20d) | >= {MIN_AVG_VOL // 1000}K |\n")
         fh.write(f"| Cooldown | {COOLDOWN} calendar days |\n")
-        fh.write("| Universe | US common stocks, market_cap >= 1.5B, excl. Comm/RE |\n\n")
+        fh.write("| Universe | US common stocks, market_cap >= 1.5B, excl. Comm/RE |\n")
+        fh.write(f"| Sortino | mean / RMS(min(r,0)) over all N x sqrt(365/hold), min {MIN_NEG} losers (turtlex/backtest/metrics.py) |\n\n")
         fh.write("## Results\n\n")
         for section in report_sections:
             fh.write(section)

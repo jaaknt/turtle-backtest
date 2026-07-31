@@ -1,6 +1,6 @@
 # Qullamaggie ADR% Cohort Analysis
 
-Run date: 2026-07-31 10:44:37 Tallinn time
+Run date: 2026-08-01 01:24:32 Tallinn time
 
 ```text
 ADR% cohort analysis | Hold: 366d | Period: 2015-01-01 – 2026-06-26
