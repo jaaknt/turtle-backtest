@@ -9,7 +9,7 @@ two excluded from the baseline universe.
 Period: 2015-01-01 – 2026-06-26  (burn-in from 2013-01-01)
 """
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -49,11 +49,43 @@ STRATEGIES = [
 
 EXCLUDED_SECTORS = ("Communication Services", "Real Estate")
 UNKNOWN_SECTOR = "(unknown)"
+NO_SUCH_SECTOR = "__no_such_sector__"
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-cohorts-sector.md"
 
 
 # ── Sector map (study-specific) ───────────────────────────────────────────────
+
+
+def load_all_sector_bars(bars_history: DailyBarsQueryRepository) -> pl.DataFrame:
+    """Load the qualified universe without the sector exclusion, which is this study's whole point.
+
+    `qm.load_bars` hardcodes `EXCLUDED_SECTORS` into the SQL, so it cannot serve a study that
+    needs to see Communication Services and Real Estate. Only the universe predicate is widened
+    here — adjustment and unusable-bar handling still come from `qm.prepare_bars`, the same path
+    `qm.load_bars` uses.
+
+    `NO_SUCH_SECTOR` rather than `[]`: an empty list renders an always-true predicate that
+    retains NULL-sector names, which the production universe excludes. The sentinel keeps them
+    out, so the only difference from the baseline universe is the two restored sectors.
+
+    Bars run past EVAL_END because a 366d hold needs forward data beyond the last signal date;
+    `get_signals` bounds the signal window itself.
+
+    Args:
+        bars_history: Repository for accessing historical bar data
+
+    Returns:
+        Frame of symbol, date, raw_close, adj_open, adj_close, adj_high, adj_low, volume.
+    """
+    fetch_start = EVAL_START - timedelta(days=qm.WARMUP_DAYS)
+    df = bars_history.get_qualified_universe_bars_pl(
+        fetch_start,
+        date.today(),
+        min_market_cap=qm.MIN_MARKET_CAP,
+        excluded_sectors=[NO_SUCH_SECTOR],
+    )
+    return qm.prepare_bars(df.rename({"close": "raw_close"}))
 
 
 def load_sector_map(engine: sa.Engine) -> dict[str, str]:
@@ -238,8 +270,7 @@ def main() -> None:
     sector_map = load_sector_map(settings.engine)
 
     print("Loading bars …", flush=True)
-    # Bars run past EVAL_END: a 366d hold needs forward data beyond the last signal date.
-    df = qm.load_bars(bars_history, EVAL_START, date.today())
+    df = load_all_sector_bars(bars_history)
     valid_syms = df.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"]
     df = df.filter(pl.col("symbol").is_in(valid_syms.to_list()))
 
