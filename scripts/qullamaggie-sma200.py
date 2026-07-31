@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
+from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.research import qullamaggie as qm
@@ -293,7 +294,7 @@ def main() -> None:
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with RESULT_PATH.open("w") as fh:
         fh.write("# Qullamaggie SMA(200) Cohort Analysis\n\n")
-        fh.write(f"Run date: {date.today()}\n\n")
+        fh.write(f"Run date: {run_timestamp()}\n\n")
         fh.write("```text\n")
         fh.write(output)
         fh.write("\n```\n")

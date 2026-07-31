@@ -28,6 +28,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
+from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.research import qullamaggie as qm
@@ -126,7 +127,7 @@ def main() -> None:
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with RESULT_PATH.open("w") as fh:
         fh.write(f"# {STRATEGY_LABEL} — Trade Report\n\n")
-        fh.write(f"Run date: {date.today()}\n\n")
+        fh.write(f"Run date: {run_timestamp()}\n\n")
         fh.write(f"Period: {DISPLAY_START} – {DISPLAY_END}\n\n")
         fh.write(f"Ranking gate: QullamaggieRanking >= {MIN_RANKING}\n\n")
         fh.write("```text\n")

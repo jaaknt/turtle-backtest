@@ -23,6 +23,7 @@ import sqlalchemy as sa
 
 from turtlex.backtest.metrics import compute_trade_metrics
 from turtlex.common.cli import iso_date_type
+from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
@@ -557,7 +558,7 @@ def main() -> None:
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with RESULT_PATH.open("w") as fh:
         fh.write("# Qullamaggie Backtest v4 — Results\n\n")
-        fh.write(f"Run date: {date.today()}\n\n")
+        fh.write(f"Run date: {run_timestamp()}\n\n")
         sma_vals = ", ".join(f"{int(v * 100)}%" for v in SMA_THRESHS)
         hold_vals = ", ".join(f"{h}d" for h in HOLD_CALS)
         fh.write("## Configuration\n\n")

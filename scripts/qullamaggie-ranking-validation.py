@@ -37,6 +37,7 @@ import numpy as np
 import polars as pl
 import sqlalchemy as sa
 
+from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
@@ -532,7 +533,7 @@ def main() -> None:
 
     out("# Qullamaggie Ranking — Out-of-Sample Validation")
     out("")
-    out(f"Run date: {date.today()}")
+    out(f"Run date: {run_timestamp()}")
     out("")
     out(
         f"Reference config: bk50d_s15_v1.3_roc100 / {HOLD_CAL}d hold | Period: {EVAL_START} - {EVAL_END} | "
