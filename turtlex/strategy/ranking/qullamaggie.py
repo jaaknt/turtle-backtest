@@ -90,13 +90,14 @@ class QullamaggieRanking(RankingStrategy):
     missing ``adr_pct`` alone now costs 40 points rather than the 12 it cost before. Pair
     this ranking with QullamaggieStrategy, or lower the gate deliberately.
 
-    Note: per docs/research/result-qullamaggie-cohort-ranking.md, a differently-constructed
-    composite (walk-forward log-odds P(success)) separates *filtered* signals only weakly
-    out-of-sample. docs/research/result-qullamaggie-ranking-validation.md walk-forward
-    validates the earlier six-dimension weighting (train/test split); the weights here
-    replace it and are validated instead in result-qullamaggie-ranking-weights.md. Read
-    either doc before assuming these weights hold up out-of-sample; this ranking orders
-    surviving signals and is not a substitute for the entry filters.
+    Note: docs/research/result-qullamaggie-cohorts-ranking.md cohorts signals by this score
+    and finds it separates 366d outcomes monotonically, with the default >=40 gate lifting
+    both pool Sortino and median return -- but far less so at s20, where the entry filter has
+    already made the low bands unreachable. docs/research/result-qullamaggie-ranking-validation.md
+    walk-forward validates the earlier six-dimension weighting (train/test split); the weights
+    here replace it and are validated instead in result-qullamaggie-ranking-weights.md. Read
+    those before assuming these weights hold up out-of-sample; this ranking orders surviving
+    signals and is not a substitute for the entry filters.
     """
 
     @staticmethod
