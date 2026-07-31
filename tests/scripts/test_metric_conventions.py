@@ -26,9 +26,9 @@ _CANONICAL_IMPORT = "compute_trade_metrics"
 # exemption on principle — the list may shrink, never grow. Migrating one means regenerating
 # its result doc, so they are handled deliberately rather than in bulk.
 #
-# Trade-level — same losers-only bug the cohort studies had; these should move to
-# `compute_trade_metrics` and have their docs regenerated:
-#   qullamaggie-sma200.py, qullamaggie-longterm-monthly.py, qullamaggie-ranking-validation.py
+# The three trade-level offenders — qullamaggie-sma200.py, qullamaggie-longterm-monthly.py and
+# qullamaggie-ranking-validation.py — have been migrated and their docs regenerated.
+#
 # Daily equity-curve — Sortino over a daily return series annualized by sqrt(252), which
 # `compute_trade_metrics` deliberately does not cover (see its module docstring: equity-curve
 # metrics belong in turtlex/portfolio/analytics.py). They share the losers-only flaw but need
@@ -42,9 +42,6 @@ _CANONICAL_IMPORT = "compute_trade_metrics"
 # qullamaggie-exit-sweep.py is that case — its `sortino_of` is still losers-only.
 KNOWN_PRIVATE_SORTINO = frozenset(
     {
-        "qullamaggie-sma200.py",
-        "qullamaggie-longterm-monthly.py",
-        "qullamaggie-ranking-validation.py",
         "qullamaggie-portfolio-sim.py",
         "qullamaggie-ranking-weights.py",
         "qullamaggie-relax-sweep.py",
