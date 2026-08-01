@@ -2,9 +2,9 @@
 """
 SMA(200) cohort analysis for bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (366d hold).
 
-Cohort variable: pct_vs_sma200 = close / SMA200 − 1 on the entry date, where SMA200 is the
+Cohort variable: pct_vs_sma200 = close / SMA200 − 1 on the signal date, where SMA200 is the
 mean of the previous 200 closes (shift-1, same convention as sma50). The baseline strategy
-has no stock-level SMA(200) filter (only the SPY regime uses SMA200), so ALL v1.3 filters
+has no stock-level SMA(200) filter (only the SPY regime uses SMA200), so ALL v2.0 filters
 are applied unchanged and the cohorts just slice the existing signal population.
 
 Period: 2015-01-01 – 2026-06-26  (burn-in from 2013-01-01)
@@ -17,7 +17,7 @@ import numpy as np
 import polars as pl
 
 from turtlex.backtest.metrics import compute_trade_metrics
-from turtlex.common.report import run_timestamp
+from turtlex.common.report import config_table, run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.research import qullamaggie as qm
@@ -64,6 +64,26 @@ COHORTS: list[tuple[str, float, float]] = [
     ("(>100%)   ", 100.0, float("inf")),
 ]
 
+CONFIG_ROWS: list[tuple[str, str]] = [
+    ("Period", f"{EVAL_START} – {EVAL_END}"),
+    ("Hold", f"{HOLD_CAL}d (calendar)"),
+    ("Cohorts", "bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (366d)"),
+    ("Cohort variable", "pct_vs_sma200 = close / SMA200(prev 200 closes) - 1 on the signal date, in %"),
+    ("Entry", "next trading day's split/dividend-adjusted open"),
+    (
+        "Filter under study",
+        "**none — the baseline has no stock-level SMA(200) filter, so the cohorts just slice the existing signal population**",
+    ),
+    ("Fixed filters", "RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90% (no tight_range)"),
+    ("Ranking gate", f"QullamaggieRanking >= {MIN_RANKING}"),
+    ("Market regime", "SPY close > 200d SMA"),
+    ("Price range", f"> ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f}"),
+    ("Min avg vol (20d)", f">= {MIN_AVG_VOL // 1000}K"),
+    ("Cooldown", f"{COOLDOWN} calendar days"),
+    ("Universe", "US common stocks, market_cap >= 1.5B, excl. Comm/RE"),
+    ("Sortino", f"mean / RMS(min(r,0)) over all N x sqrt(365/hold), min {MIN_NEG} losers (turtlex/backtest/metrics.py)"),
+]
+
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-cohorts-sma200.md"
 
 
@@ -98,7 +118,7 @@ def compute_ranking(row: dict) -> int:
     return _ranker.ranking(row_df, row["date"])
 
 
-# ── Signal generation (all v1.3 filters; cohort variable pct_vs_sma200 carried through) ──
+# ── Signal generation (all v2.0 filters; cohort variable pct_vs_sma200 carried through) ──
 
 
 def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
@@ -188,18 +208,21 @@ def compute_metrics(rets: np.ndarray) -> dict | None:
         "win": m.win_pct,
         "sr": m.sortino,
         "pf": m.profit_factor,
+        "cvar": m.cvar95_pct,
     }
 
 
 # ── Output ────────────────────────────────────────────────────────────────────
 
-_COL_HDR = f"{'Cohort':<16}  {'N':>5}  {'Med%':>7}  {'Mean%':>7}  {'Win%':>6}  {'Sortino':>8}  {'PF':>6}"
+_COL_HDR = f"{'Cohort':<16}  {'N':>5}  {'Med%':>7}  {'Mean%':>7}  {'Win%':>6}  {'Sortino':>8}  {'PF':>6}  {'CVaR95%':>8}"
 _COL_SEP = "─" * len(_COL_HDR)
 
 
 def fmt_cohort_row(label: str, m: dict) -> str:
     sr_str = f"{m['sr']:>8.3f}" if not (isinstance(m["sr"], float) and np.isnan(m["sr"])) else "     n/a"
-    return f"{label:<16}  {m['n']:>5}  {m['med']:>+7.2f}  {m['mean']:>+7.2f}  {m['win']:>6.1f}  {sr_str}  {m['pf']:>6.2f}"
+    return (
+        f"{label:<16}  {m['n']:>5}  {m['med']:>+7.2f}  {m['mean']:>+7.2f}  {m['win']:>6.1f}  {sr_str}  {m['pf']:>6.2f}  {m['cvar']:>+8.2f}"
+    )
 
 
 def build_table(label: str, records: list[dict]) -> list[str]:
@@ -212,7 +235,7 @@ def build_table(label: str, records: list[dict]) -> list[str]:
             lines.append(fmt_cohort_row(cohort_label, m))
         else:
             n = len(cohort_rets)
-            lines.append(f"{cohort_label:<16}  {n:>5}  {'—':>7}  {'—':>7}  {'—':>6}  {'—':>8}  {'—':>6}")
+            lines.append(f"{cohort_label:<16}  {n:>5}  {'—':>7}  {'—':>7}  {'—':>6}  {'—':>8}  {'—':>6}  {'—':>8}")
     lines.append(_COL_SEP)
     m_all = compute_metrics(all_rets)
     if m_all:
@@ -226,7 +249,7 @@ def build_table(label: str, records: list[dict]) -> list[str]:
     if m_below:
         lines.append(fmt_cohort_row("<SMA200", m_below))
     else:
-        lines.append(f"{'<SMA200':<16}  {len(below_rets):>5}  {'—':>7}  {'—':>7}  {'—':>6}  {'—':>8}  {'—':>6}")
+        lines.append(f"{'<SMA200':<16}  {len(below_rets):>5}  {'—':>7}  {'—':>7}  {'—':>6}  {'—':>8}  {'—':>6}  {'—':>8}")
     lines.append("")
     return lines
 
@@ -261,20 +284,10 @@ def main() -> None:
         sym_dates[sym] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int32)
         sym_closes[sym] = g["adj_close"].cast(pl.Float64).to_numpy(allow_copy=True)
 
-    header = (
-        f"SMA(200) cohort analysis | Hold: {HOLD_CAL}d | "
-        f"Period: {EVAL_START} – {EVAL_END}\n"
-        f"Cohort variable: close / SMA200(prev 200 closes) − 1 on entry date, in %.\n"
-        f"Filters: RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, "
-        f"breakout>50d high, %abv_sma50>12%/16%/20% (swept), SPY>200d SMA, close>$5&<$250, avg_vol>=500K, "
-        f"cooldown=30d, hold=366d cal, tight_range disabled; no stock-level SMA200 filter in the baseline -- "
-        f"cohorts just slice the existing signal population by pct_vs_sma200; QullamaggieRanking>={MIN_RANKING}\n"
-        f"Sortino: mean / RMS(min(r,0)) over all N × sqrt(365/hold), min {MIN_NEG} losers "
-        f"(turtlex/backtest/metrics.py)\n"
-    )
-    print("\n" + header)
+    config = config_table(CONFIG_ROWS)
+    print("\n" + config)
 
-    all_lines: list[str] = [header]
+    all_lines: list[str] = []
 
     for strat_label, sma_t in STRATEGIES:
         print(f"  {strat_label} …", flush=True)
@@ -292,6 +305,9 @@ def main() -> None:
     with RESULT_PATH.open("w") as fh:
         fh.write("# Qullamaggie SMA(200) Cohort Analysis\n\n")
         fh.write(f"Run date: {run_timestamp()}\n\n")
+        fh.write("## Configuration\n\n")
+        fh.write(config)
+        fh.write("\n## Results\n\n")
         fh.write("```text\n")
         fh.write(output)
         fh.write("\n```\n")

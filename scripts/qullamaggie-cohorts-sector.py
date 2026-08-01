@@ -17,7 +17,7 @@ import polars as pl
 import sqlalchemy as sa
 
 from turtlex.backtest.metrics import compute_trade_metrics
-from turtlex.common.report import run_timestamp
+from turtlex.common.report import config_table, run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.research import qullamaggie as qm
@@ -52,6 +52,23 @@ STRATEGIES = [
 EXCLUDED_SECTORS = ("Communication Services", "Real Estate")
 UNKNOWN_SECTOR = "(unknown)"
 NO_SUCH_SECTOR = "__no_such_sector__"
+
+CONFIG_ROWS: list[tuple[str, str]] = [
+    ("Period", f"{EVAL_START} – {EVAL_END}"),
+    ("Hold", f"{HOLD_CAL}d (calendar)"),
+    ("Cohorts", "bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (366d)"),
+    ("Cohort variable", "company GICS sector"),
+    ("Entry", "next trading day's split/dividend-adjusted open"),
+    ("Filter under study", "**Comm Services / Real Estate universe exclusion — removed; returns as the `excl Comm/RE (cap)` row**"),
+    ("Fixed filters", "RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90% (no tight_range)"),
+    ("Ranking gate", f"QullamaggieRanking >= {MIN_RANKING}"),
+    ("Market regime", "SPY close > 200d SMA"),
+    ("Price range", f"> ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f}"),
+    ("Min avg vol (20d)", f">= {MIN_AVG_VOL // 1000}K"),
+    ("Cooldown", f"{COOLDOWN} calendar days"),
+    ("Universe", "**US common stocks, market_cap >= 1.5B — sector exclusion lifted (the cohort variable)**"),
+    ("Sortino", f"mean / RMS(min(r,0)) over all N x sqrt(365/hold), min {MIN_NEG} losers (turtlex/backtest/metrics.py)"),
+]
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-cohorts-sector.md"
 
@@ -212,19 +229,23 @@ def compute_metrics(rets: np.ndarray) -> dict | None:
         "win": m.win_pct,
         "sr": m.sortino,
         "pf": m.profit_factor,
+        "cvar": m.cvar95_pct,
     }
 
 
 # ── Output ────────────────────────────────────────────────────────────────────
 
 _LABEL_W = 24
-_COL_HDR = f"{'Cohort':<{_LABEL_W}}  {'N':>5}  {'Med%':>7}  {'Mean%':>7}  {'Win%':>6}  {'Sortino':>8}  {'PF':>6}"
+_COL_HDR = f"{'Cohort':<{_LABEL_W}}  {'N':>5}  {'Med%':>7}  {'Mean%':>7}  {'Win%':>6}  {'Sortino':>8}  {'PF':>6}  {'CVaR95%':>8}"
 _COL_SEP = "─" * len(_COL_HDR)
 
 
 def fmt_cohort_row(label: str, m: dict) -> str:
     sr_str = f"{m['sr']:>8.3f}" if not (isinstance(m["sr"], float) and np.isnan(m["sr"])) else "     n/a"
-    return f"{label:<{_LABEL_W}}  {m['n']:>5}  {m['med']:>+7.2f}  {m['mean']:>+7.2f}  {m['win']:>6.1f}  {sr_str}  {m['pf']:>6.2f}"
+    return (
+        f"{label:<{_LABEL_W}}  {m['n']:>5}  {m['med']:>+7.2f}  {m['mean']:>+7.2f}  "
+        f"{m['win']:>6.1f}  {sr_str}  {m['pf']:>6.2f}  {m['cvar']:>+8.2f}"
+    )
 
 
 def build_table(label: str, records: list[dict]) -> list[str]:
@@ -238,7 +259,7 @@ def build_table(label: str, records: list[dict]) -> list[str]:
             lines.append(fmt_cohort_row(sector, m))
         else:
             n = len(cohort_rets)
-            lines.append(f"{sector:<{_LABEL_W}}  {n:>5}  {'—':>7}  {'—':>7}  {'—':>6}  {'—':>8}  {'—':>6}")
+            lines.append(f"{sector:<{_LABEL_W}}  {n:>5}  {'—':>7}  {'—':>7}  {'—':>6}  {'—':>8}  {'—':>6}  {'—':>8}")
     lines.append(_COL_SEP)
     m_all = compute_metrics(all_rets)
     if m_all:
@@ -283,19 +304,10 @@ def main() -> None:
         sym_dates[sym] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int32)
         sym_closes[sym] = g["adj_close"].cast(pl.Float64).to_numpy(allow_copy=True)
 
-    header = (
-        f"Company-sector cohort analysis | Hold: {HOLD_CAL}d | "
-        f"Period: {EVAL_START} – {EVAL_END}\n"
-        f"Filters: RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, "
-        f"breakout>50d high, %abv_sma50>12%/16%/20% (swept), SPY>200d SMA, close>$5&<$250, avg_vol>=500K, "
-        f"cooldown=30d, hold=366d cal, tight_range disabled; Comm Services/Real Estate sector exclusion removed "
-        f"for cohort view; QullamaggieRanking>={MIN_RANKING}\n"
-        f"Sortino: mean / RMS(min(r,0)) over all N × sqrt(365/hold), min {MIN_NEG} losers "
-        f"(turtlex/backtest/metrics.py)\n"
-    )
-    print("\n" + header)
+    config = config_table(CONFIG_ROWS)
+    print("\n" + config)
 
-    all_lines: list[str] = [header]
+    all_lines: list[str] = []
     for strat_label, sma_t in STRATEGIES:
         print(f"  {strat_label} …", flush=True)
         signals = qm.resolve_entries(get_signals(df, bull_dates, sma_t), bars)
@@ -312,6 +324,9 @@ def main() -> None:
     with RESULT_PATH.open("w") as fh:
         fh.write("# Qullamaggie Sector Cohort Analysis\n\n")
         fh.write(f"Run date: {run_timestamp()}\n\n")
+        fh.write("## Configuration\n\n")
+        fh.write(config)
+        fh.write("\n## Results\n\n")
         fh.write("```text\n")
         fh.write(output)
         fh.write("\n```\n")

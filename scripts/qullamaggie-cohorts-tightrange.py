@@ -21,7 +21,7 @@ import numpy as np
 import polars as pl
 
 from turtlex.backtest.metrics import compute_trade_metrics
-from turtlex.common.report import run_timestamp
+from turtlex.common.report import config_table, run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.research import qullamaggie as qm
@@ -61,6 +61,28 @@ COHORTS: list[tuple[str, float, float]] = [
     ("[0.2-0.25)", 0.20, 0.25),
     ("[0.25-0.3)", 0.25, 0.30),
     ("[>0.3)    ", 0.30, float("inf")),
+]
+
+CONFIG_ROWS: list[tuple[str, str]] = [
+    ("Period", f"{EVAL_START} – {EVAL_END}"),
+    ("Hold", f"{HOLD_CAL}d (calendar)"),
+    ("Cohorts", "**bk50d_s20_tr10_v2.0, bk50d_s20_tr20_v2.0, bk50d_s15_tr15_v2.0 (366d)**"),
+    ("Cohort variable", "tight_range_ratio = (max - min) / mean of the previous 10 closes"),
+    ("Entry", "next trading day's split/dividend-adjusted open"),
+    ("Filter under study", "**each variant's tight_range cap — removed; returns as its `<=0.10` / `<=0.20` / `<=0.15 (cap)` row**"),
+    ("Fixed filters", "RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%"),
+    ("Ranking gate", f"QullamaggieRanking >= {MIN_RANKING}"),
+    ("Market regime", "SPY close > 200d SMA"),
+    ("Price range", f"> ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f}"),
+    ("Min avg vol (20d)", f">= {MIN_AVG_VOL // 1000}K"),
+    ("Cooldown", f"{COOLDOWN} calendar days"),
+    ("Universe", "US common stocks, market_cap >= 1.5B, excl. Comm/RE"),
+    ("Sortino", f"mean / RMS(min(r,0)) over all N x sqrt(365/hold), min {MIN_NEG} losers (turtlex/backtest/metrics.py)"),
+    (
+        "Note",
+        "s20_tr10 and s20_tr20 share pct_above_sma50=20%, so with the cap removed they draw from the same "
+        "candidate pool — only the reference row differs",
+    ),
 ]
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-cohorts-tightrange.md"
@@ -191,18 +213,21 @@ def compute_metrics(rets: np.ndarray) -> dict | None:
         "win": m.win_pct,
         "sr": m.sortino,
         "pf": m.profit_factor,
+        "cvar": m.cvar95_pct,
     }
 
 
 # ── Output ────────────────────────────────────────────────────────────────────
 
-_COL_HDR = f"{'Cohort':<12}  {'N':>5}  {'Med%':>7}  {'Mean%':>7}  {'Win%':>6}  {'Sortino':>8}  {'PF':>6}"
+_COL_HDR = f"{'Cohort':<12}  {'N':>5}  {'Med%':>7}  {'Mean%':>7}  {'Win%':>6}  {'Sortino':>8}  {'PF':>6}  {'CVaR95%':>8}"
 _COL_SEP = "─" * len(_COL_HDR)
 
 
 def fmt_cohort_row(label: str, m: dict) -> str:
     sr_str = f"{m['sr']:>8.3f}" if not (isinstance(m["sr"], float) and np.isnan(m["sr"])) else "     n/a"
-    return f"{label:<12}  {m['n']:>5}  {m['med']:>+7.2f}  {m['mean']:>+7.2f}  {m['win']:>6.1f}  {sr_str}  {m['pf']:>6.2f}"
+    return (
+        f"{label:<12}  {m['n']:>5}  {m['med']:>+7.2f}  {m['mean']:>+7.2f}  {m['win']:>6.1f}  {sr_str}  {m['pf']:>6.2f}  {m['cvar']:>+8.2f}"
+    )
 
 
 def build_table(label: str, tr_t: float, records: list[dict]) -> list[str]:
@@ -215,7 +240,7 @@ def build_table(label: str, tr_t: float, records: list[dict]) -> list[str]:
             lines.append(fmt_cohort_row(cohort_label, m))
         else:
             n = len(cohort_rets)
-            lines.append(f"{cohort_label:<12}  {n:>5}  {'—':>7}  {'—':>7}  {'—':>6}  {'—':>8}  {'—':>6}")
+            lines.append(f"{cohort_label:<12}  {n:>5}  {'—':>7}  {'—':>7}  {'—':>6}  {'—':>8}  {'—':>6}  {'—':>8}")
     lines.append(_COL_SEP)
     m_all = compute_metrics(all_rets)
     if m_all:
@@ -258,22 +283,10 @@ def main() -> None:
         sym_dates[sym] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int32)
         sym_closes[sym] = g["adj_close"].cast(pl.Float64).to_numpy(allow_copy=True)
 
-    header = (
-        f"Tight-range cohort analysis | Hold: {HOLD_CAL}d | "
-        f"Period: {EVAL_START} – {EVAL_END}\n"
-        f"Filters: RSI(14)<70, ADR%(20)>={ADR_MIN * 100:.1f}%, ADR_change<{int(ADR_CHANGE_CAP * 100)}%, "
-        f"vol_surge<2.0x, vol_dry_up<90%, roc_12m<100%, "
-        f"breakout>50d high, %abv_sma50>20% (s20 variants) or >15% (s15 variant), SPY>200d SMA, close>$5&<$250, "
-        f"avg_vol>=500K, cooldown=30d, hold=366d cal; tight_range cap removed for cohort view; "
-        f"QullamaggieRanking>={MIN_RANKING}\n"
-        f"Note: s20_tr10 and s20_tr20 share pct_above_sma50=20%, so with the tr cap removed\n"
-        f"they draw from the same candidate pool — only the current-cap reference row differs.\n"
-        f"Sortino: mean / RMS(min(r,0)) over all N × sqrt(365/hold), min {MIN_NEG} losers "
-        f"(turtlex/backtest/metrics.py)\n"
-    )
-    print("\n" + header)
+    config = config_table(CONFIG_ROWS)
+    print("\n" + config)
 
-    all_lines: list[str] = [header]
+    all_lines: list[str] = []
 
     for strat_label, sma_t, tr_t in STRATEGIES:
         print(f"  {strat_label} …", flush=True)
@@ -291,6 +304,9 @@ def main() -> None:
     with RESULT_PATH.open("w") as fh:
         fh.write("# Qullamaggie Tight-Range Cohort Analysis\n\n")
         fh.write(f"Run date: {run_timestamp()}\n\n")
+        fh.write("## Configuration\n\n")
+        fh.write(config)
+        fh.write("\n## Results\n\n")
         fh.write("```text\n")
         fh.write(output)
         fh.write("\n```\n")
