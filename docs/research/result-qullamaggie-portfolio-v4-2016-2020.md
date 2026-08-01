@@ -1,7 +1,25 @@
 # Portfolio Simulation — size sweep + ranking deciles
 
-Run date: 2026-08-01 10:47:40 Tallinn time
-Period: 2016-01-01 – 2020-12-31  |  Initial: $30,000  |  algorithm: RSI<70  |  sizes: 3%, 4%, 5%  |  hold: 366d  |  min ranking: 40
+Run date: 2026-08-01 11:46:31 Tallinn time
+
+## Configuration
+
+| Parameter | Value |
+|---|---|
+| Period | 2016-01-01 – 2020-12-31 |
+| Hold | 366d (calendar) |
+| Algorithms | bk50d_s20_v2.0 (%abv_SMA50>20%), bk50d_s16_v2.0 (%abv_SMA50>16%), bk50d_s12_v2.0 (%abv_SMA50>12%) |
+| Entry | next trading day's split/dividend-adjusted open |
+| Initial equity | $30,000 |
+| Position sizing | 3%, 4%, 5% of portfolio per trade |
+| Ranking gate | QullamaggieRanking >= 40, reported against an ungated run of the same signals |
+| Fixed filters | breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, roc_12m<100% (no tight_range) |
+| Market regime | SPY close > 200d SMA |
+| Price range | > $5 and < $250 |
+| Min avg vol (20d) | >= 500K |
+| Cooldown | 30 calendar days |
+| Universe | US common stocks, market_cap >= 1.5B, excl. Comm/RE |
+| Cash competition | same-day signals funded best-ranked first |
 
 ## Buy & Hold Benchmarks
 
@@ -16,74 +34,53 @@ QQQ         85,956  +23.46   -28.56   0.821    1.492
 
 ## s20  (bk50d_s20_v2.0 / 366d)
 
-Parameters: %abv_SMA50>20%, breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, roc_12m<100%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal
+`%abv_SMA50 > 20%` — every other filter is in the Configuration table above.
 
-**QullamaggieRanking >= 40** — 179 signals dropped by the gate, 0 with no fillable next-day open in period.
-
-```text
-size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
---------------------------------------------------------------------------
-3%         108,184  +29.28   -30.62   0.956    1.715    129    505   31.6%
-4%         116,840  +31.29   -26.45   1.183    1.704    102    532   26.0%
-5%         137,756  +35.69   -23.02   1.551    1.910     82    552   24.8%
-```
-
-**no ranking filter** — 0 signals dropped by the gate, 0 with no fillable next-day open in period.
+**Ranking gate:** `QullamaggieRanking >= 40` drops 179 signals (0 with no fillable next-day open); ungated drops 0 (0 with no fillable open). Each sizing is listed gated then ungated, so the pair reads across — a gated run alone cannot show whether the signals it removed would have compounded better.
 
 ```text
-size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
---------------------------------------------------------------------------
-3%         107,990  +29.23   -21.13   1.384    1.686    139    674   23.7%
-4%         113,289  +30.48   -29.46   1.034    1.722    107    706   22.2%
-5%         114,903  +30.85   -33.56   0.919    1.699     87    726   21.1%
+size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
+-----------------------------------------------------------------------------------
+3%     R>=40        108,184  +29.28   -30.62   0.956    1.715    129    505   31.6%
+3%     ungated      107,990  +29.23   -21.13   1.384    1.686    139    674   23.7%
+4%     R>=40        116,840  +31.29   -26.45   1.183    1.704    102    532   26.0%
+4%     ungated      113,289  +30.48   -29.46   1.034    1.722    107    706   22.2%
+5%     R>=40        137,756  +35.69   -23.02   1.551    1.910     82    552   24.8%
+5%     ungated      114,903  +30.85   -33.56   0.919    1.699     87    726   21.1%
 ```
 
 ## s16  (bk50d_s16_v2.0 / 366d)
 
-Parameters: %abv_SMA50>16%, breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, roc_12m<100%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal
+`%abv_SMA50 > 16%` — every other filter is in the Configuration table above.
 
-**QullamaggieRanking >= 40** — 526 signals dropped by the gate, 0 with no fillable next-day open in period.
-
-```text
-size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
---------------------------------------------------------------------------
-3%         114,759  +30.82   -29.45   1.046    1.768    132    542   28.2%
-4%         132,982  +34.73   -25.94   1.339    1.841    103    571   23.7%
-5%         144,764  +37.04   -26.29   1.409    1.991     83    591   23.3%
-```
-
-**no ranking filter** — 0 signals dropped by the gate, 1 with no fillable next-day open in period.
+**Ranking gate:** `QullamaggieRanking >= 40` drops 526 signals (0 with no fillable next-day open); ungated drops 0 (1 with no fillable open). Each sizing is listed gated then ungated, so the pair reads across — a gated run alone cannot show whether the signals it removed would have compounded better.
 
 ```text
-size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
---------------------------------------------------------------------------
-3%         114,597  +30.78   -29.78   1.034    1.747    151   1048   18.2%
-4%         105,266  +28.57   -43.60   0.655    1.463    117   1082   15.1%
-5%         101,074  +27.53   -44.41   0.620    1.381     98   1101   12.6%
+size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
+-----------------------------------------------------------------------------------
+3%     R>=40        114,759  +30.82   -29.45   1.046    1.768    132    542   28.2%
+3%     ungated      114,597  +30.78   -29.78   1.034    1.747    151   1048   18.2%
+4%     R>=40        132,982  +34.73   -25.94   1.339    1.841    103    571   23.7%
+4%     ungated      105,266  +28.57   -43.60   0.655    1.463    117   1082   15.1%
+5%     R>=40        144,764  +37.04   -26.29   1.409    1.991     83    591   23.3%
+5%     ungated      101,074  +27.53   -44.41   0.620    1.381     98   1101   12.6%
 ```
 
 ## s12  (bk50d_s12_v2.0 / 366d)
 
-Parameters: %abv_SMA50>12%, breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, roc_12m<100%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown=30d, hold=366d cal
+`%abv_SMA50 > 12%` — every other filter is in the Configuration table above.
 
-**QullamaggieRanking >= 40** — 936 signals dropped by the gate, 0 with no fillable next-day open in period.
-
-```text
-size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
---------------------------------------------------------------------------
-3%         101,568  +27.66   -26.13   1.059    1.600    143    602   21.4%
-4%         104,436  +28.37   -29.60   0.959    1.589    111    634   19.6%
-5%          99,489  +27.13   -45.95   0.590    1.419     92    653   17.0%
-```
-
-**no ranking filter** — 0 signals dropped by the gate, 1 with no fillable next-day open in period.
+**Ranking gate:** `QullamaggieRanking >= 40` drops 936 signals (0 with no fillable next-day open); ungated drops 0 (1 with no fillable open). Each sizing is listed gated then ungated, so the pair reads across — a gated run alone cannot show whether the signals it removed would have compounded better.
 
 ```text
-size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
---------------------------------------------------------------------------
-3%         104,991  +28.51   -44.54   0.640    1.465    162   1518   11.2%
-4%         102,116  +27.79   -48.32   0.575    1.374    121   1559   10.4%
-5%          99,022  +27.01   -49.72   0.543    1.310     97   1583    9.6%
+size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
+-----------------------------------------------------------------------------------
+3%     R>=40        101,568  +27.66   -26.13   1.059    1.600    143    602   21.4%
+3%     ungated      104,991  +28.51   -44.54   0.640    1.465    162   1518   11.2%
+4%     R>=40        104,436  +28.37   -29.60   0.959    1.589    111    634   19.6%
+4%     ungated      102,116  +27.79   -48.32   0.575    1.374    121   1559   10.4%
+5%     R>=40         99,489  +27.13   -45.95   0.590    1.419     92    653   17.0%
+5%     ungated       99,022  +27.01   -49.72   0.543    1.310     97   1583    9.6%
 ```
 
 ## Monthly returns/transactions — top 5 by Final$

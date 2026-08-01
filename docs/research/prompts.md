@@ -381,27 +381,29 @@ contraction the setup looks for ahead of a breakout; above 1.0 volume is already
 Calculate results with applying filter `MIN_RANKING >= 40` and without applying it.
 - **Initial portfolio:** $30,000
 - **Position sizing:** invest {3%, 4%, 5%} of portfolio at a time per trade; if there is no liquidity, skip the trade.
-- **Header:** `All filter conditions from algorithm`
-- **Output format:** one table per algorithm per ranking treatment — gated first, then ungated, so
-  the pair can be read side by side. Everything else (period, sizing, entry, exit) is identical
-  between the two, so the difference isolates the gate.
+- **Header:** a `## Configuration` table (`| Parameter | Value |`, the same shape the cohort studies
+  use via `turtlex/common/report.py:config_table`) carrying every filter once at the top of the doc.
+  Only `%abv_SMA50`, the swept dimension each algorithm is named for, stays on the per-algorithm
+  heading — repeating the full filter list per section made three near-identical lines that could
+  drift apart.
+- **Output format:** **one table per algorithm**, carrying both ranking treatments. Each sizing
+  appears twice on adjacent rows — gated then ungated — so the pair reads across rather than
+  across two separate tables. Everything else (period, sizing, entry, exit) is identical between
+  the two, so the difference isolates the gate. A `gate` column distinguishes the rows.
 
   ```text
-  **QullamaggieRanking >= 40** — 143 signals dropped by the gate, 0 with no fillable next-day open in period.
+  **Ranking gate:** `QullamaggieRanking >= 40` drops 184 signals (0 with no fillable next-day open);
+  ungated drops 0 (0 with no fillable open). Each sizing is listed gated then ungated, so the pair
+  reads across — a gated run alone cannot show whether the signals it removed would have compounded better.
 
-  size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
-  --------------------------------------------------------------------------
-  3%         159,762  +35.71   -22.73   1.571    1.252    151    222   21.8%
-  4%         148,736  +33.95   -24.43   1.390    1.165    120    253   18.6%
-  5%         152,319  +34.54   -28.11   1.229    1.110    100    273   16.3%
-
-  **no ranking filter** — 0 signals dropped by the gate, 0 with no fillable next-day open in period.
-
-  size        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
-  --------------------------------------------------------------------------
-  3%         136,114  +31.80   -23.95   1.328    1.174    163    353   18.4%
-  4%         117,221  +28.25   -31.34   0.902    1.020    132    384   15.9%
-  5%         116,341  +28.08   -28.67   0.979    0.968    110    406   13.7%
+  size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
+  -----------------------------------------------------------------------------------
+  3%     R>=40        188,451  +39.87   -28.24   1.412    1.785    175    335   13.8%
+  3%     ungated      151,102  +34.34   -27.66   1.242    1.625    184    510   11.6%
+  4%     R>=40        206,548  +42.23   -28.01   1.508    1.769    135    375   11.3%
+  4%     ungated      191,828  +40.32   -28.54   1.413    1.710    139    555    9.5%
+  5%     R>=40        250,869  +47.37   -31.43   1.507    1.800    110    400    9.8%
+  5%     ungated      169,102  +37.13   -29.20   1.272    1.609    114    580    9.7%
   ```
 
 - The **monthly grid's** "top 5 by Final$" ranks across both treatments together, so each entry is
