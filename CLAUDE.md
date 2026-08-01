@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Python-based financial trading strategy backtesting library for US stocks. Supports multiple strategies (Darvas Box, Mars, Momentum), portfolio management, and market data via EODHD API. Data stored in PostgreSQL.
+Python-based financial trading strategy backtesting library for US stocks. Supports multiple strategies (Qullamaggie, Darvas Box, Mars, Momentum), portfolio management, and market data via EODHD API. Data stored in PostgreSQL.
 
 ## 1. Think Before Coding
 
@@ -71,7 +71,6 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## 6. Standard Workflow
 
 - After non-trivial changes, run pytest and mypy before proposing a commit. Run mypy with no arguments (`uv run mypy`) — scanned paths are defined in `pyproject.toml` `[tool.mypy] files`.
-- Use the PR review subagent workflow (parallel agents) before commit/push on multi-file changes.
 - Polars for all new code. Pandas is intentionally retained in `turtlex/portfolio/analytics.py`, plus indirectly via `quantstats`. Don't introduce pandas elsewhere; flag any new pandas import in code review.
 - **Always run `scripts/*.py` studies under a memory cap** (see [Running Research Studies](#running-research-studies)). They load millions of rows; an uncapped runaway takes the whole WSL distro down, not just the script.
 
@@ -79,16 +78,22 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ### Most Common Operations
 
+Full CLI reference — every flag and worked examples — is in [docs/scripts.md](docs/scripts.md).
+
 | Task | Command | Use When |
 | ------ | --------- | ---------- |
 | **Generate signals** | `uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01` | Analyze trading opportunities |
 | **Portfolio backtest** | `uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31` | Test multi-position strategy |
 | **Single backtest** | `uv run backtest-runner --tickers AAPL --start-date 2024-01-01 --end-date 2024-01-01` | Test specific ticker |
+| **Download data** | `uv run download-eodhd-data` | Bulk historical/reference data from EODHD |
+| **Snapshot fundamentals** | `uv run snapshot-company` | Refresh the `company` table |
+| **Install deps** | `uv sync --extra lint` | First setup, or after a dependency change |
+| **Start database** | `docker-compose up -d` | Before any data operations |
+| **Apply migrations** | `uv run alembic upgrade head` | After pulling schema changes |
 | **Run tests** | `uv run pytest` | Verify code changes |
 | **Test coverage** | `uv run pytest --cov=turtlex --cov-report=term-missing` | Find untested code paths |
 | **Lint markdown docs** | `npx markdownlint-cli2` | Check README/CLAUDE.md/docs before committing (`--fix` to auto-fix) |
 | **Run Bruno API smoke tests** | `uv run pytest -m bruno` | Verify live EODHD endpoints still match expectations (requires `npm install -g @usebruno/cli` + real `EODHD_API_KEY` in `bruno/eodhd/.env`) |
-| **Start database** | `docker-compose up -d` | Before any data operations |
 
 ### Running Research Studies
 
@@ -133,16 +138,6 @@ convention: `docs/research/qullamaggie-backtest-v4.md` (Step 1).
 - **Project docs**: `/docs/*.md` - `implementation.md`, `scripts.md`, `service.md`, `signal_runner.md`, `strategy.md`, `troubleshooting.md`
 - **Database init & migrations**: `/db/init.sql`, `/db/init.sh`, `/db/migrations/`
 
-### Development Decision Tree
-
-**Want to analyze market signals?** → Use `uv run signal-runner --start-date ... --end-date ...`
-
-**Want to test a strategy on one ticker?** → Use `uv run backtest-runner --tickers SYMBOL`
-
-**Want to test portfolio performance?** → Use `uv run portfolio-runner` with date range
-
-**Need historical data?** → Use `uv run download-eodhd-data` for bulk historical downloads
-
 ## MCP Servers
 
 Configured in `.mcp.json`. Tool-selection rules are in [Tool Preferences](#tool-preferences) below.
@@ -166,55 +161,40 @@ Configured in `.mcp.json`. Tool-selection rules are in [Tool Preferences](#tool-
 
 Trunk-based development — commit directly to `main`, no pull requests or feature branches.
 
-## Development Setup
-
-| Command | Purpose |
-| --------- | --------- |
-| `uv sync --extra lint` | Install dependencies |
-| `source ./.venv/bin/activate` | Activate virtual environment |
-| `docker-compose up -d` | Start PostgreSQL database |
-| `uv run pytest` | Run all tests |
-| `uv run alembic upgrade head` | Apply database migrations |
-
 ## Architecture Overview
 
 ### Repo Layout
 
-Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `docs/` (project docs), `examples/` (see [Examples Directory](#examples-directory)), `scripts/` (standalone research studies, run via `uv run scripts/<name>.py`; their shared signal layer lives in `turtlex/research/`), `tests/` (mirrors source tree).
+Top-level dirs: `db/` (schema + Alembic migrations), `docs/` (project docs), `examples/` (runnable
+portfolio-backtest templates), `scripts/` (standalone research studies, run via
+`uv run scripts/<name>.py`), `tests/` (mirrors the source tree), `turtlex/` (the package).
 
-### Core Components
+Use `ls` or codegraph for the file inventory — the rules that are *not* visible from a listing are
+below.
 
-- **turtlex/common/**: Shared enums and utilities
-  - `enums.py`: `TimeFrameUnit` enum (DAY, WEEK)
-  - `cli.py`: `iso_date_type` — argparse type helper for ISO date strings (YYYY-MM-DD)
-- **turtlex/model.py**: Core domain dataclasses (`Signal`, `Trade`, `Benchmark`, etc.) — single shared module; do not create per-package `models.py` files
-- **turtlex/strategy/factory.py**: Strategy factories for CLI scripts — module-level registries (`TRADING_STRATEGIES`, `EXIT_STRATEGIES`, `RANKING_STRATEGIES`) hold the canonical string → class mapping for trading, exit, and ranking strategies; `get_trading_strategy` / `get_exit_strategy` / `get_ranking_strategy` instantiate from them with injected dependencies. CLIs derive their argparse `choices` from the registry keys — never hardcode strategy name lists in scripts.
-- **turtlex/repository/**: All database access (sync Engine reads + async Session writes)
-  - `tables.py`: SQLAlchemy Core table definitions + shared reference constants (`US_EXCHANGES`, `COMMON_STOCK_TYPE`)
-  - `query/`: sync Engine-based analytical reads — `daily_bars.py` → `DailyBarsQueryRepository` (`get_bars_pl` for one ticker, used by the per-ticker runner; `get_qualified_universe_bars_pl` for the whole universe in one query, used by `turtlex/research/`), `ticker.py` → `TickerQueryRepository` (symbol groups, fundamentals-qualified lists)
-  - `ingest/`: async Session-based repositories for the EODHD download path — `ExchangeRepository`, `TickerRepository`, `DailyBarsRepository`, `CompanyRepository`
-- **turtlex/strategy/trading/**: Trading signal implementations
-  - `base.py`: TradingStrategy abstract base
-  - `darvas_box.py`, `mars.py`, `momentum.py`
-- **turtlex/strategy/exit/**: Exit strategy implementations
-  - `base.py`: ExitStrategy abstract base
-  - `buy_and_hold.py`, `profit_loss.py`, `ema.py`, `macd.py`, `atr.py`, `trailing_percentage_loss.py`
-- **turtlex/backtest/**: Backtesting engine
-  - `processor.py`, `benchmark_utils.py`
-- **turtlex/portfolio/**: Multi-position portfolio management
-  - `manager.py`, `selector.py`, `analytics.py`
-- **turtlex/strategy/ranking/**: Signal ranking strategies — `momentum.py`, `volume_momentum.py`, `breakout_quality.py`, `qullamaggie.py` (see [docs/strategy.md](docs/strategy.md))
-- **turtlex/research/**: Bulk (whole-universe-in-one-query) counterparts of the production strategies, backing the `scripts/` studies
-  - `qullamaggie.py`: multi-symbol Qullamaggie signal layer — `load_bars`, `add_indicators`, `get_signals`, `resolve_entries`. Mirrors `QullamaggieStrategy`; parity is enforced by `tests/research/test_qullamaggie_parity.py`. The production strategy loads one ticker per query because the runner walks the universe ticker by ticker; the research path loads everything at once so parameter sweeps can re-filter in memory. Keep both — and keep them identical.
-- **turtlex/client/**: External API clients
-  - `eodhd.py`: EODHD API wrapper
-- **turtlex/config/**: Configuration management
-  - `settings.py`: TOML + environment variable loader
-  - `model.py`: Config dataclasses (`DatabaseConfig`, `AppConfig`, `DatabasePoolConfig`)
-  - `logging.py`: Logging configuration
-- **turtlex/schema/**: Pydantic models for external API responses (EODHD)
-  - `exchange.py` → `Exchange`, `ticker.py` → `Ticker`, `company.py` → `Company`, `daily_bars.py` → `DailyBars`
-- **turtlex/service/**: Business logic orchestration layer
+### Package Rules
+
+- **`turtlex/model.py`** holds every shared domain dataclass (`Signal`, `Trade`, `Benchmark`, …).
+  Do not create per-package `models.py` files.
+- **`turtlex/repository/`** is the only place SQL lives. `query/` does sync `Engine` analytical
+  reads, `ingest/` does async `AsyncSession` writes for the EODHD download path. Note the two
+  read shapes on `DailyBarsQueryRepository`: `get_bars_pl` (one ticker — the per-ticker runner)
+  and `get_qualified_universe_bars_pl` (whole universe in one query — `turtlex/research/`).
+- **`turtlex/strategy/factory.py`** holds the `TRADING_STRATEGIES` / `EXIT_STRATEGIES` /
+  `RANKING_STRATEGIES` registries — the canonical string → class mapping. CLIs derive their
+  argparse `choices` from the registry keys; never hardcode strategy name lists in scripts.
+- **`turtlex/research/qullamaggie.py`** mirrors `QullamaggieStrategy` in bulk form: production
+  loads one ticker per query because the runner walks the universe ticker by ticker, research
+  loads everything at once so sweeps can re-filter in memory. Parity is enforced by
+  `tests/research/test_qullamaggie_parity.py` — keep both, and keep them identical.
+- **`turtlex/schema/`** is Pydantic, and only for external (EODHD) API responses that need field
+  aliasing. Everything internal is a dataclass.
+- **`turtlex/backtest/metrics.py`** is the single source of the shared trade/daily metrics
+  (`compute_trade_metrics`, `compute_daily_sortino`). Don't recompute Sortino, CVaR or profit
+  factor locally in a study — see [docs/scripts.md](docs/scripts.md) on the two Sortino regimes.
+- **Strategy/exit/ranking implementations** live under `turtlex/strategy/{trading,exit,ranking}/`,
+  each behind the ABC in its `base.py`. See [docs/strategy.md](docs/strategy.md) for what each one
+  does and when to use it.
 
 ### Database
 
@@ -224,11 +204,8 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 
 ## Core Systems Overview
 
-### Portfolio Management
-
-- **PortfolioManager**: Position/cash management, daily snapshots, position sizing with min/max constraints
-- **PortfolioSignalSelector**: Signal ranking and filtering, position limits, minimum ranking threshold
-- **PortfolioAnalytics**: Performance metrics (Sharpe, Sortino, Max DD, win rate), benchmark comparison
+The portfolio trio — `PortfolioManager`, `PortfolioSignalSelector`, `PortfolioAnalytics` — is
+described in [docs/service.md](docs/service.md).
 
 ### Configuration System
 
@@ -239,15 +216,10 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 
 ## Database Migrations
 
-| Command | Purpose |
-| --------- | --------- |
-| `uv run alembic current` | Check current migration version |
-| `uv run alembic history` | Show migration history |
-| `uv run alembic upgrade head` | Apply all pending migrations |
-| `uv run alembic downgrade -1` | Rollback one migration |
-| `uv run alembic revision -m "description"` | Create new migration |
-
-**Architecture**: Alembic standalone mode with raw SQL. Migrations in `db/migrations/versions/`. Version table in `public.alembic_version`. Target database selected via `DB_ENV` (`local` default, `hetzner` for the VPS).
+Alembic standalone mode with raw SQL (the usual `current` / `history` / `upgrade head` /
+`downgrade -1` / `revision -m` commands apply). Migrations live in `db/migrations/versions/`, the
+version table is `public.alembic_version`, and the target database is selected via `DB_ENV`
+(`local` default, `hetzner` for the VPS).
 
 ## Development Workflows
 
@@ -275,13 +247,6 @@ Top-level dirs not detailed elsewhere: `db/` (schema + Alembic migrations), `doc
 3. **Add tests**: `tests/strategy/trading/test_my_strategy.py` (mirror the source tree)
 4. **Register in the factory**: Add your class to the `TRADING_STRATEGIES` registry in `turtlex/strategy/factory.py` — all CLIs derive their `--trading-strategy` choices from it. For programmatic use, instantiate the class directly and pass it to the service constructor.
 5. **Test**: `uv run signal-runner --trading-strategy my_strategy --start-date 2024-06-01 --end-date 2024-06-01`
-
-## Examples Directory
-
-| Example | Purpose | Command |
-| --------- | --------- | --------- |
-| **portfolio_backtest_example.py** | Programmatic portfolio backtesting template | `uv run python examples/portfolio_backtest_example.py` |
-| **portfolio_backtest_api_demo.py** | API-style portfolio backtesting demo | `uv run python examples/portfolio_backtest_api_demo.py` |
 
 ## Design Patterns & Principles
 
@@ -348,35 +313,20 @@ Use `@staticmethod` for pure utility functions that belong logically to a class 
 
 ## Testing
 
-Tests mirror the source tree under `tests/`:
+Tests mirror the source tree under `tests/` — a change in `turtlex/strategy/exit/atr.py` belongs in
+`tests/strategy/exit/test_atr_exit_strategy.py`. Shared fixtures live in `tests/conftest.py`;
+file-specific fixtures stay in the individual test file.
 
-- `strategy/trading/test_darvas_box.py`: Darvas Box strategy logic
-- `strategy/trading/test_mars_strategy.py`: Mars strategy logic
-- `strategy/trading/test_momentum_strategy_parity.py`: Momentum strategy (polars path)
-- `strategy/trading/test_qullamaggie.py`: Qullamaggie strategy logic
-- `strategy/ranking/test_breakout_quality_ranking.py`: Breakout quality ranking strategy
-- `strategy/ranking/test_momentum_ranking.py`: Momentum ranking strategy
-- `strategy/ranking/test_volume_momentum_ranking.py`: Volume momentum ranking strategy
-- `strategy/ranking/test_qullamaggie_ranking.py`: Qullamaggie ranking strategy
-- `strategy/exit/test_macd_exit_strategy.py`: MACD exit strategy logic
-- `strategy/exit/test_atr_exit_strategy.py`: ATR exit strategy logic
-- `strategy/exit/test_ema_exit_strategy.py`: EMA exit strategy logic
-- `strategy/exit/test_buy_and_hold_exit_strategy.py`: Buy and hold exit strategy logic
-- `strategy/exit/test_profit_loss_exit_strategy.py`: Profit/loss exit strategy logic
-- `strategy/exit/test_trailing_percentage_loss_exit_strategy.py`: Trailing percentage loss exit strategy logic
-- `strategy/test_factory.py`: Strategy factory
-- `research/test_qullamaggie_parity.py`: parity between `turtlex/research/qullamaggie.py` (bulk) and `QullamaggieStrategy` (per-ticker) — identical `(symbol, signal_date, entry_date, entry_price)` tuples
-- `repository/query/test_daily_bars.py`: DailyBarsQueryRepository (polars reads, per-ticker and bulk universe)
-- `repository/query/test_ticker.py`: TickerQueryRepository (symbol list and qualified-universe reads)
-- `repository/ingest/test_exchange.py`, `test_ticker.py`, `test_daily_bars.py`, `test_company.py`: async ingest repository classes
-- `portfolio/test_portfolio.py`: Portfolio management and analytics
-- `backtest/test_signal_processor.py`: Signal processing pipeline
-- `config/test_settings.py`: Configuration loading
-- `cli/test_api_token_filter.py`: API token filter logic
+Two tests guard invariants rather than a single unit, and are worth knowing before changing the
+things they cover:
 
-Shared fixtures live in `tests/conftest.py`. File-specific fixtures stay in the individual test file.
+- `research/test_qullamaggie_parity.py` — asserts `turtlex/research/qullamaggie.py` (bulk) and
+  `QullamaggieStrategy` (per-ticker) emit identical `(symbol, signal_date, entry_date, entry_price)`
+  tuples, and that their filter constants have not drifted apart.
+- `scripts/test_metric_conventions.py` — keeps the `scripts/` studies on the shared metric helpers.
 
 Run with `uv run pytest` or `uv run pytest tests/strategy/trading/test_darvas_box.py`.
+`-m bruno` tests hit the live EODHD API and are deselected by default.
 
 ## Dependencies & Resources
 
