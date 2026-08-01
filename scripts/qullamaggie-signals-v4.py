@@ -15,8 +15,12 @@ same convention as scripts/qullamaggie-portfolio-sim.py's run_sim_limit).
 
 Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
 ADR_change<90%, roc_12m<100%, vol_surge<2.0x, SPY>200d SMA,
-close>$5&<$250, avg_vol>=500K; tight_range and sma_alignment disabled — TR% is shown for
-information only, not filtered). Display window: 2026-06-01 - today.
+close>$5&<$250, avg_vol>=500K; tight_range and sma_alignment disabled). Two columns are
+informational only, not filtered on: TR% (tight_range) and VOL_DRY
+(`mean(volume[-11:-1]) / mean(volume[-51:-1])`, both shift-1). VOL_DRY was the `vol_dry_up < 0.90`
+filter until it was retired on 2026-08-01 — see docs/research/result-qullamaggie-cohorts-vol-dry-up.md
+— so values at or above 0.90 now appear where they previously could not.
+Display window: 2026-06-01 - today.
 Candidate window starts earlier so the 30-day cooldown state is correct at the start of the
 display window.
 
@@ -250,6 +254,7 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("_c1").rolling_mean(50, min_samples=50).over("symbol").alias("sma50"),
             pl.col("_v1").rolling_mean(50, min_samples=50).over("symbol").alias("avg_vol_50"),
             pl.col("_v1").rolling_mean(20, min_samples=20).over("symbol").alias("avg_vol_20"),
+            pl.col("_v1").rolling_mean(10, min_samples=10).over("symbol").alias("avg_vol_10"),
             pl.col("_c1").rolling_max(50, min_samples=50).over("symbol").alias("max_c_50d"),
             pl.col("_c1").rolling_max(10, min_samples=10).over("symbol").alias("_tr_max"),
             pl.col("_c1").rolling_min(10, min_samples=10).over("symbol").alias("_tr_min"),
@@ -265,6 +270,7 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
             ((pl.col("_tr_max") - pl.col("_tr_min")) / pl.col("_tr_mean")).alias("tight_range_ratio"),
             ((pl.col("close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
             (pl.col("_adr10") / pl.col("_adr50")).alias("adr_pct_change"),
+            (pl.col("avg_vol_10") / pl.col("avg_vol_50")).alias("vol_dry_up_ratio"),
             (pl.col("close") / pl.col("_c_252d") - 1.0).alias("roc_252d"),
         ]
     )
@@ -302,6 +308,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
                 "pct_vs_sma50",
                 "adr_pct",
                 "adr_pct_change",
+                "vol_dry_up_ratio",
                 "rsi14",
                 "tight_range_ratio",
                 "roc_252d",
@@ -408,7 +415,7 @@ def main() -> None:
 
     hdr = (
         f"{'Date':<11}│ {'Symbol':<7}│ {'Entry $':>8} │ {'Curr Price':>10} │ {'0.97*Entry':>10} │ {'Change %':>9} │ "
-        f"{'%abv SMA50':>10} │ {'ADR%':>6} │ {'ADR_CHG':>7} │ {'RSI14':>6} │ {'TR%':>6} │ {'ROC252%':>8} │ "
+        f"{'%abv SMA50':>10} │ {'ADR%':>6} │ {'ADR_CHG':>7} │ {'VOL_DRY':>7} │ {'RSI14':>6} │ {'TR%':>6} │ {'ROC252%':>8} │ "
         f"{'In s16?':>7} │ {'In s20?':>7} │ {'Reached?':>8} │ {'Ranking':>7} │ {'Last date':>11}"
     )
     sep = "─" * len(hdr)
@@ -458,6 +465,7 @@ def main() -> None:
         lines.append(
             f"{str(d):<11}│ {sym:<7}│ {entry:>8.2f} │ {curr:>10.2f} │ {limit_px:>10.2f} │ {chg:>+8.1f}% │ "
             f"{sma_pct:>+9.1f}% │ {row['adr_pct'] * 100:>5.1f}% │ {row['adr_pct_change']:>7.2f} │ "
+            f"{row['vol_dry_up_ratio']:>7.2f} │ "
             f"{row['rsi14']:>6.1f} │ {row['tight_range_ratio'] * 100:>5.1f}% │ {row['roc_252d'] * 100:>+7.1f}% │ "
             f"{mark16:>7} │ {mark:>7} │ {mark_reached:>8} │ {ranking:>7} │ {str(ld):>11}"
         )

@@ -497,10 +497,13 @@ Calculate results with applying filter `MIN_RANKING >= 40` and without applying 
 - **Output columns:**
 
   ```text
-  Date │ Symbol │ Entry $ │ Curr Price │ 0.97*Entry Price │ Change % │ %abv SMA50 │ ADR% │ ADR_CHG │ RSI14 │ TR% │ ROC252% │ In s16? │ In s20? │ 0.97*Entry Price reached? │ Ranking │ Last date
+  Date │ Symbol │ Entry $ │ Curr Price │ 0.97*Entry Price │ Change % │ %abv SMA50 │ ADR% │ ADR_CHG │ VOL_DRY │ RSI14 │ TR% │ ROC252% │ In s16? │ In s20? │ 0.97*Entry Price reached? │ Ranking │ Last date
   ```
 
-  - `%abv SMA50`, `ADR%`, `RSI14`, `TR%`, `ROC252%` must be calculated on the **signal** date, since that is the bar every filter is evaluated on.
+  - `%abv SMA50`, `ADR%`, `ADR_CHG`, `VOL_DRY`, `RSI14`, `TR%`, `ROC252%` must be calculated on the **signal** date, since that is the bar every filter is evaluated on.
+  - `VOL_DRY` = `mean(volume[-11:-1]) / mean(volume[-51:-1])`, both shift-1 — the old `vol_dry_up < 0.90`
+    filter, **retired 2026-08-01** (see [Vol dry-up cohorts](#vol-dry-up-cohorts)). Shown for information
+    only, like `TR%`; values at or above 0.90 now appear where they previously could not.
   - `Last date` = latest date when stock data is available in the `turtle.daily_bars` table.
   - `Ranking` - ranking calculated according to @turtlex/strategy/ranking/qullamaggie.py
 
