@@ -1,8 +1,8 @@
 # Qullamaggie Ranking — Out-of-Sample Validation
 
-Run date: 2026-08-01 02:00:50 Tallinn time
+Run date: 2026-08-01 11:01:31 Tallinn time
 
-Reference config: bk50d_s15_v1.3_roc100 / 366d hold | Period: 2015-01-01 - 2026-06-26 | Split date: 2021-01-01 (train N=1004, held-out N=722)
+Reference config: bk50d_s15_v1.3_roc100 / 366d hold | Period: 2015-01-01 - 2026-06-26 | Split date: 2021-01-01 (train N=1390, held-out N=982)
 
 Three scorers, all evaluated on the same held-out (entries >= split date) signals:
 
@@ -15,19 +15,19 @@ Three scorers, all evaluated on the same held-out (entries >= split date) signal
 
 Decile     Score     N     Med%    Mean%   Win%  Sortino     PF
 ---------------------------------------------------------------
-D1           8.1    72   +4.86  +12.53   59.7    0.682   2.23
-D2          13.6    72  +12.58  +20.30   63.9    1.038   3.08
-D3          17.2    72  +15.97  +28.91   58.3    1.585   3.94
-D4          20.6    72  +16.07  +40.34   62.5    2.035   5.37
-D5          26.2    73  +30.19  +42.88   68.5    2.110   5.62
-D6          36.4    72  +21.95  +57.78   70.8    3.059   7.60
-D7          44.7    72  +14.30  +43.86   63.9    2.604   6.33
-D8          50.2    72  +10.37  +48.02   61.1    2.165   5.34
-D9          58.8    72  +18.15  +72.42   63.9    3.208   7.09
-D10         74.9    73  +52.91  +64.01   67.1    3.035   7.40
+D1           7.4    98   +2.21  +11.48   52.0    0.465   1.82
+D2          13.3    98  +13.69  +23.36   60.2    1.317   3.44
+D3          16.9    98  +26.68  +40.23   70.4    2.272   5.80
+D4          20.9    98  +26.54  +44.25   67.3    3.159   8.36
+D5          24.2    99   +7.94  +22.96   55.6    0.961   2.71
+D6          28.1    98  +27.70  +58.74   72.4    4.529  11.24
+D7          32.5    98   +7.61  +38.00   59.2    1.624   4.17
+D8          36.7    98  +29.42  +54.54   70.4    2.884   7.05
+D9          49.9    98  +19.85  +83.78   67.3    4.395  10.27
+D10         75.3    99  +56.29  +64.51   66.7    2.967   6.86
 
 Sortino monotonicity: 6/9 decile steps non-decreasing
-Mean% monotonicity: 7/9 decile steps non-decreasing
+Mean% monotonicity: 6/9 decile steps non-decreasing
 ```
 
 ```text
@@ -35,19 +35,19 @@ Mean% monotonicity: 7/9 decile steps non-decreasing
 
 Decile     Score     N     Med%    Mean%   Win%  Sortino     PF
 ---------------------------------------------------------------
-D1          14.1    72  +10.35  +21.11   63.9    1.289   3.51
-D2          22.7    72  +10.91  +25.72   65.3    1.435   3.97
-D3          24.6    72  +13.45  +29.63   63.9    1.556   4.31
-D4          31.1    72  +28.47  +66.68   68.1    4.008   9.72
-D5          34.8    73  +27.63  +35.36   65.8    1.790   4.63
-D6          41.7    72  +22.37  +44.10   63.9    2.140   5.26
-D7          48.1    72  +11.49  +40.52   59.7    1.952   4.65
-D8          59.1    72  +20.10  +51.41   63.9    3.097   7.08
-D9          66.0    72  +18.95  +42.61   56.9    1.607   4.05
-D10         84.1    73  +60.56  +73.88   68.5    3.331   7.77
+D1          14.3    98  +10.58  +20.48   61.2    1.157   3.19
+D2          22.7    98   +8.33  +28.05   65.3    1.590   4.47
+D3          24.9    98  +13.85  +28.75   61.2    1.541   4.08
+D4          31.5    98  +25.50  +50.45   64.3    2.702   6.35
+D5          35.6    99  +23.08  +34.84   63.6    1.661   4.26
+D6          42.2    98  +22.37  +53.02   64.3    2.840   6.70
+D7          48.8    98  +18.88  +44.08   64.3    2.367   5.64
+D8          59.8    98  +23.39  +46.45   61.2    2.130   5.12
+D9          66.6    98  +23.94  +48.53   64.3    2.156   5.42
+D10         84.8    99  +62.59  +86.85   71.7    3.979   9.49
 
-Sortino monotonicity: 6/9 decile steps non-decreasing
-Mean% monotonicity: 6/9 decile steps non-decreasing
+Sortino monotonicity: 5/9 decile steps non-decreasing
+Mean% monotonicity: 7/9 decile steps non-decreasing
 ```
 
 ```text
@@ -55,28 +55,28 @@ Mean% monotonicity: 6/9 decile steps non-decreasing
 
 Decile     Score     N     Med%    Mean%   Win%  Sortino     PF
 ---------------------------------------------------------------
-D1          34.2    72  +12.54  +20.64   66.7    1.338   3.70
-D2          42.0    72   +4.33  +20.83   52.8    0.943   2.60
-D3          47.4    72  +14.57  +25.10   63.9    1.211   3.57
-D4          50.0    72  +22.20  +25.89   61.1    1.287   3.53
-D5          56.5    73  +26.76  +54.99   64.4    2.874   7.06
-D6          61.7    72  +28.66  +47.76   70.8    3.184   8.09
-D7          66.6    72  +22.86  +57.09   69.4    3.160   7.60
-D8          71.3    72   +9.75  +55.77   59.7    2.257   5.38
-D9          76.5    72  +28.89  +59.07   63.9    3.018   7.08
-D10         85.8    73  +41.65  +63.72   67.1    2.928   6.98
+D1          34.0    98   +9.82  +21.51   61.2    1.261   3.41
+D2          41.3    98   +7.96  +29.45   58.2    1.458   3.62
+D3          47.1    98  +11.54  +23.67   62.2    1.152   3.34
+D4          49.6    98  +15.05  +25.46   60.2    1.092   3.14
+D5          55.6    99  +23.08  +47.95   62.6    2.666   6.28
+D6          61.1    98  +24.40  +42.54   68.4    2.573   6.41
+D7          66.0    98  +28.62  +72.27   73.5    4.482  11.62
+D8          71.0    98   +9.38  +41.94   60.2    1.704   4.20
+D9          76.5    98  +38.20  +61.20   65.3    3.359   7.83
+D10         85.1    99  +55.21  +75.50   69.7    3.530   8.42
 
 Sortino monotonicity: 5/9 decile steps non-decreasing
-Mean% monotonicity: 7/9 decile steps non-decreasing
+Mean% monotonicity: 6/9 decile steps non-decreasing
 ```
 
 ## Summary
 
 D10-D1 spread is the primary metric here -- the goal is optimizing Sortino and Mean%, so a scheme that widens the gap between its best and worst decile on those two is doing its job; Win% is reported in the tables above for context only, not used to judge fit.
 
-- Refit-on-train: Sortino spread=2.353, Mean% spread=+51.5, Sortino mono=6/9, Mean% mono=7/9
-- Production: Sortino spread=2.043, Mean% spread=+52.8, Sortino mono=6/9, Mean% mono=6/9
-- Legacy: Sortino spread=1.590, Mean% spread=+43.1, Sortino mono=5/9, Mean% mono=7/9
+- Refit-on-train: Sortino spread=2.502, Mean% spread=+53.0, Sortino mono=6/9, Mean% mono=6/9
+- Production: Sortino spread=2.822, Mean% spread=+66.4, Sortino mono=5/9, Mean% mono=7/9
+- Legacy: Sortino spread=2.269, Mean% spread=+54.0, Sortino mono=5/9, Mean% mono=6/9
 
 ## Weight-Split Stability Across Multiple Periods
 
@@ -85,14 +85,14 @@ Tests whether the six-dimension weight split this study was built around (price=
 ```text
 Split date    Train N        price          adr  compression          roc          rsi
 --------------------------------------------------------------------------------------
-2019-01-01        327           12           13            5           16            4
-2020-01-01        430           16           12            6           14            2
-2021-01-01       1004            8           12           11           12            7
-2022-01-01       1146           11            9            8           10           12
-2023-01-01       1237           10           13            9            9            9
+2019-01-01        447           10           10            7           17            6
+2020-01-01        594           15            7            2           23            3
+2021-01-01       1390            5           10           17           17            1
+2022-01-01       1569            7           10           14           12            7
+2023-01-01       1686            7           18           12            9            4
 ```
 
-Cross-fold average weight (renormalized to sum 50): price=11, adr=12, compression=8, roc=12, rsi=7
+Cross-fold average weight (renormalized to sum 50): price=9, adr=11, compression=10, roc=16, rsi=4
 
 ### Multi-fold out-of-sample comparison
 
@@ -101,10 +101,10 @@ For each cutoff, weights/bands are fit on data before it and scored on data at/a
 ```text
 Scheme            Avg Sortino spread  Avg Mean% spread  Folds
 -------------------------------------------------------------
-Refit-per-fold                 1.438             +33.2      5
-Stabilized-avg                 1.347             +33.1      5
-Production                     2.804             +57.9      5
-Legacy                         3.241             +54.8      5
+Refit-per-fold                 2.397             +44.6      5
+Stabilized-avg                 2.218             +44.6      5
+Production                     3.358             +68.7      5
+Legacy                         3.599             +59.4      5
 ```
 
 Highest average out-of-sample Sortino spread across folds: **Legacy**

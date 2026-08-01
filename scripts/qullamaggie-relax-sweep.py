@@ -7,29 +7,29 @@ Each variant relaxes exactly ONE dimension of the baseline (all other filters
 unchanged); the best 2 and 3 quality-preserving relaxations are then combined.
 
 Indicators and entries come from turtlex.research.qullamaggie, which is parity-tested
-against QullamaggieStrategy: baseline filters are vol_dry_up<90%, roc_12m<100%,
+against QullamaggieStrategy: baseline filters are roc_12m<100%,
 vol_surge<2.0x, RSI<70, ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250,
 avg_vol>=500K, cooldown 30d, mcap>=1.5B excl Comm/RE, tight_range and sma_alignment
 disabled. Entry is the next trading bar's adjusted open and every variant — baseline
 included — is gated at QullamaggieRanking >= MIN_RANKING, so the sweep measures a
 relaxation against the algorithm as actually traded.
 
-The dimensions the shared layer does not parameterise (min price, vol_dry_up, cooldown,
+The dimensions the shared layer does not parameterise (min price, cooldown,
 SMA distance, ADR floor) are re-filtered here from the same indicator frame; the two
 universe dimensions (market cap, sector) come from TickerQueryRepository symbol lists.
 
 Variants: cd15 (cooldown 15d), p3 (min price $3), mcap1.0B (mcap floor $1.0B),
 sect+CommRE (re-admit Comm Services/Real Estate), p2 (min price $2), sma16/sma12 (SMA
-distance 20%->16%/12%), adr2.5 (ADR floor 3.0%->2.5%), vdu1.0 (vol_dry_up 90%->100%).
+distance 20%->16%/12%), adr2.5 (ADR floor 3.0%->2.5%).
 
-The last four come from the cohort tables rather than from a guess: `p2` because
+The last three come from the cohort tables rather than from a guess: `p2` because
 result-qullamaggie-cohorts-price.md puts the [0-5) band above the $5-$250 aggregate on
 every metric at all three SMA thresholds; `sma16` because under the R>=40 gate
 result-qullamaggie-cohorts-ranking.md shows s16 within 0.03 Sortino of s20 (the score's
 35-point SMA50 term re-imposes most of what the hard threshold does); `adr2.5` because
 result-qullamaggie-cohorts-adr.md's [2.5-3.0) band carries the same Sortino as the whole
-population at s20; and `vdu1.0` because vol_dry_up is the one fixed filter with no cohort
-study behind it at all, so its cost is unmeasured.
+population at s20. The `vdu1.0` variant was dropped on 2026-08-01: vol_dry_up is no longer a
+production filter, so relaxing it is a no-op against this baseline.
 
 Eval: 2015-01-01 – 2026-06-26 | 366d calendar hold | warmup handled by qm.load_bars
 References: docs/research/qullamaggie-backtest-v4.md,
@@ -89,7 +89,6 @@ BASE_PARAMS = {
     "min_price": 5.0,
     "min_mcap": 1.5e9,
     "include_comm_re": False,
-    "vol_dry_up": 0.90,
     "sma_t": 0.20,
     "adr_min": 0.03,
 }
@@ -103,7 +102,6 @@ VARIANTS: list[tuple[str, dict]] = [
     ("sma16", {"sma_t": 0.16}),
     ("sma12", {"sma_t": 0.12}),
     ("adr2.5", {"adr_min": 0.025}),
-    ("vdu1.0", {"vol_dry_up": 1.00}),
 ]
 
 # "Same level" tolerance for the combo-selection quality gate.
@@ -173,7 +171,6 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], allowed_syms: set[str],
             & (pl.col("adj_close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") > params["sma_t"])
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
-            & (pl.col("avg_vol_10") < params["vol_dry_up"] * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
         )
@@ -389,7 +386,7 @@ def main() -> None:
         fh.write(f"| Hold | {HOLD_CAL}d (calendar); entries without {HOLD_CAL}d of forward data skipped |\n")
         fh.write(f"| Baseline | {LABEL}: 50d-high breakout, close >20% above SMA50, next-day adjusted-open entry |\n")
         fh.write(
-            "| Baseline fixed filters | vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x, RSI<70, ADR>=3.0%, "
+            "| Baseline fixed filters | roc_12m<100%, vol_surge<2.0x, RSI<70, ADR>=3.0%, "
             "ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown 30d, "
             "mcap>=1.5B excl Comm/RE |\n"
         )
@@ -409,8 +406,8 @@ def main() -> None:
         fh.write(
             "Variant key: `cd15` cooldown 30→15d; `p3` min price $5→$3; `mcap1.0B` market-cap floor "
             "$1.5B→$1.0B; `sect+CommRE` re-admit Communication Services/Real Estate; `p2` min price "
-            "$5→$2; `sma16`/`sma12` close-above-SMA50 threshold 20%→16%/12%; `adr2.5` ADR%(20) floor 3.0%→2.5%; "
-            "`vdu1.0` vol_dry_up avg_vol_10 < 90%→100% of avg_vol_50 (i.e. filter effectively off).\n\n"
+            "$5→$2; `sma16`/`sma12` close-above-SMA50 threshold 20%→16%/12%; `adr2.5` ADR%(20) floor "
+            "3.0%→2.5%.\n\n"
         )
         fh.write("## Results\n\n```text\n")
         fh.write(table)

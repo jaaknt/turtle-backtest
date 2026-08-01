@@ -19,10 +19,16 @@ class QullamaggieStrategy(TradingStrategy):
 
     Port of the validated signal from scripts/qullamaggie-backtest-v4.py:
     adjusted close breaks above the max of the prior 50 closes while sitting
-    more than `sma_thresh` (12% by default) above the 50-day SMA, with volume
-    dry-up, a volume-surge cap, a 12-month ROC cap, RSI/ADR filters, a
-    $5-$250 raw-close band, and a SPY > 200d SMA market-regime gate. Signals
+    more than `sma_thresh` (12% by default) above the 50-day SMA, with a
+    volume-surge cap, a 12-month ROC cap, RSI/ADR filters, a $5-$250
+    raw-close band, and a SPY > 200d SMA market-regime gate. Signals
     within 30 calendar days of the previous accepted trigger are suppressed.
+
+    The `vol_dry_up` condition (`avg_vol_10 < 0.90 x avg_vol_50`) was dropped
+    on 2026-08-01: `docs/research/result-qullamaggie-cohorts-vol-dry-up.md`
+    found it removed ~33% of signals while *lowering* both Mean% and Sortino
+    at s20/s16/s12, and `result-qullamaggie-relax-sweep.md` reached the same
+    conclusion independently via its `vdu1.0` variant.
 
     All rolling indicators are computed on shift-1 (prior-day) values so every
     filter only uses information available at the prior close; the breakout and
@@ -36,7 +42,6 @@ class QullamaggieStrategy(TradingStrategy):
     MIN_PRICE = 5.0
     MAX_PRICE = 250.0
     COOLDOWN_DAYS = 30
-    VOL_DRY_UP = 0.90
     VOL_SURGE_MAX = 2.0
     ROC_CAP = 1.00
     RSI_CAP = 70.0
@@ -89,7 +94,6 @@ class QullamaggieStrategy(TradingStrategy):
             "min_price": self.MIN_PRICE,
             "max_price": self.MAX_PRICE,
             "cooldown_days": self.COOLDOWN_DAYS,
-            "vol_dry_up": self.VOL_DRY_UP,
             "vol_surge_max": self.VOL_SURGE_MAX,
             "roc_cap": self.ROC_CAP,
             "rsi_cap": self.RSI_CAP,
@@ -244,7 +248,6 @@ class QullamaggieStrategy(TradingStrategy):
             & (pl.col("adj_close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") > self.sma_thresh)
             & (pl.col("volume").cast(pl.Float64) < self.VOL_SURGE_MAX * pl.col("avg_vol_50"))
-            & (pl.col("avg_vol_10") < self.VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < self.ROC_CAP)
             & pl.col("date").is_in(sorted(self._regime_dates))
         ).sort("date")

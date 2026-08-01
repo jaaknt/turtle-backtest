@@ -173,12 +173,20 @@ twin of the ADR compression study. Below 1.0 the last 10 sessions were quieter t
 contraction the setup looks for ahead of a breakout; above 1.0 volume is already expanding.
 
 - **Cohorts:** (<0.5), [0.5-0.6), [0.6-0.7), [0.7-0.8), [0.8-0.9), [0.9-1.0), [1.0-1.1), [1.1-1.25), [1.25-1.5), (>1.5)
-- **Filter under study is dropped:** the `vol_dry_up < 90%` cap is removed, otherwise every cohort from
-  `[0.9-1.0)` up would be empty. It returns as the `<0.90 (cap)` reference row at the foot of each table.
+- **Filter under study is dropped:** nothing is dropped any more — `vol_dry_up` was **retired from the
+  strategy on 2026-08-01**, so like SMA(200) the cohorts just slice the existing signal population. The
+  `<0.90 (cap)` reference row is kept so the retired cap stays measurable.
 - **Script:** `scripts/qullamaggie-cohorts-vol-dry-up.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-vol-dry-up.md`
-- **Note:** added 2026-08-01. `vol_dry_up` was the last filter in the production chain with no cohort study of
-  its own, so the question "does it improve Mean%/Sortino?" had no evidence either way.
+- **Note:** added 2026-08-01 — `vol_dry_up` was the last filter in the production chain with no cohort study
+  of its own. Its first run is what retired it: the `<0.90 (cap)` slice scored *worse* than the full
+  population on Mean% and Sortino at all three thresholds while dropping ~33% of signals. The filter was then
+  removed from `QullamaggieStrategy`, `turtlex/research/qullamaggie.py`, `qullamaggie-backtest-v4.py` and
+  every cohort script, and all of them were re-run.
+- **Caveat:** the backtest-v4 re-run across all three windows shows the removal is **regime-dependent**, not a
+  uniform gain — clearly better in 2021-2026, but Sortino falls in 2016-2020 at all three thresholds
+  (s20 5.685 → 5.111) and is mixed in 2010-2015. The cohort study could not see this because it only spans
+  2015-2026.
 
 ### Tight range cohorts
 
@@ -280,7 +288,7 @@ contraction the setup looks for ahead of a breakout; above 1.0 volume is already
 
 **Goal:** Calculate `bk50d_s12_v2.0` signals, then figure out the percentage of signals where the price drops X% during the next Y days so that a resting limit order would be filled.
 
-- **Filters:** same as `scripts/qullamaggie-signals-v4.py` (RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, no tight_range, cooldown 30d, mcap>=1.5B excl Comm/RE), plus the standard `MIN_RANKING >= 40` gate
+- **Filters:** same as `scripts/qullamaggie-signals-v4.py` (RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, no tight_range, cooldown 30d, mcap>=1.5B excl Comm/RE), plus the standard `MIN_RANKING >= 40` gate
 - **Limit order price:** signal-day close × (1 − X%), X = 0%, 1%, 2%, 3%, 4%, 5%
 - **Window:** order effective for Y calendar days after the signal day, Y = 30, 60, 90
 - **Fill rule:** order is eligible from the day after the signal; fills on the first trading day whose low <= limit price, else expires unfilled (adjusted prices, same convention as `scripts/qullamaggie-cohorts-limit-order.py`)
@@ -326,7 +334,7 @@ contraction the setup looks for ahead of a breakout; above 1.0 volume is already
   ```
 
 - Also run baseline + the best 2-3 ideas combined.
-- **Fixed filters reference:** vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x, RSI<70, ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown 30d, mcap>=1.5B excl Comm/RE
+- **Fixed filters reference:** roc_12m<100%, vol_surge<2.0x, RSI<70, ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown 30d, mcap>=1.5B excl Comm/RE
 - Important: Sortino and Mean% must stay on the same level as baseline; reject ideas that trade quality for count.
 - Share your findings: which single relaxation has the best F/mo gain per unit of Sortino given up.
 - **Script:** `scripts/qullamaggie-backtest-v4.py` (new: `scripts/qullamaggie-relax-sweep.py`)
@@ -471,6 +479,12 @@ Calculate results with applying filter `MIN_RANKING >= 40` and without applying 
 - **Note — the headline result is negative; keep the 366d time cap.** On the single 2020-2026 window `<+5% after 90 bars` looked decisive (CAGR +42.62%, Sortino 1.555, MaxDD -24.04%) and cleared every single-window guard: a bounded 90-150 bar plateau, better in 6 of 7 years, 91.8% / 94.1% bootstrap win rates. The robustness matrix then failed it in **7 of 9** config/period cells — every pass sits in 2021-2026, which overlaps the window it was fitted on. A follow-up run of the full 24-cell dead-money grid across all 9 cells (216 sims, run ad-hoc; not kept as a script) found **no** parameterisation passing more than 4 of 9, and 23 of 24 had a negative mean dCAGR. The passing region *moves* between eras — 2021-2026 favours short cutoffs, 2010-2015 long ones, 2016-2020 none at all — which is the signature of regime-specificity rather than mistuning. The single-window guards all agreed with each other because they were all measuring the same six years; they cannot detect that the window itself is the special case. `sma200 x 5d` and `arm +25% / trail 25%` also cleared the single-window bar and were never put through the matrix.
 - **Note:** the study's own baseline reproduces the committed portfolio-sim figure exactly ($222,166 / +36.17% / -26.00%) despite generating signals through `turtlex/research/qullamaggie.py` rather than the sim's inline copy. For the matrix windows the harness reproduces `-2016-2020.md` to within 0.41pp CAGR. The `-2010-2015.md` gap this note used to describe (+8.48% vs +10.94%, attributed to the gate being absent from a 2026-07-21 run) is **gone**: all three portfolio docs were re-run 2026-07-29 with `min ranking: 40` in their headers, and `-2010-2015.md` now reports +8.48% at 3% sizing — the same figure as the harness.
 - **Note:** exits fill at the day's adjusted close, so stop-based rules are measured optimistically; the universe filter uses *current* `company.market_cap >= $1.5B`, which inflates every absolute figure (baseline included) and worsens the further back the window sits.
+- **Note — the saved results predate the `vol_dry_up` removal (2026-08-01).** The script takes its signals from
+  `turtlex/research/qullamaggie.py`, which dropped the filter that day, so a re-run would draw from a larger
+  signal population than the committed doc. The re-run was **deliberately skipped**: the study's conclusion is
+  negative (keep the 366d time cap) and rests on the *shape* of the robustness matrix — a rule that passes only
+  in the window it was fitted on — which a wider signal set does not plausibly reverse. Its absolute figures,
+  including the `$222,166` baseline, are stale and should not be quoted against post-removal portfolio-sim runs.
 
 ## Live signal generation
 
@@ -536,7 +550,7 @@ Calculate results with applying filter `MIN_RANKING >= 40` and without applying 
   `SMA_THRESH`, which moved 0.15 -> **0.12** on 2026-07-30 so this study reports the standard `s12` algorithm;
   indicators are split/dividend-adjusted and the `$5-$250` band stays on the raw close. `tight_range` is not
   part of the strategy, so the former informational `TR%` column is gone. Filters: RSI<70, ADR>=3.0%,
-  ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA, raw close>$5&<$250,
+  ADR_change<90%, roc_12m<100%, vol_surge<2.0x, SPY>200d SMA, raw close>$5&<$250,
   avg_vol>=500K, >12% above the 50d SMA, cooldown 30d, mcap>=1.5B excl Comm/RE.
 
 ## Maintenance
@@ -552,3 +566,7 @@ Run Ruff + mypy + pytest.
 - Validate the results in `@docs/research/result-qullamaggie-cohorts-*.md` and answer the following questions:
   - Are all filters in `@scripts/qullamaggie-backtest-v4.py` justified — does each one improve Mean% and/or Sortino? If any do not, surface those findings to the screen.
   - Is there a way to loosen the filters to generate more signals without degrading performance (Mean% and/or Sortino)? Surface those findings to the screen.
+
+## Gap: five filters have no cohort study
+
+`avg_vol >= 500K`, `market_cap >= 1.5B`, `SPY > 200d SMA`, and `cooldown 30d` are all unvalidated — no study varies them, so there's no evidence either way on whether they help.

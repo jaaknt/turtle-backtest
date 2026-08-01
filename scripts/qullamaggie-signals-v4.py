@@ -14,7 +14,7 @@ days after the signal (fill eligible from the day after the signal, adjusted-pri
 same convention as scripts/qullamaggie-portfolio-sim.py's run_sim_limit).
 
 Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
-ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA,
+ADR_change<90%, roc_12m<100%, vol_surge<2.0x, SPY>200d SMA,
 close>$5&<$250, avg_vol>=500K; tight_range and sma_alignment disabled — TR% is shown for
 information only, not filtered). Display window: 2026-06-01 - today.
 Candidate window starts earlier so the 30-day cooldown state is correct at the start of the
@@ -59,7 +59,6 @@ MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
-VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
@@ -251,7 +250,6 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("_c1").rolling_mean(50, min_samples=50).over("symbol").alias("sma50"),
             pl.col("_v1").rolling_mean(50, min_samples=50).over("symbol").alias("avg_vol_50"),
             pl.col("_v1").rolling_mean(20, min_samples=20).over("symbol").alias("avg_vol_20"),
-            pl.col("_v1").rolling_mean(10, min_samples=10).over("symbol").alias("avg_vol_10"),
             pl.col("_c1").rolling_max(50, min_samples=50).over("symbol").alias("max_c_50d"),
             pl.col("_c1").rolling_max(10, min_samples=10).over("symbol").alias("_tr_max"),
             pl.col("_c1").rolling_min(10, min_samples=10).over("symbol").alias("_tr_min"),
@@ -293,7 +291,6 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") > sma_t)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
-            & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
         )

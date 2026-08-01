@@ -32,7 +32,6 @@ MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
-VOL_DRY_UP = 0.90
 ROC_CAP = 1.00
 ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
@@ -70,7 +69,7 @@ CONFIG_ROWS: list[tuple[str, str]] = [
     ("Cohort variable", "vol_surge_ratio = volume / mean(volume[-51:-1])"),
     ("Entry", "next trading day's split/dividend-adjusted open"),
     ("Filter under study", "**vol_surge < 2.0x — removed; returns as the `[1.00-2.00) cap` row**"),
-    ("Fixed filters", "RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_dry_up<90% (no tight_range)"),
+    ("Fixed filters", "RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100% (no tight_range)"),
     ("Ranking gate", f"QullamaggieRanking >= {MIN_RANKING}"),
     ("Market regime", "SPY close > 200d SMA"),
     ("Price range", f"> ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f}"),
@@ -129,7 +128,6 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
             & (pl.col("adj_close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") >= sma_t)
-            & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
         )

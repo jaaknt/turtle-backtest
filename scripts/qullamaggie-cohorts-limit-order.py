@@ -6,7 +6,7 @@ Cohorts: bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (all 366d hold, MIN_RANK
 Bars, indicators, the SPY regime and entry resolution come from turtlex.research.qullamaggie,
 which is parity-tested against QullamaggieStrategy; the filter chain and cooldown are local
 copies of it (RSI<70, ADR mean-of-ratios>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x,
-vol_dry_up<90%, no tight_range, SPY>200d SMA, close>$5&<$250, avg_vol>=500K).
+no tight_range, SPY>200d SMA, close>$5&<$250, avg_vol>=500K).
 open/close/high/low are split/dividend-adjusted; the $5-$250 band stays on the raw close.
 
 Entry convention is the dimension under study, so two non-limit baselines are reported
@@ -53,7 +53,6 @@ MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
-VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
@@ -83,7 +82,7 @@ CONFIG_ROWS: list[tuple[str, str]] = [
         "next-open — buy at the next trading day's adjusted open (canonical v2.0); "
         "EOD — buy at signal-day close (pre-v2.0, retained for continuity)",
     ),
-    ("Fixed filters", "RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90% (no tight_range)"),
+    ("Fixed filters", "RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x (no tight_range)"),
     ("Ranking gate", f"QullamaggieRanking >= {MIN_RANKING}"),
     ("Market regime", "SPY close > 200d SMA"),
     ("Price range", f"> ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f}"),
@@ -134,7 +133,6 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("adj_close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") > sma_t)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
-            & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
         )

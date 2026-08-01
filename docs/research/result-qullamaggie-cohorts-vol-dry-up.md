@@ -1,6 +1,6 @@
 # Qullamaggie Vol-Dry-Up Cohort Analysis
 
-Run date: 2026-08-01 09:52:45 Tallinn time
+Run date: 2026-08-01 10:43:36 Tallinn time
 
 ## Configuration
 
@@ -11,7 +11,7 @@ Run date: 2026-08-01 09:52:45 Tallinn time
 | Cohorts | bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (366d) |
 | Cohort variable | vol_dry_up_ratio = avg_vol_10 / avg_vol_50, on the signal date |
 | Entry | next trading day's split/dividend-adjusted open |
-| Filter under study | **vol_dry_up < 90% — removed; returns as the `<0.90 (cap)` row** |
+| Filter under study | **none — vol_dry_up was retired 2026-08-01; `<0.90 (cap)` shows what it used to keep** |
 | Fixed filters | RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x (no tight_range) |
 | Ranking gate | QullamaggieRanking >= 40 |
 | Market regime | SPY close > 200d SMA |

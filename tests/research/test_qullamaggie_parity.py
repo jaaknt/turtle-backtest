@@ -153,7 +153,6 @@ class TestSignalParity:
         assert research.MIN_PRICE == QullamaggieStrategy.MIN_PRICE
         assert research.MAX_PRICE == QullamaggieStrategy.MAX_PRICE
         assert research.COOLDOWN_DAYS == QullamaggieStrategy.COOLDOWN_DAYS
-        assert research.VOL_DRY_UP == QullamaggieStrategy.VOL_DRY_UP
         assert research.VOL_SURGE_MAX == QullamaggieStrategy.VOL_SURGE_MAX
         assert research.ROC_CAP == QullamaggieStrategy.ROC_CAP
         assert research.RSI_CAP == QullamaggieStrategy.RSI_CAP

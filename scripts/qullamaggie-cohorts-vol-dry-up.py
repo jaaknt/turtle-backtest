@@ -2,14 +2,17 @@
 """
 Vol-dry-up cohort analysis for bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (366d hold).
 
-All strategy filters applied EXCEPT the vol_dry_up cap, so we can see performance across the
-full range including the >=90% bands the live filter rejects.
+All strategy filters applied — since 2026-08-01 the strategy has no vol_dry_up cap, so like the
+SMA(200) study the cohorts simply slice the existing signal population.
 vol_dry_up_ratio = avg_vol_10 / avg_vol_50, both on the shift-1 volume series.
 
 Below 1.0 the last 10 sessions have been quieter than the last 50 — the volume contraction
 Qullamaggie looks for ahead of a breakout; above 1.0 recent volume is already expanding.
-This is the volume-side twin of the ADR compression study, and the only filter in the
-production chain that had no cohort study of its own.
+This is the volume-side twin of the ADR compression study.
+
+This study is what retired the filter: the `<0.90 (cap)` slice the old cap kept scored *worse*
+than the full population on Mean% and Sortino at all three thresholds while dropping ~33% of
+signals. That row is kept as a reference so the retired cap stays measurable.
 
 Period: 2015-01-01 – 2026-06-26  (burn-in from 2013-01-01)
 """
@@ -44,9 +47,9 @@ ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 MIN_NEG = 5
 
-# The production vol_dry_up cap. Not applied here — it is the dimension under study, so
-# filtering on it would hide every cohort at or above 0.90. Reported instead as the
-# `<0.90 (cap)` row, which is the slice the live filter actually keeps.
+# The retired production cap. Never applied here — it was the dimension under study, and since
+# 2026-08-01 it is not in the production chain at all. Kept only to draw the `<0.90 (cap)`
+# reference row, so the slice the old filter used to keep stays measurable.
 VOL_DRY_UP = 0.90
 
 MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
@@ -76,7 +79,7 @@ CONFIG_ROWS: list[tuple[str, str]] = [
     ("Cohorts", "bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (366d)"),
     ("Cohort variable", "vol_dry_up_ratio = avg_vol_10 / avg_vol_50, on the signal date"),
     ("Entry", "next trading day's split/dividend-adjusted open"),
-    ("Filter under study", "**vol_dry_up < 90% — removed; returns as the `<0.90 (cap)` row**"),
+    ("Filter under study", "**none — vol_dry_up was retired 2026-08-01; `<0.90 (cap)` shows what it used to keep**"),
     ("Fixed filters", "RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x (no tight_range)"),
     ("Ranking gate", f"QullamaggieRanking >= {MIN_RANKING}"),
     ("Market regime", "SPY close > 200d SMA"),

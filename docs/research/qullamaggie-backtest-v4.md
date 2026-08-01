@@ -39,7 +39,21 @@ For each trading day, compute the following metrics per ticker. Actual entry sig
 **Volume signals:**
 
 - `vol_surge`: `volume < 2.0 × mean(volume[-51:-1])` — breakout volume must stay below 2.0× the 50-day average.
+<!--
 - `vol_dry_up`: `mean(volume[-11:-1]) < 0.90 × mean(volume[-51:-1])` — base volume must be below 90% of the 50-day average, confirming the consolidation happened on declining volume before the breakout surge (fixed, not swept)
+-->
+
+`vol_dry_up` was **retired on 2026-08-01**. `docs/research/result-qullamaggie-cohorts-vol-dry-up.md` found the
+slice it kept scored *worse* than the unfiltered population on both Mean% and Sortino at all three thresholds
+while dropping ~33% of signals, and the band immediately below the cap was the weakest in the table while the
+band immediately above it was among the strongest — so the cap was mis-placed rather than merely too loose.
+`result-qullamaggie-relax-sweep.md` had reached the same conclusion independently via its `vdu1.0` variant.
+The removal was applied to `QullamaggieStrategy`, `turtlex/research/qullamaggie.py` and every study script.
+
+**Caveat — the gain is regime-dependent.** Re-running all three windows shows the removal is clearly positive
+only on 2021-2026 (s20 Sortino 2.380 → 2.846); on 2016-2020 Sortino falls at all three thresholds
+(s20 5.685 → 5.111) and 2010-2015 is mixed. Signal count rises 40-60% in every window. The cohort study could
+not detect this because it spans only 2015-2026.
 
 <!--
 **Trend alignment filter (fixed, not swept):**
@@ -52,7 +66,7 @@ For each trading day, compute the following metrics per ticker. Actual entry sig
 
 **Entering condition:**
 
-- `qullamaggie_style`: `spy_above_200d` AND `adr_pct` AND `adr_pct_change` AND `rsi_filter` AND `roc_12m_cap` AND `breakout_N_days(N)` AND `pct_above_sma50(X)` AND `vol_surge` AND `vol_dry_up`
+- `qullamaggie_style`: `spy_above_200d` AND `adr_pct` AND `adr_pct_change` AND `rsi_filter` AND `roc_12m_cap` AND `breakout_N_days(N)` AND `pct_above_sma50(X)` AND `vol_surge`
 
 **Algorithm naming:**
 
