@@ -12,10 +12,11 @@ close is used only for the $5-$250 price band, matching scripts/qullamaggie-back
 
 Rules:
   - Period 2021-01-01 .. 2026-06-26, initial equity $30,000.
-  - Each config's size sweep is reported twice: once with signals scoring below MIN_RANKING on
-    QullamaggieRanking dropped (matching the portfolio-runner --min-signal-ranking default), and
-    once with no ranking condition at all. Everything else is identical between the two, so the
-    pair isolates what the gate is worth once position sizing and cash competition are in play.
+  - Each config's size sweep is one table carrying both ranking treatments: every sizing appears
+    twice, once with signals scoring below MIN_RANKING on QullamaggieRanking dropped (matching the
+    portfolio-runner --min-signal-ranking default) and once with no ranking condition at all, on
+    adjacent rows. Everything else is identical between the two, so the pair isolates what the gate
+    is worth once position sizing and cash competition are in play.
   - Signals competing for cash on the same day are funded best-ranked first. Entries arrive
     in bursts and cash runs out mid-burst, so this ordering decides which trades exist at all.
   - Each signal: buy at the next trading day's split/dividend-adjusted open (matching
@@ -49,7 +50,7 @@ import sqlalchemy as sa
 
 from turtlex.backtest.metrics import compute_daily_sortino
 from turtlex.common.cli import iso_date_type
-from turtlex.common.report import run_timestamp
+from turtlex.common.report import config_table, run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
@@ -96,6 +97,43 @@ CONFIGS = [
     ("s16", 0.16),
     ("s12", 0.12),
 ]
+
+
+def config_rows() -> list[tuple[str, str]]:
+    """Build the run's configuration table rows.
+
+    A function rather than a module-level constant because `main` rebinds EVAL_START/EVAL_END
+    from the CLI window — a constant evaluated at import time would stamp every window's
+    result doc with the default 2021-2026 period.
+
+    Returns:
+        `(parameter, value)` pairs for `turtlex.common.report.config_table`.
+    """
+    # Every filter below is identical across s20/s16/s12 — the only difference is the
+    # `%abv_SMA50` threshold each config is named for, so it stays on the section headings
+    # rather than being repeated here. Same `| Parameter | Value |` shape as the cohort studies.
+    return [
+        ("Period", f"{EVAL_START} – {EVAL_END}"),
+        ("Hold", f"{HOLD_CAL}d (calendar)"),
+        ("Algorithms", ", ".join(f"bk50d_{n}_v2.0 (%abv_SMA50>{t * 100:.0f}%)" for n, t in CONFIGS)),
+        ("Entry", "next trading day's split/dividend-adjusted open"),
+        ("Initial equity", f"${INIT_EQUITY:,.0f}"),
+        ("Position sizing", ", ".join(f"{f:.0%}" for f in POS_FRACTIONS) + " of portfolio per trade"),
+        ("Ranking gate", f"QullamaggieRanking >= {MIN_RANKING}, reported against an ungated run of the same signals"),
+        (
+            "Fixed filters",
+            f"breakout>50d high, RSI(14)<{RSI_CAP:.0f}, ADR%(20)>={ADR_FLOOR * 100:.1f}%, "
+            f"ADR_change<{ADR_CHANGE_CAP * 100:.0f}%, vol_surge<{VOL_SURGE_MAX:.1f}x, "
+            f"roc_12m<{ROC_CAP * 100:.0f}% (no tight_range)",
+        ),
+        ("Market regime", "SPY close > 200d SMA"),
+        ("Price range", f"> ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f}"),
+        ("Min avg vol (20d)", f">= {MIN_AVG_VOL // 1000}K"),
+        ("Cooldown", f"{COOLDOWN} calendar days"),
+        ("Universe", "US common stocks, market_cap >= 1.5B, excl. Comm/RE"),
+        ("Cash competition", "same-day signals funded best-ranked first" if RANK_FUNDING else "same-day signals funded in arrival order"),
+    ]
+
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-portfolio-v4.md"
@@ -607,11 +645,11 @@ def main() -> None:
     out("# Portfolio Simulation — size sweep + ranking deciles")
     out("")
     out(f"Run date: {run_timestamp()}")
-    out(
-        f"Period: {EVAL_START} – {EVAL_END}  |  Initial: ${INIT_EQUITY:,.0f}  |  "
-        f"algorithm: RSI<70  |  sizes: {', '.join(f'{f:.0%}' for f in POS_FRACTIONS)}  |  "
-        f"hold: {HOLD_CAL}d  |  min ranking: {MIN_RANKING}"
-    )
+    out("")
+    out("## Configuration")
+    out("")
+    for line in config_table(config_rows()).rstrip("\n").split("\n"):
+        out(line)
 
     out("")
     out("## Buy & Hold Benchmarks")
@@ -630,7 +668,10 @@ def main() -> None:
     # collect all baseline (366d) results first, then rank for monthly grids
     all_results: list[tuple[str, float, dict]] = []  # (name, pos_fraction, result)
     signals_by_day_by_config: dict[str, dict[int, list[dict]]] = {}
-    hdr = f"{'size':<6} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} {'Sortino':>8} {'taken':>6} {'skip':>6} {'Uninv%':>7}"
+    hdr = (
+        f"{'size':<6} {'gate':<8} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} "
+        f"{'Sortino':>8} {'taken':>6} {'skip':>6} {'Uninv%':>7}"
+    )
 
     def resolve(sig: pl.DataFrame, min_ranking: int) -> tuple[dict[int, list[dict]], int, int]:
         """Score every signal and attach its entry day and price, keyed by the day it is funded.
@@ -669,37 +710,41 @@ def main() -> None:
         out("")
         out(f"## {name}  (bk50d_{name}_v2.0 / {HOLD_CAL}d)")
         out("")
-        out(
-            f"Parameters: %abv_SMA50>{sma_t * 100:.0f}%, breakout>50d high, RSI(14)<{RSI_CAP:.0f}, "
-            f"ADR%(20)>={ADR_FLOOR * 100:.1f}%, ADR_change<{ADR_CHANGE_CAP * 100:.0f}%, "
-            f"vol_surge<{VOL_SURGE_MAX:.1f}x, roc_12m<{ROC_CAP * 100:.0f}%, "
-            f"SPY>200d SMA, close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K, "
-            f"cooldown={COOLDOWN}d, hold={HOLD_CAL}d cal"
-        )
-        # Same signals, sized the same way, reported twice: once through the production
-        # QullamaggieRanking gate and once with no ranking condition at all. The pair is the
-        # only way to read what the gate is worth in *portfolio* terms — a gated run alone
-        # cannot show whether the signals it removed would have compounded better.
-        for gate_label, gate in ((f"QullamaggieRanking >= {MIN_RANKING}", MIN_RANKING), ("no ranking filter", 0)):
-            # Score and resolve the fill once per gate, not per entry inside run_sim: the sweep
-            # and the decile re-simulations replay the same signals many times over. Signals are
-            # keyed by their *entry* day (the next trading day), so run_sim funds a position on
-            # the day it is actually filled.
+        out(f"`%abv_SMA50 > {sma_t * 100:.0f}%` — every other filter is in the Configuration table above.")
+        # Same signals, sized the same way, reported under both ranking treatments on adjacent
+        # rows of one table. The pair is the only way to read what the gate is worth in
+        # *portfolio* terms — a gated run alone cannot show whether the signals it removed
+        # would have compounded better.
+        # Score and resolve the fill once per gate, not per entry inside run_sim: the sweep
+        # and the decile re-simulations replay the same signals many times over. Signals are
+        # keyed by their *entry* day (the next trading day), so run_sim funds a position on
+        # the day it is actually filled.
+        gate_runs: list[tuple[str, dict[int, list[dict]], int, int]] = []
+        for gate_label, gate in ((f"R>={MIN_RANKING}", MIN_RANKING), ("ungated", 0)):
             signals_by_day, n_below_rank, n_no_fill = resolve(sig, gate)
             if gate == MIN_RANKING:
                 signals_by_day_by_config[name] = signals_by_day
-            out("")
-            out(f"**{gate_label}** — {n_below_rank} signals dropped by the gate, {n_no_fill} with no fillable next-day open in period.")
-            rows: list[str] = []
-            for pf in POS_FRACTIONS:
+            gate_runs.append((gate_label, signals_by_day, n_below_rank, n_no_fill))
+
+        out("")
+        out(
+            f"**Ranking gate:** `QullamaggieRanking >= {MIN_RANKING}` drops {gate_runs[0][2]} signals "
+            f"({gate_runs[0][3]} with no fillable next-day open); ungated drops {gate_runs[1][2]} "
+            f"({gate_runs[1][3]} with no fillable open). Each sizing is listed gated then ungated, so the "
+            "pair reads across — a gated run alone cannot show whether the signals it removed would have "
+            "compounded better."
+        )
+        rows: list[str] = []
+        for pf in POS_FRACTIONS:
+            for gate_label, signals_by_day, _n_below, _n_no_fill in gate_runs:
                 r = run_sim(signals_by_day, "time", pf)
-                all_results.append((f"{name} {'R>=' + str(MIN_RANKING) if gate else 'ungated'}", pf, r))
+                all_results.append((f"{name} {gate_label}", pf, r))
                 rows.append(
-                    f"{pf:<6.0%} {r['final']:>11,.0f} {r['cagr'] * 100:>+7.2f} {r['max_dd'] * 100:>8.2f} "
-                    f"{r['calmar']:>7.3f} {r['sortino']:>8.3f} {r['taken']:>6} {r['skipped']:>6} "
-                    f"{r['avg_uninv_pct']:>6.1f}%"
+                    f"{pf:<6.0%} {gate_label:<8} {r['final']:>11,.0f} {r['cagr'] * 100:>+7.2f} "
+                    f"{r['max_dd'] * 100:>8.2f} {r['calmar']:>7.3f} {r['sortino']:>8.3f} "
+                    f"{r['taken']:>6} {r['skipped']:>6} {r['avg_uninv_pct']:>6.1f}%"
                 )
-            table(hdr, rows)
+        table(hdr, rows)
     # monthly grids for the top 5 by Final$ (366d baseline, RSI<70), gated and ungated together
     ranked_final = sorted(all_results, key=lambda x: x[2]["final"], reverse=True)
     out("")
