@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """
-Vol-surge cohort analysis for bk50d_s20_v2.0 and bk50d_s16_v2.0, bk50d_s12_v2.0 (366d hold).
+Vol-dry-up cohort analysis for bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (366d hold).
 
-All strategy filters applied EXCEPT the vol_surge_max cap, so we can see
-performance across the full vol_surge_ratio range including >2x bands.
-vol_surge_ratio = volume / avg_vol_50
+All strategy filters applied EXCEPT the vol_dry_up cap, so we can see performance across the
+full range including the >=90% bands the live filter rejects.
+vol_dry_up_ratio = avg_vol_10 / avg_vol_50, both on the shift-1 volume series.
+
+Below 1.0 the last 10 sessions have been quieter than the last 50 — the volume contraction
+Qullamaggie looks for ahead of a breakout; above 1.0 recent volume is already expanding.
+This is the volume-side twin of the ADR compression study, and the only filter in the
+production chain that had no cohort study of its own.
 
 Period: 2015-01-01 – 2026-06-26  (burn-in from 2013-01-01)
 """
@@ -32,11 +37,17 @@ MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
-VOL_DRY_UP = 0.90
+VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
+RSI_CAP = 70.0
 ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 MIN_NEG = 5
+
+# The production vol_dry_up cap. Not applied here — it is the dimension under study, so
+# filtering on it would hide every cohort at or above 0.90. Reported instead as the
+# `<0.90 (cap)` row, which is the slice the live filter actually keeps.
+VOL_DRY_UP = 0.90
 
 MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
 
@@ -47,30 +58,26 @@ STRATEGIES = [
 ]
 
 COHORTS: list[tuple[str, float, float]] = [
-    ("[<0.70)    ", 0.00, 0.70),
+    ("[<0.50)    ", 0.00, 0.50),
+    ("[0.50-0.60)", 0.50, 0.60),
+    ("[0.60-0.70)", 0.60, 0.70),
     ("[0.70-0.80)", 0.70, 0.80),
     ("[0.80-0.90)", 0.80, 0.90),
     ("[0.90-1.00)", 0.90, 1.00),
     ("[1.00-1.10)", 1.00, 1.10),
-    ("[1.10-1.20)", 1.10, 1.20),
-    ("[1.20-1.30)", 1.20, 1.30),
-    ("[1.30-1.40)", 1.30, 1.40),
-    ("[1.40-1.60)", 1.40, 1.60),
-    ("[1.60-2.00)", 1.60, 2.00),
-    ("[2.00-3.00)", 2.00, 3.00),
-    ("[3.00-4.00)", 3.00, 4.00),
-    ("[4.00-6.00)", 4.00, 6.00),
-    ("[6.00+    )", 6.00, float("inf")),
+    ("[1.10-1.25)", 1.10, 1.25),
+    ("[1.25-1.50)", 1.25, 1.50),
+    ("[1.50+    )", 1.50, float("inf")),
 ]
 
 CONFIG_ROWS: list[tuple[str, str]] = [
     ("Period", f"{EVAL_START} – {EVAL_END}"),
     ("Hold", f"{HOLD_CAL}d (calendar)"),
     ("Cohorts", "bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (366d)"),
-    ("Cohort variable", "vol_surge_ratio = volume / mean(volume[-51:-1])"),
+    ("Cohort variable", "vol_dry_up_ratio = avg_vol_10 / avg_vol_50, on the signal date"),
     ("Entry", "next trading day's split/dividend-adjusted open"),
-    ("Filter under study", "**vol_surge < 2.0x — removed; returns as the `[1.00-2.00) cap` row**"),
-    ("Fixed filters", "RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_dry_up<90% (no tight_range)"),
+    ("Filter under study", "**vol_dry_up < 90% — removed; returns as the `<0.90 (cap)` row**"),
+    ("Fixed filters", "RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x (no tight_range)"),
     ("Ranking gate", f"QullamaggieRanking >= {MIN_RANKING}"),
     ("Market regime", "SPY close > 200d SMA"),
     ("Price range", f"> ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f}"),
@@ -80,16 +87,17 @@ CONFIG_ROWS: list[tuple[str, str]] = [
     ("Sortino", f"mean / RMS(min(r,0)) over all N x sqrt(365/hold), min {MIN_NEG} losers (turtlex/backtest/metrics.py)"),
 ]
 
-RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-cohorts-volsurge.md"
+RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-cohorts-vol-dry-up.md"
 
 
 def add_study_indicators(df: pl.DataFrame) -> pl.DataFrame:
     """Add this study's cohort variable on top of qm.add_indicators.
 
-    `vol_surge_ratio` is the breakout bar's own volume over the prior 50-day average, so it
-    reads current `volume` against the shift-1 `avg_vol_50` the shared layer already computed.
+    Both averages are already shift-1 in the shared layer, so the ratio carries no
+    look-ahead: it is the 10-day volume average over the 50-day average as of the bar
+    before the breakout.
     """
-    return df.with_columns((pl.col("volume").cast(pl.Float64) / pl.col("avg_vol_50")).alias("vol_surge_ratio"))
+    return df.with_columns((pl.col("avg_vol_10") / pl.col("avg_vol_50")).alias("vol_dry_up_ratio"))
 
 
 # ── Ranking ──────────────────────────────────────────────────────────────────
@@ -109,7 +117,7 @@ def compute_ranking(row: dict) -> int:
     return _ranker.ranking(row_df, row["date"])
 
 
-# ── Signal generation (no vol_surge_max cap) ─────────────────────────────────
+# ── Signal generation (no vol_dry_up cap) ────────────────────────────────────
 
 
 def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
@@ -121,7 +129,8 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & pl.col("rsi14").is_not_null()
             & pl.col("roc_252d").is_not_null()
             & pl.col("adr_pct_change").is_not_null()
-            & (pl.col("rsi14") < 70.0)
+            & pl.col("vol_dry_up_ratio").is_not_null()
+            & (pl.col("rsi14") < RSI_CAP)
             & (pl.col("raw_close") > MIN_PRICE)
             & (pl.col("raw_close") < MAX_PRICE)
             & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
@@ -129,11 +138,11 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
             & (pl.col("adj_close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") >= sma_t)
-            & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
+            & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
         )
-        .select(["symbol", "date", "raw_close", "adj_close", "adr_pct", "pct_vs_sma50", "vol_surge_ratio"])
+        .select(["symbol", "date", "raw_close", "adj_close", "adr_pct", "pct_vs_sma50", "vol_dry_up_ratio"])
         .sort(["symbol", "date"])
     )
     if cands.is_empty():
@@ -176,7 +185,7 @@ def run_trades(
             continue
         entry_px = float(row["entry_price"])
         ret = float((closes[idx_exit] - entry_px) / entry_px)
-        records.append({"vsr": row["vol_surge_ratio"], "ret": ret})
+        records.append({"vdu": row["vol_dry_up_ratio"], "ret": ret})
     return records
 
 
@@ -217,7 +226,7 @@ def build_table(label: str, records: list[dict]) -> list[str]:
     lines = [f"### {label}", "", _COL_HDR, _COL_SEP]
     all_rets = np.array([r["ret"] for r in records])
     for cohort_label, lo, hi in COHORTS:
-        cohort_rets = np.array([r["ret"] for r in records if lo <= r["vsr"] < hi])
+        cohort_rets = np.array([r["ret"] for r in records if lo <= r["vdu"] < hi])
         m = compute_metrics(cohort_rets)
         if m:
             lines.append(fmt_cohort_row(cohort_label, m))
@@ -228,11 +237,10 @@ def build_table(label: str, records: list[dict]) -> list[str]:
     m_all = compute_metrics(all_rets)
     if m_all:
         lines.append(fmt_cohort_row("ALL", m_all))
-    # reference: original strategy cap [1.0-2.0)
-    ref_rets = np.array([r["ret"] for r in records if 1.0 <= r["vsr"] < 2.0])
+    ref_rets = np.array([r["ret"] for r in records if r["vdu"] < VOL_DRY_UP])
     m_ref = compute_metrics(ref_rets)
     if m_ref:
-        lines.append(fmt_cohort_row("[1.00-2.00) cap", m_ref))
+        lines.append(fmt_cohort_row(f"<{VOL_DRY_UP:.2f} (cap)", m_ref))
     lines.append("")
     return lines
 
@@ -286,7 +294,7 @@ def main() -> None:
 
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with RESULT_PATH.open("w") as fh:
-        fh.write("# Qullamaggie Vol-Surge Cohort Analysis\n\n")
+        fh.write("# Qullamaggie Vol-Dry-Up Cohort Analysis\n\n")
         fh.write(f"Run date: {run_timestamp()}\n\n")
         fh.write("## Configuration\n\n")
         fh.write(config)

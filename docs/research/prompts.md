@@ -17,7 +17,8 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 | [ADR compression cohorts](#adr-compression-cohorts) | `scripts/qullamaggie-cohorts-adr-compression.py` | `result-qullamaggie-cohorts-adr-compression.md` |
 | [RSI(14) cohorts](#rsi14-cohorts) | `scripts/qullamaggie-cohorts-rsi.py` | `result-qullamaggie-cohorts-rsi.md` |
 | [Entry price cohorts](#entry-price-cohorts) | `scripts/qullamaggie-cohorts-price.py` | `result-qullamaggie-cohorts-price.md` |
-| [Volume surge cohorts](#volume-surge-cohorts) | `scripts/qullamaggie-cohorts-volsurge.py` | `result-qullamaggie-cohorts-volsurge.md` |
+| [Volume surge cohorts](#volume-surge-cohorts) | `scripts/qullamaggie-cohorts-vol-surge.py` | `result-qullamaggie-cohorts-vol-surge.md` |
+| [Vol dry-up cohorts](#vol-dry-up-cohorts) | `scripts/qullamaggie-cohorts-vol-dry-up.py` | `result-qullamaggie-cohorts-vol-dry-up.md` |
 | [Tight range cohorts](#tight-range-cohorts) | `scripts/qullamaggie-cohorts-tightrange.py` | `result-qullamaggie-cohorts-tightrange.md` |
 | [pct-above-sma50 cohorts](#pct-above-sma50-cohorts) | `scripts/qullamaggie-cohorts-pct-above-sma50.py` | `result-qullamaggie-cohorts-pct-above-sma50.md` |
 | [SMA(200) cohorts](#sma200-cohorts) | `scripts/qullamaggie-cohorts-sma200.py` | `result-qullamaggie-cohorts-sma200.md` |
@@ -162,8 +163,22 @@ All cohort studies below share the same setup unless stated otherwise:
 - **Cohorts:** (<0.7), [0.7-0.8), [0.8-0.9), [0.9-1.0), [1.0-1.1), [1.1-1.2), [1.2-1.3), [1.3-1.4), [1.4-1.6), [1.6-2.0), [2.0-3.0), [3.0-4.0), [4.0-6.0), (>6.0)
 - **Filter under study is dropped:** the `vol_surge < 2.0x` cap is removed, otherwise the `[2.0-3.0)` through
   `(>6.0)` cohorts would be empty. It returns as the `[1.00-2.00) cap` reference row at the foot of each table.
-- **Script:** `scripts/qullamaggie-cohorts-volsurge.py`
-- **Results:** `docs/research/result-qullamaggie-cohorts-volsurge.md`
+- **Script:** `scripts/qullamaggie-cohorts-vol-surge.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-vol-surge.md`
+
+### Vol dry-up cohorts
+
+**Goal:** How `vol_dry_up_ratio = avg_vol_10 / avg_vol_50` (both shift-1) affects results — the volume-side
+twin of the ADR compression study. Below 1.0 the last 10 sessions were quieter than the last 50, the volume
+contraction the setup looks for ahead of a breakout; above 1.0 volume is already expanding.
+
+- **Cohorts:** (<0.5), [0.5-0.6), [0.6-0.7), [0.7-0.8), [0.8-0.9), [0.9-1.0), [1.0-1.1), [1.1-1.25), [1.25-1.5), (>1.5)
+- **Filter under study is dropped:** the `vol_dry_up < 90%` cap is removed, otherwise every cohort from
+  `[0.9-1.0)` up would be empty. It returns as the `<0.90 (cap)` reference row at the foot of each table.
+- **Script:** `scripts/qullamaggie-cohorts-vol-dry-up.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-vol-dry-up.md`
+- **Note:** added 2026-08-01. `vol_dry_up` was the last filter in the production chain with no cohort study of
+  its own, so the question "does it improve Mean%/Sortino?" had no evidence either way.
 
 ### Tight range cohorts
 
@@ -532,5 +547,8 @@ Run Ruff + mypy + pytest.
 
 ### Validate and run cohorts
 
-- Validate that cohorts description in @docs/research/prompts.md is in sync with @scripts/*.py code. If there are differences then ask how proceed
-- Validate that cohorts results are in sync with cohorts python code @scripts/*.py. If not then run the script again
+- Verify that the cohort descriptions in `@docs/research/prompts.md` match the code in `@scripts/*.py`. If there are discrepancies, ask how to proceed.
+- Verify that the cohort results are in sync with the cohort Python code in `@scripts/*.py`. If they are not, re-run the script.
+- Validate the results in `@docs/research/result-qullamaggie-cohorts-*.md` and answer the following questions:
+  - Are all filters in `@scripts/qullamaggie-backtest-v4.py` justified — does each one improve Mean% and/or Sortino? If any do not, surface those findings to the screen.
+  - Is there a way to loosen the filters to generate more signals without degrading performance (Mean% and/or Sortino)? Surface those findings to the screen.
