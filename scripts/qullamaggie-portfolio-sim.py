@@ -3,7 +3,7 @@
 Portfolio simulation for bk50d_s20 / s16 / s12 (v2.0, 366d).
 
 Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
-ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, SPY>200d SMA,
+ADR_change<90%, roc_12m<100%, vol_surge<2.0x, SPY>200d SMA,
 close>$5&<$250, avg_vol>=500K; tight_range and sma_alignment disabled).
 
 open/close/high/low are split/dividend-adjusted (scaled by adjusted_close/close) so indicators,
@@ -84,7 +84,6 @@ MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
-VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
@@ -224,7 +223,6 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("_c1").rolling_mean(200, min_samples=200).over("symbol").alias("sma200"),
             pl.col("_v1").rolling_mean(50, min_samples=50).over("symbol").alias("avg_vol_50"),
             pl.col("_v1").rolling_mean(20, min_samples=20).over("symbol").alias("avg_vol_20"),
-            pl.col("_v1").rolling_mean(10, min_samples=10).over("symbol").alias("avg_vol_10"),
             pl.col("_c1").rolling_max(50, min_samples=50).over("symbol").alias("max_c_50d"),
             pl.col("_rp1").rolling_mean(20, min_samples=20).over("symbol").alias("adr_pct"),
             pl.col("_rp1").rolling_mean(10, min_samples=10).over("symbol").alias("_adr10"),
@@ -261,7 +259,6 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") > sma_t)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
-            & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
         )
@@ -675,7 +672,7 @@ def main() -> None:
         out(
             f"Parameters: %abv_SMA50>{sma_t * 100:.0f}%, breakout>50d high, RSI(14)<{RSI_CAP:.0f}, "
             f"ADR%(20)>={ADR_FLOOR * 100:.1f}%, ADR_change<{ADR_CHANGE_CAP * 100:.0f}%, "
-            f"vol_surge<{VOL_SURGE_MAX:.1f}x, vol_dry_up<{VOL_DRY_UP * 100:.0f}%, roc_12m<{ROC_CAP * 100:.0f}%, "
+            f"vol_surge<{VOL_SURGE_MAX:.1f}x, roc_12m<{ROC_CAP * 100:.0f}%, "
             f"SPY>200d SMA, close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K, "
             f"cooldown={COOLDOWN}d, hold={HOLD_CAL}d cal"
         )

@@ -7,7 +7,7 @@ QullamaggieStrategy (the strategy behind `backtest-runner --trading-strategy qul
 this report and the backtest runner agree on (symbol, signal_date, entry_date, entry_price).
 
 Filters: RSI<70, ADR mean-of-ratios>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x,
-vol_dry_up<90%, SPY>200d SMA, raw close>$5&<$250, avg_vol>=500K, >12% above the 50d SMA.
+SPY>200d SMA, raw close>$5&<$250, avg_vol>=500K, >12% above the 50d SMA.
 Indicators run on split/dividend-adjusted prices; the $5-$250 band stays on the raw close.
 Entry is the next trading bar's adjusted open, matching the production runner. Positions are
 open — each is marked to its symbol's latest available adjusted close.

@@ -12,7 +12,7 @@ trading days from signal to fill (filled orders only) per X x Y cell.
 Bars, indicators and the SPY regime come from turtlex.research.qullamaggie, which is
 parity-tested against QullamaggieStrategy; the filter chain and cooldown are local copies
 of it (RSI<70, ADR mean-of-ratios >=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x,
-vol_dry_up<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, no tight_range, cooldown 30d,
+SPY>200d SMA, close>$5&<$250, avg_vol>=500K, no tight_range, cooldown 30d,
 mcap>=1.5B excl Comm/RE), plus a QullamaggieRanking >= MIN_RANKING gate. open/close/high/low
 are split/dividend-adjusted; the fill test uses adjusted prices — same convention as
 scripts/qullamaggie-cohorts-limit-order.py's run_trades_limit.
@@ -43,7 +43,6 @@ MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
-VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
@@ -98,7 +97,6 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("adj_close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") > sma_t)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
-            & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
         )
@@ -270,7 +268,7 @@ def main() -> None:
             "fills on the first trading day whose low <= limit price within Y calendar days, else expires unfilled "
             "(adjusted prices, same convention as scripts/qullamaggie-cohorts-limit-order.py) |\n"
         )
-        fh.write("| Fixed filters | RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90%, no tight_range |\n")
+        fh.write("| Fixed filters | RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, no tight_range |\n")
         fh.write("| Market regime | SPY close > 200d SMA |\n")
         fh.write(f"| Price range | > ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f} |\n")
         fh.write(f"| Min avg vol (20d) | >= {MIN_AVG_VOL // 1000}K |\n")

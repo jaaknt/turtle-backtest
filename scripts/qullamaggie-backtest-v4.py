@@ -3,9 +3,10 @@
 Qullamaggie-style breakout backtest v4.
 Spec: docs/research/qullamaggie-backtest-v4.md
 
-Fixed filters: vol_dry_up<90%, roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%,
+Fixed filters: roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%,
                ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K
-Sweep: SMA_THRESH ∈ {12%,16%,20%} × HOLD_CAL ∈ {366 cal days}  (tight_range and sma_alignment disabled)
+Sweep: SMA_THRESH ∈ {12%,16%,20%} × HOLD_CAL ∈ {366 cal days}
+       (tight_range, sma_alignment and vol_dry_up disabled)
 Eval: --start-date .. --end-date, default 2021-01-01 – today; bars are loaded from WARMUP_DAYS
       before the window (burn-in, indicators only) to FORWARD_DAYS after it (exit data).
 Entry: next trading day's split/dividend-adjusted open (not the signal-day close).
@@ -44,7 +45,6 @@ MAX_PRICE = 250.0
 MIN_HISTORY = 300
 COOLDOWN = 30
 ENTRY_SEARCH_DAYS = 7  # give up if no tradeable bar appears this many calendar days after the signal
-VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
@@ -176,7 +176,6 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("_c1").rolling_mean(50, min_samples=50).over("symbol").alias("sma50"),
             pl.col("_v1").rolling_mean(50, min_samples=50).over("symbol").alias("avg_vol_50"),
             pl.col("_v1").rolling_mean(20, min_samples=20).over("symbol").alias("avg_vol_20"),
-            pl.col("_v1").rolling_mean(10, min_samples=10).over("symbol").alias("avg_vol_10"),
             pl.col("_c1").rolling_max(50, min_samples=50).over("symbol").alias("max_c_50d"),
             pl.col("_rp1").rolling_mean(20, min_samples=20).over("symbol").alias("adr_pct"),
             pl.col("_rp1").rolling_mean(10, min_samples=10).over("symbol").alias("_adr10"),
@@ -248,7 +247,6 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("close") > pl.col("max_c_50d"))
             & (pl.col("pct_vs_sma50") > sma_t)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
-            & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(sorted(bull_dates))
         )
@@ -511,7 +509,7 @@ def main() -> None:
     # ── Print tables ───────────────────────────────────────────────────────────
     header_lines = [
         f"Period: {EVAL_START} – {EVAL_END}  |  HOLD_MAX_CAL={HOLD_MAX_CAL}d",
-        f"Fixed: vol_dry_up<{int(VOL_DRY_UP * 100)}%, roc_12m<{int(ROC_CAP * 100)}%, "
+        f"Fixed: roc_12m<{int(ROC_CAP * 100)}%, "
         f"vol_surge<{VOL_SURGE_MAX}x (no lower bound), RSI<{int(RSI_CAP)}, ADR>={ADR_MIN * 100:.1f}%, "
         f"ADR_change<{int(ADR_CHANGE_CAP * 100)}%, SPY>200d SMA, "
         f"close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K",
@@ -572,7 +570,7 @@ def main() -> None:
         fh.write(f"| Hold sweep | {hold_vals} (calendar) |\n")
         fh.write("| Ranking | QullamaggieRanking (ADR 40 / SMA50 35 / price 25) |\n")
         fh.write(f"| Ranking gate sweep | ungated, ≥ {gates_str} |\n")
-        fh.write(f"| vol_dry_up | avg_vol_10 < {int(VOL_DRY_UP * 100)}% × avg_vol_50 |\n")
+        fh.write("| vol_dry_up | disabled (commented out) |\n")
         fh.write(f"| vol_surge | volume/avg_vol_50 < {VOL_SURGE_MAX}× (no lower bound) |\n")
         fh.write(f"| roc_12m_cap | 12m ROC < {int(ROC_CAP * 100)}% |\n")
         fh.write(f"| RSI | RSI(14) < {int(RSI_CAP)} |\n")

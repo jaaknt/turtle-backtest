@@ -25,7 +25,6 @@ MIN_AVG_VOL = 500_000
 MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 COOLDOWN_DAYS = 30
-VOL_DRY_UP = 0.90
 VOL_SURGE_MAX = 2.0
 ROC_CAP = 1.00
 RSI_CAP = 70.0
@@ -216,7 +215,6 @@ def get_signals(
         & (pl.col("adj_close") > pl.col("max_c_50d"))
         & (pl.col("pct_vs_sma50") > sma_thresh)
         & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
-        & (pl.col("avg_vol_10") < VOL_DRY_UP * pl.col("avg_vol_50"))
         & (pl.col("roc_252d") < ROC_CAP)
         & pl.col("date").is_in(sorted(bull_dates))
     ).sort(["symbol", "date"])
