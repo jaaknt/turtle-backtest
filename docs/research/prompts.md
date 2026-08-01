@@ -98,7 +98,7 @@ All cohort studies below share the same setup unless stated otherwise:
   population as a reference row, so what the gate would keep can still be read off.
 - **Period:** 2015-01-01 : 2026-06-26 — longer than the `backtest-v4` baseline window on purpose, so individual
   cohorts still carry enough trades to read
-- **Output columns:** `Cohort  N  Med%  Mean%  Win%  Sortino  PF`
+- **Output columns:** `Cohort  N  Med%  Mean%  Win%  Sortino  PF  CVaR95%`
 - **Header:** `All filter conditions from algorithm`
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`
 
@@ -107,6 +107,8 @@ All cohort studies below share the same setup unless stated otherwise:
 **Goal:** How `roc_12m_cap` (`close / close[-252] − 1 < 100%`) affects performance.
 
 - **Cohorts:** (<-20), [-20-0), [0-20), [20-40), [40-60), [60-80), [80-100), [100-120), [120-140), [140-160), (>160)
+- **Filter under study is dropped:** the `roc_12m < 100%` cap is removed, otherwise every cohort from `[100-120)`
+  up would be empty. It returns as the `<100% (cap)` reference row at the foot of each table.
 - **Script:** `scripts/qullamaggie-cohorts-roc.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-roc.md`
 
@@ -114,7 +116,9 @@ All cohort studies below share the same setup unless stated otherwise:
 
 **Goal:** How `adr_pct` (`mean((high_i − low_i)/low_i, i in last 20 days, shift-1)`) affects performance.
 
-- **Cohorts:** [0-1.0), [1.0-2.0), [2.0-2.5), [2.5-3.0), [3.0-3.5), [3.5-4.0), [4.0-4.5), [4.5-5.0), [5.0-7.0), (>8.0)
+- **Cohorts:** [0-1.0), [1.0-2.0), [2.0-2.5), [2.5-3.0), [3.0-3.5), [3.5-4.0), [4.0-4.5), [4.5-5.0), [5.0-7.0), [7.0-8.0), (>8.0)
+- **Filter under study is dropped:** the `adr_pct >= 3.0%` floor is removed, otherwise the four sub-3% cohorts
+  would be empty. It returns as the `>=3% (min)` reference row at the foot of each table.
 - **Script:** `scripts/qullamaggie-cohorts-adr.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-adr.md`
 - **Note:** the script was recreated 2026-07-16 with the standardized v1.2 filters (vol_dry_up<90%, no tight_range); an earlier run with tr20 variants and vol_dry_up<80% had overwritten it with the ROC study, which now lives in `scripts/qullamaggie-cohorts-roc.py`.
@@ -125,6 +129,9 @@ All cohort studies below share the same setup unless stated otherwise:
 
 - **Metric:** `ADR%(N) = mean((high − low) / low)` over previous N days × 100 (exclude current day); `compression = ADR%(10) / ADR%(50)`
 - **Cohorts:** (<0.5), [0.5-0.7), [0.7-0.8), [0.8-0.9), [0.9-1.0), [1.0-1.3), (>1.3)
+- **Filter under study is dropped:** the production `ADR_change < 90%` cap *is* a cap on this ratio, so it is
+  removed, otherwise everything from `[0.9-1.0)` up would be empty. It returns as the `<0.9 (cap)` reference row
+  at the foot of each table.
 - **Script:** `scripts/qullamaggie-cohorts-adr-compression.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-adr-compression.md`
 
@@ -133,6 +140,8 @@ All cohort studies below share the same setup unless stated otherwise:
 **Goal:** How `rsi_filter` (`RSI(14)` on the signal date) affects performance.
 
 - **Cohorts:** [0-20), [20-40), [40-60), [40-50), [50-60), [60-70), [70-75), [75-80), [80-90), [90-100]
+- **Filter under study is dropped:** the `RSI(14) < 70` cap is removed, otherwise the `[70-75)` through
+  `[90-100]` cohorts would be empty. It returns as the `<70` reference row at the foot of each table.
 - **Script:** `scripts/qullamaggie-cohorts-rsi.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-rsi.md`
 
@@ -141,6 +150,8 @@ All cohort studies below share the same setup unless stated otherwise:
 **Goal:** How the close price on the signal date affects results.
 
 - **Cohorts:** [0-5), [5-10), [10-20), [20-50), [50-100), [100-250), [250-700), [700-2000), (>2000)
+- **Filter under study is dropped:** the `close > $5 & < $250` band is removed, otherwise `[0-5)` and everything
+  from `[250-700)` up would be empty. It returns as the `$5-$250 (cap)` reference row at the foot of each table.
 - **Script:** `scripts/qullamaggie-cohorts-price.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-price.md`
 
@@ -149,6 +160,8 @@ All cohort studies below share the same setup unless stated otherwise:
 **Goal:** How `vol_surge_ratio = volume / mean(volume[-51:-1])` affects results.
 
 - **Cohorts:** (<0.7), [0.7-0.8), [0.8-0.9), [0.9-1.0), [1.0-1.1), [1.1-1.2), [1.2-1.3), [1.3-1.4), [1.4-1.6), [1.6-2.0), [2.0-3.0), [3.0-4.0), [4.0-6.0), (>6.0)
+- **Filter under study is dropped:** the `vol_surge < 2.0x` cap is removed, otherwise the `[2.0-3.0)` through
+  `(>6.0)` cohorts would be empty. It returns as the `[1.00-2.00) cap` reference row at the foot of each table.
 - **Script:** `scripts/qullamaggie-cohorts-volsurge.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-volsurge.md`
 
@@ -156,11 +169,16 @@ All cohort studies below share the same setup unless stated otherwise:
 
 **Goal:** How `tight_range_ratio` (`(max(close[-11:-1]) − min(close[-11:-1])) / mean(close[-11:-1]) < Y`) affects results.
 
-- **Algorithms:** `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` (366d hold, `MIN_RANKING >= 40`)
+- **Algorithms:** `bk50d_s20_tr10_v2.0`, `bk50d_s20_tr20_v2.0`, `bk50d_s15_tr15_v2.0` (366d hold,
+  `MIN_RANKING >= 40`) — the tight-range cap is the dimension under study, so the variants pair it with s20/s15
+  rather than following the standard s20/s16/s12 set. With the cap removed the two s20 variants draw from the
+  same candidate pool and differ only in their reference row (`<=0.10` vs `<=0.20`).
 - **Cohorts:** (<0), [0.0-0.1), [0.1-0.15), [0.15-0.2), [0.2-0.25), [0.25-0.3), (>0.3)
+- **Filter under study is dropped:** each variant's own `tight_range` cap is removed, otherwise the cohorts above
+  it would be empty. It returns as a per-variant `<=0.10 (cap)` / `<=0.20 (cap)` / `<=0.15 (cap)` reference row
+  at the foot of that variant's table.
 - **Script:** `scripts/qullamaggie-cohorts-tightrange.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-tightrange.md`
-- **Note:** implemented as `bk50d_s20_tr10_v2.0`, `bk50d_s20_tr20_v2.0`, `bk50d_s15_tr15_v2.0` — the tight-range cap is the dimension under study, so the variants pair it with s20/s15 rather than following the standard s20/s16/s12 set.
 
 ### pct-above-sma50 cohorts
 
@@ -168,6 +186,9 @@ All cohort studies below share the same setup unless stated otherwise:
 
 - **Algorithms:** `bk50d_s<X>_v2.0` (366d hold, ungated) — X is the dimension under study here, so the standard s20/s16/s12 set does not apply; reference rows are printed for X = 12%/15%/17%/20%
 - **Cohorts:** (<10), [10-12), [12-15), [15-17), [17-20), [20-30), (>30)
+- **Filter under study is dropped:** the `pct_vs_sma50 > X` threshold is removed, otherwise the cohorts below X
+  would be empty. Removing it also makes every X draw from one candidate pool, so there is a single table with
+  one `>12% (s12)` / `>15% (s15)` / `>17% (s17)` / `>20% (s20)` reference row per threshold at its foot.
 - **Script:** `scripts/qullamaggie-cohorts-pct-above-sma50.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-pct-above-sma50.md`
 
@@ -176,6 +197,9 @@ All cohort studies below share the same setup unless stated otherwise:
 **Goal:** How `signal above sma(200)` (`SMA(200)` on the signal date) affects performance.
 
 - **Cohorts:** (< -50%), [-50% : -20%), [-20% : 0%), [0% : 10%), [10% : 20%), [20% : 30%), [30% : 40%), [40% : 50%), [50% : 60%), [60% : 80%), [80% : 100%), (>100%)
+- **Filter under study is dropped:** nothing is dropped — the strategy has no stock-level SMA(200) filter (only
+  the SPY regime uses SMA200), so the full production chain runs and the cohorts just slice the existing signal
+  population. `>=SMA200` and `<SMA200` reference rows split that population at zero.
 - **Output:** setup is the same as for cohort analyze
 - **Script:** `scripts/qullamaggie-cohorts-sma200.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-sma200.md`
@@ -185,6 +209,9 @@ All cohort studies below share the same setup unless stated otherwise:
 **Goal:** How company `sector` affects performance.
 
 - **Cohorts:** different company sectors
+- **Filter under study is dropped:** the Communication Services / Real Estate universe exclusion is removed,
+  otherwise those two cohorts would be empty. It returns as the `excl Comm/RE (cap)` reference row at the foot
+  of each table.
 - **Script:** `scripts/qullamaggie-cohorts-sector.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-sector.md`
 
@@ -192,7 +219,13 @@ All cohort studies below share the same setup unless stated otherwise:
 
 **Goal:** How Qullamagie ranking different deciles affects performance.
 
-- **Cohorts:** Qullamagie ranking different deciles
+- **Cohorts:** two views of the same trades — fixed score bands `[0-20), [20-40), [40-50), [50-60), [60-70),
+  [70-80), [80-90), [90-100]` (stable across runs, comparable with the ranking table in
+  `scripts/qullamaggie-signals-v4.py`) and population deciles (which adapt to where the score mass sits).
+  Both tables carry a `>=40 (gate)` reference row at the foot.
+- **Filter under study is dropped:** no production *filter* is dropped, but the `MIN_RANKING >= 40` gate is not
+  applied — the gate is the cohort variable, so applying it would empty every cohort below 40. It returns as the
+  `>=40 (gate)` reference row, against an `ALL (ungated)` row.
 - **Script:** `scripts/qullamaggie-cohorts-ranking.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-ranking.md`
 
@@ -204,8 +237,10 @@ All cohort studies below share the same setup unless stated otherwise:
 
 - **Algorithms:** `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` (366d hold, `MIN_RANKING >= 40`)
 - **X%:** 0%, 1%, 2%, 3%, 4%, 5%; limit order is effective during the next 30 days.
-- **Period:** 2010-01-01 : 2026-06-26
-- **Output columns:** `Cohort  N  Med%  Mean%  Win%  Sortino  PF`
+- **Period:** 2015-01-01 : 2026-06-26
+- **Output columns:** `Cohort  Fill%  N  Med%  Mean%  Win%  Sortino  PF` — `Fill%` is the share of the variant's
+  signals that produced a trade, which the limit rows need (an unfilled order is not a loss, it is no trade) and
+  the two baselines report too, so their N gaps stay readable.
 - Additionally provide monthly Mean% and trade count by months/years for bk50d_s20 eod, bk50d_s16 eod, bk50d_s12 eod:
 
   ```text
@@ -494,3 +529,8 @@ Calculate results with applying filter `MIN_RANKING >= 40` and without applying 
 ### Maintenance: lint & tests
 
 Run Ruff + mypy + pytest.
+
+### Validate and run cohorts
+
+- Validate that cohorts description in @docs/research/prompts.md is in sync with @scripts/*.py code. If there are differences then ask how proceed
+- Validate that cohorts results are in sync with cohorts python code @scripts/*.py. If not then run the script again

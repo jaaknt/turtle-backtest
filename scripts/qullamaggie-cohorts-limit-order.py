@@ -9,7 +9,8 @@ copies of it (RSI<70, ADR mean-of-ratios>=3.0%, ADR_change<90%, roc_12m<100%, vo
 vol_dry_up<90%, no tight_range, SPY>200d SMA, close>$5&<$250, avg_vol>=500K).
 open/close/high/low are split/dividend-adjusted; the $5-$250 band stays on the raw close.
 
-Entry convention is the dimension under study, so three are reported side by side:
+Entry convention is the dimension under study, so two non-limit baselines are reported
+alongside the limit sweep:
   next-open  buy at the next trading day's adjusted open — the canonical v2.0 entry and the
              reference the limit variants should be judged against.
   EOD        buy at signal-day close. The pre-v2.0 convention, kept so this study's numbers
@@ -22,7 +23,7 @@ Limit sweep: place a resting limit buy at signal_day_close * (1 - X%) for X% in 
 
 Also reports monthly seasonality (Mean%/N by entry year x month) for the EOD baseline of each cohort.
 
-Period: 2010-01-01 - 2026-06-26  (warmup handled by qm.load_bars).
+Period: 2015-01-01 - 2026-06-26  (warmup handled by qm.load_bars).
 
 References: docs/research/qullamaggie-backtest-v4.md, docs/research/result-qullamaggie-backtest-v4.md
 """
@@ -34,14 +35,14 @@ import numpy as np
 import polars as pl
 
 from turtlex.backtest.metrics import compute_trade_metrics
-from turtlex.common.report import run_timestamp
+from turtlex.common.report import config_table, run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.research import qullamaggie as qm
 from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
-EVAL_START = date(2010, 1, 1)
+EVAL_START = date(2015, 1, 1)
 EVAL_END = date(2026, 6, 26)
 HOLD_CAL = 366
 HOLD_MAX_CAL = 366
@@ -63,6 +64,34 @@ MIN_NEG = 10
 LIMIT_PCTS = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05]
 MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
 SMA_THRESHS = [(0.20, "bk50d_s20_v2.0"), (0.16, "bk50d_s16_v2.0"), (0.12, "bk50d_s12_v2.0")]
+
+CONFIG_ROWS: list[tuple[str, str]] = [
+    ("Period", f"{EVAL_START} – {EVAL_END}"),
+    ("Hold", f"{HOLD_CAL}d (calendar)"),
+    ("Cohorts", ", ".join(label for _t, label in SMA_THRESHS) + " (366d)"),
+    ("Cohort variable", "**entry convention — next-open vs EOD vs a resting limit order**"),
+    ("Entry", "**three conventions reported side by side; see Baselines and Limit sweep below**"),
+    ("Filter under study", "none — the entry convention is the variable, so the full production chain applies"),
+    ("Limit sweep", f"X% = {', '.join(f'{int(lp * 100)}%' for lp in LIMIT_PCTS)}"),
+    (
+        "Limit order rule",
+        f"resting limit at signal_day_close x (1 - X%), good for {LIMIT_WINDOW_CAL} calendar days; "
+        "fills on the first day in that window whose low <= limit price, else expires unfilled",
+    ),
+    (
+        "Baselines",
+        "next-open — buy at the next trading day's adjusted open (canonical v2.0); "
+        "EOD — buy at signal-day close (pre-v2.0, retained for continuity)",
+    ),
+    ("Fixed filters", "RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90% (no tight_range)"),
+    ("Ranking gate", f"QullamaggieRanking >= {MIN_RANKING}"),
+    ("Market regime", "SPY close > 200d SMA"),
+    ("Price range", f"> ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f}"),
+    ("Min avg vol (20d)", f">= {MIN_AVG_VOL // 1000}K"),
+    ("Cooldown", f"{COOLDOWN} calendar days"),
+    ("Universe", "US common stocks, market_cap >= 1.5B, excl. Comm/RE"),
+    ("Sortino", f"mean / RMS(min(r,0)) over all N x sqrt(365/hold), min **{MIN_NEG}** losers (turtlex/backtest/metrics.py)"),
+]
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-cohorts-limit-order.md"
 
@@ -262,12 +291,13 @@ def compute_metrics(records: list[dict]) -> dict:
         "med": m.median_pct,
         "pf": m.profit_factor,
         "sr": m.sortino,
+        "cvar": m.cvar95_pct,
     }
 
 
 # ── Output ─────────────────────────────────────────────────────────────────────
 
-_HDR = f"{'Cohort':<16} {'Fill%':>7} {'N':>5} {'Med%':>8} {'Mean%':>8} {'Win%':>7} {'Sortino':>8} {'PF':>7}"
+_HDR = f"{'Cohort':<16} {'Fill%':>7} {'N':>5} {'Med%':>8} {'Mean%':>8} {'Win%':>7} {'Sortino':>8} {'PF':>7} {'CVaR95%':>8}"
 _SEP = "-" * len(_HDR)
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -320,8 +350,11 @@ def fmt_row(label: str, fill_pct: str, m: dict) -> str:
     sr_str = f"{m['sr']:>8.3f}" if not np.isnan(m["sr"]) else f"{'n/a':>8}"
     pf_str = f"{m['pf']:>7.2f}" if np.isfinite(m["pf"]) else f"{'inf':>7}"
     if m["n"] == 0:
-        return f"{label:<16} {fill_pct:>7} {0:>5}      --       --      --      n/a      --"
-    return f"{label:<16} {fill_pct:>7} {m['n']:>5} {m['med']:>+7.1f}% {m['mean']:>+7.1f}% {m['win']:>6.1f}% {sr_str} {pf_str}"
+        return f"{label:<16} {fill_pct:>7} {0:>5}      --       --      --      n/a      --       --"
+    return (
+        f"{label:<16} {fill_pct:>7} {m['n']:>5} {m['med']:>+7.1f}% {m['mean']:>+7.1f}% "
+        f"{m['win']:>6.1f}% {sr_str} {pf_str} {m['cvar']:>+8.2f}"
+    )
 
 
 def main() -> None:
@@ -391,28 +424,9 @@ def main() -> None:
     with RESULT_PATH.open("w") as fh:
         fh.write("# Qullamaggie Limit-Order Fill Sensitivity — 366d Cohorts\n\n")
         fh.write(f"Run date: {run_timestamp()}\n\n")
-        fh.write(f"Period: {EVAL_START} – {EVAL_END}  |  Hold: {HOLD_CAL}d (calendar)\n\n")
         fh.write("## Configuration\n\n")
-        fh.write("| Parameter | Value |\n|---|---|\n")
-        fh.write(f"| Cohorts | {', '.join(label for _t, label in SMA_THRESHS)} (366d) |\n")
-        fh.write(f"| Limit sweep | X% = {', '.join(f'{int(lp * 100)}%' for lp in LIMIT_PCTS)} |\n")
-        fh.write(
-            f"| Limit order rule | resting limit at signal_day_close x (1 - X%), good for {LIMIT_WINDOW_CAL} calendar days; "
-            "fills on the first day in that window whose low <= limit price, else expires unfilled |\n"
-        )
-        fh.write(
-            "| Baselines | next-open — buy at the next trading day's adjusted open (canonical v2.0); "
-            "EOD — buy at signal-day close (pre-v2.0, retained for continuity) |\n"
-        )
-        fh.write("| Fixed filters | RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, vol_dry_up<90% (no tight_range) |\n")
-        fh.write(f"| Ranking gate | QullamaggieRanking >= {MIN_RANKING} |\n")
-        fh.write("| Market regime | SPY close > 200d SMA |\n")
-        fh.write(f"| Price range | > ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f} |\n")
-        fh.write(f"| Min avg vol (20d) | >= {MIN_AVG_VOL // 1000}K |\n")
-        fh.write(f"| Cooldown | {COOLDOWN} calendar days |\n")
-        fh.write("| Universe | US common stocks, market_cap >= 1.5B, excl. Comm/RE |\n")
-        fh.write(f"| Sortino | mean / RMS(min(r,0)) over all N x sqrt(365/hold), min {MIN_NEG} losers (turtlex/backtest/metrics.py) |\n\n")
-        fh.write("## Results\n\n")
+        fh.write(config_table(CONFIG_ROWS))
+        fh.write("\n## Results\n\n")
         for section in report_sections:
             fh.write(section)
             fh.write("\n")
