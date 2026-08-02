@@ -24,6 +24,7 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 | [SMA(200) cohorts](#sma200-cohorts) | `scripts/qullamaggie-cohorts-sma200.py` | `result-qullamaggie-cohorts-sma200.md` |
 | [SPY SMA regime cohorts](#spy-sma-regime-cohorts) | `scripts/qullamaggie-cohorts-spy-sma.py` | `result-qullamaggie-cohorts-spy-sma.md` |
 | [Sector cohorts](#sector-cohorts) | `scripts/qullamaggie-cohorts-sector.py` | `result-qullamaggie-cohorts-sector.md` |
+| [Market cap cohorts](#market-cap-cohorts) | `scripts/qullamaggie-cohorts-market-cap.py` | `result-qullamaggie-cohorts-market-cap.md` |
 | [Ranking cohorts](#ranking-cohorts) | `scripts/qullamaggie-cohorts-ranking.py` | `result-qullamaggie-cohorts-ranking.md` |
 | [Limit-order entry cohorts](#limit-order-entry-cohorts) | `scripts/qullamaggie-cohorts-limit-order.py` | `result-qullamaggie-cohorts-limit-order.md` |
 | [Limit-order fill rate](#limit-order-fill-rate) | `scripts/qullamaggie-limit-fill-rate.py` | `result-qullamaggie-limit-fill-rate.md` |
@@ -262,6 +263,26 @@ lookback N. The production setting is N = 200.
   of each table.
 - **Script:** `scripts/qullamaggie-cohorts-sector.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-sector.md`
+
+### Market cap cohorts
+
+**Goal:** How company size relates to performance, including the three sub-floor bands the production universe
+never sees.
+
+- **Cohorts:** `(<300M)`, `[300M-1B)`, `[1B-1.5B)`, `[1.5-3B)`, `[3-10B)`, `[10-30B)`, `[30-100B)`, `(>100B)`
+- **Filter under study is dropped:** the `market_cap >= 1.5B` universe floor is removed, otherwise the first
+  three cohorts would be empty. It returns as the `>=1.5B (cap)` reference row at the foot of each table. The
+  two bands straddling the floor (`[1B-1.5B)` and `[1.5-3B)`) are deliberately narrow so the floor itself can be
+  read directly rather than inferred from a wide bucket. The top two bands are merged into `(>100B)` because
+  only 37 qualified symbols exceed 300B.
+- **⚠ Descriptive only — this cohort variable carries look-ahead.** `turtle.company.market_cap` is a single
+  snapshot column with no history, so a 2015 trade is bucketed by its company's market cap **today**.
+- **Memory — the universe is read in market-cap slabs.** Dropping the floor takes the read from 5.77M rows to
+  11.75M, roughly double the widest existing study, which already peaks near the 4 GB cap. The script therefore
+  loads `[0, 1.5B)` and `[1.5B, inf)` separately. `max_market_cap` on
+  `DailyBarsQueryRepository.get_qualified_universe_bars_pl` exists for this.
+- **Script:** `scripts/qullamaggie-cohorts-market-cap.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-market-cap.md`
 
 ### Ranking cohorts
 
