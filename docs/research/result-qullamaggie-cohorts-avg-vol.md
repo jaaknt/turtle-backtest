@@ -1,8 +1,8 @@
 # Qullamaggie Average-Volume Cohort Analysis
 
-Run date: 2026-08-02 17:10:35 Tallinn time
+Run date: 2026-08-02 23:48:12 Tallinn time
 
-> **⚠ A sub-floor cohort scoring well is not automatically a relaxation.** The `avg_vol_20 >= 500K` floor is partly a *tradability* constraint rather than a pure alpha filter: a 3-5% portfolio position in a thin name moves the price the backtest measures it at, so these returns are less attainable the lower the cohort sits. The floor is also denominated in **shares, not dollars**, so it is not a constant liquidity bar across the $5-$250 price band — a $200 name at 400K shares ($80M/day) is excluded while a $6 name at 600K shares ($3.6M/day) passes.
+> **⚠ A sub-floor cohort scoring well is not automatically a relaxation.** The `avg_vol_20 >= 100K` floor is partly a *tradability* constraint rather than a pure alpha filter: a 3-5% portfolio position in a thin name moves the price the backtest measures it at, so these returns are less attainable the lower the cohort sits. The floor is also denominated in **shares, not dollars**, so it is not a constant liquidity bar across the $5-$250 price band — a $200 name at 400K shares ($80M/day) is excluded while a $6 name at 600K shares ($3.6M/day) passes.
 
 ## Configuration
 
@@ -13,7 +13,7 @@ Run date: 2026-08-02 17:10:35 Tallinn time
 | Cohorts | bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (366d) |
 | Cohort variable | avg_vol_20 = mean(volume[-21:-1]) — raw shares, shift-1 |
 | Entry | next trading day's split/dividend-adjusted open |
-| Filter under study | **`avg_vol_20 >= 500K` — removed, otherwise the three sub-floor cohorts would be empty; returns as the `>=500K (cap)` row** |
+| Filter under study | **`avg_vol_20 >= 100K` — removed, otherwise the sub-floor cohort would be empty; returns as the `>=100K (cap)` row** |
 | ⚠ Tradability | **this floor is partly a fill constraint, not pure alpha — a sub-floor cohort scoring well is not necessarily takeable at 3-5% position size. It is also denominated in shares, not dollars** |
 | Fixed filters | RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x (no tight_range) |
 | Ranking gate | QullamaggieRanking >= 40 |
@@ -40,7 +40,7 @@ Cohort            N     Med%    Mean%    Win%   Sortino      PF   CVaR95%
 (>10M)          108   +43.17   +64.84    75.9     3.971   11.03    -60.74
 ─────────────────────────────────────────────────────────────────────────
 ALL            1459   +43.32   +60.38    74.9     3.550    9.66    -58.62
->=500K (cap)   1042   +44.59   +60.17    75.9     3.597    9.97    -57.92
+>=100K (cap)   1381   +44.26   +59.98    75.7     3.635    9.99    -57.09
 
 ### bk50d_s16_v2.0
 
@@ -56,7 +56,7 @@ Cohort            N     Med%    Mean%    Win%   Sortino      PF   CVaR95%
 (>10M)          122   +42.73   +61.78    73.0     3.538    9.31    -61.55
 ─────────────────────────────────────────────────────────────────────────
 ALL            1644   +40.54   +58.80    73.2     3.293    8.81    -60.51
->=500K (cap)   1163   +41.49   +58.12    74.1     3.377    9.15    -58.48
+>=100K (cap)   1547   +41.43   +58.74    73.9     3.387    9.10    -58.90
 
 ### bk50d_s12_v2.0
 
@@ -72,6 +72,6 @@ Cohort            N     Med%    Mean%    Win%   Sortino      PF   CVaR95%
 (>10M)          142   +42.73   +59.01    72.5     3.311    8.62    -60.10
 ─────────────────────────────────────────────────────────────────────────
 ALL            1902   +37.83   +56.52    71.8     3.054    8.04    -61.90
->=500K (cap)   1337   +38.48   +56.15    72.8     3.172    8.42    -59.32
+>=100K (cap)   1785   +39.29   +56.59    72.7     3.154    8.35    -60.08
 
 ```
