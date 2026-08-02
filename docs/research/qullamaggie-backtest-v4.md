@@ -9,7 +9,7 @@ Using the `turtle.daily_bars`, `turtle.company` and `turtle.ticker` PostgreSQL t
 ## Data Scope
 
 - Universe: US common stocks (`turtle.ticker` where `country = 'USA'` and `type = 'Common Stock'`)
-- Minimum filters: `close > 5` and `close < 250` and `mean(volume[-21:-1]) >= 500_000`, all evaluated on the signal date
+- Minimum filters: `close > 5` and `close < 250` and `mean(volume[-21:-1]) >= 100_000`, all evaluated on the signal date
 - Market cap is ≥ 1.5B (`turtle.company` where `market_cap >= 1500000000` and `company.ticker_code = ticker.code`)
 - Evaluation period (baseline): **2021-2025**. Signals fire through the end of the window, but a trade
   needs 366 calendar days of forward data to reach its exit — so signals from roughly the last twelve
