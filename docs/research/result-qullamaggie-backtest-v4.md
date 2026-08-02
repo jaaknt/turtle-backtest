@@ -1,6 +1,6 @@
 # Qullamaggie Backtest v4 — Results
 
-Run date: 2026-08-01 10:08:42 Tallinn time
+Run date: 2026-08-02 08:46:22 Tallinn time
 
 ## Configuration
 
@@ -12,7 +12,7 @@ Run date: 2026-08-01 10:08:42 Tallinn time
 | Exit | close of the first bar at or after entry + hold |
 | SMA thresh sweep | 12%, 16%, 20% |
 | Tight range | disabled (commented out) |
-| Hold sweep | 366d (calendar) |
+| Hold sweep | 366d (calendar); entries without 366d of forward data are skipped |
 | Ranking | QullamaggieRanking (ADR 40 / SMA50 35 / price 25) |
 | Ranking gate sweep | ungated, ≥ 40 |
 | vol_dry_up | disabled (commented out) |
@@ -27,71 +27,26 @@ Run date: 2026-08-01 10:08:42 Tallinn time
 | Min avg vol (20d) | ≥ 500K |
 | Min history | ≥ 300 trading days |
 | Cooldown | 30 calendar days |
-| Eval period | 2021-01-01 – 2026-08-01 |
+| Eval period | 2021-01-01 – 2026-08-02 |
 | Burn-in (indicators only) | 2019-01-02 – 2021-01-01 |
 | Universe | US common stocks, market_cap ≥ 1.5B, excl. Comm/RE |
+| Sortino | mean / RMS(min(r,0)) over all N × sqrt(365/hold), min 10 losers (turtlex/backtest/metrics.py) |
 
-## Rankings — No Ranking Condition
+## Rankings
 
-```text
-Period: 2021-01-01 – 2026-08-01  |  HOLD_MAX_CAL=366d
-Fixed: roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K
-Sortino: mean / RMS(min(r,0)) over all N × sqrt(365/hold), min 10 losers (turtlex/backtest/metrics.py)
-
-   #  Entry Signal                      Exit     N   Win%    Mean%  AnnMean%     Med%     Q75%     PF  Sortino   MaxDD%    CVaR%   F/mo  RkAvg  RkMed   Yrs+  C
-───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-   1  bk50d_s20_v2.0                   366d   520   65.4   +56.35    +56.16   +26.37   +85.40   7.07    2.941    41.35   -60.06    7.8   55.9     58    5/5  ✓
-   2  bk50d_s16_v2.0                   366d   870   63.4   +45.20    +45.05   +20.43   +71.54   5.58    2.289    39.88   -60.44   13.0   44.3     41    5/5  ✓
-   3  bk50d_s12_v2.0                   366d  1346   62.1   +38.26    +38.14   +15.80   +60.18   4.89    1.953    38.63   -60.18   20.1   38.0     33    5/5  ✓
-
-Valid combinations: 3  |  Consistent: 3
-```
-
-## Consistent Combinations
-
-Sortino > 0 in ≥70% of complete calendar years with ≥10 negative trades, and ≥3 valid years.
-
-- `bk50d_s20_v2.0` | `366d` — SR=2.941, Win%=65.4, Med%=+26.37, AnnMean%=+56.16, Q75%=+85.40, MaxDD%=41.35, CVaR%=-60.06, Yrs+=5/5, N=520
-- `bk50d_s16_v2.0` | `366d` — SR=2.289, Win%=63.4, Med%=+20.43, AnnMean%=+45.05, Q75%=+71.54, MaxDD%=39.88, CVaR%=-60.44, Yrs+=5/5, N=870
-- `bk50d_s12_v2.0` | `366d` — SR=1.953, Win%=62.1, Med%=+15.80, AnnMean%=+38.14, Q75%=+60.18, MaxDD%=38.63, CVaR%=-60.18, Yrs+=5/5, N=1346
-
-## Rankings — Ranking Gate Sweep (R ≥ 40)
-
-Same signals, but a trade is taken only if its `QullamaggieRanking` score (`turtlex/strategy/ranking/qullamaggie.py`) is ≥ R, swept over 40 (40 is the `--min-signal-ranking` default). The score is computed from the same shift-1 indicators the entry filter used (`adr_pct`, `pct_vs_sma50`) plus the raw signal-date close, so it adds no look-ahead.
+Each algorithm appears twice on adjacent rows, distinguished by the `Gate` column: `ungated` takes every signal that meets the entering condition, `R>=40` takes a trade only if its `QullamaggieRanking` score (`turtlex/strategy/ranking/qullamaggie.py`) clears the gate. The two rows come from the same signals, held and exited identically, so the difference isolates the gate — the drop in `N` between them is how selective it is. The score uses the same shift-1 indicators the entry filter used (`adr_pct`, `pct_vs_sma50`) plus the raw signal-date close, so it adds no look-ahead. Rows are ordered by SMA threshold (s20, s16, s12), ungated before gated.
 
 ```text
-Period: 2021-01-01 – 2026-08-01  |  HOLD_MAX_CAL=366d
-Fixed: roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K
-Sortino: mean / RMS(min(r,0)) over all N × sqrt(365/hold), min 10 losers (turtlex/backtest/metrics.py)
-Ranking gate sweep: QullamaggieRanking ≥ 40
+Entry Signal      Gate         N   Win%    Mean%     Med%     PF  Sortino    CVaR%   F/mo
+─────────────────────────────────────────────────────────────────────────────────────────
+bk50d_s20_v2.0    ungated    529   65.4   +55.90   +26.91   7.05    2.933   -60.06    7.9
+bk50d_s20_v2.0    R>=40      388   65.5   +58.08   +29.14   6.83    2.837   -63.47    5.8
+bk50d_s16_v2.0    ungated    881   63.5   +44.92   +20.73   5.55    2.276   -60.42   13.1
+bk50d_s16_v2.0    R>=40      463   63.9   +53.52   +25.33   6.07    2.543   -63.40    6.9
+bk50d_s12_v2.0    ungated   1356   62.2   +38.32   +16.00   4.94    1.980   -59.51   20.2
+bk50d_s12_v2.0    R>=40      562   64.8   +55.09   +25.97   6.48    2.697   -62.89    8.4
 
-   #  Entry Signal                      Exit     N   Win%    Mean%  AnnMean%     Med%     Q75%     PF  Sortino   MaxDD%    CVaR%   F/mo  RkAvg  RkMed   Yrs+  C
-───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-   1  bk50d_s20_v2.0 R≥40              366d   379   65.4   +58.69    +58.49   +27.84   +91.06   6.85    2.846    44.07   -64.15    5.7   64.0     64    5/5  ✓
-   2  bk50d_s12_v2.0 R≥40              366d   552   64.7   +55.51    +55.32   +25.60   +86.27   6.53    2.718    42.90   -63.14    8.2   58.9     58    5/5  ✓
-   3  bk50d_s16_v2.0 R≥40              366d   454   63.9   +53.96    +53.78   +25.17   +84.67   6.08    2.546    44.12   -63.92    6.8   61.3     60    5/5  ✓
-
-Valid combinations: 3  |  Consistent: 3
-```
-
-## Consistent Combinations (Ranking ≥ 40)
-
-Sortino > 0 in ≥70% of complete calendar years with ≥10 negative trades, and ≥3 valid years.
-
-- `bk50d_s20_v2.0 R≥40` | `366d` — SR=2.846, Win%=65.4, Med%=+27.84, AnnMean%=+58.49, Q75%=+91.06, MaxDD%=44.07, CVaR%=-64.15, Yrs+=5/5, N=379
-- `bk50d_s12_v2.0 R≥40` | `366d` — SR=2.718, Win%=64.7, Med%=+25.60, AnnMean%=+55.32, Q75%=+86.27, MaxDD%=42.90, CVaR%=-63.14, Yrs+=5/5, N=552
-- `bk50d_s16_v2.0 R≥40` | `366d` — SR=2.546, Win%=63.9, Med%=+25.17, AnnMean%=+53.78, Q75%=+84.67, MaxDD%=44.12, CVaR%=-63.92, Yrs+=5/5, N=454
-
-## Ranking Gate Selectivity
-
-How many signals each gate removes, at signal level.
-
-```text
-Entry Signal               Gate   Signals   Passing   Rejected   Reject%
-────────────────────────────────────────────────────────────────────────
-bk50d_s12_v2.0               40      1851       763       1088     58.8%
-bk50d_s16_v2.0               40      1196       630        566     47.3%
-bk50d_s20_v2.0               40       713       534        179     25.1%
+Valid combinations: 6
 ```
 
 ## Findings & Caveats
@@ -106,4 +61,4 @@ bk50d_s20_v2.0               40       713       534        179     25.1%
 - account for trade overlap (e.g. block-bootstrap or effective-sample-size adjustment) when judging Sortino confidence
 - re-run all three windows (2010-2015, 2016-2020, 2021-present) before accepting any parameter change — a change that only improves the window it was chosen on is fitted to that window
 - pick the ranking gate per SMA threshold rather than one R≥40 across s12/s16/s20; the same score rejects a very different share of each, so it is not the same filter at each
-- report each year's negative-trade count next to its Sortino — under the gate a thin window can fall below the 10-loser bar and silently drop out of the Yrs+ denominator
+- report per-year Sortino again — the Yrs+/Consistent columns were dropped from the table, so a combination that only works in one year is no longer visible at a glance

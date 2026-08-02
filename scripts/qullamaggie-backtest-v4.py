@@ -308,20 +308,14 @@ def run_trades(
         if idx_exit >= len(dates):
             continue
         entry_date = _EPOCH + timedelta(days=entry_int)
-        # the position starts at the entry open, so that is the first point of the price path
-        window = np.concatenate(([entry_px], closes[idx_entry : idx_exit + 1]))
         ret = float((closes[idx_exit] - entry_px) / entry_px)
-        running_max = np.maximum.accumulate(window)
-        mdd = float((1.0 - window / running_max).max())
         records.append(
             {
                 "symbol": sym,
                 "signal_date": row["date"],
                 "entry_date": entry_date,
                 "exit_date": _EPOCH + timedelta(days=int(dates[idx_exit])),
-                "year": entry_date.year,
                 "ret": ret,
-                "mdd": mdd,
                 "ranking": row["ranking"],
             }
         )
@@ -332,100 +326,70 @@ def run_trades(
 
 
 def compute_metrics(records: list[dict], hold_cal: int) -> dict | None:
-    """Study-level metrics: the shared trade metrics plus this study's own Q75 and frequency."""
+    """Study-level metrics: the shared trade metrics plus this study's own signal frequency.
+
+    `mean` carries the **annualized** mean return — with a single 366d hold it differs from the
+    raw mean only by the 365/366 factor, but reporting one annualized figure keeps the column
+    comparable with studies run at other holding periods.
+    """
     if len(records) < MIN_TRADES:
         return None
     a = np.array([r["ret"] for r in records])
-    mdds = np.array([r["mdd"] for r in records])
-    ranks = np.array([r["ranking"] for r in records], dtype=float)
-    m = compute_trade_metrics(a * 100, hold_cal, trade_drawdowns_pct=mdds * 100, min_losers=MIN_NEG)
+    m = compute_trade_metrics(a * 100, hold_cal, min_losers=MIN_NEG)
     if m is None or np.isnan(m.sortino) or m.sortino <= 0:
         return None
     months = (EVAL_END.year - EVAL_START.year) * 12 + (EVAL_END.month - EVAL_START.month)
     return {
         "n": m.n,
-        "rank_avg": float(ranks.mean()),
-        "rank_med": float(np.median(ranks)),
         "win": m.win_pct,
-        "mean": m.mean_pct,
-        "ann_mean": m.ann_mean_pct,
+        "mean": m.ann_mean_pct,
         "med": m.median_pct,
-        "q75": float(np.percentile(a, 75) * 100),
         "pf": m.profit_factor,
         "sr": m.sortino,
-        "mdd": m.mean_trade_mdd_pct,
         "cvar": m.cvar95_pct,
         "freq": len(a) / max(months, 1),
     }
 
 
-def consistency_flag(records: list[dict], hold_cal: int) -> tuple[str, bool]:
-    by_year: dict[int, list[float]] = {}
-    for r in records:
-        by_year.setdefault(r["year"], []).append(r["ret"])
-    valid = pos = 0
-    for yr, rets in sorted(by_year.items()):
-        if date(yr, 12, 31) > EVAL_END:  # incomplete calendar year
-            continue
-        m = compute_trade_metrics(np.array(rets) * 100, hold_cal, min_losers=MIN_NEG)
-        if m is None or np.isnan(m.sortino):  # too few losing trades to judge the year
-            continue
-        valid += 1
-        if m.sortino > 0:
-            pos += 1
-    consistent = valid >= 3 and (pos / valid) >= 0.70 if valid > 0 else False
-    return f"{pos}/{valid}", consistent
-
-
 # ── Output ─────────────────────────────────────────────────────────────────────
 
+# The hold is fixed at HOLD_CALS, so an Exit column would repeat one value on every row; Mean%
+# carries the annualized figure directly rather than reporting raw and annualized side by side.
 _HDR = (
-    f"{'#':>4}  {'Entry Signal':<30}  {'Exit':>6}  "
-    f"{'N':>4}  {'Win%':>5}  {'Mean%':>7}  {'AnnMean%':>8}  {'Med%':>7}  {'Q75%':>7}  {'PF':>5}  {'Sortino':>7}  "
-    f"{'MaxDD%':>7}  {'CVaR%':>7}  {'F/mo':>5}  {'RkAvg':>5}  {'RkMed':>5}  {'Yrs+':>5}  {'C':>1}"
+    f"{'Entry Signal':<16}  {'Gate':<8}  "
+    f"{'N':>4}  {'Win%':>5}  {'Mean%':>7}  {'Med%':>7}  {'PF':>5}  {'Sortino':>7}  "
+    f"{'CVaR%':>7}  {'F/mo':>5}"
 )
 _SEP = "─" * len(_HDR)
 
 
-def fmt_row(rank: int, label: str, hold_cal: int, m: dict, yrs: str, cons: bool) -> str:
-    c = "✓" if cons else " "
+def fmt_row(label: str, gate_label: str, m: dict) -> str:
     return (
-        f"{rank:>4}  {label:<30}  {hold_cal:>4}d  "
-        f"{m['n']:>4}  {m['win']:>5.1f}  {m['mean']:>+7.2f}  {m['ann_mean']:>+8.2f}  {m['med']:>+7.2f}  "
-        f"{m['q75']:>+7.2f}  {m['pf']:>5.2f}  {m['sr']:>7.3f}  "
-        f"{m['mdd']:>7.2f}  {m['cvar']:>+7.2f}  {m['freq']:>5.1f}  "
-        f"{m['rank_avg']:>5.1f}  {m['rank_med']:>5.0f}  {yrs:>5}  {c}"
+        f"{label:<16}  {gate_label:<8}  "
+        f"{m['n']:>4}  {m['win']:>5.1f}  {m['mean']:>+7.2f}  {m['med']:>+7.2f}  "
+        f"{m['pf']:>5.2f}  {m['sr']:>7.3f}  "
+        f"{m['cvar']:>+7.2f}  {m['freq']:>5.1f}"
     )
 
 
-def build_rankings(
-    results: list[tuple[str, int, dict, list[dict]]], header_lines: list[str]
-) -> tuple[str, list[tuple[int, str, int, dict, str]]]:
-    lines = [*header_lines, _HDR, _SEP]
-    consistent_rows = []
-    for i, (lbl, hold_cal, m, records) in enumerate(results, 1):
-        yrs, cons = consistency_flag(records, hold_cal)
-        lines.append(fmt_row(i, lbl, hold_cal, m, yrs, cons))
-        if cons:
-            consistent_rows.append((i, lbl, hold_cal, m, yrs))
-    lines += ["", f"Valid combinations: {len(results)}  |  Consistent: {len(consistent_rows)}"]
-    return "\n".join(lines), consistent_rows
+def build_rankings(results: list[tuple[str, str, dict]]) -> str:
+    """Render one table carrying both ranking treatments.
 
+    `results` arrives already ordered: algorithm groups in SMA-threshold order, and within each
+    group the ungated row followed by the gated one, so the pair reads across instead of across
+    two separate tables (Step 6 of the spec).
 
-def consistent_md(title: str, consistent_rows: list[tuple[int, str, int, dict, str]]) -> str:
-    if not consistent_rows:
-        return f"## {title}\n\nNo combinations met the consistency criteria.\n"
-    parts = [
-        f"## {title}\n\n",
-        f"Sortino > 0 in ≥70% of complete calendar years with ≥{MIN_NEG} negative trades, and ≥3 valid years.\n\n",
-    ]
-    for _rank, lbl, hold_cal, m, yrs in consistent_rows:
-        parts.append(
-            f"- `{lbl}` | `{hold_cal}d` — SR={m['sr']:.3f}, "
-            f"Win%={m['win']:.1f}, Med%={m['med']:+.2f}, AnnMean%={m['ann_mean']:+.2f}, Q75%={m['q75']:+.2f}, "
-            f"MaxDD%={m['mdd']:.2f}, CVaR%={m['cvar']:+.2f}, Yrs+={yrs}, N={m['n']}\n"
-        )
-    return "".join(parts)
+    Args:
+        results: `(label, gate_label, metrics)` in display order
+
+    Returns:
+        The rendered table.
+    """
+    lines = [_HDR, _SEP]
+    for lbl, gate_label, m in results:
+        lines.append(fmt_row(lbl, gate_label, m))
+    lines += ["", f"Valid combinations: {len(results)}"]
+    return "\n".join(lines)
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -477,11 +441,11 @@ def main() -> None:
         sym_closes[sym] = g["close"].cast(pl.Float64).to_numpy(allow_copy=True)
         sym_opens[sym] = g["open"].cast(pl.Float64).to_numpy(allow_copy=True)
 
-    results: list[tuple[str, int, dict, list[dict]]] = []
-    results_gated: list[tuple[str, int, dict, list[dict]]] = []
-    gate_stats: list[tuple[str, int, int, int]] = []  # (label, gate, signals_total, signals_passing)
+    # Spec Step 6 fixes the output order: algorithms from the widest SMA threshold down
+    # (s20, s16, s12), and within each the ungated row before the gated one.
+    results: list[tuple[str, str, dict]] = []
 
-    for sma_t in SMA_THRESHS:
+    for sma_t in sorted(SMA_THRESHS, reverse=True):
         lbl = f"bk50d_s{round(sma_t * 100)}_v{ALGO_VERSION}"
         print(f"  {lbl} …", flush=True)
         signals = get_signals(df, bull_dates, sma_t)
@@ -491,66 +455,22 @@ def main() -> None:
             records = run_trades(signals, sym_dates, sym_closes, sym_opens, hold_cal)
             m = compute_metrics(records, hold_cal)
             if m is not None:
-                results.append((lbl, hold_cal, m, records))
+                results.append((lbl, "ungated", m))
         for min_rank in MIN_RANKINGS:
             signals_gated = signals.filter(pl.col("ranking") >= min_rank)
-            gate_stats.append((lbl, min_rank, signals.height, signals_gated.height))
             if signals_gated.is_empty():
                 continue
             for hold_cal in HOLD_CALS:
                 records_gated = run_trades(signals_gated, sym_dates, sym_closes, sym_opens, hold_cal)
                 m_gated = compute_metrics(records_gated, hold_cal)
                 if m_gated is not None:
-                    results_gated.append((f"{lbl} R≥{min_rank}", hold_cal, m_gated, records_gated))
-
-    results.sort(key=lambda x: x[2]["sr"], reverse=True)
-    results_gated.sort(key=lambda x: x[2]["sr"], reverse=True)
+                    results.append((lbl, f"R>={min_rank}", m_gated))
 
     # ── Print tables ───────────────────────────────────────────────────────────
-    header_lines = [
-        f"Period: {EVAL_START} – {EVAL_END}  |  HOLD_MAX_CAL={HOLD_MAX_CAL}d",
-        f"Fixed: roc_12m<{int(ROC_CAP * 100)}%, "
-        f"vol_surge<{VOL_SURGE_MAX}x (no lower bound), RSI<{int(RSI_CAP)}, ADR>={ADR_MIN * 100:.1f}%, "
-        f"ADR_change<{int(ADR_CHANGE_CAP * 100)}%, SPY>200d SMA, "
-        f"close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K",
-        f"Sortino: mean / RMS(min(r,0)) over all N × sqrt(365/hold), min {MIN_NEG} losers (turtlex/backtest/metrics.py)",
-        "",
-    ]
-
-    def print_consistent(title: str, consistent_rows: list[tuple[int, str, int, dict, str]]) -> None:
-        if not consistent_rows:
-            return
-        print(f"\n=== {title} ===")
-        for rank, lbl, hold_cal, m, yrs in consistent_rows:
-            print(
-                f"  #{rank}  {lbl} | {hold_cal}d  SR={m['sr']:.3f}  "
-                f"Win%={m['win']:.1f}  Med%={m['med']:+.2f}  AnnMean%={m['ann_mean']:+.2f}  Q75%={m['q75']:+.2f}  "
-                f"MaxDD%={m['mdd']:.2f}  CVaR%={m['cvar']:+.2f}  Yrs+={yrs}  N={m['n']}"
-            )
-
-    output, consistent_rows = build_rankings(results, header_lines)
-    print("\n" + output)
-    print_consistent("Consistent (Sortino>0 in ≥70% of complete eval years, ≥3 valid years)", consistent_rows)
 
     gates_str = ", ".join(str(r) for r in MIN_RANKINGS)
-    output_gated, consistent_gated = build_rankings(
-        results_gated, [*header_lines[:-1], f"Ranking gate sweep: QullamaggieRanking ≥ {gates_str}", ""]
-    )
-    print("\n" + output_gated)
-    print_consistent(
-        f"Consistent (Ranking ≥ {gates_str}) — Sortino>0 in ≥70% of complete eval years, ≥3 valid years",
-        consistent_gated,
-    )
-
-    gate_lines = [
-        f"{'Entry Signal':<24}  {'Gate':>5}  {'Signals':>8}  {'Passing':>8}  {'Rejected':>9}  {'Reject%':>8}",
-        "─" * 72,
-    ]
-    for lbl, gate, total, passing in gate_stats:
-        rejected = total - passing
-        gate_lines.append(f"{lbl:<24}  {gate:>5}  {total:>8}  {passing:>8}  {rejected:>9}  {rejected / total * 100:>7.1f}%")
-    gate_table = "\n".join(gate_lines)
-    print(f"\n=== Ranking gate selectivity (signal level) ===\n{gate_table}")
+    output = build_rankings(results)
+    print("\n" + output)
 
     # ── Write markdown result ──────────────────────────────────────────────────
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -567,7 +487,7 @@ def main() -> None:
         fh.write("| Exit | close of the first bar at or after entry + hold |\n")
         fh.write(f"| SMA thresh sweep | {sma_vals} |\n")
         fh.write("| Tight range | disabled (commented out) |\n")
-        fh.write(f"| Hold sweep | {hold_vals} (calendar) |\n")
+        fh.write(f"| Hold sweep | {hold_vals} (calendar); entries without {HOLD_MAX_CAL}d of forward data are skipped |\n")
         fh.write("| Ranking | QullamaggieRanking (ADR 40 / SMA50 35 / price 25) |\n")
         fh.write(f"| Ranking gate sweep | ungated, ≥ {gates_str} |\n")
         fh.write("| vol_dry_up | disabled (commented out) |\n")
@@ -584,28 +504,23 @@ def main() -> None:
         fh.write(f"| Cooldown | {COOLDOWN} calendar days |\n")
         fh.write(f"| Eval period | {EVAL_START} – {EVAL_END} |\n")
         fh.write(f"| Burn-in (indicators only) | {EVAL_START - timedelta(days=WARMUP_DAYS)} – {EVAL_START} |\n")
-        fh.write("| Universe | US common stocks, market_cap ≥ 1.5B, excl. Comm/RE |\n\n")
-        fh.write("## Rankings — No Ranking Condition\n\n```text\n")
+        fh.write("| Universe | US common stocks, market_cap ≥ 1.5B, excl. Comm/RE |\n")
+        fh.write(f"| Sortino | mean / RMS(min(r,0)) over all N × sqrt(365/hold), min {MIN_NEG} losers (turtlex/backtest/metrics.py) |\n\n")
+        fh.write("## Rankings\n\n")
+        fh.write(
+            "Each algorithm appears twice on adjacent rows, distinguished by the `Gate` column: "
+            "`ungated` takes every signal that meets the entering condition, "
+            f"`R>={gates_str}` takes a trade only if its `QullamaggieRanking` score "
+            "(`turtlex/strategy/ranking/qullamaggie.py`) clears the gate. "
+            "The two rows come from the same signals, held and exited identically, so the difference "
+            "isolates the gate — the drop in `N` between them is how selective it is. The score uses "
+            "the same shift-1 indicators the entry filter used (`adr_pct`, `pct_vs_sma50`) plus the raw "
+            "signal-date close, so it adds no look-ahead. Rows are ordered by SMA threshold "
+            "(s20, s16, s12), ungated before gated.\n\n```text\n"
+        )
         fh.write(output)
         fh.write("\n```\n\n")
-        fh.write(consistent_md("Consistent Combinations", consistent_rows))
-
-        fh.write(f"\n## Rankings — Ranking Gate Sweep (R ≥ {gates_str})\n\n")
-        fh.write(
-            "Same signals, but a trade is taken only if its `QullamaggieRanking` score "
-            f"(`turtlex/strategy/ranking/qullamaggie.py`) is ≥ R, swept over {gates_str} (40 is the "
-            "`--min-signal-ranking` default). The score is computed from the same shift-1 indicators the "
-            "entry filter used (`adr_pct`, `pct_vs_sma50`) plus the raw signal-date close, so it adds no "
-            "look-ahead.\n\n```text\n"
-        )
-        fh.write(output_gated)
-        fh.write("\n```\n\n")
-        fh.write(consistent_md(f"Consistent Combinations (Ranking ≥ {gates_str})", consistent_gated))
-
-        fh.write("\n## Ranking Gate Selectivity\n\nHow many signals each gate removes, at signal level.\n\n")
-        fh.write(f"```text\n{gate_table}\n```\n")
-
-        fh.write("\n## Findings & Caveats\n\n")
+        fh.write("## Findings & Caveats\n\n")
         fh.write("### Ideas to improve\n\n")
         ideas = [
             "source point-in-time market cap (or shares outstanding × price at entry) instead of a static snapshot",
@@ -618,8 +533,8 @@ def main() -> None:
             "a change that only improves the window it was chosen on is fitted to that window",
             f"pick the ranking gate per SMA threshold rather than one R≥{MIN_RANKINGS[0]} across s12/s16/s20; the same "
             "score rejects a very different share of each, so it is not the same filter at each",
-            "report each year's negative-trade count next to its Sortino — under the gate a thin window can fall below "
-            f"the {MIN_NEG}-loser bar and silently drop out of the Yrs+ denominator",
+            "report per-year Sortino again — the Yrs+/Consistent columns were dropped from the table, so a "
+            "combination that only works in one year is no longer visible at a glance",
         ]
         for idea in ideas:
             fh.write(f"- {idea}\n")
