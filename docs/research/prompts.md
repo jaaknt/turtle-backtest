@@ -25,6 +25,7 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 | [SPY SMA regime cohorts](#spy-sma-regime-cohorts) | `scripts/qullamaggie-cohorts-spy-sma.py` | `result-qullamaggie-cohorts-spy-sma.md` |
 | [Sector cohorts](#sector-cohorts) | `scripts/qullamaggie-cohorts-sector.py` | `result-qullamaggie-cohorts-sector.md` |
 | [Market cap cohorts](#market-cap-cohorts) | `scripts/qullamaggie-cohorts-market-cap.py` | `result-qullamaggie-cohorts-market-cap.md` |
+| [Average volume cohorts](#average-volume-cohorts) | `scripts/qullamaggie-cohorts-avg-vol.py` | `result-qullamaggie-cohorts-avg-vol.md` |
 | [Ranking cohorts](#ranking-cohorts) | `scripts/qullamaggie-cohorts-ranking.py` | `result-qullamaggie-cohorts-ranking.md` |
 | [Limit-order entry cohorts](#limit-order-entry-cohorts) | `scripts/qullamaggie-cohorts-limit-order.py` | `result-qullamaggie-cohorts-limit-order.md` |
 | [Limit-order fill rate](#limit-order-fill-rate) | `scripts/qullamaggie-limit-fill-rate.py` | `result-qullamaggie-limit-fill-rate.md` |
@@ -283,6 +284,29 @@ never sees.
   `DailyBarsQueryRepository.get_qualified_universe_bars_pl` exists for this.
 - **Script:** `scripts/qullamaggie-cohorts-market-cap.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-market-cap.md`
+
+### Average volume cohorts
+
+**Goal:** How the liquidity floor `avg_vol_20 = mean(volume[-21:-1]) >= 500K` affects performance, including the
+three sub-floor bands the production filter never lets through.
+
+- **Cohorts:** `(<100K)`, `[100-250K)`, `[250-500K)`, `[500K-1M)`, `[1-2M)`, `[2-5M)`, `[5-10M)`, `(>10M)`
+- **Filter under study is dropped:** the `avg_vol_20 >= 500K` floor is removed, otherwise the first three
+  cohorts would be empty. It returns as the `>=500K (cap)` reference row at the foot of each table. The two
+  bands straddling the floor (`[250-500K)` and `[500K-1M)`) are deliberately narrow so the floor itself can be
+  read directly rather than inferred from a wide bucket.
+- **⚠ A sub-floor cohort scoring well is not automatically a relaxation.** Unlike ADR or RSI, this floor is
+  partly a *tradability* constraint rather than a pure alpha filter: a 3-5% portfolio position in a thin name
+  moves the price the backtest measures it at, so the returns get less attainable the lower the cohort sits.
+  Any relaxation proposed off this study has to clear a fill-realism check, not just a Sortino comparison.
+- **Note — the floor is denominated in shares, not dollars,** so it is not a constant liquidity bar across the
+  `$5-$250` price band: a $200 name at 400K shares ($80M/day) is excluded while a $6 name at 600K shares
+  ($3.6M/day) passes. If the cohorts show the floor is doing real work, the follow-up question is whether a
+  dollar-volume floor would do it better.
+- **Memory:** unchanged from the other cohort studies — the `market_cap >= 1.5B` universe floor still applies,
+  so this is a standard single-load study, not a slabbed one.
+- **Script:** `scripts/qullamaggie-cohorts-avg-vol.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-avg-vol.md`
 
 ### Ranking cohorts
 
@@ -629,6 +653,14 @@ Run Ruff + mypy + pytest.
   - Are all filters in `@scripts/qullamaggie-backtest-v4.py` justified — does each one improve Mean% and/or Sortino? If any do not, surface those findings to the screen.
   - Is there a way to loosen the filters to generate more signals without degrading performance (Mean% and/or Sortino)? Surface those findings to the screen.
 
-## Gap: five filters have no cohort study
+## Gap: what is still unvalidated
 
-`avg_vol >= 500K`, `market_cap >= 1.5B`, `SPY > 200d SMA`, and `cooldown 30d` are all unvalidated — no study varies them, so there's no evidence either way on whether they help.
+`cooldown 30d` is the last filter with no cohort study — no study varies it, so there is no evidence either way
+on whether it helps.
+
+`market_cap >= 1.5B` now has a study but is **not** validated by it: the cohort variable carries look-ahead (see
+[Market cap cohorts](#market-cap-cohorts)), so the study describes which of today's size classes the good trades
+came from and cannot say whether the floor helps. That needs a point-in-time cap the schema does not carry.
+
+`avg_vol >= 500K` and `SPY > 200d SMA` are covered — see [Average volume cohorts](#average-volume-cohorts) and
+[SPY SMA regime cohorts](#spy-sma-regime-cohorts).
