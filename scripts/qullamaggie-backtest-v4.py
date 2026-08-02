@@ -7,8 +7,9 @@ Fixed filters: roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%,
                ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K
 Sweep: SMA_THRESH ∈ {12%,16%,20%} × HOLD_CAL ∈ {366 cal days}
        (tight_range, sma_alignment and vol_dry_up disabled)
-Eval: --start-date .. --end-date, default 2021-01-01 – today; bars are loaded from WARMUP_DAYS
-      before the window (burn-in, indicators only) to FORWARD_DAYS after it (exit data).
+Eval: --start-date .. --end-date, default 2021-01-01 – 2025-12-31; bars are loaded from WARMUP_DAYS
+      before the window (burn-in, indicators only) forward to DATA_END, so a trade entered late in
+      the window can still reach its 366d exit; entries whose exit falls past DATA_END are skipped.
 Entry: next trading day's split/dividend-adjusted open (not the signal-day close).
 Every signal is scored 0-100 by the production QullamaggieRanking; results are reported both
 without a ranking condition and gated at each threshold in MIN_RANKINGS.
@@ -30,11 +31,17 @@ from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2021, 1, 1)
-EVAL_END = date.today()
+# Fixed, not date.today(): a trade needs HOLD_MAX_CAL days of forward data to reach its exit, so
+# scanning up to today only generates signals that are then dropped for want of an exit. Bump this
+# as new years complete — or pass --end-date.
+EVAL_END = date(2025, 12, 31)
+# Last bar date the study may use. Signals stop at EVAL_END, but exits may reach forward to here,
+# so a trade entered late in the window can still complete its 366d hold. Capped rather than
+# open-ended so the historical windows don't drag in a decade of bars they never look at.
+DATA_END = date(2026, 6, 30)
 HOLD_MAX_CAL = 366  # skip entries without 366 cal days of fwd data
-# Calendar days of bars loaded either side of the eval window: before it so roc_252d/SMA50/
-# MIN_HISTORY are warm on its first day (the burn-in — indicators only, no signals evaluated),
-# and after it so a signal on the last day still has its 366d exit. Mirrors
+# Calendar days of bars loaded before the eval window so roc_252d/SMA50/MIN_HISTORY are warm on
+# its first day (the burn-in — indicators only, no signals evaluated). Mirrors
 # turtlex/research/qullamaggie.py's WARMUP_DAYS / MARKET_SMA_WARMUP_DAYS.
 WARMUP_DAYS = 730
 SPY_WARMUP_DAYS = 300
@@ -57,7 +64,14 @@ ALGO_VERSION = "2.0"  # version encoded in the bk50d_sX_vN labels — an identit
 
 SMA_THRESHS = [0.12, 0.16, 0.20]
 HOLD_CALS = [366]
-FORWARD_DAYS = HOLD_MAX_CAL + ENTRY_SEARCH_DAYS + 10  # bars needed past EVAL_END to exit its last signals
+# Only this variant, gated at MIN_RANKINGS[0], gets the monthly Mean%/N grid — it is the
+# reference algorithm (see CLAUDE.md), and one grid per combination would be six tables.
+MONTHLY_GRID_SMA_THRESH = 0.12
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+# Monthly-grid cell layout: `<mean>|<n>`, each half padded on its own so the `|` stays in a
+# fixed column. 6 fits +1234.5-style means without shifting; 3 fits a 999-trade month.
+_MEAN_W = 6
+_N_W = 3
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-backtest-v4.md"
 
@@ -97,7 +111,7 @@ def load_bars(engine: sa.Engine, start: date, end: date) -> pl.DataFrame:
     Args:
         engine: SQLAlchemy engine for the trading database
         start: First bar date to load — the eval-window start less WARMUP_DAYS
-        end: Last bar date to load — the eval-window end plus FORWARD_DAYS
+        end: Last bar date to load — the eval-window end
     """
     sql = """
         SELECT db.symbol,
@@ -392,6 +406,50 @@ def build_rankings(results: list[tuple[str, str, dict]]) -> str:
     return "\n".join(lines)
 
 
+def build_monthly_grid(records: list[dict]) -> str:
+    """Monthly `Mean%|N` grid, rows = entry year, columns = entry month.
+
+    Each cell is the mean 366d return of the trades *entered* that month and how many there
+    were; `·` marks a month with no entries. The right-hand pair is the year's own aggregate
+    across all its months, not the mean of the cells.
+
+    The two halves of a cell are padded independently — mean right-aligned in `_MEAN_W`, count
+    left-aligned in `_N_W` — so the `|` lands in the same column on every row. Right-aligning
+    the joined string instead lets the separator drift with each cell's width, which is what
+    makes the numbers impossible to scan down a column.
+
+    Args:
+        records: trade records carrying `entry_date` and `ret`
+
+    Returns:
+        The rendered fixed-width grid.
+    """
+    by_ym: dict[tuple[int, int], list[float]] = {}
+    for r in records:
+        entry = r["entry_date"]
+        by_ym.setdefault((entry.year, entry.month), []).append(r["ret"])
+
+    empty = f"{'·':>{_MEAN_W}}{'':{_N_W + 1}}"  # dot sits under the mean column
+    hdr = f"{'Year':>5} | " + " ".join(f"{mo:>{_MEAN_W}}{'':{_N_W + 1}}" for mo in MONTHS) + f" | {'Mean%':>7} {'N':>5}"
+    lines = [hdr, "-" * len(hdr)]
+    if not by_ym:
+        return "\n".join([*lines, "(no trades)"])
+
+    for year in sorted({y for y, _m in by_ym}):
+        cells: list[str] = []
+        year_rets: list[float] = []
+        for month_idx in range(1, 13):
+            vals = by_ym.get((year, month_idx))
+            if vals:
+                cells.append(f"{np.mean(vals) * 100:>+{_MEAN_W}.1f}|{len(vals):<{_N_W}}")
+                year_rets.extend(vals)
+            else:
+                cells.append(empty)
+        year_mean = float(np.mean(year_rets)) * 100 if year_rets else float("nan")
+        lines.append(f"{year:>5} | " + " ".join(cells) + f" | {year_mean:>+6.1f}% {len(year_rets):>5}")
+    return "\n".join(lines)
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 
@@ -418,7 +476,9 @@ def main() -> None:
 
     settings = Settings.from_toml()
     data_start = EVAL_START - timedelta(days=WARMUP_DAYS)
-    data_end = EVAL_END + timedelta(days=FORWARD_DAYS)
+    # Forward bars only as far as the last entry could need (EVAL_END + hold + entry search),
+    # and never past DATA_END — so a 2010-2015 run loads ~7 years, not ~18.
+    data_end = min(DATA_END, EVAL_END + timedelta(days=HOLD_MAX_CAL + ENTRY_SEARCH_DAYS))
     print(f"Eval {EVAL_START} – {EVAL_END}  |  bars {data_start} – {data_end}", flush=True)
 
     print("Loading SPY regime …", flush=True)
@@ -444,6 +504,8 @@ def main() -> None:
     # Spec Step 6 fixes the output order: algorithms from the widest SMA threshold down
     # (s20, s16, s12), and within each the ungated row before the gated one.
     results: list[tuple[str, str, dict]] = []
+    monthly_label = ""
+    monthly_records: list[dict] = []
 
     for sma_t in sorted(SMA_THRESHS, reverse=True):
         lbl = f"bk50d_s{round(sma_t * 100)}_v{ALGO_VERSION}"
@@ -465,12 +527,18 @@ def main() -> None:
                 m_gated = compute_metrics(records_gated, hold_cal)
                 if m_gated is not None:
                     results.append((lbl, f"R>={min_rank}", m_gated))
+                    if sma_t == MONTHLY_GRID_SMA_THRESH and min_rank == MIN_RANKINGS[0]:
+                        monthly_label, monthly_records = f"{lbl} R>={min_rank}", records_gated
 
     # ── Print tables ───────────────────────────────────────────────────────────
 
     gates_str = ", ".join(str(r) for r in MIN_RANKINGS)
     output = build_rankings(results)
     print("\n" + output)
+
+    monthly_grid = build_monthly_grid(monthly_records) if monthly_records else ""
+    if monthly_grid:
+        print(f"\n=== {monthly_label} — Monthly Mean% / N ===\n{monthly_grid}")
 
     # ── Write markdown result ──────────────────────────────────────────────────
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -520,6 +588,18 @@ def main() -> None:
         )
         fh.write(output)
         fh.write("\n```\n\n")
+        if monthly_grid:
+            fh.write(f"## Monthly Mean% / N — {monthly_label}\n\n")
+            fh.write(
+                "Each cell is `Mean%|N` for the trades **entered** in that calendar month, held the "
+                "full 366 days; `·` marks a month with no entries. The right-hand pair is the year's "
+                "own aggregate across all its months, not the mean of the cells. Only this one "
+                "combination is shown — it is the reference algorithm, and a grid per combination "
+                "would be six tables.\n\n```text\n"
+            )
+            fh.write(monthly_grid)
+            fh.write("\n```\n\n")
+
         fh.write("## Findings & Caveats\n\n")
         fh.write("### Ideas to improve\n\n")
         ideas = [

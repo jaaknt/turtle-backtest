@@ -11,7 +11,16 @@ Using the `turtle.daily_bars`, `turtle.company` and `turtle.ticker` PostgreSQL t
 - Universe: US common stocks (`turtle.ticker` where `country = 'USA'` and `type = 'Common Stock'`)
 - Minimum filters: `close > 5` and `close < 250` and `mean(volume[-21:-1]) >= 500_000`, all evaluated on the signal date
 - Market cap is ≥ 1.5B (`turtle.company` where `market_cap >= 1500000000` and `company.ticker_code = ticker.code`)
-- Historical range: `turtle.daily_bars` from 730 calendar days before the evaluation window (burn-in, indicators only) to 383 calendar days after it, so a signal on the window's last day still has its 366-day exit
+- Evaluation period (baseline): **2021-2025**. Signals fire through the end of the window, but a trade
+  needs 366 calendar days of forward data to reach its exit — so signals from roughly the last twelve
+  months produce no completed trade and are skipped. The reported period is therefore the range that
+  actually yields trades, not the range scanned.
+- Historical range: `turtle.daily_bars` from 730 calendar days before the evaluation window (burn-in,
+  indicators only) forward to **2026-06-30**. Signals stop at the window end, but exits may reach
+  into that forward data, so a trade entered late in the window can still complete its 366-day hold.
+  The forward load is capped at the later of what the last entry could need — so a 2010-2015 run
+  pulls ~7 years of bars, not ~18 — and entries whose exit would fall past 2026-06-30 are skipped.
+  For the 2021-2025 baseline that means entries through roughly 2025-06 complete; later ones do not.
 - Exclude tickers with fewer than 300 trading days of history
 - Exclude tickers in sectors: Communication Services, Real Estate (`turtle.company` where `company.sector not in ('Communication Services', 'Real Estate')` and `company.ticker_code = ticker.code`)
 
@@ -89,8 +98,6 @@ distinct throughout the rest of this document.
 |-----------|---------------------|
 | Time-based | Hold exactly 366 calendar days (12M) from the **entry** date |
 
-Skip any signal where 366 calendar days past its entry date are not available in the DB.
-
 ---
 
 ## Step 3 — Evaluation Methodology
@@ -102,7 +109,7 @@ Three windows are run, each written to its own result file:
 
 | Window | Result file |
 |---|---|
-| 2021-01-01 – present (baseline) | `docs/research/result-qullamaggie-backtest-v4.md` |
+| 2021-01-01 – 2025-12-31 (baseline) | `docs/research/result-qullamaggie-backtest-v4.md` |
 | 2010-01-01 – 2015-12-31 | `docs/research/result-qullamaggie-backtest-v4-2010-2015.md` |
 | 2016-01-01 – 2020-12-31 | `docs/research/result-qullamaggie-backtest-v4-2016-2020.md` |
 
@@ -173,6 +180,32 @@ Entry Signal     | Gate    | N    | Win% | Mean Ret | Median Ret | Profit Factor
 bk50d_s20_v2.0   | ungated |  520 |  65% |  +56.2%  |   +26.4%   |     7.1       |   2.94  |   -60.1%  |   7.8   |
 bk50d_s20_v2.0   | R>=40   |  379 |  65% |  +58.5%  |   +27.8%   |     6.9       |   2.85  |   -64.2%  |   5.7   |
 bk50d_s16_v2.0   | ungated | ...
+```
+
+### Monthly Mean% / N grid
+
+Below the ranking table, report one monthly grid — **`bk50d_s12_v2.0 R>=40` only**, the reference
+algorithm. A grid per combination would be six tables, and the other five are read off the ranking
+table instead.
+
+Rows are the entry year, columns the entry month. Each cell is `Mean%|N`: the mean 366-day return of
+the trades *entered* in that calendar month, and how many there were. `·` marks a month with no
+entries. The right-hand pair is the year's own aggregate across all its months — computed from that
+year's trades, not as the mean of the twelve cells, so months with different trade counts are weighted
+correctly.
+
+**Pad the two halves of a cell independently**: the mean right-aligned in 6 characters, then `|`,
+then the count left-aligned in 3. Right-aligning the joined `Mean%|N` string instead lets the `|`
+drift with each cell's width, so the means no longer line up down a column and the grid cannot be
+scanned vertically — which is the only reason to lay it out as a grid. The month name is
+right-aligned over the mean field, and `·` sits in the same column, so an empty month reads as a gap
+in the numbers rather than a shifted cell.
+
+```text
+ Year |    Jan        Feb        Mar        Apr   ...        Dec     |   Mean%     N
+-------------------------------------------------------------------------------------
+ 2021 |  +67.7|39   +51.0|26    -4.1|2    +11.8|5 ...          ·     |  +55.4%    98
+ 2022 |  +14.1|2    +42.7|7     -3.7|21   +20.3|10...   +14.6|39     |  +13.0%    79
 ```
 
 ---
