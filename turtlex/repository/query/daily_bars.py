@@ -73,6 +73,7 @@ class DailyBarsQueryRepository:
         start_date: date,
         end_date: date,
         min_market_cap: int = 1_500_000_000,
+        max_market_cap: int | None = None,
         excluded_sectors: list[str] | None = None,
     ) -> pl.DataFrame:
         """Return daily bars for every fundamentals-qualified US common stock in one query.
@@ -93,7 +94,11 @@ class DailyBarsQueryRepository:
         Args:
             start_date: First bar date to include (inclusive)
             end_date: Last bar date to include (inclusive)
-            min_market_cap: Minimum company market capitalisation
+            min_market_cap: Minimum company market capitalisation (inclusive)
+            max_market_cap: Optional exclusive upper bound, so a caller that cannot hold the
+                whole universe at once can read it in market-cap slabs. Market cap is a
+                per-symbol attribute and the studies' per-symbol logic never crosses symbols,
+                so slabbed reads reproduce a single wide read exactly.
             excluded_sectors: Sectors to exclude; defaults to Communication Services and Real Estate
 
         Returns:
@@ -112,6 +117,7 @@ class DailyBarsQueryRepository:
                     t.c.country == "USA",
                     t.c.type == COMMON_STOCK_TYPE,
                     c.c.market_cap >= min_market_cap,
+                    *([c.c.market_cap < max_market_cap] if max_market_cap is not None else []),
                     c.c.sector.not_in(excluded_sectors),
                     b.c.date >= start_date,
                     b.c.date <= end_date,
