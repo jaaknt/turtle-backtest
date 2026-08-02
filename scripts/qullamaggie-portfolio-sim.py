@@ -4,7 +4,7 @@ Portfolio simulation for bk50d_s20 / s16 / s12 (v2.0, 366d).
 
 Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
 ADR_change<90%, roc_12m<100%, vol_surge<2.0x, SPY>200d SMA,
-close>$5&<$250, avg_vol>=500K; tight_range and sma_alignment disabled).
+close>$5&<$250, avg_vol>=100K; tight_range and sma_alignment disabled).
 
 open/close/high/low are split/dividend-adjusted (scaled by adjusted_close/close) so indicators,
 entries, and mark-to-market aren't corrupted by split-day discontinuities; raw (unadjusted)
@@ -80,7 +80,7 @@ RANK_FUNDING = True  # when cash is scarce, fund competing signals by Qullamaggi
 # but dormant: prompts.md lists them under "Deferred/considered ideas". The sma200x5 and
 # dead120 measurements that led to that deferral are recorded in the Findings sections.
 EXIT_MODES = ["time"]
-MIN_AVG_VOL = 500_000
+MIN_AVG_VOL = 100_000
 MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300

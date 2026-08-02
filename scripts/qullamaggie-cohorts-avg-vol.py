@@ -2,9 +2,10 @@
 """
 Average-volume cohort analysis for bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (366d hold).
 
-Drops the production `avg_vol_20 >= 500K` liquidity floor and buckets every signal by that
-same 20-day average volume, so the three sub-floor cohorts exist at all. `>=500K (cap)` is the
-reference row: the slice the live filter keeps.
+Drops the production `avg_vol_20 >= 100K` liquidity floor and buckets every signal by that
+same 20-day average volume, so the sub-floor cohort exists at all. `>=100K (cap)` is the
+reference row: the slice the live filter keeps. The floor was 500K when this study first ran,
+and this study is why it moved — the committed result doc still shows the 500K reference row.
 
 avg_vol_20 = mean(volume[-21:-1]) — raw share volume, shift-1, exactly what the filter reads.
 
@@ -48,8 +49,8 @@ ADR_CHANGE_CAP = 0.90
 MIN_NEG = 5
 
 # The production liquidity floor. Not applied here — it is the dimension under study — but
-# reported as the `>=500K (cap)` row, which is the slice the live filter keeps.
-MIN_AVG_VOL = 500_000
+# reported as the `>=100K (cap)` row, which is the slice the live filter keeps.
+MIN_AVG_VOL = 100_000
 
 MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
 
@@ -80,7 +81,8 @@ CONFIG_ROWS: list[tuple[str, str]] = [
     ("Entry", "next trading day's split/dividend-adjusted open"),
     (
         "Filter under study",
-        "**`avg_vol_20 >= 500K` — removed, otherwise the three sub-floor cohorts would be empty; returns as the `>=500K (cap)` row**",
+        f"**`avg_vol_20 >= {MIN_AVG_VOL // 1000}K` — removed, otherwise the sub-floor cohort would be "
+        f"empty; returns as the `>={MIN_AVG_VOL // 1000}K (cap)` row**",
     ),
     (
         "⚠ Tradability",
@@ -238,7 +240,7 @@ def build_table(label: str, records: list[dict]) -> list[str]:
     ref_rets = np.array([r["ret"] for r in records if r["av"] >= MIN_AVG_VOL])
     m_ref = compute_metrics(ref_rets)
     if m_ref:
-        lines.append(fmt_cohort_row(">=500K (cap)", m_ref))
+        lines.append(fmt_cohort_row(f">={MIN_AVG_VOL // 1000}K (cap)", m_ref))
     lines.append("")
     return lines
 
@@ -295,7 +297,7 @@ def main() -> None:
         fh.write("# Qullamaggie Average-Volume Cohort Analysis\n\n")
         fh.write(f"Run date: {run_timestamp()}\n\n")
         fh.write(
-            "> **⚠ A sub-floor cohort scoring well is not automatically a relaxation.** The `avg_vol_20 >= 500K` "
+            "> **⚠ A sub-floor cohort scoring well is not automatically a relaxation.** The `avg_vol_20 >= 100K` "
             "floor is partly a *tradability* constraint rather than a pure alpha filter: a 3-5% portfolio "
             "position in a thin name moves the price the backtest measures it at, so these returns are less "
             "attainable the lower the cohort sits. The floor is also denominated in **shares, not dollars**, so "

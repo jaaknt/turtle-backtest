@@ -6,7 +6,7 @@ Cohorts: bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (all 366d hold, MIN_RANK
 Bars, indicators, the SPY regime and entry resolution come from turtlex.research.qullamaggie,
 which is parity-tested against QullamaggieStrategy; the filter chain and cooldown are local
 copies of it (RSI<70, ADR mean-of-ratios>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x,
-no tight_range, SPY>200d SMA, close>$5&<$250, avg_vol>=500K).
+no tight_range, SPY>200d SMA, close>$5&<$250, avg_vol>=100K).
 open/close/high/low are split/dividend-adjusted; the $5-$250 band stays on the raw close.
 
 Entry convention is the dimension under study, so two non-limit baselines are reported
@@ -48,7 +48,7 @@ HOLD_CAL = 366
 HOLD_MAX_CAL = 366
 LIMIT_WINDOW_CAL = 30  # limit order stays resting this many calendar days after the signal
 
-MIN_AVG_VOL = 500_000
+MIN_AVG_VOL = 100_000
 MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300

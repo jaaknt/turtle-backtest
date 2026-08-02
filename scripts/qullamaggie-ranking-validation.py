@@ -7,7 +7,7 @@ reference config/period used to derive the production band tables in
 turtlex/strategy/ranking/qullamaggie.py. Filters/indicators match
 scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
 ADR_change<90%, roc_12m<100%, vol_surge<2.0x, SPY>200d SMA,
-close>$5&<$250, avg_vol>=500K; tight_range and sma_alignment disabled).
+close>$5&<$250, avg_vol>=100K; tight_range and sma_alignment disabled).
 
 Note (2026-07-29): this study validates the *six-dimension* weighting that was production
 when it was written. Production has since moved to a three-dimension 40/35/25 split whose
@@ -51,7 +51,7 @@ HOLD_MAX_CAL = 366
 SPLIT_DATE = date(2021, 1, 1)  # train: entry_date < SPLIT_DATE, held-out: entry_date >= SPLIT_DATE
 SMA_T = 0.15  # bk50d_s15 -- the same reference config used to derive the production bands
 
-MIN_AVG_VOL = 500_000
+MIN_AVG_VOL = 100_000
 MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
