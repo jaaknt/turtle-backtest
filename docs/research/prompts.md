@@ -22,6 +22,7 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 | [Tight range cohorts](#tight-range-cohorts) | `scripts/qullamaggie-cohorts-tightrange.py` | `result-qullamaggie-cohorts-tightrange.md` |
 | [pct-above-sma50 cohorts](#pct-above-sma50-cohorts) | `scripts/qullamaggie-cohorts-pct-above-sma50.py` | `result-qullamaggie-cohorts-pct-above-sma50.md` |
 | [SMA(200) cohorts](#sma200-cohorts) | `scripts/qullamaggie-cohorts-sma200.py` | `result-qullamaggie-cohorts-sma200.md` |
+| [SPY SMA regime cohorts](#spy-sma-regime-cohorts) | `scripts/qullamaggie-cohorts-spy-sma.py` | `result-qullamaggie-cohorts-spy-sma.md` |
 | [Sector cohorts](#sector-cohorts) | `scripts/qullamaggie-cohorts-sector.py` | `result-qullamaggie-cohorts-sector.md` |
 | [Ranking cohorts](#ranking-cohorts) | `scripts/qullamaggie-cohorts-ranking.py` | `result-qullamaggie-cohorts-ranking.md` |
 | [Limit-order entry cohorts](#limit-order-entry-cohorts) | `scripts/qullamaggie-cohorts-limit-order.py` | `result-qullamaggie-cohorts-limit-order.md` |
@@ -226,6 +227,30 @@ contraction the setup looks for ahead of a breakout; above 1.0 volume is already
 - **Output:** setup is the same as for cohort analyze
 - **Script:** `scripts/qullamaggie-cohorts-sma200.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-sma200.md`
+
+### SPY SMA regime cohorts
+
+**Goal:** How the market-regime filter `spy_close > mean(spy_close[-(N+1):-1])` affects results, sweeping the
+lookback N. The production setting is N = 200.
+
+- **Period:** Special periods as a regime filter's whole purpose is sitting out bear markets [2006 : 2010], [2018 : 2023]
+- **Cohorts:** N = 150, 200, 250, 300, 350, plus `regime off`
+- **This is a variant sweep, not a partition.** The cohort variable is a *parameter of the filter*, not a
+  property of a signal, so the rows overlap: a signal clearing SMA150 usually clears SMA350 as well. Each row
+  is the **whole** signal population under that regime setting, and the rows do **not** sum to `regime off`.
+  Read a row as "what this algorithm would have produced with that lookback".
+- **Filter under study is dropped:** `spy_above_200d` is removed and replaced by the swept variants. `SMA200 *`
+  marks the production setting; `regime off` is the dropped-filter reference row at the foot of each table.
+- **Ordering matters:** the regime gate runs *before* the 30-day cooldown, exactly as in production, so a
+  different N also changes which triggers win the cooldown slot. Row counts are therefore not a clean subset
+  relationship, and every variant regenerates signals rather than re-filtering a shared candidate set.
+- **Script:** `scripts/qullamaggie-cohorts-spy-sma.py`
+- **Results:** `docs/research/result-qullamaggie-cohorts-spy-sma.md`
+- **Note — period choice.** This study deliberately departs from the standard 2015-2026 cohort window: a regime
+  filter can only pay for itself in a downturn, so both windows straddle one — 2006-2010 covers the 2008 crash,
+  2018-2023 covers 2018 Q4, the 2020 Covid crash and 2022. Its numbers are therefore **not** comparable with the
+  other cohort studies. Each window is loaded and simulated separately; a single 2006-2023 span would pull ~20
+  years of the qualified universe and exhaust the memory cap.
 
 ### Sector cohorts
 
