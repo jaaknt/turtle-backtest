@@ -4,7 +4,7 @@ Qullamaggie-style breakout backtest v4.
 Spec: docs/research/qullamaggie-backtest-v4.md
 
 Fixed filters: roc_12m<100%, vol_surge<2.0x (no lower bound), RSI<70, ADR>=3.0%,
-               ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K
+               ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=100K
 Sweep: SMA_THRESH ∈ {12%,16%,20%} × HOLD_CAL ∈ {366 cal days}
        (tight_range, sma_alignment and vol_dry_up disabled)
 Eval: --start-date .. --end-date, default 2021-01-01 – 2025-12-31; bars are loaded from WARMUP_DAYS
@@ -16,7 +16,7 @@ without a ranking condition and gated at each threshold in MIN_RANKINGS.
 """
 
 import argparse
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -25,7 +25,7 @@ import sqlalchemy as sa
 
 from turtlex.backtest.metrics import compute_trade_metrics
 from turtlex.common.cli import iso_date_type
-from turtlex.common.report import run_timestamp
+from turtlex.common.report import REPORT_TIMEZONE, run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
@@ -46,7 +46,11 @@ HOLD_MAX_CAL = 366  # skip entries without 366 cal days of fwd data
 WARMUP_DAYS = 730
 SPY_WARMUP_DAYS = 300
 LOAD_BATCH_ROWS = 200_000  # server-side cursor batch for load_bars; see the note there
-MIN_AVG_VOL = 500_000
+# Lowered 500K -> 100K on 2026-08-02. The avg-vol cohort study found volume predicts nothing
+# above 100K — `>=500K` was indistinguishable from no floor at all while discarding 42% of
+# signals — but `(<100K)` is genuinely bad (median +6.8% vs ~+40%, CVaR95 -86.6%). So the floor
+# moves to the one boundary that separates something. See result-qullamaggie-cohorts-avg-vol.md.
+MIN_AVG_VOL = 100_000
 MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
@@ -259,7 +263,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("adr_pct") >= ADR_MIN)
             & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
             & (pl.col("close") > pl.col("max_c_50d"))
-            & (pl.col("pct_vs_sma50") > sma_t)
+            & (pl.col("pct_vs_sma50") >= sma_t)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(sorted(bull_dates))
@@ -406,6 +410,39 @@ def build_rankings(results: list[tuple[str, str, dict]]) -> str:
     return "\n".join(lines)
 
 
+# History-of-changes row: the ranking table's columns minus `Entry Signal` and `Gate` (the log
+# only ever tracks the reference algorithm), with a run timestamp in front. Kept byte-aligned
+# with the table in docs/research/qullamaggie-backtest-v4.md so a pasted row lands in column.
+_HISTORY_HDR = (
+    f"{'Execution':<19} {'N':>4}  {'Win%':>5}  {'Mean%':>7}  {'Med%':>7}  {'PF':>5}  {'Sortino':>7}  {'CVaR%':>7}  {'F/mo':>5}  Comment"
+)
+
+
+def build_history_row(m: dict) -> str:
+    """Render the copy-pasteable `### History of changes` row for the reference algorithm.
+
+    The spec keeps that log by hand — the script must not write into the methodology doc, or a
+    re-run would erase the history it exists to accumulate — so this is printed to stdout for
+    the operator to paste, with `<what changed>` left as a placeholder only they can fill.
+
+    The timestamp is pinned to Tallinn like `run_timestamp`, and for the same reason: runs come
+    from more than one host, and the log is ordered by this column. The zone suffix is dropped
+    because the column is 19 characters wide in the doc's table.
+
+    Args:
+        m: metrics dict for `bk50d_s12_v2.0` gated at `MIN_RANKINGS[0]`
+
+    Returns:
+        Two lines — the column header and the row itself.
+    """
+    stamp = datetime.now(REPORT_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S")
+    row = (
+        f"{stamp:<19} {m['n']:>4}  {m['win']:>5.1f}  {m['mean']:>+7.2f}  {m['med']:>+7.2f}  "
+        f"{m['pf']:>5.2f}  {m['sr']:>7.3f}  {m['cvar']:>+7.2f}  {m['freq']:>5.1f}  <what changed>"
+    )
+    return f"{_HISTORY_HDR}\n{row}"
+
+
 def build_monthly_grid(records: list[dict]) -> str:
     """Monthly `Mean%|N` grid, rows = entry year, columns = entry month.
 
@@ -506,6 +543,7 @@ def main() -> None:
     results: list[tuple[str, str, dict]] = []
     monthly_label = ""
     monthly_records: list[dict] = []
+    history_metrics: dict | None = None
 
     for sma_t in sorted(SMA_THRESHS, reverse=True):
         lbl = f"bk50d_s{round(sma_t * 100)}_v{ALGO_VERSION}"
@@ -529,6 +567,7 @@ def main() -> None:
                     results.append((lbl, f"R>={min_rank}", m_gated))
                     if sma_t == MONTHLY_GRID_SMA_THRESH and min_rank == MIN_RANKINGS[0]:
                         monthly_label, monthly_records = f"{lbl} R>={min_rank}", records_gated
+                        history_metrics = m_gated
 
     # ── Print tables ───────────────────────────────────────────────────────────
 
@@ -539,6 +578,17 @@ def main() -> None:
     monthly_grid = build_monthly_grid(monthly_records) if monthly_records else ""
     if monthly_grid:
         print(f"\n=== {monthly_label} — Monthly Mean% / N ===\n{monthly_grid}")
+
+    # Printed, never written: the log lives in the methodology doc, which this script must not
+    # touch. The eval window is called out because that log tracks the 2021-2025 baseline only,
+    # so a row from one of the historical windows must not be pasted into it.
+    if history_metrics is not None:
+        print(
+            f"\n=== History row — {monthly_label}, eval {EVAL_START} – {EVAL_END} ===\n"
+            "Paste into docs/research/qullamaggie-backtest-v4.md → History of changes "
+            "(baseline window only), then replace <what changed>.\n"
+            f"{build_history_row(history_metrics)}"
+        )
 
     # ── Write markdown result ──────────────────────────────────────────────────
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)

@@ -21,7 +21,7 @@ from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 
 # Filter thresholds — must stay in lockstep with QullamaggieStrategy's class attributes.
 SMA_THRESH = 0.12
-MIN_AVG_VOL = 500_000
+MIN_AVG_VOL = 100_000  # lowered from 500K on 2026-08-02; rationale on QullamaggieStrategy
 MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 COOLDOWN_DAYS = 30
@@ -213,7 +213,7 @@ def get_signals(
         & (pl.col("adr_pct") >= ADR_MIN)
         & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
         & (pl.col("adj_close") > pl.col("max_c_50d"))
-        & (pl.col("pct_vs_sma50") > sma_thresh)
+        & (pl.col("pct_vs_sma50") >= sma_thresh)
         & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
         & (pl.col("roc_252d") < ROC_CAP)
         & pl.col("date").is_in(sorted(bull_dates))
