@@ -1,6 +1,6 @@
 # Limit-Order Fill Rate — bk50d_s12_v2.0
 
-Run date: 2026-08-01 10:55:54 Tallinn time
+Run date: 2026-08-01 13:00:50 Tallinn time
 
 Period: 2010-06-01 – 2026-08-01
 

@@ -42,19 +42,6 @@ For each trading day, compute the following metrics per ticker. Actual entry sig
 <!--
 - `vol_dry_up`: `mean(volume[-11:-1]) < 0.90 × mean(volume[-51:-1])` — base volume must be below 90% of the 50-day average, confirming the consolidation happened on declining volume before the breakout surge (fixed, not swept)
 -->
-
-`vol_dry_up` was **retired on 2026-08-01**. `docs/research/result-qullamaggie-cohorts-vol-dry-up.md` found the
-slice it kept scored *worse* than the unfiltered population on both Mean% and Sortino at all three thresholds
-while dropping ~33% of signals, and the band immediately below the cap was the weakest in the table while the
-band immediately above it was among the strongest — so the cap was mis-placed rather than merely too loose.
-`result-qullamaggie-relax-sweep.md` had reached the same conclusion independently via its `vdu1.0` variant.
-The removal was applied to `QullamaggieStrategy`, `turtlex/research/qullamaggie.py` and every study script.
-
-**Caveat — the gain is regime-dependent.** Re-running all three windows shows the removal is clearly positive
-only on 2021-2026 (s20 Sortino 2.380 → 2.846); on 2016-2020 Sortino falls at all three thresholds
-(s20 5.685 → 5.111) and 2010-2015 is mixed. Signal count rises 40-60% in every window. The cohort study could
-not detect this because it spans only 2015-2026.
-
 <!--
 **Trend alignment filter (fixed, not swept):**
 - `sma_alignment`: `SMA(close, 10) > SMA(close, 20) > SMA(close, 50)` — all computed on prior closes (shift-1 convention, no look-ahead). Confirms the stock is in a short-term uptrend at all timeframes before the breakout.
@@ -142,18 +129,14 @@ Notation: let `r₁, …, r_N` be the `N` per-trade returns for the combination,
   - `win_rate = count(rᵢ > 0) / N`
 - **Median return**: middle return when all trades are sorted
   - `median = percentile({rᵢ}, 50)`
-- **Mean return**: arithmetic average return per trade
-  - `mean = (1 / N) × Σ rᵢ`
-- **Annualized mean return**: CAGR-style annualization of the mean return. With a single 366d hold this is near-identical to the mean return; it is kept so figures stay comparable with studies run at other holding periods
-  - `ann_mean = (1 + mean)^(annualization_factor) − 1`
-- **Top-quartile threshold**: what return does the top 25% achieve?
-  - `Q75 = percentile({rᵢ}, 75)`
+- **Mean return** (reported as `Mean%`): the **annualized** mean return — a CAGR-style annualization of
+  the arithmetic per-trade mean. With a single 366d hold it is near-identical to the raw mean; the
+  annualized form is the one reported so figures stay comparable with studies run at other holding
+  periods, and the raw mean is not reported separately
+  - `mean = (1 / N) × Σ rᵢ`, then `Mean% = (1 + mean)^(annualization_factor) − 1`
 - **Sortino ratio**: annualized per-trade Sortino (MAR = 0%):
   - `downside_dev = sqrt(mean(min(rᵢ, 0)²))`  — RMS of negative returns (positives count as 0)
   - `sortino = mean(R) × sqrt(annualization_factor) / downside_dev`
-- **Max drawdown**: mean over trades of each trade's peak-to-trough decline, along the price path `[open[entry], close[entry], close[entry+1], …, close[exit]]` (the entry open is the first point, since that is where the position begins)
-  - per trade: `mdd = max over t of (1 − priceₜ / max(price[..t]))`
-  - report `mean(mddᵢ)`
 - **Signal frequency**: how many triggers per month on average
   - `freq_per_month = N / months_in_eval_period`
 - **Profit factor**: gross wins / gross losses
@@ -171,49 +154,25 @@ Every signal that passes the entering condition is scored 0–100 by `Qullamaggi
 `--min-signal-ranking`. Do not reimplement the bands here; call the production class so the study and
 the live path cannot drift apart.
 
-The score sums three independent dimensions, each a first-match-wins band lookup (`value < upper_bound`
-→ that band's points; values at or above the last bound score the trailing constant):
-
-| Dimension | Column | Weight | Bands (`upper_bound` → points) | ≥ last bound |
-|---|---|---|---|---|
-| ADR%(20) — higher is better | `adr_pct` | 40 | 0.035→0, 0.04→0, 0.045→10, 0.05→13, 0.08→27 | 40 |
-| Distance above SMA50 — higher is better, non-monotonic | `pct_vs_sma50` | 35 | 0.10→0, 0.12→8, 0.15→15, 0.17→22, 0.20→12, 0.30→31 | 35 |
-| Entry price — lower is better | raw `close` | 25 | 10→25, 20→8, 50→2, 100→2, 250→0 | 0 |
-
-Scoring inputs must match the production pairing exactly:
-
-- `adr_pct` and `pct_vs_sma50` are the shift-1 indicators already computed for the entry filter (derived from the split/dividend-adjusted close), so the ranking introduces no look-ahead.
-- The price band scores the **raw (unadjusted) close** — `QullamaggieStrategy` keeps `close` raw and its adjusted series in `adj_close`, and `QullamaggieRanking` reads `close`. Scoring an adjusted price against dollar-denominated bands would put a stock in the wrong band whenever a split happened after the entry date.
-
-Note the interaction between the ranking and the entry filter: `pct_above_sma50(X)` makes the lower
-SMA50 bands unreachable, so the minimum achievable score rises with X (at X = 20% the SMA50 dimension
-alone contributes ≥ 31). The `adr_pct ≥ 3.0%` filter does **not** rescue the ADR dimension — a signal
-with ADR in 3.0–4.0% scores 0 on the highest-weighted dimension. The gate is therefore far more
-selective at low X than at high X, and that must be read alongside the tables rather than assumed away.
-
 ---
 
 ## Step 6 — Output Format
 
-Rank all (entry signal × exit rule) combinations by **Sortino ratio** on the full evaluation period. Exclude any combination where overall Sortino ≤ 0.
+Report **one ranking table** carrying both ranking treatments, distinguished by a `Gate` column. Each
+algorithm appears twice on adjacent rows, so the pair reads across rather than across two separate
+tables:
 
-Report two ranking tables, same columns and ranking rule, side by side:
+1. **`R>=40`** — a trade is taken only if its `QullamaggieRanking` score is ≥ R.
+2. **`ungated`** — every entry signal that meets the entering condition is taken as a trade.
 
-1. **No ranking condition** — every entry signal that meets the entering condition is taken as a trade.
-2. **Ranking R ≥ {40%}** — same signals, but a trade is taken only if its `QullamaggieRanking` score is ≥ R. Report the mean and median score of the accepted trades, and how many signals the gate rejected.
-
-**Year-by-year consistency flag**: for each complete calendar year in the evaluation period, compute the annual Sortino ratio. A combination is flagged ✓ consistent if:
-
-- Sortino > 0 in ≥ 70% of complete calendar years, AND
-- At least 3 complete calendar years have ≥ 10 negative-return trades (enough to compute a valid annual Sortino)
-
-The `Yrs+` column shows `positive_sortino_years / total_valid_years` (e.g. `4/5`).
+Output order: algorithm (bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0) and then Gated (ungated, R >= 40)
 
 ```text
-Rank | Entry Signal        | Exit  | Win% | Mean Ret | AnnMean Ret |Median Ret | Profit Factor |Sortino | CVaR(95%) | Freq/mo | Yrs+ | Consistent
------|---------------------|-------|------|----------|-------------|-----------|---------------|--------|-----------|---------|------|-----------
-  1  | breakout_100d+...   | 63d   |  62% |   +8.3%  |    +54.1%   | +10.3%    |    1.2        |    1.82|     -6.1% |      43 | 4/5  | ✓
-  2  | ...
+Entry Signal     | Gate    | N    | Win% | Mean Ret | Median Ret | Profit Factor | Sortino | CVaR(95%) | Freq/mo |
+-----------------|---------|------|------|----------|------------|---------------|---------|-----------|---------|
+bk50d_s20_v2.0   | ungated |  520 |  65% |  +56.2%  |   +26.4%   |     7.1       |   2.94  |   -60.1%  |   7.8   |
+bk50d_s20_v2.0   | R>=40   |  379 |  65% |  +58.5%  |   +27.8%   |     6.9       |   2.85  |   -64.2%  |   5.7   |
+bk50d_s16_v2.0   | ungated | ...
 ```
 
 ---
