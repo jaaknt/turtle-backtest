@@ -6,6 +6,15 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 
 **Standard algorithm set.** Unless a prompt says otherwise, "the algorithms" means `bk50d_s20_v2.0`, `bk50d_s16_v2.0` and `bk50d_s12_v2.0` — a 50-day breakout sitting more than 20% / 16% / 12% above the 50-day SMA, entered at the next trading day's split/dividend-adjusted open, held 366 calendar days, with the `QullamaggieRanking` gate `MIN_RANKING >= 40` applied. The naming convention is defined in `docs/research/qullamaggie-backtest-v4.md` (Step 1, "Algorithm naming"). Earlier runs used `_v1.3_roc100` labels and an s15/s17 pair instead of s16; where a **Note** records what a past run actually did, the original name is kept deliberately rather than rewritten.
 
+**The `avg_vol_20` floor moved 500K -> 100K on 2026-08-02**, in `QullamaggieStrategy`,
+`turtlex/research/qullamaggie.py` and every `scripts/*.py` study. Only
+[Validate & run backtest v4](#validate--run-backtest-v4) was re-run afterwards; every other committed
+result doc was produced at 500K and reports `Min avg vol (20d) | >= 500K` in its own Configuration
+table, which stays accurate for the run it records. Those numbers are internally consistent and still
+comparable with each other, but **not** with a post-change run — the wider floor admits roughly 40%
+more signals. Re-run before quoting any of them against backtest-v4. The rationale for the move is in
+[Average volume cohorts](#average-volume-cohorts).
+
 ## Index
 
 | Prompt | Script | Results |
@@ -287,14 +296,22 @@ never sees.
 
 ### Average volume cohorts
 
-**Goal:** How the liquidity floor `avg_vol_20 = mean(volume[-21:-1]) >= 500K` affects performance, including the
-three sub-floor bands the production filter never lets through.
+**Goal:** How the liquidity floor `avg_vol_20 = mean(volume[-21:-1]) >= 100K` affects performance, including the
+sub-floor band the production filter never lets through.
 
 - **Cohorts:** `(<100K)`, `[100-250K)`, `[250-500K)`, `[500K-1M)`, `[1-2M)`, `[2-5M)`, `[5-10M)`, `(>10M)`
-- **Filter under study is dropped:** the `avg_vol_20 >= 500K` floor is removed, otherwise the first three
-  cohorts would be empty. It returns as the `>=500K (cap)` reference row at the foot of each table. The two
-  bands straddling the floor (`[250-500K)` and `[500K-1M)`) are deliberately narrow so the floor itself can be
-  read directly rather than inferred from a wide bucket.
+- **Filter under study is dropped:** the `avg_vol_20 >= 100K` floor is removed, otherwise the `(<100K)` cohort
+  would be empty. It returns as the `>=100K (cap)` reference row at the foot of each table. The bands
+  straddling the floor (`(<100K)` and `[100-250K)`) are deliberately narrow so the floor itself can be read
+  directly rather than inferred from a wide bucket. The `[250-500K)` / `[500K-1M)` split is a leftover from
+  the original 500K floor and is kept so the two runs stay comparable.
+- **Note — this study is why the floor moved, so its own committed result predates the change.** The first
+  run (2026-08-02, at a 500K floor) found volume predicts nothing above 100K — `>=500K` scored the same as no
+  floor at all while discarding 42% of signals — but `(<100K)` is genuinely bad: median +6.8% against ~+40%
+  everywhere else, worst win rate, and a -86.6% CVaR95, i.e. a right-skewed pile of near-total losses carried
+  by a few large winners. The floor moved to 100K on 2026-08-02, the one boundary that separates something.
+  `docs/research/result-qullamaggie-cohorts-avg-vol.md` still shows the `>=500K (cap)` reference row from
+  that first run; the cohort rows themselves are unaffected, since the study drops the floor either way.
 - **⚠ A sub-floor cohort scoring well is not automatically a relaxation.** Unlike ADR or RSI, this floor is
   partly a *tradability* constraint rather than a pure alpha filter: a 3-5% portfolio position in a thin name
   moves the price the backtest measures it at, so the returns get less attainable the lower the cohort sits.
@@ -358,7 +375,7 @@ three sub-floor bands the production filter never lets through.
 
 **Goal:** Calculate `bk50d_s12_v2.0` signals, then figure out the percentage of signals where the price drops X% during the next Y days so that a resting limit order would be filled.
 
-- **Filters:** same as `scripts/qullamaggie-signals-v4.py` (RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, no tight_range, cooldown 30d, mcap>=1.5B excl Comm/RE), plus the standard `MIN_RANKING >= 40` gate
+- **Filters:** same as `scripts/qullamaggie-signals-v4.py` (RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, SPY>200d SMA, close>$5&<$250, avg_vol>=100K, no tight_range, cooldown 30d, mcap>=1.5B excl Comm/RE), plus the standard `MIN_RANKING >= 40` gate
 - **Limit order price:** signal-day close × (1 − X%), X = 0%, 1%, 2%, 3%, 4%, 5%
 - **Window:** order effective for Y calendar days after the signal day, Y = 30, 60, 90
 - **Fill rule:** order is eligible from the day after the signal; fills on the first trading day whose low <= limit price, else expires unfilled (adjusted prices, same convention as `scripts/qullamaggie-cohorts-limit-order.py`)
@@ -404,7 +421,7 @@ three sub-floor bands the production filter never lets through.
   ```
 
 - Also run baseline + the best 2-3 ideas combined.
-- **Fixed filters reference:** roc_12m<100%, vol_surge<2.0x, RSI<70, ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown 30d, mcap>=1.5B excl Comm/RE
+- **Fixed filters reference:** roc_12m<100%, vol_surge<2.0x, RSI<70, ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=100K, cooldown 30d, mcap>=1.5B excl Comm/RE
 - Important: Sortino and Mean% must stay on the same level as baseline; reject ideas that trade quality for count.
 - Share your findings: which single relaxation has the best F/mo gain per unit of Sortino given up.
 - **Script:** `scripts/qullamaggie-backtest-v4.py` (new: `scripts/qullamaggie-relax-sweep.py`)
@@ -637,7 +654,7 @@ Calculate results with applying filter `MIN_RANKING >= 40` and without applying 
   indicators are split/dividend-adjusted and the `$5-$250` band stays on the raw close. `tight_range` is not
   part of the strategy, so the former informational `TR%` column is gone. Filters: RSI<70, ADR>=3.0%,
   ADR_change<90%, roc_12m<100%, vol_surge<2.0x, SPY>200d SMA, raw close>$5&<$250,
-  avg_vol>=500K, >12% above the 50d SMA, cooldown 30d, mcap>=1.5B excl Comm/RE.
+  avg_vol>=100K, >12% above the 50d SMA, cooldown 30d, mcap>=1.5B excl Comm/RE.
 
 ## Maintenance
 
@@ -662,5 +679,5 @@ on whether it helps.
 [Market cap cohorts](#market-cap-cohorts)), so the study describes which of today's size classes the good trades
 came from and cannot say whether the floor helps. That needs a point-in-time cap the schema does not carry.
 
-`avg_vol >= 500K` and `SPY > 200d SMA` are covered — see [Average volume cohorts](#average-volume-cohorts) and
+`avg_vol >= 100K` and `SPY > 200d SMA` are covered — see [Average volume cohorts](#average-volume-cohorts) and
 [SPY SMA regime cohorts](#spy-sma-regime-cohorts).

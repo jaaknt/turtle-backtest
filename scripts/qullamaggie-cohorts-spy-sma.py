@@ -38,7 +38,7 @@ from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 _EPOCH = date(1970, 1, 1)
 HOLD_CAL = 366
 HOLD_MAX_CAL = 366
-MIN_AVG_VOL = 500_000
+MIN_AVG_VOL = 100_000
 MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300

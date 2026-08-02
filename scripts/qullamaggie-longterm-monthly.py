@@ -4,7 +4,7 @@ Long-term monthly analysis for multiple bk50d configs (366d hold).
 
 Same fixed filters as scripts/qullamaggie-backtest-v4.py (RSI<70,
 roc_12m<100%, vol_surge<2.0x, ADR>=3.0%, ADR_change<90%,
-SPY>200d SMA, close>$5&<$250, avg_vol>=500K), extended back to 2007-01-01 to
+SPY>200d SMA, close>$5&<$250, avg_vol>=100K), extended back to 2007-01-01 to
 cover the 2008 GFC, 2011/2015/2018 corrections, 2020 COVID crash and 2022
 bear market.
 
@@ -36,7 +36,7 @@ EVAL_START = date(2007, 1, 1)
 EVAL_END = date(2026, 6, 26)
 HOLD_CAL = 366
 HOLD_MAX_CAL = 366
-MIN_AVG_VOL = 500_000
+MIN_AVG_VOL = 100_000
 MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300

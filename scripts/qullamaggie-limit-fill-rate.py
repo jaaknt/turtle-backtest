@@ -12,7 +12,7 @@ trading days from signal to fill (filled orders only) per X x Y cell.
 Bars, indicators and the SPY regime come from turtlex.research.qullamaggie, which is
 parity-tested against QullamaggieStrategy; the filter chain and cooldown are local copies
 of it (RSI<70, ADR mean-of-ratios >=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x,
-SPY>200d SMA, close>$5&<$250, avg_vol>=500K, no tight_range, cooldown 30d,
+SPY>200d SMA, close>$5&<$250, avg_vol>=100K, no tight_range, cooldown 30d,
 mcap>=1.5B excl Comm/RE), plus a QullamaggieRanking >= MIN_RANKING gate. open/close/high/low
 are split/dividend-adjusted; the fill test uses adjusted prices — same convention as
 scripts/qullamaggie-cohorts-limit-order.py's run_trades_limit.
@@ -38,7 +38,7 @@ _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2010, 6, 1)
 EVAL_END = date.today()
 
-MIN_AVG_VOL = 500_000
+MIN_AVG_VOL = 100_000
 MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300

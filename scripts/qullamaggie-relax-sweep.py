@@ -9,7 +9,7 @@ unchanged); the best 2 and 3 quality-preserving relaxations are then combined.
 Indicators and entries come from turtlex.research.qullamaggie, which is parity-tested
 against QullamaggieStrategy: baseline filters are roc_12m<100%,
 vol_surge<2.0x, RSI<70, ADR>=3.0%, ADR_change<90%, SPY>200d SMA, close>$5&<$250,
-avg_vol>=500K, cooldown 30d, mcap>=1.5B excl Comm/RE, tight_range and sma_alignment
+avg_vol>=100K, cooldown 30d, mcap>=1.5B excl Comm/RE, tight_range and sma_alignment
 disabled. Entry is the next trading bar's adjusted open and every variant — baseline
 included — is gated at QullamaggieRanking >= MIN_RANKING, so the sweep measures a
 relaxation against the algorithm as actually traded.
@@ -56,7 +56,7 @@ _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2015, 1, 1)
 EVAL_END = date(2026, 6, 26)
 HOLD_CAL = 366
-MIN_AVG_VOL = 500_000
+MIN_AVG_VOL = 100_000
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
 VOL_SURGE_MAX = 2.0
@@ -387,7 +387,7 @@ def main() -> None:
         fh.write(f"| Baseline | {LABEL}: 50d-high breakout, close >20% above SMA50, next-day adjusted-open entry |\n")
         fh.write(
             "| Baseline fixed filters | roc_12m<100%, vol_surge<2.0x, RSI<70, ADR>=3.0%, "
-            "ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=500K, cooldown 30d, "
+            "ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=100K, cooldown 30d, "
             "mcap>=1.5B excl Comm/RE |\n"
         )
         fh.write(f"| Ranking gate | QullamaggieRanking >= {MIN_RANKING}, applied to every variant including baseline |\n")

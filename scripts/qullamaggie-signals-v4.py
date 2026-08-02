@@ -15,7 +15,7 @@ same convention as scripts/qullamaggie-portfolio-sim.py's run_sim_limit).
 
 Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
 ADR_change<90%, roc_12m<100%, vol_surge<2.0x, SPY>200d SMA,
-close>$5&<$250, avg_vol>=500K; tight_range and sma_alignment disabled). Two columns are
+close>$5&<$250, avg_vol>=100K; tight_range and sma_alignment disabled). Two columns are
 informational only, not filtered on: TR% (tight_range) and VOL_DRY
 (`mean(volume[-11:-1]) / mean(volume[-51:-1])`, both shift-1). VOL_DRY was the `vol_dry_up < 0.90`
 filter until it was retired on 2026-08-01 — see docs/research/result-qullamaggie-cohorts-vol-dry-up.md
@@ -58,7 +58,7 @@ DISPLAY_END = date.today()
 CANDIDATE_START = date(2025, 1, 1)
 BAR_LOAD_START = date(2023, 1, 1)
 
-MIN_AVG_VOL = 500_000
+MIN_AVG_VOL = 100_000
 MIN_PRICE = 5.0
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
