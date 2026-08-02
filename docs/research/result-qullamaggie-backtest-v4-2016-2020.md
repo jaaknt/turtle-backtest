@@ -1,6 +1,6 @@
 # Qullamaggie Backtest v4 — Results
 
-Run date: 2026-08-02 01:22:41 Tallinn time
+Run date: 2026-08-02 09:30:37 Tallinn time
 
 ## Configuration
 
@@ -34,31 +34,33 @@ Run date: 2026-08-02 01:22:41 Tallinn time
 
 ## Rankings
 
-Each algorithm appears twice on adjacent rows, distinguished by the `Gate` column: `R>=40` takes a trade only if its `QullamaggieRanking` score (`turtlex/strategy/ranking/qullamaggie.py`) clears the gate, `ungated` takes every signal. The two rows come from the same signals, sized and exited identically, so the difference isolates the gate. The score uses the same shift-1 indicators the entry filter used (`adr_pct`, `pct_vs_sma50`) plus the raw signal-date close, so it adds no look-ahead. Groups are ordered by the gated run's Sortino.
+Each algorithm appears twice on adjacent rows, distinguished by the `Gate` column: `ungated` takes every signal that meets the entering condition, `R>=40` takes a trade only if its `QullamaggieRanking` score (`turtlex/strategy/ranking/qullamaggie.py`) clears the gate. The two rows come from the same signals, held and exited identically, so the difference isolates the gate — the drop in `N` between them is how selective it is. The score uses the same shift-1 indicators the entry filter used (`adr_pct`, `pct_vs_sma50`) plus the raw signal-date close, so it adds no look-ahead. Rows are ordered by SMA threshold (s20, s16, s12), ungated before gated.
 
 ```text
-Entry Signal      Gate        Exit     N   Win%    Mean%  AnnMean%     Med%     Q75%     PF  Sortino   MaxDD%    CVaR%   F/mo  RkAvg  RkMed   Yrs+  C
-─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-bk50d_s16_v2.0    R>=40      366d   674   82.9   +64.14    +63.92   +52.48   +96.02  17.12    5.203    34.20   -48.26   11.4   60.9     60    3/3  ✓
-bk50d_s16_v2.0    ungated    366d  1200   79.2   +49.82    +49.66   +41.53   +76.65  10.80    3.496    32.47   -52.96   20.3   45.2     43    5/5  ✓
-bk50d_s20_v2.0    R>=40      366d   634   83.8   +63.90    +63.68   +51.86   +94.79  17.09    5.111    33.90   -49.11   10.7   62.0     60    3/3  ✓
-bk50d_s20_v2.0    ungated    366d   813   82.3   +56.67    +56.48   +46.40   +82.13  13.75    4.199    32.89   -51.87   13.8   55.9     58    5/5  ✓
-bk50d_s12_v2.0    R>=40      366d   745   80.7   +60.27    +60.06   +48.84   +91.27  13.46    4.374    34.65   -51.26   12.6   59.4     60    5/5  ✓
-bk50d_s12_v2.0    ungated    366d  1681   77.8   +45.17    +45.02   +37.45   +72.77   9.18    3.003    32.38   -54.73   28.5   39.6     33    4/5  ✓
+Entry Signal      Gate         N   Win%    Mean%     Med%     PF  Sortino    CVaR%   F/mo
+─────────────────────────────────────────────────────────────────────────────────────────
+bk50d_s20_v2.0    ungated    814   82.3   +56.62   +46.35  13.87    4.233   -51.59   13.8
+bk50d_s20_v2.0    R>=40      635   83.9   +63.99   +51.87  17.49    5.193   -48.64   10.8
+bk50d_s16_v2.0    ungated   1200   79.2   +49.67   +41.43  10.84    3.506   -52.83   20.3
+bk50d_s16_v2.0    R>=40      674   83.1   +64.26   +53.24  17.48    5.282   -47.82   11.4
+bk50d_s12_v2.0    ungated   1679   77.8   +45.05   +37.55   9.20    3.009   -54.85   28.5
+bk50d_s12_v2.0    R>=40      745   80.8   +60.38   +48.96  13.68    4.427   -51.05   12.6
 
-Valid combinations: 6  |  Consistent: 6
+Valid combinations: 6
 ```
 
-## Ranking Gate Selectivity
+## Monthly Mean% / N — bk50d_s12_v2.0 R>=40
 
-How many signals each gate removes, at signal level.
+Each cell is `Mean%|N` for the trades **entered** in that calendar month, held the full 366 days; `·` marks a month with no entries. The right-hand pair is the year's own aggregate across all its months, not the mean of the cells. Only this one combination is shown — it is the reference algorithm, and a grid per combination would be six tables.
 
 ```text
-Entry Signal               Gate   Signals   Passing   Rejected   Reject%
-────────────────────────────────────────────────────────────────────────
-bk50d_s12_v2.0               40      1681       745        936     55.7%
-bk50d_s16_v2.0               40      1200       674        526     43.8%
-bk50d_s20_v2.0               40       813       634        179     22.0%
+ Year |    Jan        Feb        Mar        Apr        May        Jun        Jul        Aug        Sep        Oct        Nov        Dec     |   Mean%     N
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+ 2016 |      ·          ·      +46.1|34   +33.8|48    +4.1|7     -6.7|14   +21.9|15   +50.4|8    +94.4|4    +31.3|4     +2.2|1    +44.1|8   |  +33.0%   143
+ 2017 |  +41.6|5    +44.5|4    +50.1|4        ·      +20.9|5    +40.7|2    +59.1|4     -1.7|4    +35.4|2     -0.6|3        ·      +79.5|3   |  +36.4%    36
+ 2018 |  +24.8|6        ·      +22.0|2    +31.8|4    -17.1|3    -28.0|1    -15.5|2    +37.7|2        ·          ·          ·      -38.5|2   |   +9.5%    22
+ 2019 |      ·      +23.6|10   -35.6|8     +6.8|3     -2.2|1    -17.2|3     -1.7|7    +48.6|2    +91.8|2    +38.8|7     +6.7|3    +57.4|8   |  +17.4%    54
+ 2020 |  +26.7|2   +384.9|4        ·          ·     +101.1|171  +67.3|135  +52.9|40   +87.2|27  +189.2|8    +61.3|15   +47.0|32   +28.5|56  |  +77.5%   490
 ```
 
 ## Findings & Caveats
@@ -73,4 +75,4 @@ bk50d_s20_v2.0               40       813       634        179     22.0%
 - account for trade overlap (e.g. block-bootstrap or effective-sample-size adjustment) when judging Sortino confidence
 - re-run all three windows (2010-2015, 2016-2020, 2021-present) before accepting any parameter change — a change that only improves the window it was chosen on is fitted to that window
 - pick the ranking gate per SMA threshold rather than one R≥40 across s12/s16/s20; the same score rejects a very different share of each, so it is not the same filter at each
-- report each year's negative-trade count next to its Sortino — under the gate a thin window can fall below the 10-loser bar and silently drop out of the Yrs+ denominator
+- report per-year Sortino again — the Yrs+/Consistent columns were dropped from the table, so a combination that only works in one year is no longer visible at a glance
