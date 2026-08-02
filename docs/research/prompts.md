@@ -396,7 +396,7 @@ Calculate results with applying filter `MIN_RANKING >= 40` and without applying 
   ungated drops 0 (0 with no fillable open). Each sizing is listed gated then ungated, so the pair
   reads across — a gated run alone cannot show whether the signals it removed would have compounded better.
 
-  size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
+  size   gate          Final$   CAGR%  MaxDD%   Calmar  Sortino  taken   skip  Uninv%
   -----------------------------------------------------------------------------------
   3%     R>=40        188,451  +39.87   -28.24   1.412    1.785    175    335   13.8%
   3%     ungated      151,102  +34.34   -27.66   1.242    1.625    184    510   11.6%
@@ -406,12 +406,25 @@ Calculate results with applying filter `MIN_RANKING >= 40` and without applying 
   5%     ungated      169,102  +37.13   -29.20   1.272    1.609    114    580    9.7%
   ```
 
-- The **monthly grid's** "top 5 by Final$" ranks across both treatments together, so each entry is
-  labelled `s12 R>=40` or `s12 ungated`. The **ranking-decile** tables stay on the gated set only —
-  they span `MIN_RANKING..100` by construction, and the ungated size-sweep table above is what
-  answers whether the gate earns its keep.
+- List of Top 5 by Final$, List of Top 5 by Sortino
 
-- For the top 5 algorithms by `Final$`, print `monthly returns` and `trades count in particular month` by years (years are rows, months are columns):
+- List yearly results for these algorithms `s12 R>=40 3%`, `s12 R>=40 4%`, `s12 R>=40 5%` + Top 2 from Final$
+  Yearly means portfolio result by end of the year (2021 : 2025) compared to previous year end
+
+```text
+  algo             year          Final$   CAGR%  MaxDD%   Calmar  Sortino  taken   skip  Uninv%
+  ---------------------------------------------------------------------------------------------
+  s12 R>=40 3%     2021         188,451  +39.87   -28.24   1.412    1.785    175    335   13.8%
+                   2022         188,451  +39.87   -28.24   1.412    1.785    175    335   13.8%
+                   2023         188,451  +39.87   -28.24   1.412    1.785    175    335   13.8%
+                   2024         188,451  +39.87   -28.24   1.412    1.785    175    335   13.8%
+                   2025         188,451  +39.87   -28.24   1.412    1.785    175    335   13.8%
+  s12 R>=40 4%     2021         188,451  +39.87   -28.24   1.412    1.785    175    335   13.8%
+  ...
+```
+
+- For the `s12 R>=40 3%`, `s12 R>=40 4%`, `s12 R>=40 5%` + Top 2 from Final$, print `monthly returns`
+  and `trades count in particular month` by years (years are rows, months are columns):
 
   ```text
    Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
@@ -447,8 +460,6 @@ Calculate results with applying filter `MIN_RANKING >= 40` and without applying 
   used to print (`close`, `close -1%`, `close -3%`, `close -5%`) was removed 2026-07-30 along with its
   `limit_fill` helper, per the commented-out bullet above. That dimension keeps its own two studies:
   [Limit-order entry cohorts](#limit-order-entry-cohorts) and [Limit-order fill rate](#limit-order-fill-rate).
-  The `run_blend` function — an unreachable implementation of the deferred "fund s20 first, then s15
-  with leftover liquidity" idea — was deleted in the same pass; nothing called it.
 
 ### Exit strategy analyze
 
