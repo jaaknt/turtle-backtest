@@ -136,6 +136,59 @@ def config_rows() -> list[tuple[str, str]]:
 
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def year_metrics(r: dict) -> list[dict]:
+    """Re-derive the sweep metrics on each complete calendar year of one simulation.
+
+    Every figure is computed from that year's own daily slice rather than sliced out of the
+    whole-period result: the year's return is its closing equity over the previous year's close
+    (the opening equity for the first year), MaxDD is the deepest peak-to-trough *within* the
+    year, and Sortino runs on the year's daily returns only. Calmar therefore pairs a one-year
+    return with a one-year drawdown, which is not the whole-period Calmar restricted to a year.
+
+    Trades are attributed to the year they were entered, so `taken` and `skip` sum across years
+    to the whole-period counts.
+
+    Args:
+        r: a `run_sim` result carrying the `dates`/`eq`/`cash` daily series
+
+    Returns:
+        One dict per year with year, final, ret, max_dd, calmar, sortino, taken, skipped, uninv.
+    """
+    dates, eq, cash = r["dates"], r["eq"], r["cash"]
+    taken_by_year: dict[int, int] = {}
+    for d in r["entries"]:
+        taken_by_year[d.year] = taken_by_year.get(d.year, 0) + 1
+    skips_by_year: dict[int, int] = {}
+    for d in r["skips"]:
+        skips_by_year[d.year] = skips_by_year.get(d.year, 0) + 1
+
+    out_rows: list[dict] = []
+    prev_close = float(eq[0])
+    for year in sorted({d.year for d in dates}):
+        idx = [i for i, d in enumerate(dates) if d.year == year]
+        year_eq = eq[idx]
+        ret = float(year_eq[-1]) / prev_close - 1.0
+        max_dd = float((year_eq / np.maximum.accumulate(year_eq) - 1.0).min())
+        daily = year_eq[1:] / year_eq[:-1] - 1.0
+        out_rows.append(
+            {
+                "year": year,
+                "final": float(year_eq[-1]),
+                "ret": ret,
+                "max_dd": max_dd,
+                "calmar": ret / abs(max_dd) if max_dd < 0 else float("inf"),
+                "sortino": compute_daily_sortino(daily) if daily.size else float("nan"),
+                "taken": taken_by_year.get(year, 0),
+                "skipped": skips_by_year.get(year, 0),
+                "uninv": float(np.mean(cash[idx] / year_eq) * 100),
+            }
+        )
+        prev_close = float(year_eq[-1])
+    return out_rows
+
+
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-portfolio-v4.md"
 
 
@@ -228,7 +281,13 @@ def buy_and_hold(engine: sa.Engine, symbol: str) -> dict:
     cagr = (eq[-1] / eq[0]) ** (365.0 / n_days) - 1.0
     calmar = cagr / abs(max_dd) if max_dd < 0 else float("inf")
     sortino = compute_daily_sortino(daily_ret)
-    return {"final": float(eq[-1]), "cagr": cagr, "max_dd": max_dd, "calmar": calmar, "sortino": sortino}
+    return {
+        "final": float(eq[-1]),
+        "cagr": cagr,
+        "max_dd": max_dd,
+        "calmar": calmar,
+        "sortino": sortino,
+    }
 
 
 def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
@@ -452,6 +511,7 @@ def main() -> None:
         equity_curve: list[tuple[date, float]] = []
         cash_curve: list[float] = []
         entry_dates: list[date] = []
+        skip_dates: list[date] = []
         trades: list[dict] = []
         n_taken = n_skipped = n_exit_rule = 0
 
@@ -513,6 +573,7 @@ def main() -> None:
                 entry_px = s["entry_px"]  # next trading day's adjusted open, resolved once in main()
                 if cash + 1e-9 < target:
                     n_skipped += 1
+                    skip_dates.append(d)
                     continue
                 cash -= target
                 positions.append(
@@ -585,6 +646,12 @@ def main() -> None:
             "avg_uninv_usd": avg_uninv_usd,
             "eom": eom,
             "entries": entry_dates,
+            "skips": skip_dates,
+            # Daily series kept so the per-year table can re-derive its metrics on a
+            # calendar-year slice rather than approximating them from monthly aggregates.
+            "dates": dates,
+            "eq": eq,
+            "cash": cash_arr,
             "trades": trades,
         }
 
@@ -745,13 +812,62 @@ def main() -> None:
                     f"{r['taken']:>6} {r['skipped']:>6} {r['avg_uninv_pct']:>6.1f}%"
                 )
         table(hdr, rows)
-    # monthly grids for the top 5 by Final$ (366d baseline, RSI<70), gated and ungated together
     ranked_final = sorted(all_results, key=lambda x: x[2]["final"], reverse=True)
-    out("")
-    out("## Monthly returns/transactions — top 5 by Final$")
-    for rank, (name, pf, r) in enumerate(ranked_final[:5], 1):
+    ranked_sortino = sorted(all_results, key=lambda x: x[2]["sortino"], reverse=True)
+
+    def leaderboard(title: str, ranked: list[tuple[str, float, dict]]) -> None:
+        """Top 5 of `ranked`, already sorted by whichever metric the title names."""
+        lb_hdr = (
+            f"{'#':>2}  {'algo':<18} {'size':>5} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} "
+            f"{'Calmar':>7} {'Sortino':>8} {'taken':>6} {'skip':>6} {'Uninv%':>7}"
+        )
+        lb_rows = [
+            f"{i:>2}  {name:<18} {pf:>5.0%} {r['final']:>11,.0f} {r['cagr'] * 100:>+7.2f} "
+            f"{r['max_dd'] * 100:>8.2f} {r['calmar']:>7.3f} {r['sortino']:>8.3f} "
+            f"{r['taken']:>6} {r['skipped']:>6} {r['avg_uninv_pct']:>6.1f}%"
+            for i, (name, pf, r) in enumerate(ranked[:5], 1)
+        ]
         out("")
-        out(f"### #{rank}  {name} — size {pf:.0%}  (Final ${r['final']:,.0f})")
+        out(f"## {title}")
+        table(lb_hdr, lb_rows)
+
+    leaderboard("Top 5 by Final$", ranked_final)
+    leaderboard("Top 5 by Sortino", ranked_sortino)
+
+    # The per-year and monthly sections cover a fixed set: the reference algorithm at every
+    # sizing, plus the two best by Final$ (skipped if already present, so the set can be short).
+    focus: list[tuple[str, float, dict]] = [r for r in all_results if r[0] == f"s12 R>={MIN_RANKING}"]
+    focus += [r for r in ranked_final if r not in focus][:2]
+
+    out("")
+    out("## Yearly results")
+    out("")
+    out(
+        "Portfolio value at each year end against the previous year end — `Final$` is the equity on "
+        "the last trading day of that year, `CAGR%` its year-over-year return. `MaxDD%`, `Calmar`, "
+        "`Sortino` and `Uninv%` are re-derived on that calendar year's daily slice, and `taken`/`skip` "
+        "count only that year's signals; none is a slice of the whole-period figure."
+    )
+    yr_hdr = (
+        f"{'algo':<18} {'year':>5} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} "
+        f"{'Sortino':>8} {'taken':>6} {'skip':>6} {'Uninv%':>7}"
+    )
+    yr_rows: list[str] = []
+    for name, pf, r in focus:
+        label = f"{name} {pf:.0%}"
+        for i, y in enumerate(year_metrics(r)):
+            yr_rows.append(
+                f"{label if i == 0 else '':<18} {y['year']:>5} {y['final']:>11,.0f} {y['ret'] * 100:>+7.2f} "
+                f"{y['max_dd'] * 100:>8.2f} {y['calmar']:>7.3f} {y['sortino']:>8.3f} "
+                f"{y['taken']:>6} {y['skipped']:>6} {y['uninv']:>6.1f}%"
+            )
+    table(yr_hdr, yr_rows)
+
+    out("")
+    out(f"## Monthly returns/transactions — s12 R>={MIN_RANKING} at each sizing, plus the top 2 by Final$")
+    for name, pf, r in focus:
+        out("")
+        out(f"### {name} — size {pf:.0%}  (Final ${r['final']:,.0f})")
         monthly_grid(r["eom"], r["entries"])
 
     out("")
