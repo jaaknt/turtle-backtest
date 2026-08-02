@@ -38,7 +38,11 @@ class QullamaggieStrategy(TradingStrategy):
     """
 
     SMA_THRESH = 0.12
-    MIN_AVG_VOL = 500_000
+    # Lowered 500K -> 100K on 2026-08-02. Volume predicts nothing above 100K — `>=500K` was
+    # indistinguishable from no floor while discarding 42% of signals — but `(<100K)` is
+    # genuinely bad (median +6.8% vs ~+40%, CVaR95 -86.6%). See
+    # docs/research/result-qullamaggie-cohorts-avg-vol.md.
+    MIN_AVG_VOL = 100_000
     MIN_PRICE = 5.0
     MAX_PRICE = 250.0
     COOLDOWN_DAYS = 30
@@ -246,7 +250,7 @@ class QullamaggieStrategy(TradingStrategy):
             & (pl.col("adr_pct") >= self.ADR_MIN)
             & (pl.col("adr_pct_change") < self.ADR_CHANGE_CAP)
             & (pl.col("adj_close") > pl.col("max_c_50d"))
-            & (pl.col("pct_vs_sma50") > self.sma_thresh)
+            & (pl.col("pct_vs_sma50") >= self.sma_thresh)
             & (pl.col("volume").cast(pl.Float64) < self.VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < self.ROC_CAP)
             & pl.col("date").is_in(sorted(self._regime_dates))

@@ -169,7 +169,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], allowed_syms: set[str],
             & (pl.col("adr_pct") >= params["adr_min"])
             & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
             & (pl.col("adj_close") > pl.col("max_c_50d"))
-            & (pl.col("pct_vs_sma50") > params["sma_t"])
+            & (pl.col("pct_vs_sma50") >= params["sma_t"])
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)

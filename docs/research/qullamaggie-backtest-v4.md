@@ -33,14 +33,15 @@ For each trading day, compute the following metrics per ticker. Actual entry sig
 **Price momentum conditions:**
 
 - `breakout_N_days`: `close > max(close[-(N+1):-1])` — exceeds prior N trading days' high (sweep N ∈ {50})
-- `pct_above_sma50`: `close / mean(close[-51:-1]) − 1 > X` (sweep X ∈ {12%, 16%, 20%})
+- `pct_above_sma50`: `close / mean(close[-51:-1]) − 1 >= X` (sweep X ∈ {12%, 16%, 20%}) — inclusive, so a
+  signal sitting exactly on the threshold is kept, matching the `>=` convention the other thresholds use
 <!--  
 - `tight_range`: `(max(close[-11:-1]) − min(close[-11:-1])) / mean(close[-11:-1]) < 30%` 
 -->
 
 **Volatility quality filter (fixed, not swept):**
 
-- `adr_pct`: `mean((high_i − low_i)/low_i, i in last 20 days, shift-1) >= 3.0%` — average daily range as a percent of price over the prior 20 trading days > 3.0%
+- `adr_pct`: `mean((high_i − low_i)/low_i, i in last 20 days, shift-1) >= 3.0%` — average daily range as a percent of price over the prior 20 trading days >= 3.0%
 - `adr_pct_change`: `adr_pct(10 days) / adr_pct(50 days) < 0.9` - average daily range of 10 days divided by average daily range of 50 days < 0.9
 - `rsi_filter`: `RSI(14) < 70` — 14-period RSI computed on prior closes (shift-1 convention, no look-ahead). Excludes already-overbought entries (fixed, not swept)
 - `roc_12m_cap`: `close / close[-252] − 1 < 100%` — 12-month return of stock. Excludes stocks that have already more than doubled in the past year, filtering out overextended breakouts that are likely in a late stage of their move.
@@ -72,9 +73,9 @@ Each swept entry signal is named `bk{N}d_s{X}_v{version}` — the breakout windo
 
 | Name | Breakout | `pct_above_sma50` | `version` |
 |---|---|---|---|
-| `bk50d_s20_v2.0` | 50d high | > 20% | 2.0 |
-| `bk50d_s16_v2.0` | 50d high | > 16% | 2.0 |
-| `bk50d_s12_v2.0` | 50d high | > 12% | 2.0 |
+| `bk50d_s20_v2.0` | 50d high | >= 20% | 2.0 |
+| `bk50d_s16_v2.0` | 50d high | >= 16% | 2.0 |
+| `bk50d_s12_v2.0` | 50d high | >= 12% | 2.0 |
 
 Every other filter is fixed across all three, so none of them is encoded in the name — read the
 Configuration table in the result file for those. Ranking-gated variants append the gate, e.g.
@@ -206,6 +207,21 @@ in the numbers rather than a shifted cell.
 -------------------------------------------------------------------------------------
  2021 |  +67.7|39   +51.0|26    -4.1|2    +11.8|5 ...          ·     |  +55.4%    98
  2022 |  +14.1|2    +42.7|7     -3.7|21   +20.3|10...   +14.6|39     |  +13.0%    79
+```
+
+### History of changes
+
+Every new run adds a row per window to this table if the outcome is different. The row is always
+the reference algorithm — `bk50d_s12_v2.0` gated at `R>=40`, period 2021-2025 — read straight off that window's
+result file.
+
+This is a hand-maintained log, not script output: the script must not write into this file
+Every new run should print latest run output to screen where it can be copy-pasted
+
+```text
+Execution              N   Win%    Mean%     Med%     PF  Sortino    CVaR%   F/mo  Comment
+2026-08-02 17:37:48  531   63.8   +51.23   +23.11   5.95    2.466   -63.78    9.0  avg_vol >= 500K
+2026-08-02 18:14:46  676   63.8   +53.12   +22.21   6.02    2.519   -64.97   11.5  avg_vol >= 100K; pct_vs_sma50 >= X (was >)
 ```
 
 ---

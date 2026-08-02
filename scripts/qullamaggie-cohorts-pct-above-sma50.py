@@ -2,7 +2,7 @@
 """
 pct_above_sma50 cohort analysis for bk50d_<X>_v2.0 (366d hold).
 
-All strategy filters applied EXCEPT the pct_vs_sma50 > X threshold itself, so
+All strategy filters applied EXCEPT the pct_vs_sma50 >= X threshold itself, so
 we can see performance across the full distance-above-SMA50 range. Removing
 that filter makes the s12/s15/s17/s20 variants draw from the same candidate
 pool, so there is a single cohort table with one reference row per current
@@ -63,7 +63,7 @@ CONFIG_ROWS: list[tuple[str, str]] = [
     ("Cohorts", "**`bk50d_s<X>_v2.0` (366d) — one shared pool; reference rows for X = 12% / 15% / 17% / 20%**"),
     ("Cohort variable", "pct_vs_sma50 = close / mean(close[-51:-1]) - 1"),
     ("Entry", "next trading day's split/dividend-adjusted open"),
-    ("Filter under study", "**pct_vs_sma50 > X — removed; returns as one reference row per X**"),
+    ("Filter under study", "**pct_vs_sma50 >= X — removed; returns as one reference row per X**"),
     ("Fixed filters", "RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x (no tight_range)"),
     ("Ranking gate", "**not applied — %abv_sma50 is the score's 35-point dimension and the cohort variable (ungated)**"),
     ("Market regime", "SPY close > 200d SMA"),
@@ -197,10 +197,10 @@ def build_table(records: list[dict]) -> list[str]:
     if m_all:
         lines.append(fmt_cohort_row("ALL", m_all))
     for sma_t in SMA_THRESHS:
-        ref_rets = np.array([r["ret"] for r in records if r["pct"] > sma_t])
+        ref_rets = np.array([r["ret"] for r in records if r["pct"] >= sma_t])
         m_ref = compute_metrics(ref_rets)
         if m_ref:
-            lines.append(fmt_cohort_row(f">{int(sma_t * 100)}% (s{int(sma_t * 100)})", m_ref))
+            lines.append(fmt_cohort_row(f">={int(sma_t * 100)}% (s{int(sma_t * 100)})", m_ref))
     lines.append("")
     return lines
 
