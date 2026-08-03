@@ -127,29 +127,6 @@ The `s16` and `s20` variants differ only in that SMA-distance threshold and stay
 sweep set; report them alongside s12 rather than in place of it. Full definition and naming
 convention: `docs/research/qullamaggie-backtest-v4.md` (Step 1).
 
-### Critical File Paths
-
-- **Configuration**: `/config/settings.toml` + `.env` for API keys
-- **Strategies**: `/turtlex/strategy/trading/*.py` - Trading signal implementations
-- **Exit Strategies**: `/turtlex/strategy/exit/*.py` - Position exit logic
-- **Portfolio**: `/turtlex/portfolio/*.py` - Multi-position management
-- **Services**: `/turtlex/service/*.py` - Business logic orchestration
-- **Domain models**: `/turtlex/model.py` - `Signal`, `Trade`, `Benchmark` dataclasses
-- **Project docs**: `/docs/*.md` - `implementation.md`, `scripts.md`, `service.md`, `signal_runner.md`, `strategy.md`, `troubleshooting.md`
-- **Database init & migrations**: `/db/init.sql`, `/db/init.sh`, `/db/migrations/`
-
-## MCP Servers
-
-Configured in `.mcp.json`. Tool-selection rules are in [Tool Preferences](#tool-preferences) below.
-
-| Server | Purpose |
-| -------- | --------- |
-| `postgres` | Direct read-only SQL queries against `trading` db as `claude` user (`hetzner:5432`). Requires `DB_CLAUDE_PASSWORD` env var. |
-| `github` | GitHub API — issues, PRs, commits, actions (prefer over `gh` CLI when supported). Requires `GITHUB_PERSONAL_ACCESS_TOKEN` env var. |
-| `context7` | Fetch current library/framework docs |
-| `fetch` | HTTP fetch for external URLs |
-| `codegraph` | Code-intelligence knowledge graph of this repo (indexed in `.codegraph/`) — one query returns a symbol's verbatim source plus its callers and call paths. |
-
 ## Tool Preferences
 
 - For GitHub queries (PRs, issues, Actions, workflow runs), ALWAYS use the GitHub MCP server first. Only fall back to `gh` CLI or Bash if MCP lacks the needed tool.
@@ -162,15 +139,6 @@ Configured in `.mcp.json`. Tool-selection rules are in [Tool Preferences](#tool-
 Trunk-based development — commit directly to `main`, no pull requests or feature branches.
 
 ## Architecture Overview
-
-### Repo Layout
-
-Top-level dirs: `db/` (schema + Alembic migrations), `docs/` (project docs), `examples/` (runnable
-portfolio-backtest templates), `scripts/` (standalone research studies, run via
-`uv run scripts/<name>.py`), `tests/` (mirrors the source tree), `turtlex/` (the package).
-
-Use `ls` or codegraph for the file inventory — the rules that are *not* visible from a listing are
-below.
 
 ### Package Rules
 
@@ -199,20 +167,11 @@ below.
 ### Database
 
 - **Schema**: `turtle` (PostgreSQL)
-- **Tables**: `ticker`, `daily_bars`, `company`, `symbol_group`, `exchange`
-- **Connection**: SQLAlchemy `Engine` (sync reads) + `AsyncSession` (async writes)
 
 ## Core Systems Overview
 
 The portfolio trio — `PortfolioManager`, `PortfolioSignalSelector`, `PortfolioAnalytics` — is
 described in [docs/service.md](docs/service.md).
-
-### Configuration System
-
-- **Settings**: TOML-based with environment variable overrides for secrets
-- **Key Files**: `config/settings.toml`, `.env` (API keys, DB password)
-- **Environment Variables**: `EODHD_API_KEY`, `DB_APP_PASSWORD` (required by app; see `turtlex/config/settings.py`)
-- **Database DSN**: `host=localhost port=5432 dbname=trading user=app_user`
 
 ## Database Migrations
 
@@ -223,49 +182,9 @@ version table is `public.alembic_version`, and the target database is selected v
 
 ## Development Workflows
 
-### Adding a New Trading Strategy
-
-1. **Create strategy file**: `turtlex/strategy/trading/my_strategy.py`
-2. **Extend TradingStrategy base class**:
-
-   ```python
-   from turtlex.model import Signal
-   from turtlex.strategy.trading.base import TradingStrategy
-
-   class MyStrategy(TradingStrategy):
-       def collect_data(self, ticker: str, start_date: date, end_date: date) -> bool:
-           ...
-
-       def calculate_indicators(self) -> None:
-           ...
-
-       def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
-           # Your logic here
-           return signals
-   ```
-
-3. **Add tests**: `tests/strategy/trading/test_my_strategy.py` (mirror the source tree)
-4. **Register in the factory**: Add your class to the `TRADING_STRATEGIES` registry in `turtlex/strategy/factory.py` — all CLIs derive their `--trading-strategy` choices from it. For programmatic use, instantiate the class directly and pass it to the service constructor.
-5. **Test**: `uv run signal-runner --trading-strategy my_strategy --start-date 2024-06-01 --end-date 2024-06-01`
+Adding a new trading strategy: see the `add-trading-strategy` skill.
 
 ## Design Patterns & Principles
-
-### Strategy Pattern (Abstract Base Classes)
-
-All pluggable behaviours — signals, exits, rankings — share a common ABC interface. Services depend on the abstract type; concrete implementations are swapped at runtime without changing any service code. See `turtlex/strategy/trading/base.py` (base) and `turtlex/strategy/trading/darvas_box.py` (concrete). Same pattern in `turtlex/strategy/exit/` and `turtlex/strategy/ranking/`.
-
-### Repository Pattern (Data Access)
-
-All database operations live in `turtlex/repository/`. No SQL outside this directory. Sync `Engine`-based repos handle analytical reads; async `AsyncSession`-based repos serve the download path. See `turtlex/repository/query/` (sync reads) and `turtlex/repository/ingest/` (async writes plus the async ticker reads the download path needs).
-
-### Dependency Injection (Constructor Injection)
-
-All dependencies are passed explicitly through constructors — no globals, no service locators. The connection pool flows from `Settings` → `Service` → `Repo`. See `turtlex/service/signal_service.py`.
-
-### Domain Models (Dataclasses vs Pydantic)
-
-- **Dataclasses** for all internal domain objects (`Signal`, `Trade`, `Benchmark`, etc.). Use `@property` for computed fields — no setters. All shared domain models live in a single module: `turtlex/model.py` (no per-package `models.py`).
-- **Pydantic `BaseModel`** only for external API responses where field aliasing (`alias=`) is needed. See `Exchange`, `Ticker`, `Company` in `turtlex/schema/`.
 
 ### Configuration (Factory Method)
 
@@ -280,22 +199,12 @@ Async is used only in the data-download path; analytical queries are always sync
 
 ### Naming Conventions
 
-| Construct | Convention | Example |
-| ----------- | ----------- | --------- |
-| Classes | PascalCase | `DarvasBoxStrategy`, `DailyBarsQueryRepository` |
-| Methods / variables | snake_case | `get_signals()`, `start_date` |
-| Private methods | leading underscore | `_get_bars_history_db()` |
-| Constants / enums | UPPER_SNAKE_CASE | `TimeFrameUnit.DAY` |
-| Files | snake_case | `bars_history.py`, `darvas_box.py` |
-| Folders / packages | singular snake_case | `turtlex/service/`, `turtlex/repository/` |
+Folders and packages are **singular** snake_case: `turtlex/service/`, `turtlex/repository/` — not
+`services/` or `repositories/`. Everything else follows PEP 8.
 
 ### Docstrings
 
 All public methods (no leading underscore) must have a docstring explaining the purpose of the method and each parameter. Private methods (`_name`) do not require docstrings unless the logic is non-obvious.
-
-### Type Hints
-
-All function signatures carry full type hints — parameters and return types. Use `X | None` (not `Optional[X]`), `list[X]` (not `List[X]`). No `Any` except at external API boundaries.
 
 ### Logging
 
@@ -306,10 +215,6 @@ Every CLI configures logging exactly once: `setup_logging(args.verbose)` from `t
 ### Error Handling
 
 Validate preconditions early and return `bool` (for data-collection methods) or raise `ValueError` with a descriptive message. No bare `except` clauses. No swallowed exceptions. Properties validate their preconditions before computing.
-
-### Static Methods
-
-Use `@staticmethod` for pure utility functions that belong logically to a class but require no instance state. See `RankingStrategy._linear_rank()` in `turtlex/strategy/ranking/base.py`.
 
 ## Testing
 
@@ -327,9 +232,3 @@ things they cover:
 
 Run with `uv run pytest` or `uv run pytest tests/strategy/trading/test_darvas_box.py`.
 `-m bruno` tests hit the live EODHD API and are deselected by default.
-
-## Dependencies & Resources
-
-**Core Libraries**: polars (primary DataFrame library), pandas/numpy (retained for quantstats boundary), pydantic (schema validation), httpx (async HTTP for EODHD client), psycopg (PostgreSQL), quantstats (performance analytics)
-
-**Special Requirements**: Python 3.14+
