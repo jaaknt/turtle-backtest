@@ -550,10 +550,17 @@ Calculate results with applying filter `MIN_RANKING >= 40` and without applying 
 
 ### Exit strategy analyze
 
-**Goal:** Analyze different exit strategies to improve `scripts/qullamaggie-portfolio-sim.py` CAGR% and Sortino. Provide 5 ideas and validate them against the current 366d time-cap exit. To simplify testing use only `bk50d_s20_v2.0` / 366d / 3% of portfolio.
+**Goal:** Analyze different exit strategies to improve `scripts/qullamaggie-portfolio-sim.py` CAGR% and Sortino. Provide 5 ideas and validate them against the current 366d time-cap exit. To simplify testing use only `bk50d_s12_v2.0` / 366d / 3% of portfolio.
 
-- **Period:** 2020-01-01 : 2026-06-26, initial $30,000, ranking gate >= 40
-- **Baseline to beat:** Final $222,166, CAGR +36.17%, MaxDD -26.00%, Calmar 1.391, Sortino 1.334, 180 taken / 716 skipped
+- **Period:** 2021-01-01 : 2026-06-26, initial $30,000, ranking gate >= 40
+- **Baseline to beat:** :
+
+```text
+size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
+-----------------------------------------------------------------------------------
+3%     R>=40        257,159  +48.04   -25.46   1.887    2.099    194    714    7.8%
+```
+
 - **Pass bar (pre-registered):** CAGR **and** Sortino both above baseline, and MaxDD no more than 5pp worse
 - **Ideas swept**, each with the 366d time cap still active underneath as a backstop:
   - `regime` — exit when SPY has closed below its 200d SMA for N consecutive days
@@ -563,14 +570,14 @@ Calculate results with applying filter `MIN_RANKING >= 40` and without applying 
   - `atr` — fixed stop at entry - k x ATR(14) measured at entry
 - **Controls:** the four exit modes already coded but unreachable in `qullamaggie-portfolio-sim.py:run_sim` (`stop30`, `trail25`, `sma200x5`, `dead120` — `EXIT_MODES = ["time"]` never selects them)
 - **Overfit guards:** baseline reconciliation against the committed portfolio-sim numbers; the full metric surface per idea rather than the winning cell alone (a real effect is a plateau, an artifact is a spike); per-year decomposition; stationary block bootstrap (1,000 resamples of 21-day blocks, paired on day indices)
-- **Robustness matrix:** the winning rule re-run across `s20` / `s15` / `s12` x 2010-2015 / 2016-2020 / 2021-2026
+- **Robustness matrix:** the winning rule re-run across 2010-2015 / 2016-2020 / 2021-2026
 - **Output format:**
 
   ```text
   variant                        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip
   -------------------------------------------------------------------------------------------
   <+5% after 90 bars            299,845  +42.62   -24.04   1.773    1.555    246    650  PASS
-  baseline (366d only)          222,166  +36.17   -26.00   1.391    1.331    180    716  fail
+  baseline (366d only)          257,159  +48.04   -25.46   1.887    2.099    194    714  fail
   ```
 
 - **Script:** `scripts/qullamaggie-exit-sweep.py` (new)

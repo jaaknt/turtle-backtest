@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Exit-strategy sweep for bk50d_s20_v1.3_roc100 at 3% position sizing.
+Exit-strategy sweep for bk50d_s12_v2.0 at 3% position sizing.
 
 scripts/qullamaggie-portfolio-sim.py has exactly one exit: a 366-calendar-day time cap. This
 study asks whether a smarter exit raises portfolio CAGR% and Sortino on that one configuration,
@@ -9,11 +9,11 @@ holding entries, sizing and universe fixed.
 Two observations from docs/research/result-qullamaggie-portfolio-v4.md motivate the ideas:
 
   - The worst months contain zero entries. Entries are gated on SPY > 200d SMA, so through
-    May-Nov 2022 and Jul-Nov 2023 the strategy refused to open the exposure it was still
+    Apr-Dec 2022 and Jun-Dec 2023 the strategy refused to open the exposure it was still
     holding. The drawdown comes from legacy positions carried through a tape the entry logic
     had already disqualified.
-  - Entries arrive in bursts right after the regime flips back on (27 in May 2020, 21 in
-    Dec 2022, 17 in Dec 2023), and 716 signals were skipped for lack of cash against 180
+  - Entries arrive in bursts right after the regime flips back on (33 in Jan 2021, 23 in
+    Mar 2022, 19 in May 2025), and 714 signals were skipped for lack of cash against 194
     taken. Capital available *at the burst* is what caps trade count.
 
 Five ideas are swept, each with the 366d time cap still active underneath as a backstop:
@@ -21,7 +21,7 @@ Five ideas are swept, each with the 366d time cap still active underneath as a b
   1. regime  — exit when SPY has closed below its 200d SMA for N consecutive days
   2. trail   — trail T% below the running peak close, armed only once the trade is up A%
   3. dead    — exit if the trade is not up at least R% after N trading bars
-  4. trend   — exit after N consecutive closes below the position's own EMA20/SMA50
+  4. trend   — exit after N consecutive closes below the position's own EMA20/SMA50/SMA200
   5. atr     — fixed stop at entry - k x ATR(14) measured at entry
 
 Signal generation is imported from turtlex.research.qullamaggie, which is parity-tested against
@@ -31,7 +31,7 @@ quality, and every variant shares the convention so the ranking stays fair.
 
 Outputs: full metric surface per idea (not just the winning cell), finalist trade metrics and
 exit attribution, per-year decomposition, a block-bootstrap win rate against the baseline, and
-a robustness matrix re-running the sweep's winner across s20/s15/s12 and three disjoint periods.
+a robustness matrix re-running the sweep's winner across s20/s16/s12 and three disjoint periods.
 
 That last section is the one that matters most: the sweep's winner clears every single-window
 guard and still fails 7 of the 9 matrix cells, passing only in 2021-2026. Read the matrix before
@@ -55,24 +55,23 @@ from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
 
-EVAL_START = date(2020, 1, 1)
+EVAL_START = date(2021, 1, 1)
 EVAL_END = date(2026, 6, 26)
 INIT_EQUITY = 30_000.0
 POS_FRACTION = 0.03
-SMA_THRESH = 0.20  # s20
+SMA_THRESH = 0.12  # s12
 MIN_RANKING = 40  # QullamaggieRanking entry gate, matching the portfolio-runner default
 HOLD_CAL = 366
 
-# Baseline from qullamaggie-portfolio-sim.py, s20 / R>=40 / 3% / 366d over this study's window
-# (2020-01-01 – 2026-06-26). Reproduced by this harness as a validity check before any sweep is
-# believed. The previous values here came from a 2026-07-28 run and were stale on two counts: they
-# predated the 40/35/25 QullamaggieRanking weights (2026-07-29), and their Sortino used the
-# losers-only denominator this repo retired on 2026-08-01. Refresh all four together — a partial
-# update makes the reconciliation table lie.
-REF_CAGR_PCT = 39.87
-REF_SORTINO = 2.082
-REF_MAXDD_PCT = -21.76
-REF_FINAL = 264_355.0
+# Baseline from qullamaggie-portfolio-sim.py, s12 / R>=40 / 3% / 366d over this study's window
+# (2021-01-01 – 2026-06-26) — the `3%  R>=40` row of the s12 section in
+# docs/research/result-qullamaggie-portfolio-v4.md. Reproduced by this harness as a validity check
+# before any sweep is believed. Refresh all four together — a partial update makes the
+# reconciliation table lie.
+REF_CAGR_PCT = 48.04
+REF_SORTINO = 2.099
+REF_MAXDD_PCT = -25.46
+REF_FINAL = 257_159.0
 RECONCILE_TOL_PP = 1.0  # max acceptable CAGR divergence, in percentage points
 
 MAXDD_GUARD_PP = 5.0  # a variant may not worsen baseline MaxDD by more than this
@@ -95,6 +94,7 @@ class ExitRule:
     trail_pct: float | None = None  # trail this far below the running peak close
     trail_arm_pct: float | None = None  # ... but only once the trade is up this much
     dead_days: int | None = None  # exit if return < dead_min_ret after this many bars
+    dead_cal_days: int | None = None  # ... the same test on calendar days, as portfolio-sim's dead120 measures it
     dead_min_ret: float = 0.0
     trend_ma: str | None = None  # "ema20" | "sma50" | "sma200"
     trend_days: int = 1  # consecutive closes below trend_ma
@@ -193,17 +193,22 @@ IDEAS: dict[str, list[ExitRule]] = {
     "5. atr — volatility-normalised stop": [ExitRule(name=f"entry - {k}x ATR14", stop_atr=float(k)) for k in (3, 4, 5, 6, 8)],
 }
 
+# The four exit modes coded but unreachable in qullamaggie-portfolio-sim.py:run_sim, at that
+# script's own constants (STOP_DD, TRAIL_DD, BELOW_DAYS, DEAD_CAL/DEAD_MIN_RET). Its EXIT_MODES
+# list is ["time"], so nothing there ever selects them; this is where they get measured.
 CONTROLS = [
-    ExitRule(name="fixed -30% stop", stop_pct=0.30),
-    ExitRule(name="25% trail from day one", trail_pct=0.25),
-    ExitRule(name="sma200 x 3d", trend_ma="sma200", trend_days=3),
+    ExitRule(name="stop30 — fixed -30% stop", stop_pct=0.30),
+    ExitRule(name="trail25 — 25% from day one", trail_pct=0.25),
+    # Named exactly as idea 4 names the same cell, so the finalist dedup collapses the two.
+    ExitRule(name="sma200 x 5d", trend_ma="sma200", trend_days=5),
+    ExitRule(name="dead120 — <+5% after 120 cal days", dead_cal_days=120, dead_min_ret=0.05),
 ]
 
 # Robustness matrix: the sweep's winning rule re-run across every entry threshold and three
-# disjoint periods. The rule's parameters were chosen on s20 / 2020-2026, so the other eight
+# disjoint periods. The rule's parameters were chosen on s12 / 2021-2026, so the other eight
 # cells are out-of-sample for them.
 WINNER = ExitRule(name="<+5% after 90 bars", dead_days=90, dead_min_ret=0.05)
-VALIDATION_CONFIGS = [("s20", 0.20), ("s15", 0.15), ("s12", 0.12)]
+VALIDATION_CONFIGS = [("s20", 0.20), ("s16", 0.16), ("s12", 0.12)]
 VALIDATION_PERIODS = [
     (date(2010, 1, 1), date(2015, 12, 31)),
     (date(2016, 1, 1), date(2020, 12, 31)),
@@ -218,7 +223,7 @@ def mechanisms(rule: ExitRule) -> frozenset[str]:
         active.add("regime")
     if rule.trail_pct is not None:
         active.add("trail")
-    if rule.dead_days is not None:
+    if rule.dead_days is not None or rule.dead_cal_days is not None:
         active.add("dead")
     if rule.trend_ma is not None:
         active.add("trend")
@@ -237,6 +242,7 @@ def compose(first: ExitRule, second: ExitRule) -> ExitRule:
     Returns:
         A rule with both mechanisms active and a combined name.
     """
+    first_dead = "dead" in mechanisms(first)
     return ExitRule(
         name=f"{first.name} + {second.name}",
         hold_cal=first.hold_cal,
@@ -244,8 +250,9 @@ def compose(first: ExitRule, second: ExitRule) -> ExitRule:
         regime_losers_only=first.regime_losers_only if first.regime_days is not None else second.regime_losers_only,
         trail_pct=first.trail_pct if first.trail_pct is not None else second.trail_pct,
         trail_arm_pct=first.trail_arm_pct if first.trail_pct is not None else second.trail_arm_pct,
-        dead_days=first.dead_days if first.dead_days is not None else second.dead_days,
-        dead_min_ret=first.dead_min_ret if first.dead_days is not None else second.dead_min_ret,
+        dead_days=first.dead_days if first_dead else second.dead_days,
+        dead_cal_days=first.dead_cal_days if first_dead else second.dead_cal_days,
+        dead_min_ret=first.dead_min_ret if first_dead else second.dead_min_ret,
         trend_ma=first.trend_ma if first.trend_ma is not None else second.trend_ma,
         trend_days=first.trend_days if first.trend_ma is not None else second.trend_days,
         stop_atr=first.stop_atr if first.stop_atr is not None else second.stop_atr,
@@ -326,7 +333,7 @@ def bootstrap_win_rate(base_ret: np.ndarray, var_ret: np.ndarray) -> tuple[float
 class MarketData:
     """Bar-derived state for one evaluation window, shared by every config in that window.
 
-    Only `signals_by_entry` varies between the s20/s15/s12 configs, so the expensive part —
+    Only `signals_by_entry` varies between the s20/s16/s12 configs, so the expensive part —
     loading bars and unpacking them into per-symbol arrays — is built once per period.
     """
 
@@ -409,7 +416,7 @@ def build_signals(
     """Generate, rank-gate and entry-resolve the signals for one config, keyed by entry day.
 
     The ranking gate mirrors the portfolio runner's `--min-signal-ranking` default. For s20 it
-    is a no-op, but it binds for the looser s15/s12 thresholds, so it is applied throughout to
+    is a no-op, but it binds for the looser s16/s12 thresholds, so it is applied throughout to
     keep the entry set identical to the production path.
 
     Args:
@@ -417,7 +424,7 @@ def build_signals(
         bars: Adjusted bar frame, for resolving the next-bar entry
         bull_dates: Dates passing the SPY regime gate
         start: First date a signal may be emitted for
-        sma_thresh: Minimum fraction above the 50d SMA (0.20 = s20)
+        sma_thresh: Minimum fraction above the 50d SMA (0.12 = s12)
         market: Window whose calendar the entry day must land on
 
     Returns:
@@ -520,6 +527,8 @@ def run_sim(market: MarketData, signals_by_entry: dict[int, list[Signal]], rule:
             elif rule.trend_ma is not None and p.trend_cnt >= rule.trend_days:
                 reason = "trend"
             elif rule.dead_days is not None and bars_held >= rule.dead_days and ret < rule.dead_min_ret:
+                reason = "dead"
+            elif rule.dead_cal_days is not None and dint - p.entry_dint >= rule.dead_cal_days and ret < rule.dead_min_ret:
                 reason = "dead"
 
             if reason is None:
@@ -677,7 +686,7 @@ def main() -> None:
     out(f"Run date: {run_timestamp()}")
     out("")
     out(
-        f"Config: `bk50d_s20_v2.0` | {EVAL_START} – {EVAL_END} | initial ${INIT_EQUITY:,.0f} | "
+        f"Config: `bk50d_s12_v2.0` | {EVAL_START} – {EVAL_END} | initial ${INIT_EQUITY:,.0f} | "
         f"sizing {POS_FRACTION:.0%} of portfolio value | ranking >= {MIN_RANKING} | "
         f"time-cap backstop {HOLD_CAL}d"
     )
@@ -729,7 +738,11 @@ def main() -> None:
     out("")
     out("## Controls")
     out("")
-    out("The three exit modes already coded but unreachable in `qullamaggie-portfolio-sim.py:run_sim`.")
+    out(
+        "The four exit modes already coded but unreachable in `qullamaggie-portfolio-sim.py:run_sim` "
+        '(`stop30`, `trail25`, `sma200x5`, `dead120` — its `EXIT_MODES = ["time"]` never selects them), '
+        "at that script's own constants."
+    )
     table(
         row_hdr,
         [result_row(r.rule.name, r) for r in control_results] + ["-" * len(row_hdr), result_row("baseline (366d only)", base)],
@@ -840,7 +853,7 @@ def main() -> None:
     out(f"## Robustness matrix — `{WINNER.name}` across configs and periods")
     out("")
     out(
-        f"The winning rule's parameters were chosen on **s20 / {EVAL_START}–{EVAL_END}**. Every other "
+        f"The winning rule's parameters were chosen on **s12 / {EVAL_START}–{EVAL_END}**. Every other "
         "cell below varies the entry threshold, the period, or both, and none of them informed that "
         "choice. Each cell re-runs the baseline and the rule on identical signals, so the difference "
         "is the exit and nothing else."
