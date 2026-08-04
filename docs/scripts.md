@@ -357,3 +357,40 @@ uv run snapshot-company
 **Options:**
 
 - `--verbose` — Enable detailed logging
+
+## lightyear-import
+
+The `lightyear-import` console script parses every `*.csv` account statement in a drop folder and stores the real Buy/Sell executions in `turtle.lightyear_transaction`, giving the repo a durable ledger of what is actually held. Files are left in place. Only rows whose `Type` is `Buy` or `Sell`, whose `CCY` is `USD`, and whose `TICKER.US` code is a member of the named `turtle.ticker_group` are imported — the currency rule is what keeps a EUR sale of an Amsterdam listing from being recorded as a sale of the same-named US ADR. `Dividend` and `Conversion` rows are parsed and skipped.
+
+The `reference` column is the unique key and inserts use `ON CONFLICT DO NOTHING`, so re-importing overlapping statements never double-counts. A second run over an unchanged folder reports 0 inserted.
+
+The ticker group is a hand-maintained watchlist; nothing in this codebase writes it. Seed it with SQL before the first run, or every row is silently dropped:
+
+```sql
+INSERT INTO turtle.ticker_group (code, ticker_code)
+VALUES ('lightyear', 'DUOL.US'), ('lightyear', 'PRGS.US')
+ON CONFLICT DO NOTHING;
+```
+
+An empty group aborts the run with an error rather than reporting a misleading "0 inserted". A *single* symbol missing from the group is named in a `WARNING` — check that warning before concluding the parser dropped something.
+
+A damaged statement fails in isolation: the file is named with its offending row, **nothing from that file is stored** (the insert happens once, after the whole file parses), and the remaining files still import. The run exits `1` so the failure cannot pass unnoticed, but the summary for the healthy files is printed first. Malformed headers, truncated rows, unparseable dates and non-numeric amounts are all caught this way; a UTF-8 BOM is tolerated.
+
+**Usage:**
+
+```bash
+# Download the statement from Lightyear, drop it in, then:
+mkdir -p data/lightyear
+uv run lightyear-import
+
+# Scan a different folder against a different watchlist
+uv run lightyear-import --folder /path/to/statements --ticker-group lightyear
+```
+
+**Options:**
+
+- `--folder PATH` — Folder to scan for `*.csv` statements (default: `data/lightyear`)
+- `--ticker-group CODE` — `turtle.ticker_group` code listing held symbols (default: `lightyear`)
+- `--verbose` — Enable detailed logging
+
+`data/lightyear/` is gitignored: statements are personal financial records. `docs/specs/lightyear-example.csv` is an anonymised fixture of the format.

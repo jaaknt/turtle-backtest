@@ -30,6 +30,7 @@ download-eodhd-data = "turtlex.cli.download_eodhd_data:main"
 snapshot-company = "turtlex.cli.snapshot_company:main"
 portfolio-runner = "turtlex.cli.portfolio_runner:main"
 backtest-runner = "turtlex.cli.backtest_runner:main"
+lightyear-import = "turtlex.cli.import_lightyear:main"
 
 [build-system]
 requires = ["hatchling"]
