@@ -153,6 +153,32 @@ def build_cohort_table(
     return "\n".join(lines), means
 
 
+def compute_ranking(ranker: QullamaggieRanking, row: dict) -> int:
+    """Score one indicator row with QullamaggieRanking.
+
+    Args:
+        ranker: Ranking implementation to score with
+        row: Indicator row carrying date, raw_close and the five ranked dimensions
+
+    Returns:
+        int: The 0-100 score for that bar
+    """
+    row_df = pl.DataFrame(
+        [
+            {
+                "date": row["date"],
+                "close": row["raw_close"],
+                "adr_pct": row["adr_pct"],
+                "adr_pct_change": row["adr_pct_change"],
+                "pct_vs_sma50": row["pct_vs_sma50"],
+                "roc_252d": row["roc_252d"],
+                "rsi14": row["rsi14"],
+            }
+        ]
+    )
+    return ranker.ranking(row_df, row["date"])
+
+
 def load_holdings(engine: sa.Engine) -> list[dict]:
     """Open Lightyear positions, marked to each symbol's latest raw close.
 
@@ -184,19 +210,56 @@ def load_holdings(engine: sa.Engine) -> list[dict]:
             HAVING SUM(CASE WHEN transaction_type = 'buy' THEN quantity ELSE -quantity END) > 0
         ),
         latest AS (
-            SELECT DISTINCT ON (symbol) symbol, close::float8 AS curr_price
+            SELECT DISTINCT ON (symbol) symbol, close::float8 AS curr_price, date::date AS last_date
             FROM   turtle.daily_bars
             WHERE  symbol IN (SELECT ticker_code FROM holding) AND close > 0 AND volume > 0
             ORDER  BY symbol, date DESC
         )
-        SELECT h.ticker_code, h.entry_date::date, h.avg_price::float8, h.shares::float8, l.curr_price
+        SELECT h.ticker_code, h.entry_date::date, h.avg_price::float8, h.shares::float8, l.curr_price, l.last_date
         FROM   holding h
         LEFT   JOIN latest l ON l.symbol = h.ticker_code
         ORDER  BY h.ticker_code
     """
     with engine.connect() as conn:
         rows = conn.execute(sa.text(sql)).fetchall()
-    return [{"symbol": r[0], "entry_date": r[1], "avg_price": float(r[2]), "shares": float(r[3]), "curr_price": r[4]} for r in rows]
+    return [
+        {
+            "symbol": r[0],
+            "entry_date": r[1],
+            "avg_price": float(r[2]),
+            "shares": float(r[3]),
+            "curr_price": r[4],
+            # Calendar days held. The prompt writes this as `Entry date - Last date`, which is
+            # negative; a holding period reads as a positive count, so the operands are swapped.
+            "days": (r[5] - r[1]).days if r[5] is not None else None,
+        }
+        for r in rows
+    ]
+
+
+def holding_ranking(df: pl.DataFrame, ranker: QullamaggieRanking, symbol: str, entry_date: date) -> int | None:
+    """QullamaggieRanking for a held symbol, scored on its entry bar.
+
+    The bar on or immediately before `entry_date` is used, so a buy placed on a non-trading
+    day still scores.
+
+    Args:
+        df: Indicator frame produced by `add_indicators`
+        ranker: Ranking implementation to score with
+        symbol: Ticker code in "TICKER.US" format
+        entry_date: First buy date for the position
+
+    Returns:
+        int | None: 0-100 score, or None when the symbol has no usable bar at or before
+            entry_date — it may sit outside the universe `load_bars` selects, or predate it
+    """
+    bars = df.filter((pl.col("symbol") == symbol) & (pl.col("date") <= entry_date)).sort("date").tail(1)
+    if bars.is_empty():
+        return None
+    row = bars.row(0, named=True)
+    if any(row[c] is None for c in ("adr_pct", "adr_pct_change", "pct_vs_sma50", "roc_252d", "rsi14")):
+        return None
+    return compute_ranking(ranker, row)
 
 
 def format_holdings_table(rows: list[dict]) -> str:
@@ -210,31 +273,30 @@ def format_holdings_table(rows: list[dict]) -> str:
     """
     if not rows:
         return "No open positions in turtle.lightyear_transaction."
-    hdr = f"{'Symbol':<7}│ {'Entry date':<11}│ {'Avg Price':>10} │ {'Shares':>10} │ {'Curr Price':>10} │ {'Change %':>9} │ {'PL':>12}"
+    hdr = (
+        f"{'Symbol':<7}│ {'Entry date':<11}│ {'Days':>5} │ {'Ranking':>7} │ {'Avg Price':>10} │ "
+        f"{'Shares':>10} │ {'Curr Price':>10} │ {'Change %':>9} │ {'PL':>12}"
+    )
     lines = [hdr, "─" * len(hdr)]
     total_cost = total_value = 0.0
     for r in rows:
-        cost = r["avg_price"] * r["shares"]
-        total_cost += cost
+        total_cost += r["avg_price"] * r["shares"]
+        days = f"{r['days']:>5}" if r["days"] is not None else f"{'--':>5}"
+        ranking = f"{r['ranking']:>7}" if r.get("ranking") is not None else f"{'--':>7}"
+        head = f"{r['symbol']:<7}│ {str(r['entry_date']):<11}│ {days} │ {ranking} │ {r['avg_price']:>10.2f} │ {r['shares']:>10.4f} │ "
         if r["curr_price"] is None:
-            lines.append(
-                f"{r['symbol']:<7}│ {str(r['entry_date']):<11}│ {r['avg_price']:>10.2f} │ {r['shares']:>10.4f} │ "
-                f"{'--':>10} │ {'--':>9} │ {'--':>12}"
-            )
+            lines.append(head + f"{'--':>10} │ {'--':>9} │ {'--':>12}")
             continue
         curr = float(r["curr_price"])
         total_value += curr * r["shares"]
         chg = (curr / r["avg_price"] - 1.0) * 100.0
         pl = (curr - r["avg_price"]) * r["shares"]
-        lines.append(
-            f"{r['symbol']:<7}│ {str(r['entry_date']):<11}│ {r['avg_price']:>10.2f} │ {r['shares']:>10.4f} │ "
-            f"{curr:>10.2f} │ {chg:>+8.1f}% │ {pl:>+12.2f}"
-        )
+        lines.append(head + f"{curr:>10.2f} │ {chg:>+8.1f}% │ {pl:>+12.2f}")
     lines.append("─" * len(hdr))
     total_chg = (total_value / total_cost - 1.0) * 100.0 if total_cost else float("nan")
     lines.append(
-        f"{'TOTAL':<7}│ {'':<11}│ {total_cost:>10.2f} │ {'':>10} │ {total_value:>10.2f} │ "
-        f"{total_chg:>+8.1f}% │ {total_value - total_cost:>+12.2f}"
+        f"{'TOTAL':<7}│ {'':<11}│ {'':>5} │ {'':>7} │ {total_cost:>10.2f} │ {'':>10} │ "
+        f"{total_value:>10.2f} │ {total_chg:>+8.1f}% │ {total_value - total_cost:>+12.2f}"
     )
     return "\n".join(lines)
 
@@ -465,26 +527,10 @@ def main() -> None:
 
     ranker = QullamaggieRanking()
 
-    def compute_ranking(row: dict) -> int:
-        row_df = pl.DataFrame(
-            [
-                {
-                    "date": row["date"],
-                    "close": row["raw_close"],
-                    "adr_pct": row["adr_pct"],
-                    "adr_pct_change": row["adr_pct_change"],
-                    "pct_vs_sma50": row["pct_vs_sma50"],
-                    "roc_252d": row["roc_252d"],
-                    "rsi14": row["rsi14"],
-                }
-            ]
-        )
-        return ranker.ranking(row_df, row["date"])
-
     print(f"Generating signals for {BASE_LABEL} …", flush=True)
     base_sig = get_signals(df, bull_dates, BASE_SMA_T)
     base_sig = base_sig.filter((pl.col("date") >= DISPLAY_START) & (pl.col("date") <= DISPLAY_END)).sort(["date", "symbol"])
-    rankings = [compute_ranking(r) for r in base_sig.iter_rows(named=True)]
+    rankings = [compute_ranking(ranker, r) for r in base_sig.iter_rows(named=True)]
     base_sig = base_sig.with_columns(pl.Series("ranking", rankings, dtype=pl.Int64))
     n_gated = int(base_sig.filter(pl.col("ranking") >= MIN_RANKING).height)
     print(f"  {len(base_sig)} signals in display window, {n_gated} at ranking >= {MIN_RANKING}", flush=True)
@@ -609,7 +655,10 @@ def main() -> None:
     print(ranking_output)
 
     print("Loading current investments …", flush=True)
-    holdings_output = format_holdings_table(load_holdings(settings.engine))
+    holdings = load_holdings(settings.engine)
+    for h in holdings:
+        h["ranking"] = holding_ranking(df, ranker, h["symbol"], h["entry_date"])
+    holdings_output = format_holdings_table(holdings)
     print("\n=== Current investments (turtle.lightyear_transaction, marked to latest raw close) ===")
     print(holdings_output)
 
