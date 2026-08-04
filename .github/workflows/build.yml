@@ -33,6 +33,7 @@ jobs:
             CLAUDE.md
             docs/**/*.md
             .claude/commands/*.md
+            .claude/skills/**/*.md
 
       - name: Run mypy for static type checking
         run: uv run mypy turtlex/ scripts/
