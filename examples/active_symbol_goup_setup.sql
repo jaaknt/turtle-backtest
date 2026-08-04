@@ -65,3 +65,10 @@ union
    from turtle.ticker t 
   where t.code in ('SPY.US', 'QQQ.US', 'XLB.US', 'XLC.US', 'XLE.US', 'XLF.US', 'XLI.US', 'XLK.US', 'XLP.US', 'XLRE.US', 'XLU.US', 'XLV.US', 'XLY.US', 'XBI.US', 'XAR.US')
   );
+
+select snapshot_date, count(*) from turtle.company_history group by 1 order by 1;
+
+
+INSERT INTO turtle.ticker_group (code, ticker_code)
+         VALUES ('lightyear','AVTR.US'),('lightyear','BULL.US'),('lightyear','DUOL.US'),('lightyear','GENI.US'),('lightyear','GDDY.US'),('lightyear','GTLB.US'),('lightyear','HNI.US'),('lightyear','PRGS.US'),('lightyear','SN.US')
+         ON CONFLICT DO NOTHING;
