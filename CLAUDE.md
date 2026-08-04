@@ -187,6 +187,8 @@ version table is `public.alembic_version`, and the target database is selected v
 
 Adding a new trading strategy: see the `add-trading-strategy` skill.
 
+Committing and pushing to `main`: see the `commit-push` skill.
+
 ## Design Patterns & Principles
 
 ### Configuration (Factory Method)
