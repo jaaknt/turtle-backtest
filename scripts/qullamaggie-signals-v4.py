@@ -33,8 +33,11 @@ Ranking is the 0-100 QullamaggieRanking score (turtlex/strategy/ranking/qullamag
 entry date's indicators. Two cohort tables are reported: Change % by %abv SMA50 bucket, and
 Change % by Ranking bucket -- both mark-to-latest-price, not annualized (see cohort_stats()).
 
-The whole report — signal table, exclusions, both cohort tables and the benchmark
-comparison — is printed to stdout; no result doc is written.
+Current investments come from turtle.lightyear_transaction (real Buy/Sell executions imported
+by lightyear-import), netted per ticker and marked to the latest raw close.
+
+The whole report — signal table, exclusions, both cohort tables, current investments and the
+benchmark comparison — is printed to stdout; no result doc is written.
 
 References: docs/research/qullamaggie-backtest-v4.md, docs/research/result-qullamaggie-backtest-v4.md,
 turtlex/strategy/ranking/qullamaggie.py
@@ -148,6 +151,92 @@ def build_cohort_table(
         if stats:
             means.append(stats["mean"])
     return "\n".join(lines), means
+
+
+def load_holdings(engine: sa.Engine) -> list[dict]:
+    """Open Lightyear positions, marked to each symbol's latest raw close.
+
+    Buys and sells are netted per ticker and only open positions (Shares > 0) are kept.
+    Avg Price is the quantity-weighted mean over *buys* only, so a partial sell leaves the
+    cost basis unmoved, and it is the per-share `price` — the statement's fee and tax sit in
+    their own columns and are deliberately not folded in, so PL reads slightly better than
+    the realised result.
+
+    Curr Price is the raw close, not the adjusted one: the statement records the actual
+    fill price, so only the unadjusted series is comparable with it.
+
+    Args:
+        engine: Sync engine used for the read
+
+    Returns:
+        list[dict]: One row per open position, ordered by ticker code. `curr_price` is None
+            when the symbol has no usable bar in turtle.daily_bars.
+    """
+    sql = """
+        WITH holding AS (
+            SELECT ticker_code,
+                   SUM(CASE WHEN transaction_type = 'buy' THEN quantity ELSE -quantity END) AS shares,
+                   MIN(transacted_at) FILTER (WHERE transaction_type = 'buy')               AS entry_date,
+                   SUM(price * quantity) FILTER (WHERE transaction_type = 'buy')
+                     / SUM(quantity) FILTER (WHERE transaction_type = 'buy')                AS avg_price
+            FROM   turtle.lightyear_transaction
+            GROUP  BY ticker_code
+            HAVING SUM(CASE WHEN transaction_type = 'buy' THEN quantity ELSE -quantity END) > 0
+        ),
+        latest AS (
+            SELECT DISTINCT ON (symbol) symbol, close::float8 AS curr_price
+            FROM   turtle.daily_bars
+            WHERE  symbol IN (SELECT ticker_code FROM holding) AND close > 0 AND volume > 0
+            ORDER  BY symbol, date DESC
+        )
+        SELECT h.ticker_code, h.entry_date::date, h.avg_price::float8, h.shares::float8, l.curr_price
+        FROM   holding h
+        LEFT   JOIN latest l ON l.symbol = h.ticker_code
+        ORDER  BY h.ticker_code
+    """
+    with engine.connect() as conn:
+        rows = conn.execute(sa.text(sql)).fetchall()
+    return [{"symbol": r[0], "entry_date": r[1], "avg_price": float(r[2]), "shares": float(r[3]), "curr_price": r[4]} for r in rows]
+
+
+def format_holdings_table(rows: list[dict]) -> str:
+    """Render open positions as a fixed-width table with a portfolio total line.
+
+    Args:
+        rows: Output of `load_holdings`
+
+    Returns:
+        str: The rendered table, or a single line when no position is open
+    """
+    if not rows:
+        return "No open positions in turtle.lightyear_transaction."
+    hdr = f"{'Symbol':<7}│ {'Entry date':<11}│ {'Avg Price':>10} │ {'Shares':>10} │ {'Curr Price':>10} │ {'Change %':>9} │ {'PL':>12}"
+    lines = [hdr, "─" * len(hdr)]
+    total_cost = total_value = 0.0
+    for r in rows:
+        cost = r["avg_price"] * r["shares"]
+        total_cost += cost
+        if r["curr_price"] is None:
+            lines.append(
+                f"{r['symbol']:<7}│ {str(r['entry_date']):<11}│ {r['avg_price']:>10.2f} │ {r['shares']:>10.4f} │ "
+                f"{'--':>10} │ {'--':>9} │ {'--':>12}"
+            )
+            continue
+        curr = float(r["curr_price"])
+        total_value += curr * r["shares"]
+        chg = (curr / r["avg_price"] - 1.0) * 100.0
+        pl = (curr - r["avg_price"]) * r["shares"]
+        lines.append(
+            f"{r['symbol']:<7}│ {str(r['entry_date']):<11}│ {r['avg_price']:>10.2f} │ {r['shares']:>10.4f} │ "
+            f"{curr:>10.2f} │ {chg:>+8.1f}% │ {pl:>+12.2f}"
+        )
+    lines.append("─" * len(hdr))
+    total_chg = (total_value / total_cost - 1.0) * 100.0 if total_cost else float("nan")
+    lines.append(
+        f"{'TOTAL':<7}│ {'':<11}│ {total_cost:>10.2f} │ {'':>10} │ {total_value:>10.2f} │ "
+        f"{total_chg:>+8.1f}% │ {total_value - total_cost:>+12.2f}"
+    )
+    return "\n".join(lines)
 
 
 def load_benchmark_return(engine: sa.Engine, symbol: str) -> tuple[float, date, date]:
@@ -518,6 +607,11 @@ def main() -> None:
     print(f"\n=== {BASE_LABEL} — Change % by Ranking cohort (mark-to-latest-price, ungated) ===")
     print(f"All s12 signals, including those below the ranking >= {MIN_RANKING} gate, so the gate can be judged.")
     print(ranking_output)
+
+    print("Loading current investments …", flush=True)
+    holdings_output = format_holdings_table(load_holdings(settings.engine))
+    print("\n=== Current investments (turtle.lightyear_transaction, marked to latest raw close) ===")
+    print(holdings_output)
 
     print("Loading benchmark returns …", flush=True)
     mean_of_means = float(np.mean(cohort_means)) if cohort_means else float("nan")
