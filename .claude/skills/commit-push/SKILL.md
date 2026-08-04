@@ -21,7 +21,12 @@ CI (`.github/workflows/build.yml`, on push to `main`) also runs `ruff check`, ma
 
    Any failure stops here — report it and fix it. Never reach for `git commit --no-verify`.
 
-2. **Stage, then inspect**: `git add -A`, then `git status --porcelain` and `git diff --cached --stat`.
+2. **Stage, then inspect**: `git status --porcelain` first, then stage. Prefer naming the paths
+   you changed; `git add -A` is fine only once you have read that list and every entry belongs to
+   the change. Anything else — work in progress the user started, an unrelated edit — gets
+   `git restore --staged <path>` and a mention in your summary, never a silent ride along.
+
+   Then confirm what is actually going in with `git diff --cached --stat`.
 
    Staging *after* the format step in step 1 is the point. The hook's own `ruff format` is
    write-mode with no `git add` afterward, and it exits 0 even when it rewrites a file — so a
@@ -48,10 +53,19 @@ CI (`.github/workflows/build.yml`, on push to `main`) also runs `ruff check`, ma
    EOF
    ```
 
-5. **Verify the tree is clean**: `git status --porcelain` must print nothing.
+5. **Verify the hook did not rewrite the commit's own files**:
 
-   Output here means the hook reformatted files during the commit, so the commit holds
-   unformatted code. Recover with `git add -A && git commit --amend --no-edit`, then re-check.
+   ```bash
+   git diff --name-only HEAD -- $(git show --name-only --format= HEAD)
+   ```
+
+   Scope it to the files the commit touched, not the whole tree — an unrelated file the user is
+   still working on will show up in a bare `git status` and is not this problem. Only a file the
+   commit itself touched, dirty immediately after committing, means the hook reformatted it: the
+   commit holds the unformatted version and CI's `ruff format --check` will fail on it.
+
+   If that command prints anything, re-stage exactly those paths and
+   `git commit --amend --no-edit`, then re-check. Never `git add -A` here.
 
 6. **Push**: `git push origin main`, then report the SHA range from the push output. Mention that
    the `Build` workflow is now running — the gate in step 1 mirrors it, so it should pass.
