@@ -89,6 +89,7 @@ Full CLI reference — every flag and worked examples — is in [docs/scripts.md
 | **Snapshot fundamentals** | `uv run snapshot-company` | Refresh the `company` table |
 | **Import Lightyear trades** | `uv run lightyear-import` | Load real Buy/Sell executions from statement CSVs |
 | **Install deps** | `uv sync --extra lint` | First setup, or after a dependency change |
+| **Enable git hooks** | `git config core.hooksPath .githooks` | Once per clone — see [Git Workflow](#git-workflow) |
 | **Start database** | `docker-compose up -d` | Before any data operations |
 | **Apply migrations** | `uv run alembic upgrade head` | After pulling schema changes |
 | **Run tests** | `uv run pytest` | Verify code changes |
@@ -138,6 +139,11 @@ convention: `docs/research/qullamaggie-backtest-v4.md` (Step 1).
 ## Git Workflow
 
 Trunk-based development — commit directly to `main`, no pull requests or feature branches.
+
+Commit-time checks live in `.githooks/pre-commit` (check-only: `ruff check`, `ruff format --check`,
+`mypy`). Git does not enable a tracked hooks directory on its own, so each clone must run
+`git config core.hooksPath .githooks` once — an unexplained green commit usually means that step
+was skipped.
 
 ## Architecture Overview
 

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Tracked hook. Enable it with:
+#
+#     git config core.hooksPath .githooks
+#
+# Git will not pick up a tracked hooks directory on its own — every clone has to run
+# that once, so treat an unexplained green commit as a sign the config is missing.
+#
+# Check-only by design: nothing here may rewrite a file. A formatter running in write
+# mode would rewrite the working tree without re-staging, so the commit would capture
+# the unformatted index while the formatted version sat unstaged — and CI's
+# `ruff format --check` would then fail on that exact commit.
+#
+# pytest is deliberately absent: too slow to pay on every commit. The commit-push
+# skill runs it as part of the full CI-parity gate.
+
+cd "$(git rev-parse --show-toplevel)"
+
+echo "Running ruff check..."
+uv run ruff check turtlex/ scripts/
+
+echo "Running ruff format --check..."
+uv run ruff format --check turtlex/ scripts/
+
+echo "Running mypy..."
+uv run mypy turtlex/ scripts/

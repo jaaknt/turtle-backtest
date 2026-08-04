@@ -5,8 +5,9 @@ description: Commit work to main and push it — runs the full CI-parity gate fi
 
 # Commit and Push to main
 
-The local `.git/hooks/pre-commit` hook is check-only: `ruff check`, `ruff format --check` and
-`mypy` over `turtlex/ scripts/`. It aborts the commit rather than rewriting anything. CI
+The `.githooks/pre-commit` hook is check-only: `ruff check`, `ruff format --check` and
+`mypy` over `turtlex/ scripts/`. It aborts the commit rather than rewriting anything, and is
+active only where `git config core.hooksPath .githooks` has been run. CI
 (`.github/workflows/build.yml`, on push to `main`) additionally runs markdownlint and `pytest` —
 the gate below covers those, so a commit that passes it will not break the build.
 
