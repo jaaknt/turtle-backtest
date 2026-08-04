@@ -625,11 +625,30 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
   Cohort | N | Med% | Mean% | Win% | PF | Sortino | Max DD
   ```
 
+- Write current investments value, source table is `turtle.lightyear_transaction` + add Curr Price and Change% from `turtle.daily_bars`,
+  exclude shares where `Shares` <= 0
+  - `Entry date` - First buy date from `turtle.lightyear_transaction`
+  - `Avg Price` - quantity-weighted average ticker price over the **buys** in
+    `turtle.lightyear_transaction`. Sells reduce `Shares` but never move the cost basis, so `PL` is
+    purely unrealized — the realized gain on shares already sold is not shown. It is the per-share
+    `price`; the statement's `fee` and `tax` columns are deliberately not folded in, so `PL` reads
+    slightly better than the realised result.
+  - `Shares` - total number shares `turtle.lightyear_transaction` calculated over same ticker buys and sells
+  - `Curr Price` - the symbol's latest **raw** close in `turtle.daily_bars`; the statement records the
+    actual fill price, so only the unadjusted series is comparable with `Avg Price`
+  - `Change %` - `(Curr Price / Avg Price − 1) × 100`
+  - `PL` - `(Curr Price − Avg Price) × Shares` Profit/Loss of current investment, in dollars
+  - A `TOTAL` row closes the table with portfolio cost, value, change and PL — the "value" this bullet asks for
+
+  ```text
+  Symbol │ Entry date │ Avg Price │ Shares │ Curr Price │ Change % │ PL
+  ```
+
 - Compare also mean(Mean%) with SPY.US and QQQ.US return for the whole period. Exclude LC.US and other suspicious data points.
 - **Script:** `scripts/qullamaggie-signals-v4.py`
 - **Output:** screen
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `scripts/qullamaggie-backtest-v4.py`
-- **Note:** the script prints the full report — signal table, exclusions, both cohort tables and the benchmark comparison — to stdout. It used to also write `docs/research/result-qullamaggie-signals-v4.md`; that doc was deleted 2026-07-25 because the report is only meaningful for the day it is run.
+- **Note:** the script prints the full report — signal table, exclusions, both cohort tables, current investments and the benchmark comparison — to stdout. It used to also write `docs/research/result-qullamaggie-signals-v4.md`; that doc was deleted 2026-07-25 because the report is only meaningful for the day it is run.
 - **Note:** the signal table is gated at `MIN_RANKING >= 40`, but both cohort tables are computed over the *ungated* s12 signals on purpose. Gating them would leave the `[0-20)` and `[20-40)` ranking buckets permanently empty and destroy the only thing those tables measure — whether the score separates outcomes at all. The summary line reports how many signals the gate dropped so the two views reconcile.
 
 ### Trades: s12 open-trade performance
