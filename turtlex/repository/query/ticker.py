@@ -75,6 +75,30 @@ class TickerQueryRepository:
             codes = codes[:limit]
         return codes
 
+    def get_group_ticker_codes(self, group_code: str) -> set[str]:
+        """Return every ticker code in a ticker_group, unfiltered by exchange or country.
+
+        Unlike ``get_symbol_list`` this reads ``turtle.ticker_group`` alone, without
+        joining ``turtle.ticker``. Membership tests must not drop AMEX or non-USA
+        listings a group may legitimately contain.
+
+        Generated SQL (PostgreSQL)::
+
+            SELECT turtle.ticker_group.ticker_code
+            FROM turtle.ticker_group
+            WHERE turtle.ticker_group.code = :group_code
+
+        Args:
+            group_code: Group identifier in turtle.ticker_group (e.g. "lightyear")
+
+        Returns:
+            set[str]: Ticker codes in "TICKER.US" format; empty if the group does not exist
+        """
+        tg = ticker_group_table
+        stmt = select(tg.c.ticker_code).where(tg.c.code == group_code)
+        with self._engine.connect() as conn:
+            return {row.ticker_code for row in conn.execute(stmt).fetchall()}
+
     def get_qullamaggie_qualified_symbols(
         self,
         min_market_cap: int = 1_500_000_000,

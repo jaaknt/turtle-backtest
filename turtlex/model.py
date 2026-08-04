@@ -1,7 +1,8 @@
 """Domain model dataclasses shared across the turtle package."""
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
+from decimal import Decimal
 
 
 @dataclass
@@ -283,3 +284,46 @@ class PortfolioState:
 
     daily_snapshots: list[DailyPortfolioSnapshot] = field(default_factory=list)
     future_trades: list[FutureTrade] = field(default_factory=list)
+
+
+@dataclass
+class LightyearTransaction:
+    """
+    A single Buy or Sell execution imported from a Lightyear account statement.
+
+    Money values are Decimal rather than float: this is a financial ledger, where
+    drift on summed amounts would be a real defect.
+
+    Attributes:
+        reference: Lightyear order reference, the unique key used for idempotent re-import
+        transacted_at: Execution timestamp exactly as printed in the statement (no time zone)
+        ticker_code: Ticker symbol in "TICKER.US" format
+        isin: ISIN as reported by the statement
+        transaction_type: Already-lowercased side, 'buy' or 'sell' — do not re-normalise
+        quantity: Number of shares transacted, always positive — the side is carried by
+            transaction_type, so consumers must negate it themselves for sells
+        currency: Settlement currency of the transaction
+        price: Price per share
+        gross_amount: Gross amount as printed — cost including fee on a buy, proceeds
+            before fee on a sell
+        fee: Broker fee, 0 when the statement cell is empty
+        tax: Withholding tax, 0 when the statement cell is empty
+        net_amount: Net amount as printed — quantity times price on a buy, proceeds after
+            fee on a sell. The quantity-times-price identity holds on buys only; on a sell
+            it lands on gross_amount instead
+        source_file: File name of the statement the row was read from
+    """
+
+    reference: str
+    transacted_at: datetime
+    ticker_code: str
+    isin: str
+    transaction_type: str
+    quantity: Decimal
+    currency: str
+    price: Decimal
+    gross_amount: Decimal
+    fee: Decimal
+    tax: Decimal
+    net_amount: Decimal
+    source_file: str

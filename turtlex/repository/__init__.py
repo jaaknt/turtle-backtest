@@ -1,4 +1,10 @@
-from turtlex.repository.ingest import CompanyRepository, DailyBarsRepository, ExchangeRepository, TickerRepository
+from turtlex.repository.ingest import (
+    CompanyRepository,
+    DailyBarsRepository,
+    ExchangeRepository,
+    LightyearRepository,
+    TickerRepository,
+)
 from turtlex.repository.query import DailyBarsQueryRepository, TickerQueryRepository
 
 __all__ = [
@@ -6,6 +12,7 @@ __all__ = [
     "DailyBarsRepository",
     "ExchangeRepository",
     "DailyBarsQueryRepository",
+    "LightyearRepository",
     "TickerQueryRepository",
     "TickerRepository",
 ]

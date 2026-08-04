@@ -57,6 +57,9 @@ reports/
 # Secret files
 .secrets/
 
+# Lightyear statements (personal financial records)
+data/lightyear/
+
 # Claude Code local settings (personal, not shared)
 .claude/settings.local.json
 .coverage

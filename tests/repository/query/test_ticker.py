@@ -61,3 +61,26 @@ def test_ticker_query_get_qullamaggie_qualified_symbols_limit() -> None:
     engine = _make_engine_mock(rows)
     repo = TickerQueryRepository(engine)
     assert repo.get_qullamaggie_qualified_symbols(limit=2) == ["AAPL.US", "AMZN.US"]
+
+
+def test_ticker_query_get_group_ticker_codes_returns_set() -> None:
+    rows = [MagicMock(ticker_code=c) for c in ["DUOL.US", "PRGS.US", "GENI.US"]]
+    engine = _make_engine_mock(rows)
+    repo = TickerQueryRepository(engine)
+    assert repo.get_group_ticker_codes("lightyear") == {"DUOL.US", "PRGS.US", "GENI.US"}
+
+
+def test_ticker_query_get_group_ticker_codes_unknown_group_is_empty() -> None:
+    engine = _make_engine_mock([])
+    repo = TickerQueryRepository(engine)
+    assert repo.get_group_ticker_codes("nope") == set()
+
+
+def test_ticker_query_get_group_ticker_codes_does_not_join_ticker_table() -> None:
+    engine = _make_engine_mock([])
+    repo = TickerQueryRepository(engine)
+    repo.get_group_ticker_codes("lightyear")
+
+    sql = str(engine.connect.return_value.execute.call_args.args[0])
+    assert "turtle.ticker_group" in sql
+    assert "JOIN" not in sql.upper()

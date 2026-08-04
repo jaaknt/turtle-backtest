@@ -87,6 +87,7 @@ Full CLI reference — every flag and worked examples — is in [docs/scripts.md
 | **Single backtest** | `uv run backtest-runner --tickers AAPL --start-date 2024-01-01 --end-date 2024-01-01` | Test specific ticker |
 | **Download data** | `uv run download-eodhd-data` | Bulk historical/reference data from EODHD |
 | **Snapshot fundamentals** | `uv run snapshot-company` | Refresh the `company` table |
+| **Import Lightyear trades** | `uv run lightyear-import` | Load real Buy/Sell executions from statement CSVs |
 | **Install deps** | `uv sync --extra lint` | First setup, or after a dependency change |
 | **Start database** | `docker-compose up -d` | Before any data operations |
 | **Apply migrations** | `uv run alembic upgrade head` | After pulling schema changes |
@@ -145,9 +146,11 @@ Trunk-based development — commit directly to `main`, no pull requests or featu
 - **`turtlex/model.py`** holds every shared domain dataclass (`Signal`, `Trade`, `Benchmark`, …).
   Do not create per-package `models.py` files.
 - **`turtlex/repository/`** is the only place SQL lives. `query/` does sync `Engine` analytical
-  reads, `ingest/` does async `AsyncSession` writes for the EODHD download path. Note the two
-  read shapes on `DailyBarsQueryRepository`: `get_bars_pl` (one ticker — the per-ticker runner)
-  and `get_qualified_universe_bars_pl` (whole universe in one query — `turtlex/research/`).
+  reads; `ingest/` does writes, with the session type following the caller — async
+  `AsyncSession` for the EODHD download path, sync `Engine` for the Lightyear statement
+  importer. Note the two read shapes on `DailyBarsQueryRepository`: `get_bars_pl` (one ticker —
+  the per-ticker runner) and `get_qualified_universe_bars_pl` (whole universe in one query —
+  `turtlex/research/`).
 - **`turtlex/strategy/factory.py`** holds the `TRADING_STRATEGIES` / `EXIT_STRATEGIES` /
   `RANKING_STRATEGIES` registries — the canonical string → class mapping. CLIs derive their
   argparse `choices` from the registry keys; never hardcode strategy name lists in scripts.
@@ -194,7 +197,7 @@ Adding a new trading strategy: see the `add-trading-strategy` skill.
 
 Async is used only in the data-download path; analytical queries are always sync:
 
-- **Async (downloads/writes)**: external API clients (`turtlex/client/eodhd.py`, `httpx.AsyncClient`), download-orchestration services (e.g. `turtlex/service/eodhd_service.py`, concurrent requests via `asyncio.gather`), and the `turtlex/repository/ingest/` write repositories (`AsyncSession`). Scripts may use `asyncio.run()` as the async entry point.
+- **Async (downloads/writes)**: external API clients (`turtlex/client/eodhd.py`, `httpx.AsyncClient`), download-orchestration services (e.g. `turtlex/service/eodhd_service.py`, concurrent requests via `asyncio.gather`), and the EODHD download write repositories in `turtlex/repository/ingest/` (`AsyncSession`). Scripts may use `asyncio.run()` as the async entry point. Write repositories follow their caller, so a sync CLI with no I/O to overlap gets a sync one — `ingest/lightyear.py` is `Engine`-based end to end.
 - **Sync (analytical reads)**: query repositories (`turtlex/repository/query/`) use a sync `Engine`; strategy, backtesting, and portfolio logic is synchronous. Do not make query repositories or backtest logic async.
 
 ### Naming Conventions

@@ -5,7 +5,7 @@ This module contains Table objects used for all database operations
 in the repository layer.
 """
 
-from sqlalchemy import BigInteger, Column, Date, Float, MetaData, Numeric, Table, Text
+from sqlalchemy import BigInteger, Column, Date, DateTime, Float, MetaData, Numeric, Table, Text
 from sqlalchemy.dialects.postgresql import ENUM
 
 # Shared metadata instance for all table definitions
@@ -85,6 +85,26 @@ exchange_table = Table(
     Column("country", Text),
     Column("currency", Text),
     Column("country_iso3", Text),
+    schema="turtle",
+)
+
+# lightyear_transaction table definition (created_at/modified_at are owned by the DB)
+lightyear_transaction_table = Table(
+    "lightyear_transaction",
+    metadata,
+    Column("reference", Text, primary_key=True),
+    Column("transacted_at", DateTime),
+    Column("ticker_code", Text),
+    Column("isin", Text),
+    Column("transaction_type", Text),
+    Column("quantity", Numeric(20, 9)),
+    Column("currency", Text),
+    Column("price", Numeric(20, 9)),
+    Column("gross_amount", Numeric(20, 2)),
+    Column("fee", Numeric(20, 2)),
+    Column("tax", Numeric(20, 2)),
+    Column("net_amount", Numeric(20, 2)),
+    Column("source_file", Text),
     schema="turtle",
 )
 
