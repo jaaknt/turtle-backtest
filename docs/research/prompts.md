@@ -628,13 +628,19 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
 - Write current investments value, source table is `turtle.lightyear_transaction` + add Curr Price and Change% from `turtle.daily_bars`,
   exclude shares where `Shares` <= 0
   - `Entry date` - First buy date from `turtle.lightyear_transaction`
+  - `Signal date` - Closest date before `Entry date` when a signal was generated: the newest
+    `bk50d_s12_v2.0` signal — **ungated**, no `QullamaggieRanking` filter — sitting **strictly**
+    before the buy and no more than 50 calendar days earlier, so a stale trigger cannot attach
+    itself to an unrelated buy. The window is deliberately wider than the 30-day cooldown — a buy
+    placed weeks after the breakout still finds its trigger — so unlike a cooldown-width window it
+    can hold two signals, and the newest one wins. `--` when no such signal exists: either the
+    newest one falls outside the 50-day window, or the symbol never signalled at all.
   - `Days` - calendar days held, `Last date` − `Entry date`. The operands are this way round so a
     holding period reads positive; `Last date` is the symbol's latest usable bar — the same one
     `Curr Price` comes from — and is not shown as a column of its own.
-  - `Ranking` - `QullamaggieRanking` scored on the bar on or before `Entry date`, so a buy placed on
-    a non-trading day still scores. `--` when the symbol falls outside the universe the report
-    loads (`country = 'USA'`, Common Stock, mcap >= 1.5B, excl Comm/RE), since its indicators are
-    never computed.
+  - `Ranking` - `QullamaggieRanking` scored on the `Signal date`. Ungated like the signal it comes
+    from, so a score below the 40 the signal table gates on is printed as it stands and a buy made
+    off a weak signal stays visible; `--` exactly when `Signal date` is
   - `Avg Price` - quantity-weighted average ticker price over the **buys** in
     `turtle.lightyear_transaction`. Sells reduce `Shares` but never move the cost basis, so `PL` is
     purely unrealized — the realized gain on shares already sold is not shown. It is the per-share
@@ -648,7 +654,7 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
   - A `TOTAL` row closes the table with portfolio cost, value, change and PL — the "value" this bullet asks for
 
   ```text
-  Symbol │ Entry date │ Days │ Ranking │ Avg Price │ Shares │ Curr Price │ Change % │ PL
+  Symbol │ Signal date │ Entry date │ Days │ Ranking │ Avg Price │ Shares │ Curr Price │ Change % │ PL
   ```
 
 - Compare also mean(Mean%) with SPY.US and QQQ.US return for the whole period. Exclude LC.US and other suspicious data points.

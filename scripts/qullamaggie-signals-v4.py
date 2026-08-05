@@ -34,7 +34,11 @@ entry date's indicators. Two cohort tables are reported: Change % by %abv SMA50 
 Change % by Ranking bucket -- both mark-to-latest-price, not annualized (see cohort_stats()).
 
 Current investments come from turtle.lightyear_transaction (real Buy/Sell executions imported
-by lightyear-import), netted per ticker and marked to the latest raw close.
+by lightyear-import), netted per ticker and marked to the latest raw close. Their Signal date /
+Ranking are the newest s12 signal in the SIGNAL_LOOKBACK_CAL calendar days strictly before the
+buy, scored *ungated* — unlike the signal table above, a position bought off a sub-MIN_RANKING
+signal shows that score rather than a "--", which here means only that no signal precedes the buy
+inside the window.
 
 The whole report — signal table, exclusions, both cohort tables, current investments and the
 benchmark comparison — is printed to stdout; no result doc is written.
@@ -45,7 +49,7 @@ turtlex/strategy/ranking/qullamaggie.py
 
 import time
 from bisect import bisect_left
-from datetime import date
+from datetime import date, timedelta
 
 import numpy as np
 import polars as pl
@@ -83,6 +87,7 @@ COMPARE16_LABEL = "bk50d_s16_v2.0"
 COMPARE16_SMA_T = 0.16
 LIMIT_DISCOUNT = 0.03  # 0.97*Entry column: resting-limit level 3% below the entry-day close
 LIMIT_WINDOW_CAL = 30  # "Reached?" checks lows for this many calendar days after the signal
+SIGNAL_LOOKBACK_CAL = 50  # holdings table: how far back before a buy its matching signal may sit
 
 COHORTS = [
     (12.0, 15.0, "[12-15)"),
@@ -237,29 +242,41 @@ def load_holdings(engine: sa.Engine) -> list[dict]:
     ]
 
 
-def holding_ranking(df: pl.DataFrame, ranker: QullamaggieRanking, symbol: str, entry_date: date) -> int | None:
-    """QullamaggieRanking for a held symbol, scored on its entry bar.
+def holding_signal(signals: pl.DataFrame, ranker: QullamaggieRanking, symbol: str, entry_date: date) -> tuple[date, int] | None:
+    """The signal a held position was most plausibly bought off, with its ranking.
 
-    The bar on or immediately before `entry_date` is used, so a buy placed on a non-trading
-    day still scores.
+    Only signals strictly before `entry_date` and no more than SIGNAL_LOOKBACK_CAL calendar
+    days earlier count, so a stale trigger from months back cannot attach itself to an unrelated
+    buy. The window is wider than the 30-day cooldown on purpose — a buy placed weeks after the
+    breakout still finds its trigger — which also means two signals can fall inside it rather
+    than the at most one a cooldown-width window allows. The newest wins and MIN_RANKING is
+    deliberately not applied: a position bought off a signal the gate would have dropped shows
+    that score, which "--" could not be told apart from having no signal at all.
 
     Args:
-        df: Indicator frame produced by `add_indicators`
+        signals: Ungated s12 signals over the whole candidate window
         ranker: Ranking implementation to score with
         symbol: Ticker code in "TICKER.US" format
         entry_date: First buy date for the position
 
     Returns:
-        int | None: 0-100 score, or None when the symbol has no usable bar at or before
-            entry_date — it may sit outside the universe `load_bars` selects, or predate it
+        tuple[date, int] | None: (signal date, 0-100 score), or None when no signal precedes the
+            buy within the lookback window — the symbol may also sit outside the universe
+            `load_bars` selects, in which case it never had signals computed at all
     """
-    bars = df.filter((pl.col("symbol") == symbol) & (pl.col("date") <= entry_date)).sort("date").tail(1)
-    if bars.is_empty():
+    window = (
+        signals.filter(
+            (pl.col("symbol") == symbol)
+            & (pl.col("date") < entry_date)
+            & (pl.col("date") >= entry_date - timedelta(days=SIGNAL_LOOKBACK_CAL))
+        )
+        .sort("date", descending=True)
+        .head(1)
+    )
+    if window.is_empty():
         return None
-    row = bars.row(0, named=True)
-    if any(row[c] is None for c in ("adr_pct", "adr_pct_change", "pct_vs_sma50", "roc_252d", "rsi14")):
-        return None
-    return compute_ranking(ranker, row)
+    row = window.row(0, named=True)
+    return row["date"], compute_ranking(ranker, row)
 
 
 def format_holdings_table(rows: list[dict]) -> str:
@@ -274,16 +291,20 @@ def format_holdings_table(rows: list[dict]) -> str:
     if not rows:
         return "No open positions in turtle.lightyear_transaction."
     hdr = (
-        f"{'Symbol':<7}│ {'Entry date':<11}│ {'Days':>5} │ {'Ranking':>7} │ {'Avg Price':>10} │ "
+        f"{'Symbol':<7}│ {'Signal date':<12}│ {'Entry date':<11}│ {'Days':>5} │ {'Ranking':>7} │ {'Avg Price':>10} │ "
         f"{'Shares':>10} │ {'Curr Price':>10} │ {'Change %':>9} │ {'PL':>12}"
     )
     lines = [hdr, "─" * len(hdr)]
     total_cost = total_value = 0.0
     for r in rows:
         total_cost += r["avg_price"] * r["shares"]
+        signal_date = f"{str(r['signal_date']):<12}" if r["signal_date"] is not None else f"{'--':<12}"
         days = f"{r['days']:>5}" if r["days"] is not None else f"{'--':>5}"
         ranking = f"{r['ranking']:>7}" if r.get("ranking") is not None else f"{'--':>7}"
-        head = f"{r['symbol']:<7}│ {str(r['entry_date']):<11}│ {days} │ {ranking} │ {r['avg_price']:>10.2f} │ {r['shares']:>10.4f} │ "
+        head = (
+            f"{r['symbol']:<7}│ {signal_date}│ {str(r['entry_date']):<11}│ {days} │ {ranking} │ "
+            f"{r['avg_price']:>10.2f} │ {r['shares']:>10.4f} │ "
+        )
         if r["curr_price"] is None:
             lines.append(head + f"{'--':>10} │ {'--':>9} │ {'--':>12}")
             continue
@@ -295,7 +316,7 @@ def format_holdings_table(rows: list[dict]) -> str:
     lines.append("─" * len(hdr))
     total_chg = (total_value / total_cost - 1.0) * 100.0 if total_cost else float("nan")
     lines.append(
-        f"{'TOTAL':<7}│ {'':<11}│ {'':>5} │ {'':>7} │ {total_cost:>10.2f} │ {'':>10} │ "
+        f"{'TOTAL':<7}│ {'':<12}│ {'':<11}│ {'':>5} │ {'':>7} │ {total_cost:>10.2f} │ {'':>10} │ "
         f"{total_value:>10.2f} │ {total_chg:>+8.1f}% │ {total_value - total_cost:>+12.2f}"
     )
     return "\n".join(lines)
@@ -528,8 +549,10 @@ def main() -> None:
     ranker = QullamaggieRanking()
 
     print(f"Generating signals for {BASE_LABEL} …", flush=True)
-    base_sig = get_signals(df, bull_dates, BASE_SMA_T)
-    base_sig = base_sig.filter((pl.col("date") >= DISPLAY_START) & (pl.col("date") <= DISPLAY_END)).sort(["date", "symbol"])
+    # kept over the whole candidate window, not just the display one: a position bought early in
+    # the display window was triggered by a signal that precedes it
+    candidate_sig = get_signals(df, bull_dates, BASE_SMA_T)
+    base_sig = candidate_sig.filter((pl.col("date") >= DISPLAY_START) & (pl.col("date") <= DISPLAY_END)).sort(["date", "symbol"])
     rankings = [compute_ranking(ranker, r) for r in base_sig.iter_rows(named=True)]
     base_sig = base_sig.with_columns(pl.Series("ranking", rankings, dtype=pl.Int64))
     n_gated = int(base_sig.filter(pl.col("ranking") >= MIN_RANKING).height)
@@ -657,7 +680,8 @@ def main() -> None:
     print("Loading current investments …", flush=True)
     holdings = load_holdings(settings.engine)
     for h in holdings:
-        h["ranking"] = holding_ranking(df, ranker, h["symbol"], h["entry_date"])
+        match = holding_signal(candidate_sig, ranker, h["symbol"], h["entry_date"])
+        h["signal_date"], h["ranking"] = match if match is not None else (None, None)
     holdings_output = format_holdings_table(holdings)
     print("\n=== Current investments (turtle.lightyear_transaction, marked to latest raw close) ===")
     print(holdings_output)
