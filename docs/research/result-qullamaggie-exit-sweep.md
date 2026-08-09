@@ -1,6 +1,6 @@
 # Qullamaggie Exit-Strategy Sweep
 
-Run date: 2026-08-09 19:04:24 Tallinn time
+Run date: 2026-08-09 20:53:40 Tallinn time
 
 Config: `bk50d_s12_v2.0` | 2021-01-01 – 2026-06-26 | initial $30,000 | sizing 3% of portfolio value | ranking >= 44 | time-cap backstop 366d
 
@@ -13,11 +13,11 @@ Signals here come from `turtlex.research.qullamaggie`, whose cooldown chain runs
 ```text
 source                         Final$   CAGR%   MaxDD%  Sortino
 ---------------------------------------------------------------
-portfolio-sim (committed)     257,159  +48.04   -25.46    2.099
+portfolio-sim (committed)     285,404  +50.88   -28.01    2.129
 this harness                  284,922  +50.84   -27.91    2.168
 ```
 
-CAGR divergence: 2.80pp (ABOVE the 1.0pp tolerance).
+CAGR divergence: 0.04pp (within the 1.0pp tolerance).
 
 Pass bar: CAGR > +50.84%, Sortino > 2.168, MaxDD > -32.91%.
 
