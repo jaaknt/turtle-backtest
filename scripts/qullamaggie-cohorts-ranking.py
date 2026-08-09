@@ -7,8 +7,8 @@ Cohorts every signal by the production ranking score from
 so the question "does the score this portfolio gates on actually separate outcomes, and is
 MIN_RANKING >= 44 the right cut?" can be read off directly.
 
-Runs UNGATED on purpose: the cohort variable *is* the ranking, so applying the >= 40 gate
-would empty every cohort below it and destroy the only thing the study measures. The `>=40`
+Runs UNGATED on purpose: the cohort variable *is* the ranking, so applying the >= 44 gate
+would empty every cohort below it and destroy the only thing the study measures. The `>=44`
 reference row at the foot of each table is what the gate would actually keep.
 
 Two views of the same trades:

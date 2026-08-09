@@ -68,6 +68,13 @@ HOLD_CAL = 366
 # docs/research/result-qullamaggie-portfolio-v4.md. Reproduced by this harness as a validity check
 # before any sweep is believed. Refresh all four together — a partial update makes the
 # reconciliation table lie.
+#
+# STALE as of 2026-08-07: MIN_RANKING moved to 44 above, but these four still hold the R>=40 row,
+# because deriving the R>=44 one means re-running qullamaggie-portfolio-sim.py (which also
+# rewrites result-qullamaggie-portfolio-v4.md). Until that happens this harness reconciles an
+# R>=44 run against an R>=40 baseline and the check will most likely trip RECONCILE_TOL_PP —
+# that failure is the stale constant, not the sweep. Re-run portfolio-sim, read the new
+# `3%  R>=44` row, replace all four, then believe the sweep.
 REF_CAGR_PCT = 48.04
 REF_SORTINO = 2.099
 REF_MAXDD_PCT = -25.46

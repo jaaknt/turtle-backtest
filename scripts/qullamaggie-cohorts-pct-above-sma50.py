@@ -9,7 +9,7 @@ pool, so there is a single cohort table with one reference row per current
 threshold cap. pct_above_sma50 = close / mean(close[-51:-1]) - 1
 
 This study runs UNGATED, like the ADR% and entry-price studies. QullamaggieRanking scores
-pct_vs_sma50 as its 35-point dimension and awards 0 below 10%, so a >=40 gate filters on the
+pct_vs_sma50 as its 35-point dimension and awards 0 below 10%, so a >=44 gate filters on the
 very variable being cohorted and would empty the low cohorts this study exists to measure.
 
 Period: 2015-01-01 – 2026-06-26  (burn-in from 2013-01-01)
