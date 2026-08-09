@@ -63,7 +63,7 @@ ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 MIN_TRADES = 30
 MIN_NEG = 10
-MIN_RANKINGS = [40]  # QullamaggieRanking gates to sweep; 40 is the portfolio-runner default
+MIN_RANKINGS = [44]  # QullamaggieRanking gates to sweep; 44 is the portfolio-runner default
 ALGO_VERSION = "2.0"  # version encoded in the bk50d_sX_vN labels — an identity, not a filter value
 
 SMA_THRESHS = [0.12, 0.16, 0.20]

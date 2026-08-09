@@ -48,7 +48,7 @@ ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 MIN_NEG = 3
 
-MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
+MIN_RANKING = 44  # QullamaggieRanking gate, matching the portfolio-runner default
 
 STRATEGIES = [
     ("bk50d_s20_v2.0", 0.20),

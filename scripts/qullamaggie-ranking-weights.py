@@ -56,7 +56,7 @@ POS_FRACTION = 0.04
 HOLD_CAL = 366
 CONFIGS = [("s20", 0.20), ("s16", 0.16), ("s12", 0.12)]
 KEEP_PCTS = [35, 25, 15]
-GATES = [0, 20, 30, 40, 50, 60]
+GATES = [0, 20, 30, 40, 42, 44, 46, 50, 60]  # 42-46 bracket the gate that matches the old >=40 selectivity
 N_TIE = 20  # tie-break redraws per cell
 N_NULL = 30  # random subsets per cell
 SPLIT = date(2023, 7, 1)  # sub-period split, to check an edge is not one lucky stretch
@@ -76,6 +76,20 @@ LEGACY_BANDS: list[tuple[str, list[tuple[float, int]], int]] = [
     ("rsi14", [(50.0, 3), (60.0, 2), (70.0, 0)], 0),
 ]
 
+# The 40/35/25 bands that shipped 2026-07-30 .. 2026-08-07, frozen here so recalibrating the
+# live bands does not silently turn this report into new-vs-six-dimension and drop the scheme
+# actually being replaced out of the comparison. Same 40/35/25 split as production; what
+# differs is the band shapes, fitted to a superseded bk50d_s15_v1.3_roc100 run and anchoring
+# each dimension's floor at its worst *reachable* bucket -- which zeroed 49.6% of the s12 pool
+# on ADR. Production now anchors that floor outside the entry filter instead.
+PREV_BANDS: list[tuple[str, list[tuple[float, int]], int]] = [
+    ("adr_pct", [(0.035, 0), (0.04, 0), (0.045, 10), (0.05, 13), (0.08, 27)], 40),
+    ("pct_vs_sma50", [(0.10, 0), (0.12, 8), (0.15, 15), (0.17, 22), (0.20, 12), (0.30, 31)], 35),
+    ("raw_close", [(10.0, 25), (20.0, 8), (50.0, 2), (100.0, 2), (250.0, 0)], 0),
+]
+
+SCHEMES = ("legacy", "prev-bands", "production")
+
 
 def band_score(value: float | None, bands: list[tuple[float, int]], top: int) -> int:
     """Points of the first band whose upper bound exceeds value; `top` at or above the last.
@@ -93,13 +107,14 @@ def band_score(value: float | None, bands: list[tuple[float, int]], top: int) ->
     return top
 
 
-def score_legacy(row: dict) -> int:
-    """Score a signal with the six-dimension weighting that shipped before 2026-07-29.
+def score_bands(row: dict, scheme: list[tuple[str, list[tuple[float, int]], int]]) -> int:
+    """Score a signal with a frozen band table.
 
     Args:
         row: Signal row carrying the Qullamaggie indicator columns
+        scheme: (column, bands, top) triples to sum, e.g. LEGACY_BANDS or PREV_BANDS
     """
-    return sum(band_score(row.get(col), bands, top) for col, bands, top in LEGACY_BANDS)
+    return sum(band_score(row.get(col), bands, top) for col, bands, top in scheme)
 
 
 class Market:
@@ -229,7 +244,7 @@ def main() -> None:
             out(row)
         out("```")
 
-    out("# Ranking Weights — three-feature 40/35/25 vs the legacy six-dimension weighting")
+    out("# Ranking Weights — recalibrated 40/35/25 bands vs the two weightings they replaced")
     out("")
     out(
         f"Period {EVAL_START} .. {EVAL_END}, ${INIT_EQUITY:,.0f} initial equity, "
@@ -237,8 +252,11 @@ def main() -> None:
     )
     out("")
     out(
-        "`production` is the shipped QullamaggieRanking (ADR 40 / SMA50 35 / price 25); `legacy` is the "
-        "six-dimension weighting it replaced (SMA50 50, price 13, ADR 12, compression 12, ROC252 10, RSI 3). "
+        "`production` is the shipped QullamaggieRanking — 40/35/25 with bands re-derived on 2026-08-07 from the "
+        "bk50d_s12_v2.0 cohort tables, each dimension's floor anchored outside its entry filter so no qualifying "
+        "cohort scores 0. `prev-bands` is the same 40/35/25 split with the superseded bands it replaces (fitted to "
+        "an s15_v1.3_roc100 run; ADR < 4.5% scored 0, which was 49.6% of the s12 pool). `legacy` is the "
+        "six-dimension weighting dropped on 2026-07-29 (SMA50 50, price 13, ADR 12, compression 12, ROC252 10, RSI 3). "
         f"Ties are broken at random over {N_TIE} redraws; `null` is {N_NULL} random subsets of the same size."
     )
 
@@ -250,7 +268,7 @@ def main() -> None:
         # Both arms read indicator columns by name, so a rename upstream would silently score
         # that dimension 0 for every signal and hand the comparison to whichever scheme still
         # had all its inputs. Fail here instead.
-        required = {col for col, _, _ in LEGACY_BANDS} | {"raw_close", "adr_pct", "pct_vs_sma50"}
+        required = {col for col, _, _ in (*LEGACY_BANDS, *PREV_BANDS)} | {"raw_close", "adr_pct", "pct_vs_sma50"}
         missing = required - set(sig.columns)
         if missing:
             raise ValueError(f"Signal frame is missing {sorted(missing)}; those dimensions would silently score 0")
@@ -269,7 +287,8 @@ def main() -> None:
                 pl.DataFrame([{"date": r["date"], "close": r["raw_close"], "adr_pct": r["adr_pct"], "pct_vs_sma50": r["pct_vs_sma50"]}]),
                 r["date"],
             )
-            r["legacy"] = score_legacy(r)
+            r["legacy"] = score_bands(r, LEGACY_BANDS)
+            r["prev-bands"] = score_bands(r, PREV_BANDS)
             signals.append(r)
 
         out("")
@@ -280,7 +299,7 @@ def main() -> None:
 
         hdr = f"{'scheme':<11} {'min':>4} {'p25':>4} {'p50':>4} {'p75':>4} {'max':>4} {'mean':>6} {'<40 kept%':>10}"
         rows = []
-        for scheme in ("legacy", "production"):
+        for scheme in SCHEMES:
             v = sorted(float(s[scheme]) for s in signals)
             keep40 = 100.0 * sum(1 for x in v if x >= 40) / len(v)
             rows.append(
@@ -298,7 +317,7 @@ def main() -> None:
         rows = []
         for pct in KEEP_PCTS:
             n_keep = max(10, round(len(signals) * pct / 100))
-            for scheme in ("legacy", "production"):
+            for scheme in SCHEMES:
                 null = [
                     run_sim(market, calendar, [signals[i] for i in rng.choice(len(signals), size=n_keep, replace=False)], scheme)["cagr"]
                     for _ in range(N_NULL)
@@ -329,7 +348,7 @@ def main() -> None:
         rows = []
         for pct in KEEP_PCTS:
             n_keep = max(10, round(len(signals) * pct / 100))
-            for scheme in ("legacy", "production"):
+            for scheme in SCHEMES:
                 cells = []
                 for half_cal in halves.values():
                     c = [run_sim(market, half_cal, top_k(signals, scheme, n_keep, rng), scheme)["cagr"] for _ in range(N_TIE // 4)]
@@ -344,7 +363,7 @@ def main() -> None:
             f"{'taken':>6} | {'null CAGR%':>11} {'sd':>5} {'beats':>7}"
         )
         rows = []
-        for scheme in ("legacy", "production"):
+        for scheme in SCHEMES:
             for gate in GATES:
                 kept = [s for s in signals if s[scheme] >= gate]
                 if len(kept) < 20:

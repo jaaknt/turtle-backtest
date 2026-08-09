@@ -62,7 +62,7 @@ MIN_NEG = 5
 # reported as the `>=1.5B (cap)` row, which is the slice the live filter keeps.
 MARKET_CAP_FLOOR = 1_500_000_000
 
-MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
+MIN_RANKING = 44  # QullamaggieRanking gate, matching the portfolio-runner default
 
 # Read the universe in these [lo, hi) market-cap slabs. Splitting on a per-symbol attribute is
 # lossless here because no part of the signal path crosses symbols.

@@ -2,7 +2,7 @@
 """
 Limit-order fill sensitivity test for the 366d-hold cohorts of qullamaggie-backtest-v4.
 
-Cohorts: bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (all 366d hold, MIN_RANKING >= 40).
+Cohorts: bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (all 366d hold, MIN_RANKING >= 44).
 Bars, indicators, the SPY regime and entry resolution come from turtlex.research.qullamaggie,
 which is parity-tested against QullamaggieStrategy; the filter chain and cooldown are local
 copies of it (RSI<70, ADR mean-of-ratios>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x,
@@ -61,7 +61,7 @@ ADR_CHANGE_CAP = 0.90
 MIN_NEG = 10
 
 LIMIT_PCTS = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05]
-MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
+MIN_RANKING = 44  # QullamaggieRanking gate, matching the portfolio-runner default
 SMA_THRESHS = [(0.20, "bk50d_s20_v2.0"), (0.16, "bk50d_s16_v2.0"), (0.12, "bk50d_s12_v2.0")]
 
 CONFIG_ROWS: list[tuple[str, str]] = [

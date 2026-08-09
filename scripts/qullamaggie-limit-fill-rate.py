@@ -53,7 +53,7 @@ SMA_T = 0.12
 LABEL = "bk50d_s12_v2.0"
 
 LIMIT_PCTS = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05]
-MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
+MIN_RANKING = 44  # QullamaggieRanking gate, matching the portfolio-runner default
 WINDOWS_CAL = [30, 60, 90]  # limit order stays resting this many calendar days after the signal
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-limit-fill-rate.md"

@@ -170,22 +170,22 @@ Report **one ranking table** carrying both ranking treatments, distinguished by 
 algorithm appears twice on adjacent rows, so the pair reads across rather than across two separate
 tables:
 
-1. **`R>=40`** — a trade is taken only if its `QullamaggieRanking` score is ≥ R.
+1. **`R>=44`** — a trade is taken only if its `QullamaggieRanking` score is ≥ R.
 2. **`ungated`** — every entry signal that meets the entering condition is taken as a trade.
 
-Output order: algorithm (bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0) and then Gated (ungated, R >= 40)
+Output order: algorithm (bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0) and then Gated (ungated, R >= 44)
 
 ```text
 Entry Signal     | Gate    | N    | Win% | Mean Ret | Median Ret | Profit Factor | Sortino | CVaR(95%) | Freq/mo |
 -----------------|---------|------|------|----------|------------|---------------|---------|-----------|---------|
 bk50d_s20_v2.0   | ungated |  520 |  65% |  +56.2%  |   +26.4%   |     7.1       |   2.94  |   -60.1%  |   7.8   |
-bk50d_s20_v2.0   | R>=40   |  379 |  65% |  +58.5%  |   +27.8%   |     6.9       |   2.85  |   -64.2%  |   5.7   |
+bk50d_s20_v2.0   | R>=44   |  379 |  65% |  +58.5%  |   +27.8%   |     6.9       |   2.85  |   -64.2%  |   5.7   |
 bk50d_s16_v2.0   | ungated | ...
 ```
 
 ### Monthly Mean% / N grid
 
-Below the ranking table, report one monthly grid — **`bk50d_s12_v2.0 R>=40` only**, the reference
+Below the ranking table, report one monthly grid — **`bk50d_s12_v2.0 R>=44` only**, the reference
 algorithm. A grid per combination would be six tables, and the other five are read off the ranking
 table instead.
 
@@ -212,7 +212,7 @@ in the numbers rather than a shifted cell.
 ### History of changes
 
 Every new run adds a row per window to this table if the outcome is different. The row is always
-the reference algorithm — `bk50d_s12_v2.0` gated at `R>=40`, period 2021-2025 — read straight off that window's
+the reference algorithm — `bk50d_s12_v2.0` gated at `R>=44`, period 2021-2025 — read straight off that window's
 result file.
 
 This is a hand-maintained log, not script output: the script must not write into this file

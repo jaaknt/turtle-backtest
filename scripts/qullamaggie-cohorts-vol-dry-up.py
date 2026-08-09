@@ -52,7 +52,7 @@ MIN_NEG = 5
 # reference row, so the slice the old filter used to keep stays measurable.
 VOL_DRY_UP = 0.90
 
-MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
+MIN_RANKING = 44  # QullamaggieRanking gate, matching the portfolio-runner default
 
 STRATEGIES = [
     ("bk50d_s20_v2.0", 0.20),

@@ -276,7 +276,7 @@ class TestPortfolioSignalSelector:
         """The defaults must track portfolio-runner's --min-signal-ranking default."""
         selector = PortfolioSignalSelector()
 
-        assert selector.min_ranking == 40
+        assert selector.min_ranking == 44
 
     def test_select_entry_signals(self) -> None:
         """Every qualifying signal is returned, ranked: cash alone limits how many are taken."""

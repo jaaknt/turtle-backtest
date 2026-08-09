@@ -4,7 +4,7 @@ Reusable prompts that drove the Qullamaggie v4 backtest research. Each prompt ma
 
 Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (methodology) and `docs/research/result-qullamaggie-backtest-v4.md` (baseline results).
 
-**Standard algorithm set.** Unless a prompt says otherwise, "the algorithms" means `bk50d_s20_v2.0`, `bk50d_s16_v2.0` and `bk50d_s12_v2.0` — a 50-day breakout sitting more than 20% / 16% / 12% above the 50-day SMA, entered at the next trading day's split/dividend-adjusted open, held 366 calendar days, with the `QullamaggieRanking` gate `MIN_RANKING >= 40` applied. The naming convention is defined in `docs/research/qullamaggie-backtest-v4.md` (Step 1, "Algorithm naming"). Earlier runs used `_v1.3_roc100` labels and an s15/s17 pair instead of s16; where a **Note** records what a past run actually did, the original name is kept deliberately rather than rewritten.
+**Standard algorithm set.** Unless a prompt says otherwise, "the algorithms" means `bk50d_s20_v2.0`, `bk50d_s16_v2.0` and `bk50d_s12_v2.0` — a 50-day breakout sitting more than 20% / 16% / 12% above the 50-day SMA, entered at the next trading day's split/dividend-adjusted open, held 366 calendar days, with the `QullamaggieRanking` gate `MIN_RANKING >= 44` applied. The naming convention is defined in `docs/research/qullamaggie-backtest-v4.md` (Step 1, "Algorithm naming"). Earlier runs used `_v1.3_roc100` labels and an s15/s17 pair instead of s16; where a **Note** records what a past run actually did, the original name is kept deliberately rather than rewritten.
 
 **The `avg_vol_20` floor moved 500K -> 100K on 2026-08-02**, in `QullamaggieStrategy`,
 `turtlex/research/qullamaggie.py` and every `scripts/*.py` study. Only

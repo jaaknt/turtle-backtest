@@ -39,7 +39,7 @@ DISPLAY_END = date.today()
 
 STRATEGY_LABEL = "bk50d_s12_v2.0"
 
-MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
+MIN_RANKING = 44  # QullamaggieRanking gate, matching the portfolio-runner default
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-trades-v4.md"
 

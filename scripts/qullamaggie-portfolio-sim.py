@@ -90,7 +90,7 @@ ROC_CAP = 1.00
 RSI_CAP = 70.0
 ADR_FLOOR = 0.03
 ADR_CHANGE_CAP = 0.90
-MIN_RANKING = 40  # QullamaggieRanking entry gate, matching the portfolio-runner default
+MIN_RANKING = 44  # QullamaggieRanking entry gate, matching the portfolio-runner default
 
 CONFIGS = [
     ("s20", 0.20),
