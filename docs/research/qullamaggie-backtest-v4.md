@@ -222,6 +222,7 @@ Every new run should print latest run output to screen where it can be copy-past
 Execution              N   Win%    Mean%     Med%     PF  Sortino    CVaR%   F/mo  Comment
 2026-08-02 17:37:48  531   63.8   +51.23   +23.11   5.95    2.466   -63.78    9.0  avg_vol >= 500K
 2026-08-02 18:14:46  676   63.8   +53.12   +22.21   6.02    2.519   -64.97   11.5  avg_vol >= 100K; pct_vs_sma50 >= X (was >)
+2026-08-09 18:48:11  672   64.1   +50.73   +21.99   5.86    2.419   -65.60   11.4  ranking bands re-derived on the v2.0 cohorts; gate 40 -> 44
 ```
 
 ---
