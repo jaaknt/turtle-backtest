@@ -63,22 +63,22 @@ SMA_THRESH = 0.12  # s12
 MIN_RANKING = 44  # QullamaggieRanking entry gate, matching the portfolio-runner default
 HOLD_CAL = 366
 
-# Baseline from qullamaggie-portfolio-sim.py, s12 / R>=40 / 3% / 366d over this study's window
-# (2021-01-01 – 2026-06-26) — the `3%  R>=40` row of the s12 section in
-# docs/research/result-qullamaggie-portfolio-v4.md. Reproduced by this harness as a validity check
-# before any sweep is believed. Refresh all four together — a partial update makes the
-# reconciliation table lie.
+# Baseline from qullamaggie-portfolio-sim.py, s12 / R>=44 / 3% / 366d over this study's window
+# (2021-01-01 – 2026-06-26) — the `3%  R>=44` row of the s12 section in
+# docs/research/result-qullamaggie-portfolio-v4.md (2026-08-09 run). Reproduced by this harness as
+# a validity check before any sweep is believed. Refresh all four together — a partial update
+# makes the reconciliation table lie.
 #
-# STALE as of 2026-08-07: MIN_RANKING moved to 44 above, but these four still hold the R>=40 row,
-# because deriving the R>=44 one means re-running qullamaggie-portfolio-sim.py (which also
-# rewrites result-qullamaggie-portfolio-v4.md). Until that happens this harness reconciles an
-# R>=44 run against an R>=40 baseline and the check will most likely trip RECONCILE_TOL_PP —
-# that failure is the stale constant, not the sweep. Re-run portfolio-sim, read the new
-# `3%  R>=44` row, replace all four, then believe the sweep.
-REF_CAGR_PCT = 48.04
-REF_SORTINO = 2.099
-REF_MAXDD_PCT = -25.46
-REF_FINAL = 257_159.0
+# These are gate-dependent, so MIN_RANKING and this block move together. When the gate went
+# 40 -> 44 on 2026-08-07 these four were left on the R>=40 row for one commit, and the 2026-08-09
+# sweep reconciled 2.80pp out. Note what that does and does not break: the per-variant pass/fail
+# column is scored against *this harness's own* baseline, so those verdicts stayed correct — what
+# a blown reconciliation invalidates is the claim that the harness reproduces portfolio-sim at
+# all. If it reappears, check this block against portfolio-v4.md before rereading the sweep.
+REF_CAGR_PCT = 50.88
+REF_SORTINO = 2.129
+REF_MAXDD_PCT = -28.01
+REF_FINAL = 285_404.0
 RECONCILE_TOL_PP = 1.0  # max acceptable CAGR divergence, in percentage points
 
 MAXDD_GUARD_PP = 5.0  # a variant may not worsen baseline MaxDD by more than this
