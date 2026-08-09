@@ -6,8 +6,9 @@ bk50d_s20_v2.0 (signals marked when also present in the stricter variants).
 The reported signal list is gated at QullamaggieRanking >= MIN_RANKING, matching the
 portfolio-runner --min-signal-ranking default. Both cohort tables are deliberately computed
 over the *ungated* s12 signals: their job is to show whether ranking and %abv SMA50 separate
-outcomes, which a table containing only scores >= 40 could not do (the [0-20) and [20-40)
-ranking buckets would always be empty).
+outcomes, which a table containing only scores >= 44 could not do (the [20-40) bucket would
+always be empty; [0-20) is empty regardless, since a signal clearing the entry filters scores
+at least 20).
 0.97*Entry is the 3%-below-entry-close resting-limit level from the portfolio study;
 "Reached?" marks whether any daily low touched that level within LIMIT_WINDOW_CAL calendar
 days after the signal (fill eligible from the day after the signal, adjusted-price space —

@@ -6,8 +6,8 @@ All strategy filters applied EXCEPT the close>$5&<$250 price bounds, so we can s
 performance across the full entry-price range including sub-$5 and $250+ cohorts.
 
 This study runs UNGATED, like the ADR% study. QullamaggieRanking scores the raw close as its
-25-point dimension and awards 0 above $100, so a >=40 gate filters on the very variable being
-cohorted and would thin the expensive cohorts this study exists to measure.
+25-point dimension, so a >=44 gate filters on the very variable being cohorted and would thin
+the expensive cohorts this study exists to measure.
 
 Period: 2015-01-01 – 2026-06-26  (burn-in from 2013-01-01)
 """

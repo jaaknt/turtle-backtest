@@ -14,9 +14,8 @@ one-day move) and next-trading-day open entries. Only the cohort filter is local
 its conditions.
 
 This study runs UNGATED, unlike the other cohort studies. QullamaggieRanking scores adr_pct as
-its 40-point dimension and awards 0 below 4.0%, so a >=40 gate filters on the very variable
-being cohorted: a gated run collapsed [0-1.0) to N=1 and wiped out the sub-3% comparison this
-study exists to make.
+its 40-point dimension, so a >=44 gate filters on the very variable being cohorted: a gated run
+collapsed [0-1.0) to N=1 and wiped out the sub-3% comparison this study exists to make.
 
 Period: 2015-01-01 - 2026-06-26  (warmup handled by qm.load_bars)
 """

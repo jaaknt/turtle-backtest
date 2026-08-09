@@ -24,9 +24,9 @@ distance 20%->16%/12%), adr2.5 (ADR floor 3.0%->2.5%).
 
 The last three come from the cohort tables rather than from a guess: `p2` because
 result-qullamaggie-cohorts-price.md puts the [0-5) band above the $5-$250 aggregate on
-every metric at all three SMA thresholds; `sma16` because under the R>=40 gate
-result-qullamaggie-cohorts-ranking.md shows s16 within 0.03 Sortino of s20 (the score's
-35-point SMA50 term re-imposes most of what the hard threshold does); `adr2.5` because
+every metric at all three SMA thresholds; `sma16` because result-qullamaggie-cohorts-ranking.md
+shows the gated s16 pool close to s20 on Sortino (0.13 apart at the R>=44 gate, 2026-08-07 run —
+the score's 35-point SMA50 term re-imposes most of what the hard threshold does); `adr2.5` because
 result-qullamaggie-cohorts-adr.md's [2.5-3.0) band carries the same Sortino as the whole
 population at s20. The `vdu1.0` variant was dropped on 2026-08-01: vol_dry_up is no longer a
 production filter, so relaxing it is a no-op against this baseline.

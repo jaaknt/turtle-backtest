@@ -11,8 +11,8 @@ rest. This script is the out-of-sample check of that change, on 2021-2026.
 
 Three traps this measures around, all of which produce false positives if ignored:
 
-1. A score threshold is not a fixed filter. MIN_RANKING=40 keeps a different fraction of
-   signals under each weighting, so comparing two schemes "at gate 40" compares selectivity,
+1. A score threshold is not a fixed filter. A fixed MIN_RANKING keeps a different fraction of
+   signals under each weighting, so comparing two schemes at one gate compares selectivity,
    not skill. Schemes are compared at matched keep-% (top K% of signals) instead.
 2. Taking fewer positions changes returns on its own. The matched-selectivity and gate tables
    are therefore reported against random subsets of the same size -- a scheme only demonstrates
@@ -56,6 +56,7 @@ POS_FRACTION = 0.04
 HOLD_CAL = 366
 CONFIGS = [("s20", 0.20), ("s16", 0.16), ("s12", 0.12)]
 KEEP_PCTS = [35, 25, 15]
+PROD_GATE = 44  # production --min-signal-ranking; the reference the keep-% column reports at
 GATES = [0, 20, 30, 40, 42, 44, 46, 50, 60]  # 42-46 bracket the gate that matches the old >=40 selectivity
 N_TIE = 20  # tie-break redraws per cell
 N_NULL = 30  # random subsets per cell
@@ -297,14 +298,14 @@ def main() -> None:
             f"({len(sig)} raised, {n_no_entry_bar} with no entry bar inside the period)"
         )
 
-        hdr = f"{'scheme':<11} {'min':>4} {'p25':>4} {'p50':>4} {'p75':>4} {'max':>4} {'mean':>6} {'<40 kept%':>10}"
+        hdr = f"{'scheme':<11} {'min':>4} {'p25':>4} {'p50':>4} {'p75':>4} {'max':>4} {'mean':>6} {'>=44 kept%':>11}"
         rows = []
         for scheme in SCHEMES:
             v = sorted(float(s[scheme]) for s in signals)
-            keep40 = 100.0 * sum(1 for x in v if x >= 40) / len(v)
+            keep_gate = 100.0 * sum(1 for x in v if x >= PROD_GATE) / len(v)
             rows.append(
                 f"{scheme:<11} {v[0]:>4.0f} {v[len(v) // 4]:>4.0f} {v[len(v) // 2]:>4.0f} "
-                f"{v[3 * len(v) // 4]:>4.0f} {v[-1]:>4.0f} {statistics.fmean(v):>6.1f} {keep40:>9.1f}%"
+                f"{v[3 * len(v) // 4]:>4.0f} {v[-1]:>4.0f} {statistics.fmean(v):>6.1f} {keep_gate:>10.1f}%"
             )
         out("")
         out("Score distribution — the same gate keeps different fractions under each scheme:")
