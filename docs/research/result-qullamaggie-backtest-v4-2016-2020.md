@@ -1,6 +1,6 @@
 # Qullamaggie Backtest v4 — Results
 
-Run date: 2026-08-02 18:16:44 Tallinn time
+Run date: 2026-08-09 18:47:56 Tallinn time
 
 ## Configuration
 
@@ -14,7 +14,7 @@ Run date: 2026-08-02 18:16:44 Tallinn time
 | Tight range | disabled (commented out) |
 | Hold sweep | 366d (calendar); entries without 366d of forward data are skipped |
 | Ranking | QullamaggieRanking (ADR 40 / SMA50 35 / price 25) |
-| Ranking gate sweep | ungated, ≥ 40 |
+| Ranking gate sweep | ungated, ≥ 44 |
 | vol_dry_up | disabled (commented out) |
 | vol_surge | volume/avg_vol_50 < 2.0× (no lower bound) |
 | roc_12m_cap | 12m ROC < 100% |
@@ -34,33 +34,33 @@ Run date: 2026-08-02 18:16:44 Tallinn time
 
 ## Rankings
 
-Each algorithm appears twice on adjacent rows, distinguished by the `Gate` column: `ungated` takes every signal that meets the entering condition, `R>=40` takes a trade only if its `QullamaggieRanking` score (`turtlex/strategy/ranking/qullamaggie.py`) clears the gate. The two rows come from the same signals, held and exited identically, so the difference isolates the gate — the drop in `N` between them is how selective it is. The score uses the same shift-1 indicators the entry filter used (`adr_pct`, `pct_vs_sma50`) plus the raw signal-date close, so it adds no look-ahead. Rows are ordered by SMA threshold (s20, s16, s12), ungated before gated.
+Each algorithm appears twice on adjacent rows, distinguished by the `Gate` column: `ungated` takes every signal that meets the entering condition, `R>=44` takes a trade only if its `QullamaggieRanking` score (`turtlex/strategy/ranking/qullamaggie.py`) clears the gate. The two rows come from the same signals, held and exited identically, so the difference isolates the gate — the drop in `N` between them is how selective it is. The score uses the same shift-1 indicators the entry filter used (`adr_pct`, `pct_vs_sma50`) plus the raw signal-date close, so it adds no look-ahead. Rows are ordered by SMA threshold (s20, s16, s12), ungated before gated.
 
 ```text
 Entry Signal      Gate         N   Win%    Mean%     Med%     PF  Sortino    CVaR%   F/mo
 ─────────────────────────────────────────────────────────────────────────────────────────
-bk50d_s20_v2.0    ungated   1126   81.9   +54.97   +44.28  13.29    4.122   -50.89   19.1
-bk50d_s20_v2.0    R>=40      859   83.4   +63.05   +50.85  16.76    5.107   -47.81   14.6
-bk50d_s16_v2.0    ungated   1718   79.3   +48.43   +39.97  10.53    3.416   -52.68   29.1
-bk50d_s16_v2.0    R>=40      919   82.4   +63.78   +51.03  16.06    4.967   -49.55   15.6
-bk50d_s12_v2.0    ungated   2454   78.2   +43.28   +35.77   9.10    2.957   -53.58   41.6
-bk50d_s12_v2.0    R>=40     1023   80.2   +59.40   +47.64  12.94    4.219   -52.43   17.3
+bk50d_s20_v2.0    ungated   1135   82.1   +56.35   +44.31  13.93    4.299   -50.20   19.2
+bk50d_s20_v2.0    R>=44      941   81.7   +60.66   +48.04  14.51    4.590   -49.84   15.9
+bk50d_s16_v2.0    ungated   1731   79.5   +49.59   +40.24  10.98    3.550   -51.97   29.3
+bk50d_s16_v2.0    R>=44     1014   81.2   +61.47   +48.10  14.56    4.629   -50.08   17.2
+bk50d_s12_v2.0    ungated   2468   78.4   +44.19   +35.90   9.48    3.073   -52.77   41.8
+bk50d_s12_v2.0    R>=44     1033   80.7   +60.17   +47.00  13.80    4.448   -50.61   17.5
 
 Valid combinations: 6
 ```
 
-## Monthly Mean% / N — bk50d_s12_v2.0 R>=40
+## Monthly Mean% / N — bk50d_s12_v2.0 R>=44
 
 Each cell is `Mean%|N` for the trades **entered** in that calendar month, held the full 366 days; `·` marks a month with no entries. The right-hand pair is the year's own aggregate across all its months, not the mean of the cells. Only this one combination is shown — it is the reference algorithm, and a grid per combination would be six tables.
 
 ```text
  Year |    Jan        Feb        Mar        Apr        May        Jun        Jul        Aug        Sep        Oct        Nov        Dec     |   Mean%     N
 -----------------------------------------------------------------------------------------------------------------------------------------------------------
- 2016 |      ·          ·      +46.8|39   +32.9|60   +28.2|11    +1.3|17   +49.6|20   +32.9|14   +86.9|5    +30.8|5     +2.2|1    +32.7|11  |  +35.7%   183
- 2017 |  +30.1|6    +24.7|5    +50.1|4        ·      +32.2|6    +44.6|3    +35.6|5    +59.1|5    +89.3|3    -13.6|6   +336.1|1    +36.3|4   |  +41.1%    48
- 2018 |  +15.3|8        ·      +22.0|2    +31.8|4    -18.5|4     -1.3|4     +4.6|3    +37.7|2    -26.7|1    -56.8|1        ·      -38.5|2   |   +4.6%    31
- 2019 |      ·      +14.8|15   -12.0|13   +19.1|6    +70.4|2     -3.1|4     +9.3|10   +25.3|3    +91.8|2    +32.1|9     +6.7|3    +84.7|14  |  +26.6%    81
- 2020 |   +7.5|7   +280.0|6        ·          ·      +95.7|244  +63.4|178  +60.0|56   +81.3|36  +179.0|9    +60.0|17   +44.7|42   +35.2|84  |  +73.8%   679
+ 2016 |      ·          ·      +50.0|39   +33.7|61   +25.4|14    +3.3|16   +50.3|15   +34.7|14   +88.0|8    +31.3|4     +2.2|1    +21.0|14  |  +36.4%   186
+ 2017 |   -4.8|5    +28.8|5    +74.6|2        ·      +42.5|3    +37.0|3    +17.2|4    +82.9|5    +74.3|4    +11.8|8   +176.8|2    +32.4|5   |  +41.3%    46
+ 2018 |  +15.0|8        ·      +68.2|3    +61.3|4    +62.6|9     +1.6|4    +14.2|2   +107.6|1    -26.7|1        ·          ·      -36.6|1   |  +36.7%    33
+ 2019 |      ·      +25.0|14    -6.6|13   +19.0|6    +67.9|3    +15.5|3     +7.2|12   +43.7|4    +91.8|2    +21.0|10    -1.1|3    +70.9|15  |  +27.6%    85
+ 2020 |   +7.7|8   +315.8|5        ·          ·      +96.9|237  +68.0|175  +59.9|50   +76.7|34  +159.2|10   +63.8|17   +42.6|48   +33.2|98  |  +73.4%   682
  2021 |  +55.2|1        ·          ·          ·          ·          ·          ·          ·          ·          ·          ·          ·     |  +55.2%     1
 ```
 
@@ -71,9 +71,9 @@ Each cell is `Mean%|N` for the trades **entered** in that calendar month, held t
 - source point-in-time market cap (or shares outstanding × price at entry) instead of a static snapshot
 - source a delisted-ticker history if available to address survivorship
 - add a slippage/commission assumption on top of the next-day-open fill
-- widen the gate sweep past 40 to find where the score stops separating outcomes
+- widen the gate sweep past 44 to find where the score stops separating outcomes
 - report the ranking's own decile spread within a fixed X so the gate's effect can be read independently of the SMA threshold
 - account for trade overlap (e.g. block-bootstrap or effective-sample-size adjustment) when judging Sortino confidence
 - re-run all three windows (2010-2015, 2016-2020, 2021-present) before accepting any parameter change — a change that only improves the window it was chosen on is fitted to that window
-- pick the ranking gate per SMA threshold rather than one R≥40 across s12/s16/s20; the same score rejects a very different share of each, so it is not the same filter at each
+- pick the ranking gate per SMA threshold rather than one R≥44 across s12/s16/s20; the same score rejects a very different share of each, so it is not the same filter at each
 - report per-year Sortino again — the Yrs+/Consistent columns were dropped from the table, so a combination that only works in one year is no longer visible at a glance
