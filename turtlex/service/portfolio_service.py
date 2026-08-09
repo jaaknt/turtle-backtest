@@ -38,7 +38,7 @@ class PortfolioService:
         end_date: date,
         initial_capital: float = 30000.0,
         position_size_pct: float = 0.04,
-        min_signal_ranking: int = 40,
+        min_signal_ranking: int = 44,
         time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
         max_holding_period: int = 365,
         benchmark_ticker: str = DEFAULT_BENCHMARK_TICKER,

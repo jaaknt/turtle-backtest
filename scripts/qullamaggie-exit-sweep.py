@@ -60,7 +60,7 @@ EVAL_END = date(2026, 6, 26)
 INIT_EQUITY = 30_000.0
 POS_FRACTION = 0.03
 SMA_THRESH = 0.12  # s12
-MIN_RANKING = 40  # QullamaggieRanking entry gate, matching the portfolio-runner default
+MIN_RANKING = 44  # QullamaggieRanking entry gate, matching the portfolio-runner default
 HOLD_CAL = 366
 
 # Baseline from qullamaggie-portfolio-sim.py, s12 / R>=40 / 3% / 366d over this study's window

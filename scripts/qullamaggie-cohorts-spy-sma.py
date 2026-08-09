@@ -65,7 +65,7 @@ SPY_WARMUP_DAYS = 900
 SMA_LOOKBACKS: list[int | None] = [150, 200, 250, 300, 350, None]
 PRODUCTION_LOOKBACK = 200
 
-MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
+MIN_RANKING = 44  # QullamaggieRanking gate, matching the portfolio-runner default
 
 STRATEGIES = [
     ("bk50d_s20_v2.0", 0.20),

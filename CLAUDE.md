@@ -118,12 +118,12 @@ study, peaks at ~3.5 GB.
 
 ### Baseline Algorithm
 
-**`bk50d_s12_v2.0` gated at `MIN_RANKING >= 40` is the reference algorithm.** Use it whenever a
+**`bk50d_s12_v2.0` gated at `MIN_RANKING >= 44` is the reference algorithm.** Use it whenever a
 comparison or example needs one — new studies, ad-hoc queries, docs and explanations — so numbers
 quoted in different places stay comparable. It is a 50-day-high breakout sitting more than 12%
 above the 50-day SMA, entered at the next trading day's split/dividend-adjusted open and held 366
-calendar days, with the `QullamaggieRanking` score gated at 40 (the `--min-signal-ranking`
-default). Note the gate is `>= 40`, not `> 40` — a signal scoring exactly 40 is kept.
+calendar days, with the `QullamaggieRanking` score gated at 44 (the `--min-signal-ranking`
+default). Note the gate is `>= 44`, not `> 44` — a signal scoring exactly 44 is kept.
 
 The `s16` and `s20` variants differ only in that SMA-distance threshold and stay in the standard
 sweep set; report them alongside s12 rather than in place of it. Full definition and naming

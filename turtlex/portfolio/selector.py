@@ -20,7 +20,7 @@ class PortfolioSignalSelector:
 
     def __init__(
         self,
-        min_ranking: int = 40,
+        min_ranking: int = 44,
         max_sector_concentration: float = 0.4,
         exclude_existing_positions: bool = True,
     ):

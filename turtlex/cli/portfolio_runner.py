@@ -82,8 +82,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--min-signal-ranking",
         type=int,
-        default=40,
-        help="Minimum signal ranking threshold (default: 40)",
+        default=44,
+        help="Minimum signal ranking threshold (default: 44)",
     )
 
     parser.add_argument(

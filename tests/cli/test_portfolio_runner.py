@@ -22,7 +22,7 @@ class TestArgumentParser:
         assert args.exit_strategy == "buy_and_hold"
         assert args.initial_capital == 30000.0
         assert args.position_size_pct == 0.04
-        assert args.min_signal_ranking == 40
+        assert args.min_signal_ranking == 44
         assert args.max_holding_days == 365
         assert args.benchmark_ticker == "QQQ.US"
         assert args.exit_param == []

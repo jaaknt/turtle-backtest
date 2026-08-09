@@ -5,7 +5,7 @@ QullamaggieRanking cohort analysis for bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12
 Cohorts every signal by the production ranking score from
 `turtlex/strategy/ranking/qullamaggie.py` and reports forward 366d performance per cohort,
 so the question "does the score this portfolio gates on actually separate outcomes, and is
-MIN_RANKING >= 40 the right cut?" can be read off directly.
+MIN_RANKING >= 44 the right cut?" can be read off directly.
 
 Runs UNGATED on purpose: the cohort variable *is* the ranking, so applying the >= 40 gate
 would empty every cohort below it and destroy the only thing the study measures. The `>=40`
@@ -53,7 +53,7 @@ ADR_CHANGE_CAP = 0.90
 ROC_CAP = 1.00
 MIN_NEG = 5
 
-MIN_RANKING = 40  # Not applied — reported as a reference row, since ranking is the cohort variable.
+MIN_RANKING = 44  # Not applied — reported as a reference row, since ranking is the cohort variable.
 N_DECILES = 10
 
 STRATEGIES = [

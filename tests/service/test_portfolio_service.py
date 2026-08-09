@@ -30,7 +30,7 @@ def _future_trade(ticker: str, price: float) -> FutureTrade:
     )
 
 
-def _make_service(signals_by_ticker: dict[str, list[Signal]], min_signal_ranking: int = 40) -> PortfolioService:
+def _make_service(signals_by_ticker: dict[str, list[Signal]], min_signal_ranking: int = 44) -> PortfolioService:
     trading_strategy = Mock()
     trading_strategy.get_signals.side_effect = lambda ticker, start_date, end_date: signals_by_ticker.get(ticker, [])
     service = PortfolioService(
@@ -102,7 +102,7 @@ def test_generate_entry_signals_logs_generated_and_selected_counts(caplog: pytes
 
     assert "Generated 2 signals" in caplog.text
     assert "1 selected for entry" in caplog.text
-    assert "ranking >= 40" in caplog.text
+    assert "ranking >= 44" in caplog.text
 
 
 def test_process_signals_skips_unfundable_entries_without_stopping_the_loop() -> None:

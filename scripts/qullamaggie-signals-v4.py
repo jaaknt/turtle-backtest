@@ -77,7 +77,7 @@ ADR_MIN = 0.03
 ADR_CHANGE_CAP = 0.90
 SUSPICIOUS_DAY_MOVE = 0.50  # exclude signals with a >50% single-day raw-close move between entry and latest date
 
-MIN_RANKING = 40  # QullamaggieRanking gate on the reported list (portfolio-runner default)
+MIN_RANKING = 44  # QullamaggieRanking gate on the reported list (portfolio-runner default)
 
 BASE_LABEL = "bk50d_s12_v2.0"
 BASE_SMA_T = 0.12

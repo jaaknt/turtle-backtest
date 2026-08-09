@@ -64,7 +64,7 @@ ROC_CAP = 1.00
 RSI_CAP = 70.0
 ADR_CHANGE_CAP = 0.90
 MIN_NEG = 10
-MIN_RANKING = 40  # QullamaggieRanking gate, matching the portfolio-runner default
+MIN_RANKING = 44  # QullamaggieRanking gate, matching the portfolio-runner default
 
 # Loosest universe any variant asks for; loaded once, then narrowed per variant.
 LOOSEST_MCAP = 1_000_000_000

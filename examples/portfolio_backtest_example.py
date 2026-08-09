@@ -45,7 +45,7 @@ def main() -> None:
     # initial_capital = 10000.0
     # max_positions = 10
     # position_size_pct = 0.04
-    # min_signal_ranking = 40
+    # min_signal_ranking = 44
 
     # Define stock universe - using a subset for this example
     # In practice, you might use data_service.get_symbol_group_list("NAS100") or similar
