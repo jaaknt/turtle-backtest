@@ -21,9 +21,12 @@ off per environment, so the VPS records runs while local development does not.
 | --- | --- |
 | Scope | All **6** console-script entry points, not just the two in `deploy/`. The bash-only `turtle-backup.service` is out of scope. |
 | Crash safety | Two-phase write: `INSERT` at start with `status='running'`, `UPDATE` at end. A hard-killed run (OOM/SIGKILL) leaves a visible orphan `running` row. |
-| `version` | Package version plus git SHA, e.g. `0.3.0+fd66f3b`. |
+| `version` | Package version plus git SHA, e.g. `1.0.0+fd66f3b`. |
 | `error` | Exceptions **and** the last `ERROR`-level log message — 5 of 6 CLIs fail via `logger.error(); return 1` rather than by raising, so exception-only capture would leave most real failures blank. |
 | Defaults | `hetzner` on, `local` off. A missing config section means **disabled**, never a crash. |
+| `parameters` shape | Nested: `{"cli": {...}, "strategy": {...}}`. The `cli` section is `vars(args)`; the `strategy` section is the resolved `describe_parameters()` of the trading strategy, so a run records the thresholds that were actually in effect, not just the flags that were typed. Only the 3 analysis runners have a `strategy` section. |
+| `duration` type | `INTERVAL`, generated. Charting needs `EXTRACT(EPOCH FROM duration)`; readability at the psql prompt won. |
+| `scripts/` studies | Out of scope. The 6 console-script entry points only — even though the `scripts/*.py` studies are the ones that actually get OOM-killed, they don't share the CLI bootstrap and would need individual wiring. |
 
 ## 1. Migration — `db/migrations/versions/2026_08_15_000001_create_job_runs_table.py`
 
@@ -69,10 +72,17 @@ Three deliberate deviations from the table template, each worth noting in review
   `company_history` migration is redundant, and this was re-confirmed live: `pg_default_acl` shows
   `alembic` granting `app_user=arwd` on tables and `rwU` on sequences in schema `turtle`. `arwd`
   covers the INSERT **and** the UPDATE the two-phase write needs, and an IDENTITY column needs no
-  separate sequence grant.
+  separate sequence grant. Reads are covered too: the same default ACL grants `claude=r`, which is
+  what the Postgres MCP tool connects as. (`trading_ro` holds no privileges on *any* `turtle` table
+  — a pre-existing condition of the schema, not something this table introduces.)
 
 `job_runs_finished_check` is the invariant that keeps the two-phase write honest: a row is
 `running` if and only if it has no `end_at`.
+
+The `COMMENT ON COLUMN turtle.job_runs.parameters` should state the shape, since it is not obvious
+from the type: `{"cli": {...}, "strategy": {...}}`, where `strategy` is absent for the three
+standalone utilities and for any run killed before it resolved a strategy. No GIN index on
+`parameters` — at a few hundred rows a year, a sequential scan is free.
 
 > Naming note: every other table here is singular (`company`, `ticker`, `lightyear_transaction`);
 > `job_runs` is plural as explicitly requested.
@@ -88,6 +98,10 @@ from sqlalchemy.dialects.postgresql import ENUM, JSONB
 
 Omit `duration` from the `Table` — it is database-generated and must never appear in an INSERT or
 UPDATE payload, exactly as `created_at`/`modified_at` are omitted from the other tables.
+
+`id` **is** defined on the `Table` (`primary_key=True`), because `start_run` needs it for
+`RETURNING` and `finish_run` needs it in the `WHERE`. It must never be supplied as a value:
+`GENERATED ALWAYS AS IDENTITY` (as opposed to `BY DEFAULT`) rejects an explicit insert outright.
 
 ## 3. Config switch — `turtlex/config/model.py`, `turtlex/config/settings.py`, `config/settings.toml`
 
@@ -131,13 +145,13 @@ Add `job_runs: JobRunsConfig = field(default_factory=JobRunsConfig)` as the **la
 ```python
 @cache
 def resolve_version() -> str:
-    """Return the running code version as "<package>+<git-sha>", e.g. "0.3.0+fd66f3b"."""
+    """Return the running code version as "<package>+<git-sha>", e.g. "1.0.0+fd66f3b"."""
 ```
 
-- Package half from `turtlex.__version__`. Note `turtlex/__init__.py` and `pyproject.toml` currently
-  disagree (`0.3.0` vs `1.0.0`) — a pre-existing drift; use `__version__` (always importable, no
-  metadata lookup) and leave the drift alone. The git SHA is the half that actually identifies
-  deployed code, since the VPS updates by `git pull`, so the recorded version stays useful either way.
+- Package half from `turtlex.__version__`. `turtlex/__init__.py` and `pyproject.toml` now agree on
+  `1.0.0` (aligned in `124bd6e`), so either source works; use `__version__` because it is always
+  importable and needs no `importlib.metadata` lookup. The git SHA is the half that actually
+  identifies deployed code, since the VPS updates by `git pull`.
 - SHA via `subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=<repo root>, ...)` with
   `check=False`, a short timeout, and captured output. Repo root from
   `Path(__file__).resolve().parents[2]` — do not rely on cwd. On `FileNotFoundError` (no git binary)
@@ -156,7 +170,9 @@ class JobRunRepository:
     def start_run(self, name: str, parameters: dict[str, object], version: str, hostname: str) -> int:
         """Insert a 'running' row and return its id."""   # INSERT ... RETURNING id
 
-    def finish_run(self, run_id: int, status: str, exit_code: int, error: str | None) -> None:
+    def finish_run(
+        self, run_id: int, status: str, exit_code: int, error: str | None, parameters: dict[str, object]
+    ) -> None:
         """Close out a run, setting end_at (which populates the generated duration column)."""
 ```
 
@@ -164,10 +180,14 @@ class JobRunRepository:
 timestamps taken by the same clock. Export both from `turtlex/repository/ingest/__init__.py`
 alongside the existing repositories.
 
+`finish_run` rewrites `parameters` as well, because the `strategy` section does not exist yet at
+INSERT time — see §6. An orphaned `running` row therefore carries only its `cli` section, which is
+the correct outcome: a run killed before resolving its strategy never had one.
+
 ## 6. Recorder — `turtlex/service/job_run_service.py` (new)
 
-Holds three things: the last-ERROR log capture, parameter serialization, and the enabled/disabled
-no-op behaviour.
+Holds four things: the last-ERROR log capture, the parameter buffer, parameter serialization, and
+the enabled/disabled no-op behaviour.
 
 ```python
 class _LastErrorCapture(logging.Handler):
@@ -178,11 +198,19 @@ class JobRunRecorder:
 
     def __init__(self, repository: JobRunRepository | None, name: str, parameters: Mapping[str, object]) -> None: ...
     def start(self) -> None: ...
+    def add_parameters(self, section: str, values: Mapping[str, object]) -> None: ...
     def finish(self, exit_code: int) -> None: ...
 ```
 
-- **Disabled path**: `repository=None` → `start`/`finish` return immediately. No engine work, no
-  serialization, no subprocess.
+- **`add_parameters`** is what makes the `strategy` section possible. The resolved parameters only
+  exist *after* `resolve_trading_strategy()` runs, which happens inside `body()` — by which time the
+  `running` row is already inserted. Rather than a third write, `add_parameters` buffers the section
+  in memory and `finish()` writes the merged dict in the UPDATE it was already making. The
+  constructor seeds the buffer as `{"cli": vars(args)}`.
+
+- **Disabled path**: `repository=None` → `start`, `add_parameters` and `finish` all return
+  immediately. No engine work, no serialization, no subprocess. `body()` still receives a real
+  recorder object, so callers never branch on whether logging is on.
 - **Error capture**: `start()` attaches `_LastErrorCapture` (level `ERROR`) to the root logger;
   `finish()` removes it in a `finally` so it can never leak across runs or accumulate under pytest.
   `finish()` writes `status='success'` when `exit_code == 0`, else `'failed'` with the captured
@@ -206,7 +234,9 @@ class JobRunRecorder:
 Add one helper next to the existing `run_cli`, which stays **unchanged** (as do its four tests):
 
 ```python
-def run_job(name: str, args: argparse.Namespace, settings: Settings, body: Callable[[], int]) -> int:
+def run_job(
+    name: str, args: argparse.Namespace, settings: Settings, body: Callable[[JobRunRecorder], int]
+) -> int:
     """Run `body` under run_cli, recording the invocation in turtle.job_runs."""
     recorder = JobRunRecorder(
         JobRunRepository(settings.engine) if settings.job_runs.enabled else None, name, vars(args)
@@ -214,7 +244,7 @@ def run_job(name: str, args: argparse.Namespace, settings: Settings, body: Calla
     recorder.start()
     exit_code = 1
     try:
-        exit_code = run_cli(args, body)
+        exit_code = run_cli(args, functools.partial(body, recorder))
     finally:
         recorder.finish(exit_code)
     return exit_code
@@ -222,27 +252,53 @@ def run_job(name: str, args: argparse.Namespace, settings: Settings, body: Calla
 
 Wrapping rather than replacing `run_cli` is what keeps this small: `run_cli` already maps
 `KeyboardInterrupt`/`Exception` to a logged error plus exit code 1, and the recorder reads the
-outcome off the return value and the captured log. The `try/finally` covers the `BaseException`
-cases `run_cli` deliberately lets through (e.g. `SystemExit`), defaulting to a failed row.
+outcome off the return value and the captured log. `functools.partial` adapts the recorder-taking
+body to the `Callable[[], int]` that `run_cli` expects, so `run_cli` itself needs no change. The
+`try/finally` covers the `BaseException` cases `run_cli` deliberately lets through (e.g.
+`SystemExit`), defaulting to a failed row.
 
-**Pattern A** — `signal_runner.py`, `portfolio_runner.py`, `backtest_runner.py`: a genuine one-line
-change each, since they already funnel through a `body()` closure:
+`body` takes the recorder so it can report the resolved strategy parameters. This is dependency
+injection rather than a module-level or contextvar singleton, per CLAUDE.md's no-globals rule. The
+three Pattern B bodies accept the argument and ignore it.
+
+**Pattern A** — `signal_runner.py`, `portfolio_runner.py`, `backtest_runner.py`: the `body()`
+closure gains a parameter and one `add_parameters` call, and the call site changes:
 
 ```diff
+-    def body() -> int:
++    def body(recorder: JobRunRecorder) -> int:
+         try:
+             trading_strategy, _bars_history = resolve_trading_strategy(args, settings)
+         except ValueError as e:
+             logger.error(str(e))
+             return 1
++        recorder.add_parameters("strategy", trading_strategy.describe_parameters())
+...
 -    return run_cli(args, body)
 +    return run_job("signal-runner", args, settings, body)
 ```
 
+`resolve_trading_strategy` stays **inside** `body()`. Hoisting it above `run_job` would make the
+resolved parameters available at INSERT time, but a bad `--trading-param` would then fail before any
+row existed — losing exactly the failure record that motivated capturing `error` in the first place.
+
+`backtest_runner.py` and `portfolio_runner.py` resolve an exit strategy in the same `try` block;
+they add `recorder.add_parameters("exit_strategy", exit_strategy_kwargs)` alongside. Note this is a
+weaker record than the trading section — `resolve_exit_strategy_kwargs` returns only the explicit
+`--exit-param` overrides, not the strategy's full effective parameter set.
+
 **Pattern B** — the three standalone CLIs need their work extracted so `run_job` has a `body` to
 call. Mechanical, but not one-line:
 
-- `snapshot_company.py` — move the snapshot work into a nested `body() -> int`, then
+All three take the `recorder` argument and ignore it — none has a strategy to describe.
+
+- `snapshot_company.py` — move the snapshot work into a nested `body(recorder) -> int`, then
   `return run_job("snapshot-company", args, settings, body)`. Behaviour change worth noting: an
   unexpected exception now becomes a logged error and exit 1 instead of an uncaught traceback.
 - `import_lightyear.py` — **keep the `args.folder.is_dir()` check and its comment before
   `Settings.from_toml()`**; extract the body into a module-level
-  `_import_statements(args, settings) -> int` and pass
-  `functools.partial(_import_statements, args, settings)`.
+  `_import_statements(args, settings, recorder) -> int` and pass
+  `functools.partial(_import_statements, args, settings)`, leaving `run_job` to supply the recorder.
 - `download_eodhd_data.py` — the only structural change. `Settings.from_toml()` currently lives
   *inside* the async `download()` coroutine, but the recorder needs `settings.engine` in `main()`.
   Move it up, add a `settings` parameter to `download()` and document it in the existing docstring,
@@ -252,7 +308,7 @@ call. Mechanical, but not one-line:
      setup_logging(args.verbose)
 +    settings = Settings.from_toml()
 +
-+    def body() -> int:
++    def body(recorder: JobRunRecorder) -> int:
 +        asyncio.run(download(settings, data=args.data, start_date=args.start_date,
 +                             end_date=args.end_date, ticker_limit=args.ticker_limit))
 +        return 0
@@ -278,9 +334,9 @@ compiling the statement against the postgres dialect — no live DB (see
 
 | File | Asserts |
 | --- | --- |
-| `tests/repository/ingest/test_job_run.py` | `start_run` compiles to an INSERT with `RETURNING job_runs.id` and returns the id; `finish_run` targets `WHERE id = :id`; `duration` never appears in either payload. |
-| `tests/service/test_job_run_service.py` | No-op when `repository is None` (engine never touched); `_jsonable` handles `date`, `Path`, `list[tuple[str, str]]` and falls back to `str`; a `SQLAlchemyError` from `start_run`/`finish_run` does **not** propagate and logs a warning; a failed `start()` makes `finish()` skip; last-ERROR capture fills `error`; the handler is detached from the root logger after `finish()`. |
-| `tests/cli/test_common.py` (extend) | `run_job` returns the body's exit code; records `success` for 0 and `failed` for non-zero; a raising body still produces a finished row. |
+| `tests/repository/ingest/test_job_run.py` | `start_run` compiles to an INSERT with `RETURNING job_runs.id` and returns the id; `finish_run` targets `WHERE id = :id` and rewrites `parameters`; `duration` and `id` never appear in either payload. |
+| `tests/service/test_job_run_service.py` | No-op when `repository is None` (engine never touched); `_jsonable` handles `date`, `Path`, `list[tuple[str, str]]` and falls back to `str`; a `SQLAlchemyError` from `start_run`/`finish_run` does **not** propagate and logs a warning; a failed `start()` makes `finish()` skip; last-ERROR capture fills `error`; the handler is detached from the root logger after `finish()`; `add_parameters` merges under its section and is a safe no-op when disabled. |
+| `tests/cli/test_common.py` (extend) | `run_job` returns the body's exit code; records `success` for 0 and `failed` for non-zero; a raising body still produces a finished row; the recorder reaches `body` so `add_parameters` from inside it lands in the finished row. |
 | `tests/config/test_settings.py` (extend) | Missing `[job_runs]` → `enabled is False`; `DB_ENV=hetzner` → `enabled is True`. |
 | `tests/common/test_version.py` (new) | Format is `<version>+<sha>`; degrades to the bare version when `git` is missing or fails. |
 
@@ -296,8 +352,10 @@ jsonb serialization edge cases:
 
 ```bash
 uv run snapshot-company                                             # success, exit 0
+# date + list[tuple] params. --trading-strategy qullamaggie is required: sma_thresh belongs to
+# qullamaggie, and the default darvas_box rejects it with "not an overridable parameter".
 uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 \
-    --trading-param sma_thresh=0.20                                 # date + list[tuple] params
+    --trading-strategy qullamaggie --trading-param sma_thresh=0.20
 uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 \
     --trading-param nonsense=1                                      # failure -> error populated
 ```
@@ -307,21 +365,37 @@ SELECT id, name, status, start_at, duration, exit_code, version, parameters, err
 FROM turtle.job_runs ORDER BY start_at DESC LIMIT 10;
 ```
 
-Check that `duration` is non-null and plausible; `parameters` is queryable as jsonb
-(`SELECT parameters->>'trading_strategy' FROM turtle.job_runs`); `version` looks like `0.3.0+<sha>`;
-and the failing run has `status='failed'`, `exit_code=1` and a non-null `error`.
+Check that `duration` is non-null and plausible; `version` looks like `1.0.0+<sha>`; and the failing
+run has `status='failed'`, `exit_code=1` and a non-null `error`. Confirm both jsonb sections, and
+that the resolved `strategy` section carries thresholds never typed on the command line:
+
+```sql
+SELECT name,
+       parameters->'cli'->>'trading_strategy'  AS cli_strategy,
+       parameters->'strategy'->>'sma_thresh'   AS effective_sma_thresh,
+       parameters->'strategy'                  AS strategy_section
+FROM turtle.job_runs ORDER BY start_at DESC LIMIT 5;
+```
+
+The `snapshot-company` row should have a `cli` section and **no** `strategy` key at all — that
+asymmetry between the analysis runners and the standalone utilities is expected, not a bug.
 
 Then confirm the disabled path and the crash path:
 
 ```bash
 # flip enabled back to false -> run again -> no new row
-# crash safety: start a long run, SIGKILL it, confirm the orphan is visible
+# crash safety: start a long run, SIGKILL it, then run the orphan query below
 ```
 
 ```sql
-SELECT name, start_at FROM turtle.job_runs
-WHERE status = 'running' AND start_at < now() - interval '1 day';
+-- the run just killed: still 'running', no end_at, NULL duration
+SELECT id, name, start_at, end_at, duration, exit_code
+FROM turtle.job_runs WHERE status = 'running' ORDER BY start_at DESC;
 ```
+
+The same query with `AND start_at < now() - interval '1 day'` is the operational form — the one
+worth putting in `docs/implementation.md` to find orphans left by past crashes rather than the one
+just created.
 
 Gate before commit:
 
