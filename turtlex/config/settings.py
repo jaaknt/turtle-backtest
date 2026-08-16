@@ -1,7 +1,7 @@
 import logging
 import os
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -56,9 +56,22 @@ class Settings:
         logger.info(f"Database connection: DB_ENV={db_env} ({db_config.host}:{db_config.port}/{db_config.dbname})")
 
         # Deliberately more lenient than the [database.<env>] lookup above, which raises on an
-        # unknown DB_ENV: a missing [job_runs] table or environment means disabled, never a crash.
-        # Telemetry config must not be able to take a job down.
-        job_runs_config = JobRunsConfig(**data.get("job_runs", {}).get(db_env, {}))
+        # unknown DB_ENV. Telemetry config must not be able to take a job down, so a missing
+        # [job_runs] TOML section, a missing entry for this DB_ENV, a non-table value, and an
+        # unrecognized key all mean "disabled" rather than an exception. Splatting the section
+        # with ** would instead raise TypeError on the realistic edit -- someone adding a key to
+        # the VPS TOML, or a rolled-back deploy meeting a newer config.
+        job_runs_section = data.get("job_runs", {})
+        job_runs_env = job_runs_section.get(db_env, {}) if isinstance(job_runs_section, dict) else {}
+        if not isinstance(job_runs_env, dict):
+            logger.warning("[job_runs.%s] is not a table — job-run logging disabled", db_env)
+            job_runs_env = {}
+        unknown_keys = set(job_runs_env) - {f.name for f in fields(JobRunsConfig)}
+        if unknown_keys:
+            logger.warning("Ignoring unknown [job_runs.%s] keys: %s", db_env, ", ".join(sorted(unknown_keys)))
+        # bool() rather than the raw value: a quoted "false" in TOML is a truthy string, which
+        # would silently switch logging on.
+        job_runs_config = JobRunsConfig(enabled=bool(job_runs_env.get("enabled", False)))
 
         data["app"]["eodhd"]["api_key"] = os.environ["EODHD_API_KEY"]
 

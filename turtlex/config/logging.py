@@ -76,14 +76,33 @@ class LastErrorCapture(logging.Handler):
     def __init__(self) -> None:
         super().__init__(logging.ERROR)
         self.last_message: str | None = None
+        # Defence in depth. Today the stdout handler's filter runs first and redacts the record
+        # in place, so this handler already sees a scrubbed message — but that is an accident of
+        # handler ordering, and what this one captures is persisted to the database rather than
+        # to a rotating journal. Re-applying the pattern is idempotent.
+        self.addFilter(ApiTokenFilter())
 
     def emit(self, record: logging.LogRecord) -> None:
-        """Store the formatted message of `record`.
+        """Store the interpolated message of `record`, with the exception text when it carries one.
+
+        No Formatter is applied, so no timestamp or logger name is retained. `logger.exception`
+        calls put the cause in `exc_info` rather than the message — appending it is what stops a
+        `--verbose` run recording the bare string "Full error details:" instead of the failure.
 
         Args:
             record: Log record at ERROR or above
         """
-        self.last_message = record.getMessage()
+        try:
+            message = record.getMessage()
+            if record.exc_info is not None and record.exc_info[1] is not None:
+                message = f"{message} {record.exc_info[1]}"
+            self.last_message = message
+        except Exception:
+            # The stdlib contract: Handler.handle() does not guard emit(), every concrete handler
+            # guards its own body. Without this a malformed log call anywhere in the process —
+            # logger.error("%s %s", one_arg) — would propagate out of the logging call and kill
+            # the job this handler exists to measure.
+            self.handleError(record)
 
     def attach(self) -> None:
         """Start capturing ERROR records from the root logger."""

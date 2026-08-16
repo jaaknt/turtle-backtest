@@ -6,6 +6,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from turtlex.cli.portfolio_runner import create_argument_parser, main
+from turtlex.config.model import JobRunsConfig
 
 DATE_ARGS = ["--start-date", "2024-01-01", "--end-date", "2024-03-31"]
 
@@ -49,7 +50,10 @@ class TestArgumentParser:
 
 class TestMain:
     def _patch_wiring(self, mocker: MockerFixture) -> MagicMock:
-        mocker.patch("turtlex.cli.portfolio_runner.Settings")
+        settings_cls = mocker.patch("turtlex.cli.portfolio_runner.Settings")
+        # Without this settings.job_runs.enabled is a truthy MagicMock, so every test
+        # would take the enabled branch and shell out to git via resolve_version()
+        settings_cls.from_toml.return_value.job_runs = JobRunsConfig(enabled=False)
         mocker.patch("turtlex.cli.portfolio_runner.setup_logging")
         mocker.patch("turtlex.cli.portfolio_runner.TickerQueryRepository")
         mocker.patch("turtlex.cli.portfolio_runner.get_exit_strategy")
