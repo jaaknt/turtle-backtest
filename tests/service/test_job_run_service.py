@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
+from turtlex.config.logging import LastErrorCapture
 from turtlex.service.job_run_service import JobRunRecorder, _jsonable
 
 
@@ -53,8 +54,8 @@ class TestDisabled:
         recorder.add_parameters("strategy", {"sma_thresh": 0.12})
         recorder.finish(0)
 
-        # No handler may be left behind when logging is switched off
-        assert not [h for h in logging.getLogger().handlers if h.__class__.__name__ == "_LastErrorCapture"]
+        # isinstance, not a class-name string: a rename must not be able to silently disarm this
+        assert not [h for h in logging.getLogger().handlers if isinstance(h, LastErrorCapture)]
 
 
 class TestRecording:
@@ -147,6 +148,47 @@ class TestFailureIsolation:
         recorder.finish(0)
 
         repository.finish_run.assert_not_called()
+
+    def test_a_non_database_error_from_start_does_not_propagate(self, repository: MagicMock) -> None:
+        # socket.gethostname() raises OSError on a resolver hiccup; it is not a SQLAlchemyError,
+        # and killing a nightly download over a hostname lookup is the failure this must not cause
+        repository.start_run.side_effect = OSError("name resolution failed")
+        recorder = JobRunRecorder(repository, "download-eodhd-data", {})
+
+        recorder.start()
+        recorder.finish(0)
+
+        repository.finish_run.assert_not_called()
+
+    def test_a_non_database_error_from_finish_does_not_propagate(self, repository: MagicMock) -> None:
+        repository.finish_run.side_effect = OSError("broken pipe on commit")
+        recorder = JobRunRecorder(repository, "download-eodhd-data", {})
+
+        recorder.start()
+        recorder.finish(0)  # must not raise — the body already succeeded
+
+    def test_an_unserializable_argument_does_not_propagate(self, repository: MagicMock) -> None:
+        class Exploding:
+            def __str__(self) -> str:
+                raise RuntimeError("str() blew up")
+
+        recorder = JobRunRecorder(repository, "signal-runner", {"bad": Exploding()})
+        recorder.start()
+        recorder.add_parameters("strategy", {"also_bad": Exploding()})
+        recorder.finish(0)
+
+        # The run is still recorded; only the offending section degrades
+        written = repository.finish_run.call_args.kwargs["parameters"]
+        assert "_serialization_failed" in written["cli"]
+        assert "_serialization_failed" in written["strategy"]
+
+    def test_an_unserializable_argument_is_inert_when_disabled(self) -> None:
+        class Exploding:
+            def __str__(self) -> str:
+                raise RuntimeError("str() blew up")
+
+        # enabled = false must mean no work at all, including no serialization
+        JobRunRecorder(None, "signal-runner", {"bad": Exploding()})
 
     def test_a_failing_start_is_logged_as_a_warning(self, repository: MagicMock, caplog: pytest.LogCaptureFixture) -> None:
         repository.start_run.side_effect = SQLAlchemyError("connection refused")

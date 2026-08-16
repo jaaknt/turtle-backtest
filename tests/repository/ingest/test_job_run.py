@@ -52,6 +52,9 @@ class TestStartRun:
         assert params["name"] == "signal-runner"
         assert params["version"] == "1.0.0+abc1234"
         assert params["hostname"] == "host"
+        # parameters is JSONB NOT NULL: dropping it from .values() would pass every other
+        # assertion here and then fail every INSERT in production, swallowed as a warning
+        assert params["parameters"] == {"cli": {}}
 
     def test_status_and_start_at_come_from_column_defaults(self) -> None:
         engine, conn = _make_engine_mock()

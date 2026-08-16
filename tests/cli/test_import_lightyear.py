@@ -7,6 +7,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from turtlex.cli.import_lightyear import create_argument_parser, main
+from turtlex.config.model import JobRunsConfig
 from turtlex.service.lightyear_service import FileImportSummary, ImportSummary, TickerGroupNotSeededError
 
 
@@ -26,7 +27,10 @@ class TestArgumentParser:
 
 class TestMain:
     def _patch_wiring(self, mocker: MockerFixture, summary: ImportSummary | Exception) -> MockerFixture:
-        mocker.patch("turtlex.cli.import_lightyear.Settings")
+        settings_cls = mocker.patch("turtlex.cli.import_lightyear.Settings")
+        # Without this settings.job_runs.enabled is a truthy MagicMock, so every test
+        # would take the enabled branch and shell out to git via resolve_version()
+        settings_cls.from_toml.return_value.job_runs = JobRunsConfig(enabled=False)
         mocker.patch("turtlex.cli.import_lightyear.setup_logging")
         mocker.patch("turtlex.cli.import_lightyear.LightyearRepository")
         mocker.patch("turtlex.cli.import_lightyear.TickerQueryRepository")

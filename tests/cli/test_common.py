@@ -2,7 +2,9 @@
 
 import argparse
 import logging
+import tomllib
 from datetime import date
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -191,6 +193,17 @@ class TestRunJob:
         assert repository.finish_run.call_args.kwargs["status"] == "failed"
         assert "boom" in repository.finish_run.call_args.kwargs["error"]
 
+    def test_a_verbose_raising_body_records_the_cause_not_the_placeholder(self, settings: MagicMock, repository: MagicMock) -> None:
+        # Under --verbose run_cli logs a second ERROR, logger.exception("Full error details:"),
+        # whose cause lives in exc_info. Recording only getMessage() would bury the real failure
+        # exactly on the run an operator re-ran to diagnose it.
+        def body(_recorder: JobRunRecorder) -> int:
+            raise RuntimeError("real cause")
+
+        run_job("signal-runner", argparse.Namespace(verbose=True), settings, body)
+
+        assert "real cause" in repository.finish_run.call_args.kwargs["error"]
+
     def test_body_receives_the_recorder_and_its_sections_are_stored(self, settings: MagicMock, repository: MagicMock) -> None:
         def body(recorder: JobRunRecorder) -> int:
             recorder.add_parameters("strategy", {"sma_thresh": 0.12})
@@ -215,3 +228,26 @@ class TestRunJob:
         assert run_job("signal-runner", argparse.Namespace(verbose=False), settings, lambda _recorder: 0) == 0
 
         repository_cls.assert_not_called()
+
+
+class TestJobNames:
+    """The name column keys every operational query, so a typo silently empties every dashboard."""
+
+    @pytest.mark.parametrize(
+        ("module", "job_name"),
+        [
+            ("signal_runner", "signal-runner"),
+            ("backtest_runner", "backtest-runner"),
+            ("portfolio_runner", "portfolio-runner"),
+            ("download_eodhd_data", "download-eodhd-data"),
+            ("snapshot_company", "snapshot-company"),
+            ("import_lightyear", "lightyear-import"),
+        ],
+    )
+    def test_job_name_matches_a_console_script(self, module: str, job_name: str) -> None:
+        pyproject = tomllib.loads(Path(__file__).resolve().parents[2].joinpath("pyproject.toml").read_text())
+        scripts = pyproject["project"]["scripts"]
+
+        assert job_name in scripts
+        assert scripts[job_name] == f"turtlex.cli.{module}:main"
+        assert f'run_job("{job_name}"' in Path(f"turtlex/cli/{module}.py").read_text()

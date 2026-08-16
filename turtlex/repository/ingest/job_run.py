@@ -1,10 +1,16 @@
 import logging
+from typing import Literal
 
 from sqlalchemy import Engine, func, insert, update
 
 from turtlex.repository.tables import job_runs_table
 
 logger = logging.getLogger(__name__)
+
+# Tighter than the DB's CHECK, which also allows 'running': that value only ever comes from the
+# column default, never from Python, so a typo here is a mypy error rather than an IntegrityError
+# that the recorder would swallow into a permanently orphaned row.
+JobStatus = Literal["success", "failed"]
 
 
 class JobRunRepository:
@@ -38,7 +44,7 @@ class JobRunRepository:
         logger.debug("Started job run %d for %s", run_id, name)
         return run_id
 
-    def finish_run(self, run_id: int, status: str, exit_code: int, error: str | None, parameters: dict[str, object]) -> None:
+    def finish_run(self, run_id: int, status: JobStatus, exit_code: int, error: str | None, parameters: dict[str, object]) -> None:
         """Close out a run, setting end_at (which populates the generated duration column).
 
         `parameters` is rewritten rather than left alone: sections resolved during the run — the

@@ -203,13 +203,19 @@ Review recent runs, and the jobs that never finished:
 SELECT name, status, start_at, duration, exit_code, version, error
 FROM turtle.job_runs ORDER BY start_at DESC LIMIT 20;
 
--- orphans: a killed job (OOM/SIGKILL/power loss) never gets its end_at, so it stays 'running'
+-- orphans: a row still 'running' long after start_at either died (OOM/SIGKILL/power loss) or
+-- could not reach the database for its closing update. The row alone cannot tell them apart —
+-- a failed close logs "its row stays 'running' and is NOT evidence of a kill" at ERROR.
 SELECT id, name, start_at, version, parameters->'cli' AS cli_args
 FROM turtle.job_runs
 WHERE status = 'running' AND start_at < now() - interval '1 day';
 ```
 
 Orphans are left in place rather than reaped: the row is the evidence that a job died, and there is no cleanup job.
+
+The weekly download unit runs `download-eodhd-data` three times with different `--data` values, so filter on the argument to tell them apart: `parameters->'cli'->>'data'`.
+
+A job that fails during `Settings.from_toml()` — a missing env var, an unparsable TOML — records no row at all, because the engine that would write it does not exist yet. A missing row means a bootstrap failure; journald is still the only record for that class.
 
 ### Phase 4: Data Migration
 

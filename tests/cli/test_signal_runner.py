@@ -7,6 +7,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from turtlex.cli.signal_runner import create_argument_parser, main, run_list
+from turtlex.config.model import JobRunsConfig
 from turtlex.model import Signal
 
 START, END = date(2024, 6, 3), date(2024, 6, 7)
@@ -52,7 +53,10 @@ class TestHandlers:
 
 class TestMain:
     def _patch_wiring(self, mocker: MockerFixture) -> None:
-        mocker.patch("turtlex.cli.signal_runner.Settings")
+        settings_cls = mocker.patch("turtlex.cli.signal_runner.Settings")
+        # Without this settings.job_runs.enabled is a truthy MagicMock, so every test
+        # would take the enabled branch and shell out to git via resolve_version()
+        settings_cls.from_toml.return_value.job_runs = JobRunsConfig(enabled=False)
         mocker.patch("turtlex.cli.signal_runner.setup_logging")
         mocker.patch("turtlex.cli.signal_runner.TickerQueryRepository")
 

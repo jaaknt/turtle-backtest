@@ -149,12 +149,18 @@ def run_job(name: str, args: argparse.Namespace, settings: Settings, body: Calla
         The exit code from `body`, or 1 if it raised KeyboardInterrupt/an unexpected exception
     """
     recorder = JobRunRecorder(JobRunRepository(settings.engine) if settings.job_runs.enabled else None, name, vars(args))
-    recorder.start()
     # try/finally rather than relying on run_cli: it catches Exception, but a BaseException such as
-    # SystemExit passes straight through and must still close the row out.
+    # SystemExit passes straight through and must still close the row out. start() is inside the
+    # try so that nothing it raises can kill the job before the body has run.
     exit_code = 1
     try:
+        recorder.start()
         exit_code = run_cli(args, functools.partial(body, recorder))
     finally:
-        recorder.finish(exit_code)
+        # The recorder guards itself, but this is the boundary where a telemetry failure would
+        # replace the job's real outcome, so it gets a second belt.
+        try:
+            recorder.finish(exit_code)
+        except Exception:
+            logger.exception("Job-run recording failed; the job's own outcome stands")
     return exit_code
