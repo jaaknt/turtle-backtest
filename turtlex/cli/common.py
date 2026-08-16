@@ -1,12 +1,15 @@
 """Shared CLI bootstrap helpers for the analysis runner scripts (backtest_runner, signal_runner)."""
 
 import argparse
+import functools
 import logging
 from collections.abc import Callable, Mapping
 
 from turtlex.common.cli import iso_date_type, key_value_type
 from turtlex.config.settings import Settings
+from turtlex.repository.ingest.job_run import JobRunRepository
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
+from turtlex.service.job_run_service import JobRunRecorder
 from turtlex.strategy.factory import RANKING_STRATEGIES, TRADING_STRATEGIES, get_ranking_strategy, get_trading_strategy
 from turtlex.strategy.trading.base import TradingStrategy
 
@@ -75,15 +78,19 @@ def log_parameters(label: str, params: Mapping[str, object]) -> None:
     logger.info(f"{label}: {', '.join(f'{name}={value}' for name, value in params.items())}")
 
 
-def resolve_trading_strategy(args: argparse.Namespace, settings: Settings) -> tuple[TradingStrategy, DailyBarsQueryRepository]:
+def resolve_trading_strategy(
+    args: argparse.Namespace, settings: Settings, recorder: JobRunRecorder
+) -> tuple[TradingStrategy, DailyBarsQueryRepository]:
     """Resolve --ranking-strategy/--trading-strategy into a TradingStrategy and its DailyBarsQueryRepository.
 
-    Logs the resolved strategy's effective parameters at INFO, so every analysis CLI records
-    the configuration its run used.
+    Reports the resolved strategy's effective parameters to both sinks — INFO for whoever reads
+    the journal, and the job-run row for whoever queries it later — so every analysis CLI records
+    the configuration its run used without repeating the call itself.
 
     Args:
         args: Parsed CLI arguments, must have `trading_strategy`, `ranking_strategy` and `trading_param`
         settings: Loaded application settings, used for the database engine
+        recorder: Job-run recorder receiving the resolved parameters as the "strategy" section
 
     Returns:
         Tuple of (trading_strategy, bars_history)
@@ -95,7 +102,9 @@ def resolve_trading_strategy(args: argparse.Namespace, settings: Settings) -> tu
     bars_history = DailyBarsQueryRepository(engine=settings.engine)
     ranking_strategy = get_ranking_strategy(args.ranking_strategy)
     trading_strategy = get_trading_strategy(args.trading_strategy, ranking_strategy, bars_history, args.trading_param)
-    log_parameters(f"{args.trading_strategy} parameters", trading_strategy.describe_parameters())
+    parameters = trading_strategy.describe_parameters()
+    log_parameters(f"{args.trading_strategy} parameters", parameters)
+    recorder.add_parameters("strategy", parameters)
     return trading_strategy, bars_history
 
 
@@ -120,3 +129,32 @@ def run_cli(args: argparse.Namespace, body: Callable[[], int]) -> int:
         if args.verbose:
             logger.exception("Full error details:")
         return 1
+
+
+def run_job(name: str, args: argparse.Namespace, settings: Settings, body: Callable[[JobRunRecorder], int]) -> int:
+    """Run `body` under run_cli, recording the invocation in turtle.job_runs.
+
+    Wraps run_cli rather than replacing it: run_cli already maps KeyboardInterrupt and unexpected
+    exceptions to a logged error plus exit code 1, and the recorder reads the outcome off the
+    return value and the error it logged.
+
+    Args:
+        name: Console-script name recorded as the job name, e.g. "signal-runner"
+        args: Parsed CLI arguments, recorded as the "cli" parameter section
+        settings: Loaded application settings, supplying the engine and the on/off switch
+        body: Callable performing the CLI's main work, returning its exit code. Receives the
+            recorder so it can report parameters resolved mid-run
+
+    Returns:
+        The exit code from `body`, or 1 if it raised KeyboardInterrupt/an unexpected exception
+    """
+    recorder = JobRunRecorder(JobRunRepository(settings.engine) if settings.job_runs.enabled else None, name, vars(args))
+    recorder.start()
+    # try/finally rather than relying on run_cli: it catches Exception, but a BaseException such as
+    # SystemExit passes straight through and must still close the row out.
+    exit_code = 1
+    try:
+        exit_code = run_cli(args, functools.partial(body, recorder))
+    finally:
+        recorder.finish(exit_code)
+    return exit_code

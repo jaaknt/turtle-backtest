@@ -61,6 +61,39 @@ class ApiTokenFilter(logging.Filter):
         return True
 
 
+class LastErrorCapture(logging.Handler):
+    """Keeps the most recent ERROR-level message emitted while attached to the root logger.
+
+    Lives here rather than beside its caller because handler ownership belongs to this module:
+    library code must not mutate the root logger's handlers itself. Job-run logging needs it
+    because most CLIs report failure by logging an error and returning 1 rather than raising,
+    so there is no exception object to read the message off.
+
+    Attached to the root logger rather than a named one so it sees errors from every module,
+    including the ones run_cli logs on behalf of an unexpected exception.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(logging.ERROR)
+        self.last_message: str | None = None
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Store the formatted message of `record`.
+
+        Args:
+            record: Log record at ERROR or above
+        """
+        self.last_message = record.getMessage()
+
+    def attach(self) -> None:
+        """Start capturing ERROR records from the root logger."""
+        logging.getLogger().addHandler(self)
+
+    def detach(self) -> None:
+        """Stop capturing. Safe to call when not attached."""
+        logging.getLogger().removeHandler(self)
+
+
 def setup_logging(verbose: bool = False) -> None:
     """Configure root logging for a CLI entry point.
 

@@ -32,12 +32,13 @@ import logging
 import sys
 
 from turtlex.backtest.processor import SignalProcessor
-from turtlex.cli.common import build_common_analysis_parser, log_parameters, resolve_trading_strategy, run_cli
+from turtlex.cli.common import build_common_analysis_parser, log_parameters, resolve_trading_strategy, run_job
 from turtlex.common.cli import key_value_type
 from turtlex.config.logging import setup_logging
 from turtlex.config.settings import Settings
 from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.service.backtest_service import BacktestService
+from turtlex.service.job_run_service import JobRunRecorder
 from turtlex.strategy.factory import EXIT_STRATEGIES, describe_exit_parameters, get_exit_strategy, resolve_exit_strategy_kwargs
 
 logger = logging.getLogger(__name__)
@@ -108,20 +109,23 @@ def main() -> int:
     logger.info(f"Starting strategy analysis with {args.trading_strategy} strategy")
     log_parameters("CLI arguments", vars(args))
 
-    def body() -> int:
+    def body(recorder: JobRunRecorder) -> int:
         # Parse and validate dates
         start_date, end_date = (args.start_date, args.end_date)
 
         # Get the trading strategy first (we need it for service initialization)
         try:
-            trading_strategy, bars_history = resolve_trading_strategy(args, settings)
+            trading_strategy, bars_history = resolve_trading_strategy(args, settings, recorder)
             exit_strategy = get_exit_strategy(args.exit_strategy, bars_history)
             exit_strategy_kwargs = resolve_exit_strategy_kwargs(exit_strategy, args.exit_param)
         except ValueError as e:
             logger.error(str(e))
             return 1
 
-        log_parameters(f"{args.exit_strategy} exit parameters", describe_exit_parameters(exit_strategy, exit_strategy_kwargs))
+        # Both sinks get the effective values, not the bare --exit-param overrides
+        exit_parameters = describe_exit_parameters(exit_strategy, exit_strategy_kwargs)
+        recorder.add_parameters("exit_strategy", exit_parameters)
+        log_parameters(f"{args.exit_strategy} exit parameters", exit_parameters)
 
         # Initialize strategy runner with the trading strategy
         logger.info("Initializing strategy runner...")
@@ -142,7 +146,7 @@ def main() -> int:
         logger.info("Backtest analysis completed successfully")
         return 0
 
-    return run_cli(args, body)
+    return run_job("backtest-runner", args, settings, body)
 
 
 if __name__ == "__main__":

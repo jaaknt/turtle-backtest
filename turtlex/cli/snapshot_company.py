@@ -12,9 +12,10 @@ from datetime import date, timedelta
 
 from sqlalchemy import text
 
-from turtlex.cli.common import add_logging_args
+from turtlex.cli.common import add_logging_args, run_job
 from turtlex.config.logging import setup_logging
 from turtlex.config.settings import Settings
+from turtlex.service.job_run_service import JobRunRecorder
 
 logger = logging.getLogger(__name__)
 
@@ -48,28 +49,31 @@ def main() -> int:
     setup_logging(args.verbose)
     settings = Settings.from_toml()
 
-    snapshot_date = date.today().replace(day=1) - timedelta(days=1)
-    logger.info("Starting company snapshot for %s", snapshot_date)
+    def body(_recorder: JobRunRecorder) -> int:
+        snapshot_date = date.today().replace(day=1) - timedelta(days=1)
+        logger.info("Starting company snapshot for %s", snapshot_date)
 
-    col_list = ", ".join(_COLUMNS)
+        col_list = ", ".join(_COLUMNS)
 
-    with settings.engine.begin() as conn:
-        existing = conn.execute(
-            text("SELECT 1 FROM turtle.company_history WHERE snapshot_date = :d LIMIT 1"),
-            {"d": snapshot_date},
-        ).fetchone()
+        with settings.engine.begin() as conn:
+            existing = conn.execute(
+                text("SELECT 1 FROM turtle.company_history WHERE snapshot_date = :d LIMIT 1"),
+                {"d": snapshot_date},
+            ).fetchone()
 
-        if existing:
-            logger.info("Snapshot for %s already exists — skipping", snapshot_date)
-            return 0
+            if existing:
+                logger.info("Snapshot for %s already exists — skipping", snapshot_date)
+                return 0
 
-        result = conn.execute(
-            text(f"INSERT INTO turtle.company_history ({col_list}, snapshot_date) SELECT {col_list}, :d FROM turtle.company"),
-            {"d": snapshot_date},
-        )
+            result = conn.execute(
+                text(f"INSERT INTO turtle.company_history ({col_list}, snapshot_date) SELECT {col_list}, :d FROM turtle.company"),
+                {"d": snapshot_date},
+            )
 
-    logger.info("Snapshot complete: %d rows written for %s", result.rowcount, snapshot_date)
-    return 0
+        logger.info("Snapshot complete: %d rows written for %s", result.rowcount, snapshot_date)
+        return 0
+
+    return run_job("snapshot-company", args, settings, body)
 
 
 if __name__ == "__main__":

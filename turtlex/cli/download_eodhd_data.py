@@ -4,16 +4,18 @@ import logging
 import sys
 from datetime import date, timedelta
 
-from turtlex.cli.common import add_logging_args
+from turtlex.cli.common import add_logging_args, run_job
 from turtlex.common.cli import iso_date_type
 from turtlex.config.logging import setup_logging
 from turtlex.config.settings import Settings
 from turtlex.service.eodhd_service import EodhdService
+from turtlex.service.job_run_service import JobRunRecorder
 
 logger = logging.getLogger(__name__)
 
 
 async def download(
+    settings: Settings,
     data: str,
     start_date: date,
     end_date: date,
@@ -23,6 +25,8 @@ async def download(
     Download the requested EODHD dataset.
 
     Args:
+        settings: Loaded application settings. Loaded by the caller rather than here so the
+                 job-run recorder can use the same engine before this coroutine starts.
         data: Which dataset to download - exchange, us_ticker, company, or history.
         ticker_limit: Optional limit on number of tickers to download data for.
                      If None, downloads all tickers. Useful for testing.
@@ -38,7 +42,6 @@ async def download(
 
     eodhd_service = None
     try:
-        settings = Settings.from_toml()
         eodhd_service = EodhdService(settings)
         # Download based on data parameter
         if data == "exchange":
@@ -130,20 +133,21 @@ def main() -> int:
     args = create_argument_parser().parse_args()
 
     setup_logging(args.verbose)
+    settings = Settings.from_toml()
 
-    try:
+    def body(_recorder: JobRunRecorder) -> int:
         asyncio.run(
             download(
+                settings,
                 data=args.data,
                 start_date=args.start_date,
                 end_date=args.end_date,
                 ticker_limit=args.ticker_limit,
             )
         )
-    except Exception:
-        # The logger already captured the exception, just exit with error code
-        return 1
-    return 0
+        return 0
+
+    return run_job("download-eodhd-data", args, settings, body)
 
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from pytest_mock import MockerFixture
 
@@ -119,3 +121,29 @@ class TestSettingsFromToml:
         settings = Settings.from_toml()
         assert settings.app.name == "turtle-backtest"
         assert settings.app.debug is True
+
+    def test_job_runs_disabled_for_local(self, required_env_vars: None, mocker: MockerFixture) -> None:
+        mocker.patch("turtlex.config.settings.create_engine", return_value=mocker.Mock())
+        settings = Settings.from_toml()
+        assert settings.job_runs.enabled is False
+
+    def test_job_runs_enabled_for_hetzner(self, required_env_vars: None, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("DB_ENV", "hetzner")
+        mocker.patch("turtlex.config.settings.create_engine", return_value=mocker.Mock())
+        settings = Settings.from_toml()
+        assert settings.job_runs.enabled is True
+
+    def test_missing_job_runs_section_disables_rather_than_raising(
+        self, required_env_vars: None, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
+        # An old settings.toml on the VPS must record nothing, not break every CLI
+        config = tmp_path / "settings.toml"
+        config.write_text(
+            '[app]\nname = "turtle-backtest"\ndebug = true\neodhd.api_key = "X"\n'
+            '[database.local]\nhost = "localhost"\nport = 5432\ndbname = "trading"\nuser = "app_user"\n'
+        )
+        mocker.patch("turtlex.config.settings.create_engine", return_value=mocker.Mock())
+
+        settings = Settings.from_toml(str(config))
+
+        assert settings.job_runs.enabled is False

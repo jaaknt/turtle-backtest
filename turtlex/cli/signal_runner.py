@@ -27,10 +27,11 @@ import sys
 import time
 from datetime import date
 
-from turtlex.cli.common import build_common_analysis_parser, log_parameters, resolve_trading_strategy, run_cli
+from turtlex.cli.common import build_common_analysis_parser, log_parameters, resolve_trading_strategy, run_job
 from turtlex.config.logging import setup_logging
 from turtlex.config.settings import Settings
 from turtlex.repository.query.ticker import TickerQueryRepository
+from turtlex.service.job_run_service import JobRunRecorder
 from turtlex.service.signal_service import SignalService
 
 logger = logging.getLogger(__name__)
@@ -75,9 +76,9 @@ def main() -> int:
     logger.info(f"Starting strategy analysis with {args.trading_strategy} strategy and {args.ranking_strategy} ranking")
     log_parameters("CLI arguments", vars(args))
 
-    def body() -> int:
+    def body(recorder: JobRunRecorder) -> int:
         try:
-            trading_strategy, _bars_history = resolve_trading_strategy(args, settings)
+            trading_strategy, _bars_history = resolve_trading_strategy(args, settings, recorder)
         except ValueError as e:
             logger.error(str(e))
             return 1
@@ -92,7 +93,7 @@ def main() -> int:
         logger.info(f"Strategy analysis completed successfully in {time.perf_counter() - run_start:.1f}s")
         return result
 
-    return run_cli(args, body)
+    return run_job("signal-runner", args, settings, body)
 
 
 if __name__ == "__main__":

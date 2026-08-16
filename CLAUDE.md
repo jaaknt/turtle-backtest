@@ -176,6 +176,9 @@ was skipped.
 ### Database
 
 - **Schema**: `turtle` (PostgreSQL)
+- **`turtle.job_runs`**: one row per CLI invocation — name, timing, `parameters` (jsonb), `version`,
+  and the error if it failed. Written by `run_job()` in `turtlex/cli/common.py`, which every console
+  script routes through. See [docs/specs/run_jobs.md](docs/specs/run_jobs.md).
 
 ## Core Systems Overview
 
@@ -200,6 +203,8 @@ Committing and pushing to `main`: see the `commit-push` skill.
 ### Configuration (Factory Method)
 
 `Settings.from_toml()` is the single entry point for all config. It loads TOML, validates required env vars (raises `ValueError` if missing — never falls back to TOML values for secrets), builds nested config objects, and creates the connection pool. See `turtlex/config/settings.py`.
+
+`[job_runs.<env>] enabled` switches job-run logging per `DB_ENV`, the same way `[database.<env>]` selects the database (`hetzner` on, `local` off). Unlike the database lookup, a missing section means disabled rather than a `ValueError` — telemetry config must never be able to take a job down.
 
 ### Async Boundary
 

@@ -24,7 +24,7 @@ import logging
 import sys
 from pathlib import Path
 
-from turtlex.cli.common import add_logging_args
+from turtlex.cli.common import add_logging_args, run_job
 from turtlex.config.logging import setup_logging
 from turtlex.config.settings import Settings
 from turtlex.repository.ingest.lightyear import LightyearRepository
@@ -55,12 +55,17 @@ def main() -> int:
     setup_logging(args.verbose)
 
     # Checked before Settings.from_toml(): a missing drop folder should report itself, not
-    # surface as a config or env-var error from a bootstrap this run never needed.
+    # surface as a config or env-var error from a bootstrap this run never needed. It also means
+    # this one failure records no job_runs row — there is no engine yet to write it with.
     if not args.folder.is_dir():
         logger.error("Folder does not exist: %s — create it and drop a Lightyear statement CSV in it", args.folder)
         return 1
 
     settings = Settings.from_toml()
+    return run_job("lightyear-import", args, settings, lambda _recorder: _import_statements(args, settings))
+
+
+def _import_statements(args: argparse.Namespace, settings: Settings) -> int:
     service = LightyearService(
         repository=LightyearRepository(settings.engine),
         ticker_repo=TickerQueryRepository(settings.engine),

@@ -194,7 +194,22 @@ uv run alembic upgrade head
 loginctl enable-linger turtle
 ```
 
-No changes to `config/settings.toml` required — the app already reads `DB_APP_PASSWORD` and `EODHD_API_KEY` from environment variables.
+No changes to `config/settings.toml` required — the app already reads `DB_APP_PASSWORD` and `EODHD_API_KEY` from environment variables. `alembic upgrade head` includes the `turtle.job_runs` table, and `[job_runs.hetzner] enabled = true` is already committed, so every scheduled job records itself from the first run.
+
+Review recent runs, and the jobs that never finished:
+
+```sql
+-- last 20 runs
+SELECT name, status, start_at, duration, exit_code, version, error
+FROM turtle.job_runs ORDER BY start_at DESC LIMIT 20;
+
+-- orphans: a killed job (OOM/SIGKILL/power loss) never gets its end_at, so it stays 'running'
+SELECT id, name, start_at, version, parameters->'cli' AS cli_args
+FROM turtle.job_runs
+WHERE status = 'running' AND start_at < now() - interval '1 day';
+```
+
+Orphans are left in place rather than reaped: the row is the evidence that a job died, and there is no cleanup job.
 
 ### Phase 4: Data Migration
 

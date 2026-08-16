@@ -5,8 +5,8 @@ This module contains Table objects used for all database operations
 in the repository layer.
 """
 
-from sqlalchemy import BigInteger, Column, Date, DateTime, Float, MetaData, Numeric, Table, Text
-from sqlalchemy.dialects.postgresql import ENUM
+from sqlalchemy import BigInteger, Column, Date, DateTime, Float, Integer, MetaData, Numeric, Table, Text
+from sqlalchemy.dialects.postgresql import ENUM, JSONB
 
 # Shared metadata instance for all table definitions
 metadata = MetaData()
@@ -105,6 +105,26 @@ lightyear_transaction_table = Table(
     Column("tax", Numeric(20, 2)),
     Column("net_amount", Numeric(20, 2)),
     Column("source_file", Text),
+    schema="turtle",
+)
+
+# job_runs table definition. `duration` is deliberately absent: it is a generated column computed
+# from end_at - start_at, so it must never appear in an INSERT or UPDATE payload. `id` is present
+# because the start insert returns it and the finish update filters on it, but it is
+# GENERATED ALWAYS AS IDENTITY and must never be supplied as a value.
+job_runs_table = Table(
+    "job_runs",
+    metadata,
+    Column("id", BigInteger, primary_key=True),
+    Column("name", Text),
+    Column("status", Text),
+    Column("start_at", DateTime(timezone=True)),
+    Column("end_at", DateTime(timezone=True)),
+    Column("parameters", JSONB),
+    Column("version", Text),
+    Column("exit_code", Integer),
+    Column("error", Text),
+    Column("hostname", Text),
     schema="turtle",
 )
 
