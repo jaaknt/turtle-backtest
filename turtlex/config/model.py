@@ -53,6 +53,13 @@ class DatabaseConfig:
 
 
 @dataclass
+class JobRunsConfig:
+    """Job-run logging configuration"""
+
+    enabled: bool = False
+
+
+@dataclass
 class AppConfig:
     """Application specific settings"""
 

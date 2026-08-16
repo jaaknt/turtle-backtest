@@ -30,13 +30,14 @@ import argparse
 import logging
 import sys
 
-from turtlex.cli.common import build_common_analysis_parser, log_parameters, resolve_trading_strategy, run_cli
+from turtlex.cli.common import build_common_analysis_parser, log_parameters, resolve_trading_strategy, run_job
 from turtlex.common.cli import key_value_type
 from turtlex.common.enums import TimeFrameUnit
 from turtlex.config.logging import setup_logging
 from turtlex.config.settings import Settings
 from turtlex.portfolio.analytics import DEFAULT_BENCHMARK_TICKER
 from turtlex.repository.query.ticker import TickerQueryRepository
+from turtlex.service.job_run_service import JobRunRecorder
 from turtlex.service.portfolio_service import PortfolioService
 from turtlex.strategy.factory import EXIT_STRATEGIES, describe_exit_parameters, get_exit_strategy, resolve_exit_strategy_kwargs
 
@@ -140,16 +141,19 @@ def main() -> int:
     logger.info(f"Starting portfolio backtest with {args.trading_strategy} trading strategy and {args.exit_strategy} exit strategy")
     log_parameters("CLI arguments", vars(args))
 
-    def body() -> int:
+    def body(recorder: JobRunRecorder) -> int:
         try:
-            trading_strategy, bars_history = resolve_trading_strategy(args, settings)
+            trading_strategy, bars_history = resolve_trading_strategy(args, settings, recorder)
             exit_strategy = get_exit_strategy(args.exit_strategy, bars_history)
             exit_strategy_kwargs = resolve_exit_strategy_kwargs(exit_strategy, args.exit_param)
         except ValueError as e:
             logger.error(f"Invalid configuration: {e}")
             return 1
 
-        log_parameters(f"{args.exit_strategy} exit parameters", describe_exit_parameters(exit_strategy, exit_strategy_kwargs))
+        # Both sinks get the effective values, not the bare --exit-param overrides
+        exit_parameters = describe_exit_parameters(exit_strategy, exit_strategy_kwargs)
+        recorder.add_parameters("exit_strategy", exit_parameters)
+        log_parameters(f"{args.exit_strategy} exit parameters", exit_parameters)
 
         # Initialize portfolio service
         logger.info("Initializing portfolio service...")
@@ -189,7 +193,7 @@ def main() -> int:
         logger.info("Portfolio backtest completed successfully")
         return 0
 
-    return run_cli(args, body)
+    return run_job("portfolio-runner", args, settings, body)
 
 
 if __name__ == "__main__":

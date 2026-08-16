@@ -17,6 +17,12 @@ port = 5432
 dbname = "trading"
 user = "app_user"
 
+[job_runs.local]
+enabled = false
+
+[job_runs.hetzner]
+enabled = true
+
 [database.pool]
 min_size = 10
 max_size = 30

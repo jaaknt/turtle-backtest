@@ -1,13 +1,13 @@
 import logging
 import os
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from dotenv import load_dotenv
 from sqlalchemy import Engine, create_engine
 
-from turtlex.config.model import AppConfig, DatabaseConfig
+from turtlex.config.model import AppConfig, DatabaseConfig, JobRunsConfig
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,7 @@ class Settings:
     app: AppConfig
     database: DatabaseConfig
     engine: Engine
+    job_runs: JobRunsConfig = field(default_factory=JobRunsConfig)
 
     @classmethod
     def from_toml(cls, file_path: str = "./config/settings.toml") -> Settings:
@@ -54,6 +55,11 @@ class Settings:
         )
         logger.info(f"Database connection: DB_ENV={db_env} ({db_config.host}:{db_config.port}/{db_config.dbname})")
 
+        # Deliberately more lenient than the [database.<env>] lookup above, which raises on an
+        # unknown DB_ENV: a missing [job_runs] table or environment means disabled, never a crash.
+        # Telemetry config must not be able to take a job down.
+        job_runs_config = JobRunsConfig(**data.get("job_runs", {}).get(db_env, {}))
+
         data["app"]["eodhd"]["api_key"] = os.environ["EODHD_API_KEY"]
 
         app_config = AppConfig(**data.get("app", {}))
@@ -72,4 +78,5 @@ class Settings:
             app=app_config,
             database=db_config,
             engine=engine,
+            job_runs=job_runs_config,
         )

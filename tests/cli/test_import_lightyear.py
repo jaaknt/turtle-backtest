@@ -120,10 +120,16 @@ class TestMain:
         assert "broken.csv: FAILED to parse" in caplog.text
         assert "1 of 2 files could not be parsed" in caplog.text
 
-    def test_main_does_not_report_a_parse_error_as_a_seeding_problem(self, mocker: MockerFixture, tmp_path: Path) -> None:
-        # A bare ValueError is no longer swallowed by the ticker-group handler
+    def test_main_does_not_report_a_parse_error_as_a_seeding_problem(
+        self, mocker: MockerFixture, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        # A bare ValueError is not swallowed by the ticker-group handler. It reaches run_cli via
+        # run_job, which reports it as-is and exits 1 rather than letting a raw traceback escape.
         self._patch_wiring(mocker, ValueError("time data '07/31/2026' does not match format"))
         mocker.patch("sys.argv", ["lightyear-import", "--folder", str(tmp_path)])
 
-        with pytest.raises(ValueError, match="does not match format"):
-            main()
+        with caplog.at_level(logging.ERROR):
+            assert main() == 1
+
+        assert "does not match format" in caplog.text
+        assert "seed turtle.ticker_group" not in caplog.text
