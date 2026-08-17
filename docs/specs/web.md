@@ -336,7 +336,9 @@ Engine-level guards, applied once rather than per query:
 ```python
 sa.create_engine(
     settings.sqlalchemy_url,
-    pool_size=2, max_overflow=2, pool_pre_ping=True,
+    pool_size=2,
+    max_overflow=2,
+    pool_pre_ping=True,
     connect_args={"options": "-c statement_timeout=10000 -c jit=off"},
 )
 ```

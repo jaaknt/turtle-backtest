@@ -244,13 +244,13 @@ rule targets shared *domain* dataclasses and per-package `models.py` files, neit
 @dataclass
 class FileImportSummary:
     file_name: str
-    rows: int                    # data rows read
-    buy_sell: int                # passed filter 1
-    matched: int                 # passed filters 2 and 3
-    inserted: int                # rows the DB actually accepted
+    rows: int  # data rows read
+    buy_sell: int  # passed filter 1
+    matched: int  # passed filters 2 and 3
+    inserted: int  # rows the DB actually accepted
     skipped_currency: int
     skipped_not_in_group: int
-    unseeded_symbols: set[str]   # USD buy/sell tickers absent from the group
+    unseeded_symbols: set[str]  # USD buy/sell tickers absent from the group
 
 
 @dataclass
