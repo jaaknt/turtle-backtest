@@ -13,7 +13,10 @@ There is no run-tracking of any kind in the codebase today: no `job_run`, `run_l
 
 The outcome: one row per CLI invocation in a new `turtle.job_runs` table, carrying name, timing,
 the full parameter set as `jsonb`, the code version, and the error if it failed — switchable on and
-off per environment, so the VPS records runs while local development does not.
+off, so the VPS records runs while local development does not.
+
+> **Note on the config mechanism.** §3 has been updated to the `ACTIVE_PROFILE` profile scheme that
+> replaced the original per-environment switch. See *Configuration (Factory Method)* in `CLAUDE.md`.
 
 ## Decisions already made
 
@@ -23,7 +26,7 @@ off per environment, so the VPS records runs while local development does not.
 | Crash safety | Two-phase write: `INSERT` at start with `status='running'`, `UPDATE` at end. A hard-killed run (OOM/SIGKILL) leaves a visible orphan `running` row. |
 | `version` | Package version plus git SHA, e.g. `1.0.0+fd66f3b`. |
 | `error` | Exceptions **and** the last `ERROR`-level log message — 5 of 6 CLIs fail via `logger.error(); return 1` rather than by raising, so exception-only capture would leave most real failures blank. |
-| Defaults | `hetzner` on, `local` off. A missing config section means **disabled**, never a crash. |
+| Defaults | Superseded — now a flat `[job_runs] enabled`, off in the base file and on via the `hetzner` profile (see the note above). A missing config section still means **disabled**, never a crash. |
 | `parameters` shape | Nested: `{"cli": {...}, "strategy": {...}}`. The `cli` section is `vars(args)`; the `strategy` section is the resolved `describe_parameters()` of the trading strategy, so a run records the thresholds that were actually in effect, not just the flags that were typed. Only the 3 analysis runners have a `strategy` section. |
 | `duration` type | `INTERVAL`, generated. Charting needs `EXTRACT(EPOCH FROM duration)`; readability at the psql prompt won. |
 | `scripts/` studies | Out of scope. The 6 console-script entry points only — even though the `scripts/*.py` studies are the ones that actually get OOM-killed, they don't share the CLI bootstrap and would need individual wiring. |
@@ -105,13 +108,15 @@ UPDATE payload, exactly as `created_at`/`modified_at` are omitted from the other
 
 ## 3. Config switch — `turtlex/config/model.py`, `turtlex/config/settings.py`, `config/settings.toml`
 
-TOML gains a `DB_ENV`-keyed table mirroring `[database.<env>]`:
+A flat `[job_runs]` table, off in the base file and switched on by the profile the VPS runs under:
 
 ```toml
-[job_runs.local]
+# config/settings.toml
+[job_runs]
 enabled = false
 
-[job_runs.hetzner]
+# config/settings-hetzner.toml
+[job_runs]
 enabled = true
 ```
 
@@ -125,17 +130,17 @@ class JobRunsConfig:
     enabled: bool = False
 ```
 
-`turtlex/config/settings.py` — reuse the `db_env` variable already computed for the database
-lookup, so both read the same environment:
+`turtlex/config/settings.py` — read from the merged configuration, after the profile overlay has
+been applied:
 
 ```python
-job_runs_config = JobRunsConfig(**data.get("job_runs", {}).get(db_env, {}))
+job_runs_config = JobRunsConfig(enabled=bool(data.get("job_runs", {}).get("enabled", False)))
 ```
 
-Both `.get()` calls defaulting to `{}` is what delivers "missing section = disabled, no crash": an
-old `config/settings.toml` on the VPS silently records nothing instead of breaking every CLI. This
-is deliberately **more lenient** than the `[database.<env>]` lookup, which raises `ValueError` on an
-unknown `DB_ENV` — telemetry config must never be able to take a job down.
+The `.get()` defaults are what deliver "missing section = disabled, no crash": an old
+`config/settings.toml` on the VPS silently records nothing instead of breaking every CLI. This is
+deliberately **more lenient** than the `[database]` read, which raises on a malformed section —
+telemetry config must never be able to take a job down.
 
 Add `job_runs: JobRunsConfig = field(default_factory=JobRunsConfig)` as the **last** field of
 `Settings`, with a default, so existing positional constructions in tests keep working.
@@ -337,7 +342,7 @@ compiling the statement against the postgres dialect — no live DB (see
 | `tests/repository/ingest/test_job_run.py` | `start_run` compiles to an INSERT with `RETURNING job_runs.id` and returns the id; `finish_run` targets `WHERE id = :id` and rewrites `parameters`; `duration` and `id` never appear in either payload. |
 | `tests/service/test_job_run_service.py` | No-op when `repository is None` (engine never touched); `_jsonable` handles `date`, `Path`, `list[tuple[str, str]]` and falls back to `str`; a `SQLAlchemyError` from `start_run`/`finish_run` does **not** propagate and logs a warning; a failed `start()` makes `finish()` skip; last-ERROR capture fills `error`; the handler is detached from the root logger after `finish()`; `add_parameters` merges under its section and is a safe no-op when disabled. |
 | `tests/cli/test_common.py` (extend) | `run_job` returns the body's exit code; records `success` for 0 and `failed` for non-zero; a raising body still produces a finished row; the recorder reaches `body` so `add_parameters` from inside it lands in the finished row. |
-| `tests/config/test_settings.py` (extend) | Missing `[job_runs]` → `enabled is False`; `DB_ENV=hetzner` → `enabled is True`. |
+| `tests/config/test_settings.py` (extend) | Missing `[job_runs]` → `enabled is False`; the flat `[job_runs] enabled = true` → `enabled is True`. |
 | `tests/common/test_version.py` (new) | Format is `<version>+<sha>`; degrades to the bare version when `git` is missing or fails. |
 
 ## 9. Verification
@@ -347,7 +352,7 @@ docker-compose up -d
 uv run alembic upgrade head && uv run alembic current   # expect e2f3a4b5c6d7
 ```
 
-Temporarily flip `[job_runs.local] enabled = true`, then exercise a success, a failure, and the
+Temporarily flip `[job_runs] enabled = true` in `config/settings.toml`, then exercise a success, a failure, and the
 jsonb serialization edge cases:
 
 ```bash
@@ -403,14 +408,14 @@ Gate before commit:
 uv run pytest && uv run mypy && npx markdownlint-cli2
 ```
 
-On hetzner: `DB_ENV=hetzner uv run alembic upgrade head`, then
+On the VPS: `uv run alembic upgrade head` (its Postgres is localhost), then
 `systemctl --user start snapshot_company.service` and re-run the query against that database.
 
 ## 10. Docs to update
 
-- **`CLAUDE.md`** — note `turtle.job_runs` under *Database*, and the `[job_runs.<env>]` switch under
+- **`CLAUDE.md`** — note `turtle.job_runs` under *Database*, and the `[job_runs]` switch under
   *Configuration*.
-- **`docs/implementation.md`** — add the migration and the `[job_runs.hetzner]` setting to the VPS
+- **`docs/implementation.md`** — add the migration and the `hetzner` profile to the VPS
   deploy phases; mention that a killed job leaves a `running` row, and give the query that finds
   orphans.
 - **`docs/scripts.md`** — one line noting that every CLI records its invocation when enabled.

@@ -49,6 +49,11 @@ To download exchange data from EODHD, you first need to configure your EODHD API
     EODHD_API_KEY=
     ```
 
+    Leave `ACTIVE_PROFILE` unset on a dev machine — that gives the localhost defaults in
+    `config/settings.toml`. A profile names the machine you are running on: the VPS sets
+    `ACTIVE_PROFILE=hetzner`, which layers `config/settings-hetzner.toml` on top to switch
+    job-run logging on.
+
 2. **Run the Download Script:**
     Run the `download-eodhd-data` command to fetch and store exchange data in your local PostgreSQL database:
 
@@ -125,7 +130,7 @@ turtlex/strategy/factory.py    ← Strategy factory functions (string → class 
 
 **Dependency Injection** — All dependencies flow through constructors. The connection pool is built once in `Settings.from_toml()` and passed explicitly through `Service → Repo`. No globals or service locators.
 
-**Configuration via Factory Method** — `Settings.from_toml()` is the single entry point for all config. It loads `config/settings.toml`, validates required environment variables (raises `ValueError` if missing — secrets are never read from TOML), and builds the connection pool.
+**Configuration via Factory Method** — `Settings.from_toml()` is the single entry point for all config. It loads `config/settings.toml`, deep-merges the `config/settings-<ACTIVE_PROFILE>.toml` overlay if that variable is set, validates required environment variables (raises `ValueError` if missing — secrets are never read from TOML), and builds the connection pool.
 
 ### Async Boundary
 

@@ -260,8 +260,8 @@ Extend `db/init.sh` for fresh installs and run the equivalent `psql` once on the
 ```text
 turtle-web/
 ├── pyproject.toml                # uv + hatchling; ruff line-length 140; mypy disallow_untyped_defs
-├── config/settings.toml          # [database.local] / [database.hetzner] / [database.pool]
-├── .env.example                  # DB_ENV, DB_WEB_PASSWORD  (no EODHD_API_KEY)
+├── config/settings.toml          # [database] / [database.pool]
+├── .env.example                  # DB_WEB_PASSWORD  (no EODHD_API_KEY)
 ├── deploy/turtle-web.service
 ├── turtleweb/
 │   ├── config.py                 # mirrors Settings.from_toml() minus the EODHD requirement
@@ -279,8 +279,8 @@ turtle-web/
 ```
 
 `config.py` deliberately does **not** reuse `Settings.from_toml()`: it hard-requires
-`EODHD_API_KEY` (`turtlex/config/settings.py:37-43`) and hands out an `app_user` read-write
-engine. Copy the TOML+`DB_ENV` pattern, require only `DB_WEB_PASSWORD`.
+`EODHD_API_KEY` and hands out an `app_user` read-write engine. Copy the "TOML for structure, env
+for secrets" pattern, require only `DB_WEB_PASSWORD`.
 
 ### Routes
 
@@ -320,9 +320,9 @@ Use `pydantic-settings` with `TomlConfigSettingsSource` rather than cloning the 
 never be read from a committed file, and give `db_password` no default so a missing
 `DB_WEB_PASSWORD` fails at import — matching the parent's "never fall back for secrets" rule.
 
-Drop the `DB_ENV=local|hetzner` switch. It exists in `turtle-backtest` because a *research
-script* alternates between two databases; a *server* runs against exactly one, whose host and
-password are both per-machine and both belong in `.env`.
+Skip profiles entirely. `turtle-backtest` has an `ACTIVE_PROFILE` overlay so one checkout can behave
+differently on a dev machine and on the VPS; a *server* has exactly one deployment shape, whose host
+and password are both per-machine and both belong in `.env`.
 
 ## The SQL
 

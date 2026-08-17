@@ -1,27 +1,17 @@
-# Use environment variable or .env file to store sensitive information
-# Switch environments with DB_ENV=local (default) or DB_ENV=hetzner
+# Base configuration: complete, working defaults (localhost Postgres).
+# Set ACTIVE_PROFILE=<name> to layer config/settings-<name>.toml over this file;
+# the overlay only needs the keys it changes.
+# Secrets are never stored here — DB_APP_PASSWORD and EODHD_API_KEY come from the environment.
 [app]
 name = "turtle-backtest"
 debug = true
 eodhd.api_key = "YOUR_EODHD_API_KEY"
 
-[database.local]
+[database]
 host = "localhost"
 port = 5432
 dbname = "trading"
 user = "app_user"
-
-[database.hetzner]
-host = "hetzner"
-port = 5432
-dbname = "trading"
-user = "app_user"
-
-[job_runs.local]
-enabled = true
-
-[job_runs.hetzner]
-enabled = true
 
 [database.pool]
 min_size = 10
@@ -29,3 +19,6 @@ max_size = 30
 max_idle = 300
 max_lifetime = 3600
 timeout = 30
+
+[job_runs]
+enabled = false

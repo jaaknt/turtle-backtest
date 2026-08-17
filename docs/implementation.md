@@ -177,11 +177,14 @@ sudo systemctl restart postgresql
 
 ```bash
 # Create secrets file (user-owned, no sudo required)
+# ACTIVE_PROFILE is not a secret, but it rides along here because this is the EnvironmentFile
+# every unit already loads — which keeps deploy/*.service free of machine-specific settings.
 mkdir -p ~/.config/turtle-backtest
 tee ~/.config/turtle-backtest/secrets.env <<EOF
 DB_APP_PASSWORD=<app_password>
 DB_ALEMBIC_PASSWORD=<alembic_password>
 EODHD_API_KEY=<api_key>
+ACTIVE_PROFILE=hetzner
 EOF
 chmod 600 ~/.config/turtle-backtest/secrets.env
 
@@ -194,7 +197,9 @@ uv run alembic upgrade head
 loginctl enable-linger turtle
 ```
 
-No changes to `config/settings.toml` required — the app already reads `DB_APP_PASSWORD` and `EODHD_API_KEY` from environment variables. `alembic upgrade head` includes the `turtle.job_runs` table, and `[job_runs.hetzner] enabled = true` is already committed, so every scheduled job records itself from the first run.
+No changes to `config/settings.toml` required — the app already reads `DB_APP_PASSWORD` and `EODHD_API_KEY` from environment variables. The VPS runs under `ACTIVE_PROFILE=hetzner`, set in `~/.config/turtle-backtest/secrets.env` (Phase 3) and picked up through the `EnvironmentFile` every unit loads; it keeps the base localhost database, because Postgres runs on this box, and switches job-run logging on. `alembic upgrade head` includes the `turtle.job_runs` table, so every scheduled job records itself from the first run.
+
+For an ad-hoc CLI run on the VPS outside systemd, export the profile yourself — `ACTIVE_PROFILE=hetzner uv run ...` — or the run works but records nothing.
 
 Review recent runs, and the jobs that never finished:
 

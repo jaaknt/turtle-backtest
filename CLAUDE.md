@@ -189,8 +189,10 @@ described in [docs/service.md](docs/service.md).
 
 Alembic standalone mode with raw SQL (the usual `current` / `history` / `upgrade head` /
 `downgrade -1` / `revision -m` commands apply). Migrations live in `db/migrations/versions/`, the
-version table is `public.alembic_version`, and the target database is selected via `DB_ENV`
-(`local` default, `hetzner` for the VPS).
+version table is `public.alembic_version`, and the target database comes from the same
+`load_config_data()` the app uses — `db/migrations/env.py` reads `config/settings.toml` plus any
+`ACTIVE_PROFILE` overlay, so Alembic and the CLIs can never disagree about which database they mean.
+No committed profile currently redirects the database, so Alembic targets localhost either way.
 
 ## Development Workflows
 
@@ -204,7 +206,29 @@ Committing and pushing to `main`: see the `commit-push` skill.
 
 `Settings.from_toml()` is the single entry point for all config. It loads TOML, validates required env vars (raises `ValueError` if missing — never falls back to TOML values for secrets), builds nested config objects, and creates the connection pool. See `turtlex/config/settings.py`.
 
-`[job_runs.<env>] enabled` switches job-run logging per `DB_ENV`, the same way `[database.<env>]` selects the database (`hetzner` on, `local` off). Unlike the database lookup, a missing section means disabled rather than a `ValueError` — telemetry config must never be able to take a job down.
+**Profiles (Spring Boot style).** `config/settings.toml` holds a complete set of defaults pointing at
+localhost. `ACTIVE_PROFILE=<name>` deep-merges `config/settings-<name>.toml` over it, so an overlay
+only names the keys it changes. Adding a profile needs no code change.
+
+A profile names **the machine you are running on**, not a database to connect to.
+`config/settings-hetzner.toml` is what the VPS runs under — `ACTIVE_PROFILE=hetzner` lives in its
+`~/.config/turtle-backtest/secrets.env`, the `EnvironmentFile` every unit loads, so the units
+themselves stay environment-agnostic. It inherits the localhost database unchanged, because Postgres
+runs on that box, and its only effect is switching job-run logging on. Dev machines leave
+`ACTIVE_PROFILE` unset.
+There is currently **no profile that points at a remote database** — if you need a laptop to read the
+VPS Postgres over Tailscale, add one with `[database] host = "hetzner"`.
+
+Every database parameter comes from `config/settings.toml` and its profile overlay — there is no
+environment variable that changes hosts. `ACTIVE_PROFILE` selects which overlay applies; the only
+env vars read are the two secrets. A profile with no matching file raises `ValueError` rather than
+silently falling back — a typo must not point a run at the wrong database. The check is in
+`load_config_data()`, not `Settings.from_toml`, so Alembic inherits it.
+
+`[job_runs] enabled` is a flat key, **off in the base file** and switched on by the `hetzner` profile,
+so the VPS records runs and dev machines do not. Unlike the database section, a missing `[job_runs]`,
+a non-table value, or an unknown key means disabled rather than an exception — telemetry config must
+never be able to take a job down.
 
 ### Async Boundary
 
