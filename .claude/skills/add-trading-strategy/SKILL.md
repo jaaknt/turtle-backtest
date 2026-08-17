@@ -12,12 +12,11 @@ description: Steps and template for adding a new trading strategy to turtlex —
    from turtlex.model import Signal
    from turtlex.strategy.trading.base import TradingStrategy
 
-   class MyStrategy(TradingStrategy):
-       def collect_data(self, ticker: str, start_date: date, end_date: date) -> bool:
-           ...
 
-       def calculate_indicators(self) -> None:
-           ...
+   class MyStrategy(TradingStrategy):
+       def collect_data(self, ticker: str, start_date: date, end_date: date) -> bool: ...
+
+       def calculate_indicators(self) -> None: ...
 
        def get_signals(self, ticker: str, start_date: date, end_date: date) -> list[Signal]:
            # Your logic here

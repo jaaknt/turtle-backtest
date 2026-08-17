@@ -25,6 +25,7 @@ The `EodhdService` is responsible for data ingestion from the EODHD API. It down
 
 ```python
 import asyncio
+
 service = EodhdService(settings)
 asyncio.run(service.download_exchanges())
 asyncio.run(service.download_us_tickers())
@@ -196,16 +197,13 @@ portfolio_service = PortfolioService(
     end_date=datetime(2024, 6, 30),
     initial_capital=50000.0,
     position_size_pct=0.05,
-    min_signal_ranking=75
+    min_signal_ranking=75,
 )
 
 # Run comprehensive backtest
 symbol_universe = ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN"]  # Or larger universe
 portfolio_service.run_backtest(
-    start_date=datetime(2024, 1, 1),
-    end_date=datetime(2024, 6, 30),
-    universe=symbol_universe,
-    output_file="portfolio_tearsheet.html"
+    start_date=datetime(2024, 1, 1), end_date=datetime(2024, 6, 30), universe=symbol_universe, output_file="portfolio_tearsheet.html"
 )
 ```
 

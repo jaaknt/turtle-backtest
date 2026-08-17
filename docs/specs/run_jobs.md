@@ -173,11 +173,9 @@ docstrings whose `Returns:` names the type.
 ```python
 class JobRunRepository:
     def start_run(self, name: str, parameters: dict[str, object], version: str, hostname: str) -> int:
-        """Insert a 'running' row and return its id."""   # INSERT ... RETURNING id
+        """Insert a 'running' row and return its id."""  # INSERT ... RETURNING id
 
-    def finish_run(
-        self, run_id: int, status: str, exit_code: int, error: str | None, parameters: dict[str, object]
-    ) -> None:
+    def finish_run(self, run_id: int, status: str, exit_code: int, error: str | None, parameters: dict[str, object]) -> None:
         """Close out a run, setting end_at (which populates the generated duration column)."""
 ```
 
@@ -197,6 +195,7 @@ the enabled/disabled no-op behaviour.
 ```python
 class _LastErrorCapture(logging.Handler):
     """Keeps the most recent ERROR-level message emitted during a run."""
+
 
 class JobRunRecorder:
     """Records one CLI invocation into turtle.job_runs; a no-op when repository is None."""
@@ -239,13 +238,9 @@ class JobRunRecorder:
 Add one helper next to the existing `run_cli`, which stays **unchanged** (as do its four tests):
 
 ```python
-def run_job(
-    name: str, args: argparse.Namespace, settings: Settings, body: Callable[[JobRunRecorder], int]
-) -> int:
+def run_job(name: str, args: argparse.Namespace, settings: Settings, body: Callable[[JobRunRecorder], int]) -> int:
     """Run `body` under run_cli, recording the invocation in turtle.job_runs."""
-    recorder = JobRunRecorder(
-        JobRunRepository(settings.engine) if settings.job_runs.enabled else None, name, vars(args)
-    )
+    recorder = JobRunRecorder(JobRunRepository(settings.engine) if settings.job_runs.enabled else None, name, vars(args))
     recorder.start()
     exit_code = 1
     try:
