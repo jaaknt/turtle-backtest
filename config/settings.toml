@@ -18,7 +18,7 @@ dbname = "trading"
 user = "app_user"
 
 [job_runs.local]
-enabled = false
+enabled = true
 
 [job_runs.hetzner]
 enabled = true
