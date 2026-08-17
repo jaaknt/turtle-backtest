@@ -1,6 +1,5 @@
 import os
 import sys
-import tomllib
 from logging.config import fileConfig
 from pathlib import Path
 
@@ -12,6 +11,8 @@ from sqlalchemy.engine import URL
 # Add project root to path for imports
 project_root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(project_root))
+
+from turtlex.config.settings import load_config_data  # noqa: E402  (needs project_root on sys.path)
 
 # Load environment variables from .env
 load_dotenv()
@@ -31,10 +32,9 @@ alembic_password = os.environ.get("DB_ALEMBIC_PASSWORD")
 if not alembic_password:
     raise ValueError("Missing required environment variable: DB_ALEMBIC_PASSWORD")
 
-with open(project_root / "config/settings.toml", "rb") as _f:
-    _toml = tomllib.load(_f)
-_db_env = os.environ.get("DB_ENV", "local")
-_db = _toml["database"][_db_env]
+# Same loader the application uses, so ACTIVE_PROFILE selects the same database for both.
+# The absolute path keeps Alembic working from any working directory.
+_db = load_config_data(project_root / "config/settings.toml")["database"]
 
 alembic_url = URL.create(
     "postgresql+psycopg",

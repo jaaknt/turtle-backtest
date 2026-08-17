@@ -1,0 +1,6 @@
+# ACTIVE_PROFILE=hetzner — the profile the Hetzner VPS runs under.
+# The name identifies the machine, not a database to connect to: Postgres runs on the VPS
+# itself, so [database] is inherited unchanged from config/settings.toml (localhost).
+# The only difference from a dev machine is that scheduled jobs record themselves.
+[job_runs]
+enabled = true

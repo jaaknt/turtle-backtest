@@ -12,4 +12,8 @@ def required_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set all required environment variables for tests that load Settings."""
     monkeypatch.setenv("DB_APP_PASSWORD", "test_password")
     monkeypatch.setenv("EODHD_API_KEY", "test_eodhd_key")
-    monkeypatch.setenv("DB_ENV", "local")
+    # Empty rather than deleted: load_dotenv() does not override vars already in os.environ, so an
+    # empty value pins the profile regardless of what a developer's .env or shell contains, while a
+    # deleted one could be restored from .env. Empty is present-but-falsy, which the loader reads as
+    # "no profile".
+    monkeypatch.setenv("ACTIVE_PROFILE", "")

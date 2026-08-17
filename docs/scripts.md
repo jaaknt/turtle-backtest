@@ -4,7 +4,7 @@ This document describes the command-line scripts that provide convenient interfa
 
 All strategy name → class mappings used by `--trading-strategy`, `--exit-strategy`, and `--ranking-strategy` flags are defined in `turtlex/strategy/factory.py`. Add new strategies there to make them available across all scripts.
 
-Every console script records its invocation in `turtle.job_runs` — arguments, duration, exit code and error, plus the resolved strategy parameters for the three analysis runners — when `[job_runs.<env>] enabled` is set for the active `DB_ENV` (on for `hetzner`, off for `local`). See [specs/run_jobs.md](specs/run_jobs.md).
+Every console script records its invocation in `turtle.job_runs` — arguments, duration, exit code and error, plus the resolved strategy parameters for the three analysis runners — when `[job_runs] enabled` is set in the resolved configuration — off in the base file, switched on by the `hetzner` profile that the VPS runs under. See [specs/run_jobs.md](specs/run_jobs.md).
 
 Return/risk statistics come from `turtlex/backtest/metrics.py`, which owns the canonical definitions. It covers two sampling regimes, and they must not be mixed:
 
