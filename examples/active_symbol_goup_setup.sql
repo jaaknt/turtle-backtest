@@ -74,3 +74,12 @@ INSERT INTO turtle.ticker_group (code, ticker_code)
          ON CONFLICT DO NOTHING;
 
 select * from turtle.ticker_group where code = 'lightyear';
+
+select * from turtle.lightyear_transaction lt ;
+delete from turtle.lightyear_transaction lt ;
+
+delete from turtle.job_runs;
+
+select * from turtle.job_runs;
+
+
