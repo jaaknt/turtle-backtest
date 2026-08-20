@@ -1,0 +1,12 @@
+{
+  "id": "c008-ramps-basedepth",
+  "hypothesis": "Combining the two best findings so far — continuous ramps, which lifted held-out monotonicity from 0.577 to 0.616, and base_depth_50d, the only new feature with a sign-stable effect near the incumbents' size (rho +0.0937) — should beat the baseline on monotonicity and recover the rank correlation that ramps alone gave up.",
+  "parent": "c000-production",
+  "aggregate": "sum",
+  "terms": [
+    {"feature": "adr_pct", "transform": "linear_clip", "lo": 0.03, "hi": 0.08, "direction": "higher", "weight": 34},
+    {"feature": "pct_vs_sma50", "transform": "linear_clip", "lo": 0.10, "hi": 0.30, "direction": "higher", "weight": 30},
+    {"feature": "raw_close", "transform": "linear_clip", "lo": 10.0, "hi": 250.0, "direction": "lower", "weight": 21},
+    {"feature": "base_depth_50d", "transform": "linear_clip", "lo": 0.174, "hi": 0.429, "direction": "higher", "weight": 15}
+  ]
+}

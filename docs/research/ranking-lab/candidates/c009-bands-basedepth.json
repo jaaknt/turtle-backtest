@@ -1,0 +1,12 @@
+{
+  "id": "c009-bands-basedepth",
+  "hypothesis": "Adding base_depth_50d to the production bands at the same 15 points c008 gives it, keeping the band transform, isolates the new feature's contribution from the ramp change — so the pair of runs says whether the gain comes from the feature, the transform, or only their combination.",
+  "parent": "c000-production",
+  "aggregate": "sum",
+  "terms": [
+    {"feature": "adr_pct", "transform": "bands", "bands": [[0.03, 0], [0.035, 3], [0.04, 8], [0.045, 10], [0.05, 13], [0.07, 16], [0.08, 28]], "top": 34, "weight": 34},
+    {"feature": "pct_vs_sma50", "transform": "bands", "bands": [[0.10, 0], [0.12, 2], [0.15, 6], [0.17, 9], [0.20, 11], [0.30, 18]], "top": 30, "weight": 30},
+    {"feature": "raw_close", "transform": "bands", "bands": [[10.0, 21], [20.0, 18], [50.0, 12], [100.0, 8], [250.0, 8]], "top": 0, "weight": 21},
+    {"feature": "base_depth_50d", "transform": "bands", "bands": [[0.205, 0], [0.236, 4], [0.273, 1], [0.326, 7]], "top": 15, "weight": 15}
+  ]
+}

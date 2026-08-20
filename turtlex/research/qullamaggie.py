@@ -85,6 +85,12 @@ def load_bars(bars_history: DailyBarsQueryRepository, start_date: date, end_date
         min_market_cap=MIN_MARKET_CAP,
         excluded_sectors=list(EXCLUDED_SECTORS),
     )
+    # A window with no bars comes back as a schema-less frame, so the rename below would raise
+    # `ColumnNotFoundError: "close"` rather than returning nothing. `prepare_bars` already
+    # short-circuits on empty; this guard is the same contract one step earlier, and matters to
+    # any caller that walks fixed windows and can legitimately land on one the data does not cover.
+    if df.is_empty():
+        return df
     return prepare_bars(df.rename({"close": "raw_close"}))
 
 

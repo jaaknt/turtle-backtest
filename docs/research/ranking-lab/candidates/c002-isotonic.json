@@ -1,0 +1,11 @@
+{
+  "id": "c002-isotonic",
+  "hypothesis": "Remapping the production sum through an isotonic fit of raw-score to year-demeaned return, fitted on each fold's training slice, makes the score monotone in outcome by construction on train; if that survives out of sample the non-monotonicity was a calibration problem, not an information problem.",
+  "parent": "c000-production",
+  "aggregate": "sum_then_isotonic",
+  "terms": [
+    {"feature": "adr_pct", "transform": "bands", "bands": [[0.03, 0], [0.035, 4], [0.04, 9], [0.045, 12], [0.05, 15], [0.07, 19], [0.08, 33]], "top": 40, "weight": 40},
+    {"feature": "pct_vs_sma50", "transform": "bands", "bands": [[0.10, 0], [0.12, 2], [0.15, 7], [0.17, 11], [0.20, 13], [0.30, 21]], "top": 35, "weight": 35},
+    {"feature": "raw_close", "transform": "bands", "bands": [[10.0, 25], [20.0, 21], [50.0, 14], [100.0, 10], [250.0, 9]], "top": 0, "weight": 25}
+  ]
+}

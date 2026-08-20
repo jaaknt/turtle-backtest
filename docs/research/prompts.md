@@ -43,6 +43,8 @@ more signals. Re-run before quoting any of them against backtest-v4. The rationa
 | [Ranking algorithm proposal](#ranking-algorithm-proposal) | — | — |
 | [Recalibrate ranking weights + validate](#recalibrate-ranking-weights--validate) | `scripts/qullamaggie-ranking-validation.py` | `result-qullamaggie-ranking-validation.md` |
 | [Three-feature ranking weights](#three-feature-ranking-weights) | `scripts/qullamaggie-ranking-weights.py` | `result-qullamaggie-ranking-weights.md` |
+| [Ranking improvement loop](#ranking-improvement-loop) | `scripts/qullamaggie-ranking-lab.py` | `result-qullamaggie-ranking-lab.md` |
+| [Portfolio pacing](#portfolio-pacing) | `scripts/qullamaggie-pacing.py` | `result-qullamaggie-pacing.md` |
 | [Portfolio simulation](#portfolio-simulation) | `scripts/qullamaggie-portfolio-sim.py` | `result-qullamaggie-portfolio-v4.md`, `-2010-2015.md`, `-2016-2020.md` |
 | [Exit strategy analyze](#exit-strategy-analyze) | `scripts/qullamaggie-exit-sweep.py` | `result-qullamaggie-exit-sweep.md` |
 | [Signals: s12 with overlap & cohorts](#signals-s12-with-overlap--cohorts) | `scripts/qullamaggie-signals-v4.py` | screen |
@@ -455,6 +457,103 @@ sub-floor band the production filter never lets through.
 - **Script:** `scripts/qullamaggie-ranking-weights.py` (new)
 - **Results:** `docs/research/result-qullamaggie-ranking-weights.md`
 - **References:** `turtlex/strategy/ranking/qullamaggie.py`, `docs/research/result-qullamaggie-cohorts-*.md`, `docs/research/result-qullamaggie-ranking-validation.md`
+
+### Ranking improvement loop
+
+**Goal:** raise the *held-out decile monotonicity* of `QullamaggieRanking` — the score should
+order 366d outcomes, not merely separate them on average — without giving up
+matched-selectivity portfolio performance.
+
+The problem, from the committed evidence: `result-qullamaggie-cohorts-ranking.md` shows 8/9
+non-decreasing Sortino decile steps at s12 but 6/9 at s16 and 5/9 at s20, and
+`result-qullamaggie-ranking-validation.md` shows 5/9 for the production bands on the held-out
+2021+ slice. The failure is concentrated out of sample and at the tighter entry filters.
+
+**Invocation:** `/loop` (dynamic mode) with this prompt. One hypothesis per iteration.
+
+**Per-iteration procedure:**
+
+1. Read `docs/research/result-qullamaggie-ranking-lab.md` — the current baseline and every
+   hypothesis already tried, accepted or rejected.
+2. Pick the highest-value untried item from the backlog below, or a follow-up to whatever was
+   accepted last. Prefer a hypothesis that attacks a *named* cause over one that tunes numbers.
+3. Write `docs/research/ranking-lab/candidates/cNNN-<slug>.json` with a one-sentence falsifiable
+   hypothesis in its `hypothesis` field — what should improve, and why that follows from the
+   cause it attacks. Say what would make it wrong.
+4. Stage B only: run `--screen <feature>` first. A feature that fails the screen may not enter
+   a spec, however good it looks in aggregate.
+5. Run `uv run scripts/qullamaggie-ranking-lab.py --eval <spec>` under the memory cap. This
+   reads the parquet cache and needs no database; only `--build-cache` does, and that one
+   needs `ACTIVE_PROFILE=hetzner-db` for history deeper than the local five-year mirror.
+6. Read the verdict. The harness applies the acceptance rule and appends the ledger row itself
+   — do not hand-edit the row or re-run until the number comes out right.
+7. On ACCEPT: update the **Current baseline** line in the ledger, pass the new spec as
+   `--baseline` from then on, and add follow-up hypotheses that build on what worked.
+   On REJECT: say in one line *why the hypothesis was wrong*, not merely that it lost.
+
+**Hard rules:**
+
+- Never edit `turtlex/strategy/ranking/qullamaggie.py`, any `MIN_RANKING` constant, or any
+  existing `result-*.md` from inside the loop. Promotion is a separate, user-approved step —
+  it re-picks the gate at matched selectivity and stales ~15 committed result docs.
+- Never compare two schemes at a fixed gate. A gate keeps a different fraction of signals under
+  each scheme, so that compares selectivity, not skill. Always matched keep-%.
+- Never touch entries on or after 2025-01-01. That slice is opened once, at promotion.
+- Report every rejection. A backlog item that failed is the useful half of the record.
+- A candidate that only wins in one sub-period has not won. This is the same standard that
+  dropped compression/ROC252/RSI on 2026-07-29 — apply it to the incumbents too.
+
+**Stop conditions:** 5 accepted baselines, or 3 consecutive rejections with the current stage's
+backlog exhausted, or user interrupt.
+
+#### Seeded hypothesis backlog
+
+Stage A — the existing three features, no new data:
+
+| # | Hypothesis | Cause it attacks |
+| --- | --- | --- |
+| A1 | Non-compensatory aggregation (`min`) | compensation |
+| A2 | `sum_then_isotonic` — enforce train-monotonicity, test out of sample | direct |
+| A3 | `linear_clip` ramps replacing coarse bands | tie clumping |
+| A4 | `percentile_trailing` normalization of each feature | regime drift |
+| A5 | Coordinate-descent weight re-fit on train folds (steps of 5, sum 100) | weights fitted on the full period |
+| A6 | `grid2d` over ADR x SMA50-distance, replacing the two additive terms | interaction |
+| A7 | Drop price entirely (rho was only -0.059, and floor-anchoring already cut its effective weight to ~20); test 50/50 | over-parameterization |
+
+Stage B — new features, each screened first, then added at low weight:
+`pct_off_52w_high`, `rs_63d`/`rs_126d` (relative strength, unlike the absolute `roc_252d` that
+failed), `sma_stack`, `pct_vs_sma200` + `sma200_slope_20d`, `base_depth_50d` /
+`days_since_50d_high`, `vol_dryup`, `breakout_vol_ratio` + `close_in_range` + `gap_pct`,
+`breadth_sma50`, `adr_rel`.
+
+- **Spec:** `docs/specs/qullamaggie-ranking-loop.md` (protocol, acceptance rule, promotion)
+- **Script:** `scripts/qullamaggie-ranking-lab.py` (`--build-cache` once, then `--eval` / `--screen`)
+- **Results:** `docs/research/result-qullamaggie-ranking-lab.md`
+- **References:** `turtlex/strategy/ranking/qullamaggie.py`, `docs/research/result-qullamaggie-cohorts-ranking.md`, `docs/research/result-qullamaggie-ranking-validation.md`, `docs/research/result-qullamaggie-ranking-weights.md`
+
+### Portfolio pacing
+
+**Goal:** decide whether capping new positions per calendar month improves the live portfolio.
+
+- **Motivation:** at $30,000 with 4% positions the book holds 25 names while s12 raises ~48
+  signals a month, so capacity can be consumed by a single month's signals — one entry vintage
+  carrying the whole year, with nothing left for a better signal that appears later.
+- **Answer: no.** The cap diversifies entry vintages exactly as intended (busiest-month share
+  38.6% -> 8.9% at an 18-month horizon) and produces no gain in return, drawdown or start-date
+  dispersion at any horizon tested. At 18 months it cuts dispersion and the mean in the same
+  proportion — holding less exposure, not managing risk — and leaves the worst start date worse
+  off. Adopt it as a preference if a concentrated vintage is uncomfortable to hold, not as an edge.
+- Vintage concentration is a claim about **start-date dependence**, so a single backtest cannot
+  test it: every horizon is replayed from quarterly start dates with fresh capital and the spread
+  across them is reported alongside the average.
+- The cap must not peek. `run_sim`'s `max_new_per_month` takes signals as they arrive within a
+  month, best-scored first on any given day; picking "the best N of the month" would need the
+  month in advance.
+- Quarterly starts drawn from one ten-year window overlap heavily, so the dispersion columns rule
+  out a large effect rather than resolving a small one.
+- **Script:** `scripts/qullamaggie-pacing.py` (reads the ranking-lab cache; no database needed)
+- **Results:** `docs/research/result-qullamaggie-pacing.md`
+- **References:** `turtlex/research/portfolio_replay.py`, `docs/research/result-qullamaggie-ranking-lab.md`
 
 ## Portfolio simulation
 
