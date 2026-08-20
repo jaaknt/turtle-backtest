@@ -1,0 +1,11 @@
+{
+  "id": "c003-linear-ramps",
+  "hypothesis": "Replacing the coarse bands with monotone linear ramps over the same reachable ranges removes the tie clumping that makes decile boundaries arbitrary — 702 s12 signals share scores [20-25] today — so held-out monotonicity should rise without changing what the score measures.",
+  "parent": "c000-production",
+  "aggregate": "sum",
+  "terms": [
+    {"feature": "adr_pct", "transform": "linear_clip", "lo": 0.03, "hi": 0.08, "direction": "higher", "weight": 40},
+    {"feature": "pct_vs_sma50", "transform": "linear_clip", "lo": 0.10, "hi": 0.30, "direction": "higher", "weight": 35},
+    {"feature": "raw_close", "transform": "linear_clip", "lo": 10.0, "hi": 250.0, "direction": "lower", "weight": 25}
+  ]
+}

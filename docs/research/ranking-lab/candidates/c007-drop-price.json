@@ -1,0 +1,10 @@
+{
+  "id": "c007-drop-price",
+  "hypothesis": "Price carried the weakest demeaned effect of the three (rho -0.059) and floor-anchoring already cut its effective weight to about 20, so dropping it entirely and splitting 50/50 between ADR and SMA50 distance should lose nothing and remove a dimension that mostly adds noise to the score.",
+  "parent": "c000-production",
+  "aggregate": "sum",
+  "terms": [
+    {"feature": "adr_pct", "transform": "bands", "bands": [[0.03, 0], [0.035, 5], [0.04, 11], [0.045, 15], [0.05, 19], [0.07, 24], [0.08, 41]], "top": 50, "weight": 50},
+    {"feature": "pct_vs_sma50", "transform": "bands", "bands": [[0.10, 0], [0.12, 3], [0.15, 10], [0.17, 16], [0.20, 19], [0.30, 30]], "top": 50, "weight": 50}
+  ]
+}

@@ -192,7 +192,8 @@ Alembic standalone mode with raw SQL (the usual `current` / `history` / `upgrade
 version table is `public.alembic_version`, and the target database comes from the same
 `load_config_data()` the app uses — `db/migrations/env.py` reads `config/settings.toml` plus any
 `ACTIVE_PROFILE` overlay, so Alembic and the CLIs can never disagree about which database they mean.
-No committed profile currently redirects the database, so Alembic targets localhost either way.
+Only `hetzner-db` redirects the database, and its role is read-only, so Alembic targets localhost
+unless that profile is active — under which migrations will fail rather than touch the VPS.
 
 ## Development Workflows
 
@@ -216,8 +217,13 @@ A profile names **the machine you are running on**, not a database to connect to
 themselves stay environment-agnostic. It inherits the localhost database unchanged, because Postgres
 runs on that box, and its only effect is switching job-run logging on. Dev machines leave
 `ACTIVE_PROFILE` unset.
-There is currently **no profile that points at a remote database** — if you need a laptop to read the
-VPS Postgres over Tailscale, add one with `[database] host = "hetzner"`.
+`config/settings-hetzner-db.toml` is the **one profile that names a database rather than a machine**:
+`ACTIVE_PROFILE=hetzner-db` points a dev machine at the VPS Postgres over Tailscale as the read-only
+`claude` role, for studies needing history deeper than the local 5-year mirror. The password still
+comes from `DB_APP_PASSWORD`, so map the read-only one onto it at the call site —
+`ACTIVE_PROFILE=hetzner-db DB_APP_PASSWORD="$DB_CLAUDE_PASSWORD" uv run …`. After a VPS reboot
+Postgres binds before the Tailscale address exists, so connections time out until
+`systemctl restart postgresql` runs there.
 
 Every database parameter comes from `config/settings.toml` and its profile overlay — there is no
 environment variable that changes hosts. `ACTIVE_PROFILE` selects which overlay applies; the only

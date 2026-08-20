@@ -1,0 +1,24 @@
+# ACTIVE_PROFILE=hetzner-db — a dev machine reading the VPS Postgres over Tailscale.
+#
+# This is the one profile that names a *database* rather than a machine, and it is deliberate:
+# every other profile identifies the host it runs on and inherits localhost Postgres. Use this
+# only when a laptop needs the VPS's deep history — the local Docker copy is a 5-year mirror
+# (scripts/update-local-db.sh), which is not enough for the walk-forward folds in
+# docs/specs/qullamaggie-ranking-loop.md.
+#
+# `claude` is the VPS's read-only role, so nothing run under this profile can write. The
+# password still comes from DB_APP_PASSWORD, because that is the only database secret
+# Settings.from_toml reads — map the read-only one onto it at the call site:
+#
+#     ACTIVE_PROFILE=hetzner-db DB_APP_PASSWORD="$DB_CLAUDE_PASSWORD" \
+#       uv run scripts/qullamaggie-ranking-lab.py --build-cache
+#
+# Requires Tailscale up and Postgres listening on the VPS's Tailscale address. Postgres binds
+# at boot before that address exists, so after a VPS reboot connections time out until
+# `systemctl restart postgresql` runs there.
+#
+# job_runs stays off: a study run from a laptop is not a scheduled VPS job and should not be
+# recorded as one.
+[database]
+host = "hetzner"
+user = "claude"

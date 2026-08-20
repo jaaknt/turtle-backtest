@@ -1,0 +1,11 @@
+{
+  "id": "c004-percentile",
+  "hypothesis": "Scoring each dimension by its percentile among the trailing 252 days of raised signals makes the score regime-relative — a 5% ADR meant something different in 2017 than in 2021 but scores the same points today — which should help most on the held-out folds where the regime differs from training.",
+  "parent": "c000-production",
+  "aggregate": "sum",
+  "terms": [
+    {"feature": "adr_pct", "transform": "percentile_trailing", "window_days": 252, "direction": "higher", "weight": 40},
+    {"feature": "pct_vs_sma50", "transform": "percentile_trailing", "window_days": 252, "direction": "higher", "weight": 35},
+    {"feature": "raw_close", "transform": "percentile_trailing", "window_days": 252, "direction": "lower", "weight": 25}
+  ]
+}

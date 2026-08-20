@@ -1,0 +1,9 @@
+{
+  "id": "c005-sma-only",
+  "hypothesis": "A weight search over the 2010-2018 training slice puts all 100 points on SMA50 distance and none on ADR or price (train rho +0.0545 vs +0.0203 for 40/35/25), so if that corner solution is real rather than a fit artifact, SMA50 distance alone should order held-out outcomes better than the production blend.",
+  "parent": "c000-production",
+  "aggregate": "sum",
+  "terms": [
+    {"feature": "pct_vs_sma50", "transform": "bands", "bands": [[0.10, 0], [0.12, 6], [0.15, 20], [0.17, 31], [0.20, 37], [0.30, 60]], "top": 100, "weight": 100}
+  ]
+}

@@ -63,3 +63,6 @@ data/lightyear/
 # Claude Code local settings (personal, not shared)
 .claude/settings.local.json
 .coverage
+
+# ranking-lab signal cache (regenerable: scripts/qullamaggie-ranking-lab.py --build-cache)
+.cache/

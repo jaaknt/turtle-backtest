@@ -1,0 +1,16 @@
+{
+  "id": "c006-grid2d",
+  "hypothesis": "ADR and SMA50 distance interact rather than add — a 3x3 cell table fitted on 2010-2018 shows the payoff concentrated where both are high — so replacing the two additive terms with a joint grid should order better than summing them independently.",
+  "parent": "c000-production",
+  "aggregate": "sum",
+  "terms": [
+    {
+      "features": ["adr_pct", "pct_vs_sma50"],
+      "transform": "grid2d",
+      "x_bounds": [0.045, 0.06],
+      "y_bounds": [0.16, 0.24],
+      "points": [[7, 18, 4], [0, 22, 11], [0, 0, 75]]
+    },
+    {"feature": "raw_close", "transform": "bands", "bands": [[10.0, 25], [20.0, 21], [50.0, 14], [100.0, 10], [250.0, 9]], "top": 0, "weight": 25}
+  ]
+}
