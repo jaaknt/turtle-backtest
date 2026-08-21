@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Current-period signal report for bk50d_s12_v2.0 vs bk50d_s16_v2.0 and
-bk50d_s20_v2.0 (signals marked when also present in the stricter variants).
+Current-period signal report for bk50d_s12_v2.0, with the overlap against the stricter
+bk50d_s16_v2.0 and bk50d_s20_v2.0 variants reported as counts in the summary line.
 
 The reported signal list is gated at QullamaggieRanking >= MIN_RANKING, matching the
 portfolio-runner --min-signal-ranking default. Both cohort tables are deliberately computed
@@ -9,6 +9,9 @@ over the *ungated* s12 signals: their job is to show whether ranking and %abv SM
 outcomes, which a table containing only scores >= 44 could not do (the [20-40) bucket would
 always be empty; [0-20) is empty regardless, since a signal clearing the entry filters scores
 at least 20).
+Sector is turtle.company.sector; the signal universe excludes Communication Services and Real
+Estate, so neither ever appears there — the current-investments table reads the same column but
+over whatever is actually held, so both sectors can show up in it.
 0.97*Entry is the 3%-below-entry-close resting-limit level from the portfolio study;
 "Reached?" marks whether any daily low touched that level within LIMIT_WINDOW_CAL calendar
 days after the signal (fill eligible from the day after the signal, adjusted-price space —
@@ -284,7 +287,8 @@ def format_holdings_table(rows: list[dict]) -> str:
     """Render open positions as a fixed-width table with a portfolio total line.
 
     Args:
-        rows: Output of `load_holdings`
+        rows: Output of `load_holdings`, each row extended with `sector`, `signal_date` and
+            `ranking`
 
     Returns:
         str: The rendered table, or a single line when no position is open
@@ -292,8 +296,8 @@ def format_holdings_table(rows: list[dict]) -> str:
     if not rows:
         return "No open positions in turtle.lightyear_transaction."
     hdr = (
-        f"{'Symbol':<7}│ {'Signal date':<12}│ {'Entry date':<11}│ {'Days':>5} │ {'Ranking':>7} │ {'Avg Price':>10} │ "
-        f"{'Shares':>10} │ {'Curr Price':>10} │ {'Change %':>9} │ {'PL':>12}"
+        f"{'Symbol':<7}│ {'Sector':<23}│ {'Signal date':<12}│ {'Entry date':<11}│ {'Days':>5} │ {'Ranking':>7} │ "
+        f"{'Avg Price':>10} │ {'Shares':>10} │ {'Curr Price':>10} │ {'Change %':>9} │ {'PL':>12}"
     )
     lines = [hdr, "─" * len(hdr)]
     total_cost = total_value = 0.0
@@ -302,8 +306,9 @@ def format_holdings_table(rows: list[dict]) -> str:
         signal_date = f"{str(r['signal_date']):<12}" if r["signal_date"] is not None else f"{'--':<12}"
         days = f"{r['days']:>5}" if r["days"] is not None else f"{'--':>5}"
         ranking = f"{r['ranking']:>7}" if r.get("ranking") is not None else f"{'--':>7}"
+        sector = f"{r['sector'] or '--':<23}"
         head = (
-            f"{r['symbol']:<7}│ {signal_date}│ {str(r['entry_date']):<11}│ {days} │ {ranking} │ "
+            f"{r['symbol']:<7}│ {sector}│ {signal_date}│ {str(r['entry_date']):<11}│ {days} │ {ranking} │ "
             f"{r['avg_price']:>10.2f} │ {r['shares']:>10.4f} │ "
         )
         if r["curr_price"] is None:
@@ -317,8 +322,8 @@ def format_holdings_table(rows: list[dict]) -> str:
     lines.append("─" * len(hdr))
     total_chg = (total_value / total_cost - 1.0) * 100.0 if total_cost else float("nan")
     lines.append(
-        f"{'TOTAL':<7}│ {'':<12}│ {'':<11}│ {'':>5} │ {'':>7} │ {total_cost:>10.2f} │ {'':>10} │ "
-        f"{total_value:>10.2f} │ {total_chg:>+8.1f}% │ {total_value - total_cost:>+12.2f}"
+        f"{'TOTAL':<7}│ {'':<23}│ {'':<12}│ {'':<11}│ {'':>5} │ {'':>7} │ "
+        f"{total_cost:>10.2f} │ {'':>10} │ {total_value:>10.2f} │ {total_chg:>+8.1f}% │ {total_value - total_cost:>+12.2f}"
     )
     return "\n".join(lines)
 
@@ -339,6 +344,23 @@ def load_benchmark_return(engine: sa.Engine, symbol: str) -> tuple[float, date, 
     end_date, end_close = rows[-1][0], float(rows[-1][1])
     ret = (end_close / start_close - 1.0) * 100.0
     return ret, start_date, end_date
+
+
+def load_sectors(engine: sa.Engine) -> dict[str, str]:
+    """Sector per ticker, for the Sector column of the signal and holdings tables.
+
+    Args:
+        engine: Sync engine used for the read
+
+    Returns:
+        dict[str, str]: Ticker code -> sector name. `load_bars` joins turtle.company and filters
+            on sector, so its symbols are normally all present — but that is a second read on a
+            second connection, so a concurrent snapshot-company refresh can drop one. A held
+            ticker outside the bars universe may be missing too. Both render as "--".
+    """
+    sql = "SELECT ticker_code, sector FROM turtle.company WHERE sector IS NOT NULL"
+    with engine.connect() as conn:
+        return {r[0]: r[1] for r in conn.execute(sa.text(sql)).fetchall()}
 
 
 def load_spy_regime(engine: sa.Engine) -> set[date]:
@@ -510,6 +532,7 @@ def main() -> None:
     bull_dates = load_spy_regime(settings.engine)
 
     print("Loading bars …", flush=True)
+    sectors = load_sectors(settings.engine)
     df = load_bars(settings.engine)
     valid_syms = df.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"]
     df = df.filter(pl.col("symbol").is_in(valid_syms.to_list()))
@@ -573,9 +596,9 @@ def main() -> None:
     compare16_keys = {(r["symbol"], r["date"]) for r in compare16_sig.iter_rows(named=True)}
 
     hdr = (
-        f"{'Date':<11}│ {'Symbol':<7}│ {'Entry $':>8} │ {'Curr Price':>10} │ {'0.97*Entry':>10} │ {'Change %':>9} │ "
-        f"{'%abv SMA50':>10} │ {'ADR%':>6} │ {'ADR_CHG':>7} │ {'VOL_DRY':>7} │ {'RSI14':>6} │ {'TR%':>6} │ {'ROC252%':>8} │ "
-        f"{'In s16?':>7} │ {'In s20?':>7} │ {'Reached?':>8} │ {'Ranking':>7} │ {'Last date':>11}"
+        f"{'Date':<11}│ {'Symbol':<7}│ {'Sector':<23}│ {'Entry $':>8} │ {'Curr Price':>10} │ {'0.97*Entry':>10} │ "
+        f"{'Change %':>9} │ {'%abv SMA50':>10} │ {'ADR%':>6} │ {'ADR_CHG':>7} │ {'VOL_DRY':>7} │ {'RSI14':>6} │ "
+        f"{'TR%':>6} │ {'ROC252%':>8} │ {'Reached?':>8} │ {'Ranking':>7} │ {'Last date':>11}"
     )
     sep = "─" * len(hdr)
 
@@ -615,18 +638,15 @@ def main() -> None:
             continue
         limit_px = entry * (1.0 - LIMIT_DISCOUNT)
         in_compare = (sym, d) in compare_keys
-        mark = "✓" if in_compare else " "
         in_compare16 = (sym, d) in compare16_keys
-        mark16 = "✓" if in_compare16 else " "
         reached = limit_reached(sym, idx_entry, d)
         mark_reached = "✓" if reached else " "
         ld = latest_date.get(sym)
         lines.append(
-            f"{str(d):<11}│ {sym:<7}│ {entry:>8.2f} │ {curr:>10.2f} │ {limit_px:>10.2f} │ {chg:>+8.1f}% │ "
-            f"{sma_pct:>+9.1f}% │ {row['adr_pct'] * 100:>5.1f}% │ {row['adr_pct_change']:>7.2f} │ "
-            f"{row['vol_dry_up_ratio']:>7.2f} │ "
-            f"{row['rsi14']:>6.1f} │ {row['tight_range_ratio'] * 100:>5.1f}% │ {row['roc_252d'] * 100:>+7.1f}% │ "
-            f"{mark16:>7} │ {mark:>7} │ {mark_reached:>8} │ {ranking:>7} │ {str(ld):>11}"
+            f"{str(d):<11}│ {sym:<7}│ {sectors.get(sym) or '--':<23}│ {entry:>8.2f} │ {curr:>10.2f} │ {limit_px:>10.2f} │ "
+            f"{chg:>+8.1f}% │ {sma_pct:>+9.1f}% │ {row['adr_pct'] * 100:>5.1f}% │ {row['adr_pct_change']:>7.2f} │ "
+            f"{row['vol_dry_up_ratio']:>7.2f} │ {row['rsi14']:>6.1f} │ {row['tight_range_ratio'] * 100:>5.1f}% │ "
+            f"{row['roc_252d'] * 100:>+7.1f}% │ {mark_reached:>8} │ {ranking:>7} │ {str(ld):>11}"
         )
         shown += 1
         if in_compare:
@@ -681,6 +701,7 @@ def main() -> None:
     print("Loading current investments …", flush=True)
     holdings = load_holdings(settings.engine)
     for h in holdings:
+        h["sector"] = sectors.get(h["symbol"])
         match = holding_signal(candidate_sig, ranker, h["symbol"], h["entry_date"])
         h["signal_date"], h["ranking"] = match if match is not None else (None, None)
     holdings_output = format_holdings_table(holdings)

@@ -12,6 +12,22 @@ logger = logging.getLogger(__name__)
 # Server-side cursor batch for get_qualified_universe_bars_pl; see the note there.
 LOAD_BATCH_ROWS = 200_000
 
+# Schema of the frame get_qualified_universe_bars_pl returns, in select order. Only used for the
+# no-rows case: a bare pl.DataFrame() has no columns at all, so a caller that renames or filters
+# a column dies with ColumnNotFoundError instead of seeing an empty result. Studies walk fixed
+# windows and can legitimately land on one the data does not cover, so empty is a normal answer
+# and must carry the same shape as a full one.
+UNIVERSE_BARS_SCHEMA: dict[str, pl.DataType] = {
+    "symbol": pl.String(),
+    "date": pl.Date(),
+    "open": pl.Float64(),
+    "high": pl.Float64(),
+    "low": pl.Float64(),
+    "close": pl.Float64(),
+    "adjusted_close": pl.Float64(),
+    "volume": pl.Int64(),
+}
+
 
 class DailyBarsQueryRepository:
     """Dedicated repository for bulk analytical reads from daily_bars.
@@ -103,7 +119,8 @@ class DailyBarsQueryRepository:
 
         Returns:
             Columns: symbol, date, open, high, low, close, adjusted_close, volume — ordered by
-            symbol then date. Empty DataFrame if nothing qualifies.
+            symbol then date. A frame with those columns and no rows if nothing qualifies, so a
+            caller can filter or rename it without special-casing the empty result.
         """
         if excluded_sectors is None:
             excluded_sectors = ["Communication Services", "Real Estate"]
@@ -128,5 +145,5 @@ class DailyBarsQueryRepository:
         with self._engine.connect().execution_options(stream_results=True, max_row_buffer=LOAD_BATCH_ROWS) as conn:
             batches = list(pl.read_database(query=stmt, connection=conn, iter_batches=True, batch_size=LOAD_BATCH_ROWS))
         if not batches:
-            return pl.DataFrame()
+            return pl.DataFrame(schema=UNIVERSE_BARS_SCHEMA)
         return pl.concat(batches, rechunk=True)

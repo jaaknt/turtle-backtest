@@ -201,9 +201,12 @@ evenly is the point.
 
 ### Ledger
 
-`--eval` appends one row between the `<!-- lab:ledger:start -->` / `<!-- lab:ledger:end -->`
-markers in `docs/research/result-qullamaggie-ranking-lab.md` and never rewrites the file, so
-hand-written analysis outside the markers survives. (The known
+`--eval` writes one row between the `<!-- lab:ledger:start -->` / `<!-- lab:ledger:end -->`
+markers in `docs/research/result-qullamaggie-ranking-lab.md` and touches nothing outside them, so
+hand-written analysis survives. The row is keyed on the candidate id: re-running a spec replaces
+its row rather than adding a second one, so `n_tested` counts hypotheses rather than invocations
+— a `--no-portfolio` preview or a re-measurement after a harness fix must not raise the margin
+for every later candidate. (The known
 `qullamaggie-portfolio-sim.py` behaviour of clobbering hand-written `## Findings` is exactly
 what this avoids.)
 
