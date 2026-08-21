@@ -11,6 +11,7 @@ spec loader accepting a typo'd feature name that would score a dimension 0 every
 """
 
 import json
+from dataclasses import replace
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -338,7 +339,12 @@ def test_judge_rejects_a_rho_gain_inside_the_margin() -> None:
 
 
 def test_judge_rejects_a_collapsed_spread() -> None:
-    """A scheme can be monotone and useless; losing more than 10% of the spread fails."""
+    """A scheme can be monotone and useless; giving up more than MAX_SPREAD_GIVEBACK fails.
+
+    The give-back is absolute, not the proportional "90% of baseline" rule this gate started
+    with — see `test_judge_allows_a_small_loss_against_a_negative_baseline_spread` for why that
+    one had to go.
+    """
     verdict = rl.judge(_card(8 / 9, 0.15, 2.0), _card(5 / 9, 0.10, 3.0), n_tested=10)
     assert not verdict.accepted
     assert any("spread" in r for r in verdict.reasons)
@@ -553,6 +559,23 @@ def test_judge_refuses_to_compare_different_fold_counts() -> None:
     verdict = rl.judge(candidate, thin, n_tested=10)
     assert not verdict.accepted
     assert any("not comparable" in r for r in verdict.reasons)
+
+
+def test_judge_refuses_to_compare_rho_over_different_fold_counts() -> None:
+    """The primary gate is rho, and a tied fold silently leaves the candidate's rho mean.
+
+    `spearman` is nan for a fold whose scores are all tied, and `Scorecard._mean` drops nan
+    folds per attribute — so without a parity check the candidate is compared on five folds
+    against a baseline measured on six, and can clear the margin by having skipped the hard one.
+    The value gate cannot catch this: the surviving folds still average 0.20.
+    """
+    full = _card(8 / 9, 0.20, 3.0)
+    tied = rl.Scorecard(spec_id="c", folds=[replace(f, spearman=float("nan")) if i == 0 else f for i, f in enumerate(full.folds)])
+    assert tied.spearman == pytest.approx(0.20), "the dropped fold must be invisible to the mean itself"
+
+    verdict = rl.judge(tied, _card(5 / 9, 0.10, 3.0), n_tested=10)
+    assert not verdict.accepted
+    assert any("spearman" in r and "not comparable" in r for r in verdict.reasons), verdict.reasons
 
 
 def test_verdict_accepted_tracks_its_reasons() -> None:

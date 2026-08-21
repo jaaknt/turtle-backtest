@@ -5,7 +5,7 @@ import polars as pl
 import pytest
 
 from turtlex.common.enums import TimeFrameUnit
-from turtlex.repository.query.daily_bars import LOAD_BATCH_ROWS, DailyBarsQueryRepository
+from turtlex.repository.query.daily_bars import LOAD_BATCH_ROWS, UNIVERSE_BARS_SCHEMA, DailyBarsQueryRepository
 
 
 @pytest.fixture
@@ -182,11 +182,19 @@ def test_get_qualified_universe_bars_pl_honours_overrides(mock_engine: MagicMock
 
 
 def test_get_qualified_universe_bars_pl_returns_empty_frame(mock_engine: MagicMock) -> None:
-    """No batches at all — an empty result set must not blow up in pl.concat."""
+    """No batches at all — an empty result set must not blow up in pl.concat.
+
+    It must also keep the documented columns. A column-less frame makes every caller that
+    renames or filters a column die with `ColumnNotFoundError` several steps downstream instead
+    of seeing an empty result, and a study walking fixed windows can legitimately land on a
+    window the data does not cover.
+    """
     with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=iter([])):
         result = _make_repo(mock_engine).get_qualified_universe_bars_pl(date(2024, 1, 2), date(2024, 1, 3))
 
     assert result.is_empty()
+    assert result.columns == _sample_universe_pl_df().columns
+    assert result.schema == UNIVERSE_BARS_SCHEMA
 
 
 def test_get_qualified_universe_bars_pl_concatenates_batches(mock_engine: MagicMock) -> None:

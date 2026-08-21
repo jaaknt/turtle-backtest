@@ -76,7 +76,11 @@ def load_bars(bars_history: DailyBarsQueryRepository, start_date: date, end_date
         end_date: Last date to load
 
     Returns:
-        Frame of symbol, date, raw_close, adj_open, adj_close, adj_high, adj_low, volume.
+        Frame of symbol, date, raw_close, adj_open, adj_close, adj_high, adj_low, volume. A
+        window the data does not cover yields those columns with no rows, not a column-less
+        frame — studies walk fixed windows and can legitimately land on an empty one, and a
+        caller that then filters on `date` must get an empty result rather than a
+        `ColumnNotFoundError`.
     """
     fetch_start = start_date - timedelta(days=WARMUP_DAYS)
     df = bars_history.get_qualified_universe_bars_pl(
@@ -85,12 +89,6 @@ def load_bars(bars_history: DailyBarsQueryRepository, start_date: date, end_date
         min_market_cap=MIN_MARKET_CAP,
         excluded_sectors=list(EXCLUDED_SECTORS),
     )
-    # A window with no bars comes back as a schema-less frame, so the rename below would raise
-    # `ColumnNotFoundError: "close"` rather than returning nothing. `prepare_bars` already
-    # short-circuits on empty; this guard is the same contract one step earlier, and matters to
-    # any caller that walks fixed windows and can legitimately land on one the data does not cover.
-    if df.is_empty():
-        return df
     return prepare_bars(df.rename({"close": "raw_close"}))
 
 
@@ -109,6 +107,12 @@ def prepare_bars(df: pl.DataFrame) -> pl.DataFrame:
 
     Split out from `load_bars` so tests can feed a synthetic frame through the same path.
 
+    An empty input is not special-cased: every step below is a no-op on zero rows, so the
+    result still carries the adj_* columns. Returning the frame untouched instead — as this did
+    while `get_qualified_universe_bars_pl` answered with a column-less frame — hands the caller
+    a different schema for the empty case than for every other, and the failure then surfaces
+    several steps downstream as a missing column.
+
     Args:
         df: Frame with symbol, date, open, raw_close, adjusted_close, high, low, volume
 
@@ -116,11 +120,7 @@ def prepare_bars(df: pl.DataFrame) -> pl.DataFrame:
         Frame with adj_open/adj_close/adj_high/adj_low added, unusable bars and
         short-history symbols removed.
     """
-    if df.is_empty():
-        return df
     df = df.filter((pl.col("raw_close") > 0) & (pl.col("adjusted_close") > 0) & (pl.col("volume") > 0))
-    if df.is_empty():
-        return df
     factor = pl.col("adjusted_close") / pl.col("raw_close")
     df = df.sort(["symbol", "date"]).with_columns(
         (pl.col("open") * factor).alias("adj_open"),
@@ -142,10 +142,9 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
 
     Returns:
         The frame with rsi14, sma50, avg_vol_10/20/50, max_c_50d, adr_pct,
-        adr_pct_change, pct_vs_sma50 and roc_252d added.
+        adr_pct_change, pct_vs_sma50 and roc_252d added. An empty input keeps that contract:
+        every expression below is a no-op on zero rows, so the columns are added regardless.
     """
-    if df.is_empty():
-        return df
     df = df.sort(["symbol", "date"]).with_columns(
         pl.col("adj_close").shift(1).over("symbol").alias("_c1"),
         pl.col("volume").cast(pl.Float64).shift(1).over("symbol").alias("_v1"),

@@ -1,9 +1,12 @@
 # Ranking Lab — hypothesis ledger
 
-Append-only record of every ranking hypothesis the improvement loop has tested. Written by
-`scripts/qullamaggie-ranking-lab.py --eval`, which only ever *inserts* a row before the end
-marker — anything written outside the markers, including the Findings section at the foot of
-this file, survives a re-run.
+Record of every ranking hypothesis the improvement loop has tested. Written by
+`scripts/qullamaggie-ranking-lab.py --eval`, which touches nothing outside the
+`lab:ledger:start` / `lab:ledger:end` markers — the Findings section at the foot of this file
+survives a re-run. One row per candidate: a re-run of a spec that already has a row overwrites
+that row in place, keeping its number, because the row count is the multiple-testing counter
+behind `required_margin` and a duplicate would charge every later candidate a margin no new
+hypothesis earned.
 
 The protocol, the acceptance rule and the loop are defined in
 [docs/specs/qullamaggie-ranking-loop.md](../specs/qullamaggie-ranking-loop.md). Read that before
@@ -62,6 +65,14 @@ large tie blocks, so part of that doc's 5/9 is tie-cut noise rather than genuine
 non-monotonicity.
 
 ## Ledger
+
+**Two acceptance rules appear in the Reason column.** Rows 1-7 were judged while the per-config
+spread gate was proportional (`< 90% of baseline`); rows 8-9 were judged under the absolute
+`MAX_SPREAD_GIVEBACK = 0.35` give-back the spec now defines, adopted because a proportional rule
+inverts against a negative baseline spread — `0.9 * -2.0 = -1.8` demands the candidate *beat*
+-2.0, and individual folds do go negative. No verdict moves: each of rows 1-7 also failed
+monotonicity or the rho margin. But the bounds quoted inside those rows' spread reasons are the
+retired ones, so read them against the rule of their own row, not against rows 8-9.
 
 <!-- lab:ledger:start -->
 

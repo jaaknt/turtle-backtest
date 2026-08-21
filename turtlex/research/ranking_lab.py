@@ -941,8 +941,14 @@ def judge(candidate: Scorecard, baseline: Scorecard, n_tested: int) -> Verdict:
     for config, _ in CONFIGS:
         c, b = candidate.by_config(config), baseline.by_config(config)
         # Aggregates averaged over different fold sets are not paired samples, so comparing them
-        # would penalise whichever arm produced more measurable folds. Refuse instead.
-        for attr in ("mono_sortino", "spread"):
+        # would penalise whichever arm produced more measurable folds. Refuse instead. `spearman`
+        # is checked here too, even though its only gate is the overall one above: `_mean` drops
+        # nan folds per attribute, and `spearman` returns nan for a fold whose scores are all tied,
+        # so a candidate that ties on one hard fold would have that fold silently dropped from its
+        # rho mean while the baseline kept all six — clearing the margin by being measured on an
+        # easier subset. The overall mean is these per-config folds pooled, so checking parity per
+        # config covers it.
+        for attr in ("mono_sortino", "spearman", "spread"):
             n_c, n_b = candidate.count(attr, config), baseline.count(attr, config)
             if n_c != n_b:
                 reasons.append(f"{config}: {attr} averaged over {n_c} candidate folds vs {n_b} baseline folds — not comparable")

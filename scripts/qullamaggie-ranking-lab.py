@@ -383,6 +383,14 @@ def _full_period_reference(spec: rl.CandidateSpec, signals: dict[str, pl.DataFra
     against. This one does: run `c000-production` and the s12/s16/s20 monotonicity here should
     land on `result-qullamaggie-cohorts-ranking.md`'s population-decile tables. If it does not,
     the judge itself is miscalibrated and no hypothesis result from it means anything.
+
+    Scores are computed on the whole cached frame and only then restricted to the eval window,
+    the same order `evaluate` and `portfolio_confirm` use. Filtering first would score a
+    different population: `percentile_trailing` ranks each signal against the raised signals of
+    the preceding `window_days`, so cutting 2010-2014 away leaves every early row in the window
+    short of `MIN_TRAILING_N` predecessors and scoring the neutral midpoint. The table would
+    then check a scoring the judge never performed — which is the one thing a calibration check
+    must not do.
     """
     print("\n### Full-period population deciles (reference — compare with result-qullamaggie-cohorts-ranking.md)")
     hdr = f"{'config':<8} {'N':>6} {'mono_sortino':>13} {'mono_mean':>10} {'D1 sortino':>11} {'D10 sortino':>12}"
@@ -390,9 +398,9 @@ def _full_period_reference(spec: rl.CandidateSpec, signals: dict[str, pl.DataFra
     print("-" * len(hdr))
     for config, _ in rl.CONFIGS:
         sig = signals[config].sort(["date", "symbol"])
-        sig = sig.filter((pl.col("date") >= rl.EVAL_START) & (pl.col("entry_date") < rl.HOLDOUT_START))
         scores = rl.raw_scores(sig, spec)
-        ret = sig["ret"].to_numpy(allow_copy=True).astype(float)
+        keep = sig.select((pl.col("date") >= rl.EVAL_START) & (pl.col("entry_date") < rl.HOLDOUT_START)).to_series().to_numpy()
+        scores, ret = scores[keep], sig["ret"].to_numpy(allow_copy=True).astype(float)[keep]
         rng = np.random.default_rng(rl.DECILE_SEED)
         draws = [rl.compute_deciles(scores, ret, rng) for _ in range(rl.N_TIE_DRAWS)]
         if any(len(dec) != rl.N_DECILES for dec in draws):
@@ -406,7 +414,7 @@ def _full_period_reference(spec: rl.CandidateSpec, signals: dict[str, pl.DataFra
         mm, mmn = statistics.fmean([p[0] for p in m_pairs]), statistics.fmean([p[1] for p in m_pairs])
         d1 = statistics.fmean([dec[0]["sortino"] for dec in draws])
         d10 = statistics.fmean([dec[-1]["sortino"] for dec in draws])
-        print(f"{config:<8} {len(sig):>6} {f'{ms:.1f}/{msn:.0f}':>13} {f'{mm:.1f}/{mmn:.0f}':>10} {d1:>11.3f} {d10:>12.3f}")
+        print(f"{config:<8} {int(keep.sum()):>6} {f'{ms:.1f}/{msn:.0f}':>13} {f'{mm:.1f}/{mmn:.0f}':>10} {d1:>11.3f} {d10:>12.3f}")
 
 
 # ── Ledger ───────────────────────────────────────────────────────────────────────────────
@@ -436,12 +444,47 @@ def ledger_rows() -> list[str]:
     return [ln for ln in body.splitlines() if ln.strip().startswith("|") and not ln.strip().startswith("| ---")][1:]
 
 
-def append_ledger(row: str) -> None:
-    """Insert one row immediately before the ledger's end marker.
+def row_spec_id(row: str) -> str:
+    """The candidate id a ledger row records, or "" for a row that carries none.
 
-    Only ever inserts. Everything outside the markers — the current baseline, the hand-written
-    reading of what the loop has found — is left untouched, so re-running this can never
-    destroy analysis the way a whole-file rewrite would.
+    The id is the first backticked cell, written by `cmd_eval` as `` `c003-linear-ramps` ``.
+
+    Args:
+        row: One row from `ledger_rows`
+    """
+    match = re.search(r"\|\s*`([^`]+)`", row)
+    return match.group(1) if match else ""
+
+
+def tested_spec_ids() -> list[str]:
+    """Candidate ids already recorded, in row order.
+
+    `n_tested` is derived from these rather than from `len(ledger_rows())`, so the
+    multiple-testing margin counts hypotheses even if a row is ever added by hand.
+    """
+    return [sid for sid in (row_spec_id(r) for r in ledger_rows()) if sid]
+
+
+def upsert_ledger(spec_id: str, cells: str) -> bool:
+    """Record one candidate's verdict, replacing the row that candidate already has.
+
+    A re-run must not add a second row for the same spec. `n_tested` counts recorded
+    hypotheses and drives `required_margin`, so a `--no-portfolio` preview followed by the real
+    run — or a re-measurement after a harness fix, which is exactly what rows 8 and 9 were —
+    would otherwise charge every later candidate a multiple-testing penalty that no new
+    hypothesis earned. A replaced row keeps its original number, so earlier rows and the
+    numbering stay stable and a re-measured candidate stays where the ledger first put it.
+
+    Only rows between the markers are touched. Everything outside them — the current baseline,
+    the hand-written reading of what the loop has found — is left alone, so re-running this can
+    never destroy analysis the way a whole-file rewrite would.
+
+    Args:
+        spec_id: The candidate's id, matched against the id column of the existing rows
+        cells: The row's cells after the leading number, ending in a pipe
+
+    Returns:
+        True when an existing row was replaced, False when the row was appended.
     """
     text = LEDGER_PATH.read_text(encoding="utf-8")
     # Validate before writing. The verdict has already been printed by the time this runs, so a
@@ -452,8 +495,18 @@ def append_ledger(row: str) -> None:
             raise ValueError(f"{LEDGER_PATH.name}: expected exactly one {marker}, found {text.count(marker)}")
     if text.index(LEDGER_START) > text.index(LEDGER_END):
         raise ValueError(f"{LEDGER_PATH.name}: {LEDGER_START} appears after {LEDGER_END}")
-    head, tail = text.split(LEDGER_END, 1)
-    LEDGER_PATH.write_text(f"{head.rstrip()}\n{row}\n{LEDGER_END}{tail}", encoding="utf-8")
+
+    rows = ledger_rows()
+    ids = [row_spec_id(r) for r in rows]
+    # Rows are numbered from 1 in the order they appear, so a row's position is its number.
+    index = ids.index(spec_id) if spec_id in ids else len(rows)
+    row = f"| {index + 1} | {cells}"
+
+    head, rest = text.split(LEDGER_START, 1)
+    body, tail = rest.split(LEDGER_END, 1)
+    body = body.replace(rows[index], row, 1) if index < len(rows) else f"{body.rstrip()}\n{row}\n"
+    LEDGER_PATH.write_text(f"{head}{LEDGER_START}{body}{LEDGER_END}{tail}", encoding="utf-8")
+    return index < len(rows)
 
 
 # ── Commands ─────────────────────────────────────────────────────────────────────────────
@@ -476,7 +529,10 @@ def cmd_eval(spec_path: Path, baseline_path: Path, skip_portfolio: bool) -> None
     if not card.folds:
         raise ValueError(f"{spec.id} produced no comparable folds; check its feature names against the cache")
 
-    n_tested = len(ledger_rows())
+    # This candidate's own row, if it already has one, is not a rival hypothesis: counting it
+    # would make a re-run charge itself a wider margin than the first run did, so the same spec
+    # could be accepted on Monday and rejected on Tuesday with nothing else changed.
+    n_tested = len(set(tested_spec_ids()) - {spec.id})
     verdict = rl.judge(card, base_card, n_tested)
 
     print(f"# Ranking lab — {spec.id}\n\nRun date: {run_timestamp()}\n\n{spec.hypothesis}")
@@ -526,12 +582,13 @@ def cmd_eval(spec_path: Path, baseline_path: Path, skip_portfolio: bool) -> None
     accepted = verdict.accepted
     reason = "all gates passed" if accepted else "; ".join(verdict.reasons)
     cagr = f"{cells[CONFIRM_KEEP_PCT]['cagr']:+.2f}" if cells else "—"
-    append_ledger(
-        f"| {len(ledger_rows()) + 1} | `{spec.id}` | {_first_sentence(spec.hypothesis)} | "
+    replaced = upsert_ledger(
+        spec.id,
+        f"`{spec.id}` | {_first_sentence(spec.hypothesis)} | "
         f"{card.mono_sortino:.3f} | {card.spearman:+.4f} | {card.spread:.3f} | {cagr} | "
-        f"**{'ACCEPT' if accepted else 'REJECT'}** | {reason} |"
+        f"**{'ACCEPT' if accepted else 'REJECT'}** | {reason} |",
     )
-    print(f"\nLedger row appended to {LEDGER_PATH}")
+    print(f"\nLedger row {'replaced in' if replaced else 'appended to'} {LEDGER_PATH}")
 
 
 def cmd_screen(feature: str) -> None:
@@ -572,7 +629,8 @@ def cmd_screen(feature: str) -> None:
             fold_rhos.append(rl.spearman(values[train], demeaned[train]) if train.sum() >= 100 else float("nan"))
         finite = [r for r in fold_rhos if np.isfinite(r)]
         folds_agree = sum(1 for r in finite if np.sign(r) == np.sign(rho_all))
-        # "All but one fold" — the same rule at any fold count, matching the spec's 4-of-5.
+        # "All but one fold" — the same rule at any fold count. `fold_windows()` returns six,
+        # so this is the spec's "5 of 6, at the current fold count".
         folds_ok = len(finite) > 0 and folds_agree >= len(finite) - 1
 
         passed = halves_agree and folds_ok
