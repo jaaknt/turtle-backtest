@@ -47,7 +47,7 @@ more signals. Re-run before quoting any of them against backtest-v4. The rationa
 | [Portfolio pacing](#portfolio-pacing) | `scripts/qullamaggie-pacing.py` | `result-qullamaggie-pacing.md` |
 | [Portfolio simulation](#portfolio-simulation) | `scripts/qullamaggie-portfolio-sim.py` | `result-qullamaggie-portfolio-v4.md`, `-2010-2015.md`, `-2016-2020.md` |
 | [Exit strategy analyze](#exit-strategy-analyze) | `scripts/qullamaggie-exit-sweep.py` | `result-qullamaggie-exit-sweep.md` |
-| [Signals: s12 with overlap & cohorts](#signals-s12-with-overlap--cohorts) | `scripts/qullamaggie-signals-v4.py` | screen |
+| [Signals: s12 with cohorts](#signals-s12-with-cohorts) | `scripts/qullamaggie-signals-v4.py` | screen |
 | [Trades: s12 open-trade performance](#trades-s12-open-trade-performance) | `scripts/qullamaggie-trades-v4.py` | `result-qullamaggie-trades-v4.md` |
 | [Maintenance: lint & tests](#maintenance-lint--tests) | — | — |
 
@@ -694,24 +694,28 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
 
 ## Live signal generation
 
-### Signals: s12 with overlap & cohorts
+### Signals: s12 with cohorts
 
-**Goal:** Provide `bk50d_s12_v2.0` signals (`MIN_RANKING >= 40`) for period 2026-06-01 : today; mark signals that are also in `bk50d_s20_v2.0` and `bk50d_s16_v2.0`.
+**Goal:** Provide `bk50d_s12_v2.0` signals (`MIN_RANKING >= 44`) for period 2026-06-01 : today.
 
 - **Output columns:**
 
   ```text
-  Date │ Symbol │ Entry $ │ Curr Price │ 0.97*Entry Price │ Change % │ %abv SMA50 │ ADR% │ ADR_CHG │ VOL_DRY │ RSI14 │ TR% │ ROC252% │ In s16? │ In s20? │ 0.97*Entry Price reached? │ Ranking │ Last date
+  Date │ Symbol │ Sector │ %abv SMA50 │ ADR% │ ADR_CHG │ VOL_DRY │ RSI14 │ TR% │ ROC252% │ Last date │ Ranking │ Entry $ │ Curr Price │ Change %
   ```
 
+  - `Ranking`, `Entry $`, `Curr Price` and `Change %` sit at the end on purpose: they are what the eye
+    lands on, so they read off the right edge rather than from between `Sector` and the indicator block.
   - `%abv SMA50`, `ADR%`, `ADR_CHG`, `VOL_DRY`, `RSI14`, `TR%`, `ROC252%` must be calculated on the **signal** date, since that is the bar every filter is evaluated on.
+  - `Sector` = `turtle.company.sector`. The signal universe excludes Communication Services and Real
+    Estate, so neither ever appears here — the current-investments table below reads the same column
+    but over whatever is actually held, so both sectors can show up there.
   - `VOL_DRY` = `mean(volume[-11:-1]) / mean(volume[-51:-1])`, both shift-1 — the old `vol_dry_up < 0.90`
     filter, **retired 2026-08-01** (see [Vol dry-up cohorts](#vol-dry-up-cohorts)). Shown for information
     only, like `TR%`; values at or above 0.90 now appear where they previously could not.
   - `Last date` = latest date when stock data is available in the `turtle.daily_bars` table.
   - `Ranking` - ranking calculated according to @turtlex/strategy/ranking/qullamaggie.py
 
-- Report also the share of signals where the 0.97*Entry price was reached: `reached/total (Reached%)` in the summary line.
 - Write also a separate table with aggregated results where `%abv SMA50` is in cohorts [12-15), [15-17.5), [17.5-20), (>20):
 
   ```text
@@ -738,7 +742,7 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
     holding period reads positive; `Last date` is the symbol's latest usable bar — the same one
     `Curr Price` comes from — and is not shown as a column of its own.
   - `Ranking` - `QullamaggieRanking` scored on the `Signal date`. Ungated like the signal it comes
-    from, so a score below the 40 the signal table gates on is printed as it stands and a buy made
+    from, so a score below the 44 the signal table gates on is printed as it stands and a buy made
     off a weak signal stays visible; `--` exactly when `Signal date` is
   - `Avg Price` - quantity-weighted average ticker price over the **buys** in
     `turtle.lightyear_transaction`. Sells reduce `Shares` but never move the cost basis, so `PL` is
@@ -761,7 +765,7 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
 - **Output:** screen
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `scripts/qullamaggie-backtest-v4.py`
 - **Note:** the script prints the full report — signal table, exclusions, both cohort tables, current investments and the benchmark comparison — to stdout. It used to also write `docs/research/result-qullamaggie-signals-v4.md`; that doc was deleted 2026-07-25 because the report is only meaningful for the day it is run.
-- **Note:** the signal table is gated at `MIN_RANKING >= 40`, but both cohort tables are computed over the *ungated* s12 signals on purpose. Gating them would leave the `[0-20)` and `[20-40)` ranking buckets permanently empty and destroy the only thing those tables measure — whether the score separates outcomes at all. The summary line reports how many signals the gate dropped so the two views reconcile.
+- **Note:** the signal table is gated at `MIN_RANKING >= 44`, but both cohort tables are computed over the *ungated* s12 signals on purpose. Gating them would leave the `[0-20)` and `[20-40)` ranking buckets permanently empty and destroy the only thing those tables measure — whether the score separates outcomes at all. The summary line reports how many signals the gate dropped so the two views reconcile.
 
 ### Trades: s12 open-trade performance
 
