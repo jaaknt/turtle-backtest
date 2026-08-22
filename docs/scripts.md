@@ -106,11 +106,34 @@ uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --trading-str
 **Options:**
 
 - `--start-date` / `--end-date` — Date range (required)
-- `--trading-strategy` — `darvas_box`, `mars`, `momentum`, `qullamaggie` (default: `darvas_box`)
-- `--ranking-strategy` — `momentum`, `volume_momentum`, `breakout_quality`, `qullamaggie` (default: `momentum`)
+- `--trading-strategy` — `darvas_box`, `mars`, `momentum`, `qullamaggie` (default: `qullamaggie`)
+- `--ranking-strategy` — `momentum`, `volume_momentum`, `breakout_quality`, `qullamaggie` (default: `qullamaggie`)
 - `--trading-param KEY=VALUE` — Override a trading-strategy constructor parameter, e.g. `--trading-param sma_thresh=0.20` (repeatable)
 - `--max-tickers` — Maximum symbols to scan (default: 10000)
 - `--verbose` — Enable detailed logging
+
+**Output:**
+
+One fixed-width row per signal, sorted by date then ticker. The column layout matches the
+signal table of `scripts/qullamaggie-signals-v4.py`, so the two read the same way — but the row
+sets differ: that script also gates at `ranking >= 44` and drops signals whose raw close moved
+more than 50% in a day, so its table is a subset of this one.
+
+```text
+Date       │ Symbol │ Sector                 │ %abv SMA50 │   ADR% │ ADR_CHG │ VOL_DRY │  RSI14 │    TR% │  ROC252% │   Last date │ Ranking │  Entry $ │ Curr Price │  Change %
+2026-06-01 │ FA.US  │ Industrials            │     +30.8% │   5.4% │    0.83 │    0.62 │   50.5 │   7.4% │    +0.2% │  2026-08-21 │      75 │    17.07 │      20.90 │    +22.4%
+```
+
+The seven indicator columns carry the value each column holds on the signal-date row (most are
+computed from prior-day data — see `QullamaggieStrategy.calculate_indicators_pl`). `Entry $` is
+that day's raw close and `Curr Price` the raw close of the last bar in the window, so `Change %`
+is mark-to-window-end, not a realised return, and it is **not** adjusted for splits or dividends
+between the two dates. `Sector` comes from `turtle.company`. Every signal is listed — unlike
+`portfolio-runner` there is no `--min-signal-ranking` gate here.
+
+Only `qullamaggie` fills these columns. `darvas_box`, `mars` and `momentum` emit a bare signal,
+so for them `Last date`, `Entry $`, `Curr Price` and `Change %` render `--` as well; only `Date`,
+`Symbol`, `Sector` and `Ranking` populate.
 
 ## backtest-runner
 
@@ -150,11 +173,11 @@ uv run backtest-runner --start-date 2024-01-15 --end-date 2024-01-15 --mode top 
 **Optional Parameters:**
 
 - `--tickers` - Space-separated list of specific ticker symbols to test
-- `--trading-strategy` - Signal generation strategy (default: darvas_box)
+- `--trading-strategy` - Signal generation strategy (default: qullamaggie)
   - `darvas_box` - Darvas Box trend-following strategy
   - `mars` - Mars momentum strategy (@marsrides)
   - `momentum` - Traditional momentum strategy
-  - `qullamaggie` - Qullamaggie-style 50-day-high breakout strategy
+  - `qullamaggie` (default) - Qullamaggie-style 50-day-high breakout strategy
 - `--exit-strategy` - Exit timing strategy (default: buy_and_hold)
   - `buy_and_hold` - Hold for a fixed number of calendar days (default 30)
   - `profit_loss` - Exit on profit target or stop loss
@@ -163,11 +186,11 @@ uv run backtest-runner --start-date 2024-01-15 --end-date 2024-01-15 --mode top 
   - `atr` - Volatility-based stop losses using ATR
   - `trailing_percentage_loss` - Trailing stop set as a fixed percentage below the running max close
 - `--exit-param KEY=VALUE` - Override an exit-strategy parameter, e.g. `--exit-param profit_target=15` (repeatable)
-- `--ranking-strategy` - Signal ranking method (default: momentum)
+- `--ranking-strategy` - Signal ranking method (default: qullamaggie)
   - `momentum` - Momentum-based ranking
   - `volume_momentum` - Volume-weighted momentum ranking
   - `breakout_quality` - Breakout event strength ranking
-  - `qullamaggie` - Cohort-derived Sortino ranking for Qullamaggie breakouts
+  - `qullamaggie` (default) - Cohort-derived Sortino ranking for Qullamaggie breakouts
 - `--trading-param KEY=VALUE` - Override a trading-strategy constructor parameter, e.g. `--trading-param sma_thresh=0.20` (repeatable)
 - `--max-tickers` - Maximum number of tickers to test (default: 10000)
 - `--mode` - Analysis mode (default: list)
@@ -210,7 +233,7 @@ The `portfolio-runner` console script provides sophisticated portfolio-level bac
 
 **Trading Strategies:**
 
-- `darvas_box` (default) - Darvas Box trend-following strategy
+- `darvas_box` - Darvas Box trend-following strategy
 - `mars` - Mars momentum strategy (@marsrides)
 - `momentum` - Traditional momentum strategy
 - `qullamaggie` - Qullamaggie-style 50-day-high breakout strategy
@@ -226,7 +249,7 @@ The `portfolio-runner` console script provides sophisticated portfolio-level bac
 
 **Ranking Strategies:**
 
-- `momentum` (default) - Momentum-based signal ranking
+- `momentum` - Momentum-based signal ranking
 - `volume_momentum` - Volume-weighted momentum ranking
 - `breakout_quality` - Breakout event strength ranking
 - `qullamaggie` - Cohort-derived Sortino ranking for Qullamaggie breakouts
@@ -266,10 +289,10 @@ uv run portfolio-runner \
 
 **Strategy Configuration:**
 
-- `--trading-strategy` - Trading strategy: darvas_box, mars, momentum, qullamaggie (default: darvas_box)
+- `--trading-strategy` - Trading strategy: darvas_box, mars, momentum, qullamaggie (default: qullamaggie)
 - `--exit-strategy` - Exit strategy: buy_and_hold, profit_loss, ema, macd, atr, trailing_percentage_loss (default: buy_and_hold)
 - `--exit-param KEY=VALUE` - Override an exit-strategy parameter, e.g. `--exit-param holding_days=365` (repeatable)
-- `--ranking-strategy` - Ranking strategy: momentum, volume_momentum, breakout_quality, qullamaggie (default: momentum)
+- `--ranking-strategy` - Ranking strategy: momentum, volume_momentum, breakout_quality, qullamaggie (default: qullamaggie)
 - `--trading-param KEY=VALUE` - Override a trading-strategy constructor parameter, e.g. `--trading-param sma_thresh=0.20` (repeatable)
 
 **Portfolio Parameters:**

@@ -4,20 +4,40 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 
+# mypy treats Signal's `date` field as shadowing the `date` type inside the class body
+# ("Variable ... is not valid as a type"), so `last_date` needs this alias to stay checkable.
+# Runtime is unaffected -- an annotation-only field binds no name.
+_Date = date
+
 
 @dataclass
 class Signal:
     """Ticker signals
 
+    Everything after `ranking` is reporting detail: signal-runner is its only consumer
+    today, and the selection and backtest paths read only `ranking`. A strategy that does
+    not fill a field leaves it empty and the CLI renders "--".
+
     Attributes:
         ticker (str): Stock symbol code
         date (date): Date when the signal was generated
         ranking (int): Ranking score of the signal (1-100)
+        entry_price (float | None): Raw (unadjusted) close on the signal date. NOT the
+            backtest's entry fill, which is the next trading day's adjusted open -- see
+            turtlex/backtest/processor.py
+        last_price (float | None): Raw close of the latest bar in the analysed window
+        last_date (date | None): Date of that latest bar
+        indicators (dict[str, float]): Strategy-specific indicator values on the signal
+            date, keyed by the strategy's own column names
     """
 
     ticker: str
     date: date
     ranking: int
+    entry_price: float | None = None
+    last_price: float | None = None
+    last_date: _Date | None = None
+    indicators: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass

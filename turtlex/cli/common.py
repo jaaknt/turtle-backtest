@@ -44,16 +44,16 @@ def build_common_analysis_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--trading-strategy",
         type=str,
-        default="darvas_box",
+        default="qullamaggie",
         choices=list(TRADING_STRATEGIES),
-        help="Trading strategy to use (default: darvas_box)",
+        help="Trading strategy to use (default: qullamaggie)",
     )
     parser.add_argument(
         "--ranking-strategy",
         type=str,
-        default="momentum",
+        default="qullamaggie",
         choices=list(RANKING_STRATEGIES),
-        help="Ranking strategy to use (default: momentum)",
+        help="Ranking strategy to use (default: qullamaggie)",
     )
     parser.add_argument(
         "--trading-param",

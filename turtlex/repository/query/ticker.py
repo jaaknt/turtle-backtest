@@ -156,3 +156,21 @@ class TickerQueryRepository:
         if limit is not None:
             codes = codes[:limit]
         return codes
+
+    def get_sectors(self) -> dict[str, str]:
+        """Return the sector of every company that has one, for reporting.
+
+        Generated SQL (PostgreSQL)::
+
+            SELECT turtle.company.ticker_code, turtle.company.sector
+            FROM turtle.company
+            WHERE turtle.company.sector IS NOT NULL
+
+        Returns:
+            dict[str, str]: Ticker code -> sector name. A ticker with no company row, or
+            with a null sector, is simply absent; callers render those as "--".
+        """
+        c = company_table
+        stmt = select(c.c.ticker_code, c.c.sector).where(c.c.sector.is_not(None))
+        with self._engine.connect() as conn:
+            return {row.ticker_code: row.sector for row in conn.execute(stmt).fetchall()}

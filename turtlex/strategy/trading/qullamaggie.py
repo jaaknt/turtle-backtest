@@ -55,6 +55,18 @@ class QullamaggieStrategy(TradingStrategy):
     # Extra calendar days of SPY history so its 200d SMA is warm for the
     # earliest ticker bar (200 trading days ~ 290 calendar days).
     MARKET_SMA_WARMUP_DAYS = 300
+    # Carried on each Signal for signal-runner to print, at their signal-date row value.
+    # All are entry filters except vol_dry_up_ratio (retired 2026-08-01) and tight_range_ratio,
+    # which are reported for inspection only. Order is the table's column order.
+    REPORTED_INDICATORS = (
+        "pct_vs_sma50",
+        "adr_pct",
+        "adr_pct_change",
+        "vol_dry_up_ratio",
+        "rsi14",
+        "tight_range_ratio",
+        "roc_252d",
+    )
 
     def __init__(
         self,
@@ -177,6 +189,9 @@ class QullamaggieStrategy(TradingStrategy):
         - adr_pct_change: 10-day / 50-day ADR ratio (contraction check)
         - pct_vs_sma50: adjusted close vs sma50, as a fraction
         - roc_252d: 12-month rate of change of the adjusted close
+        - vol_dry_up_ratio: avg_vol_10 / avg_vol_50
+        - tight_range_ratio: 10-day (max-min)/mean of the prior-day adjusted close
+          -- both are reported by signal-runner and filtered on by nothing
         - max_close_20, ema_10/20/50/200, ema_volume_10, macd, macd_signal:
           raw-close indicators required by the ranking strategies (same
           definitions as MomentumStrategy)
@@ -227,13 +242,21 @@ class QullamaggieStrategy(TradingStrategy):
             pl.col("_rp1").rolling_mean(10, min_samples=10).alias("_adr10"),
             pl.col("_rp1").rolling_mean(50, min_samples=50).alias("_adr50"),
             pl.col("_c1").shift(251).alias("_c_252d"),
+            pl.col("_c1").rolling_max(10, min_samples=10).alias("_tr_max"),
+            pl.col("_c1").rolling_min(10, min_samples=10).alias("_tr_min"),
+            pl.col("_c1").rolling_mean(10, min_samples=10).alias("_tr_mean"),
         )
         df = df.with_columns(
             ((pl.col("adj_close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
             (pl.col("_adr10") / pl.col("_adr50")).alias("adr_pct_change"),
             (pl.col("adj_close") / pl.col("_c_252d") - 1.0).alias("roc_252d"),
+            (pl.col("avg_vol_10") / pl.col("avg_vol_50")).alias("vol_dry_up_ratio"),
+            ((pl.col("_tr_max") - pl.col("_tr_min")) / pl.col("_tr_mean")).alias("tight_range_ratio"),
         )
-        self.pl_df = df.drop(["_c1", "_v1", "_rp1", "_diff", "_gain", "_loss", "_avg_gain", "_avg_loss", "_adr10", "_adr50", "_c_252d"])
+        self.pl_df = df.drop(
+            ["_c1", "_v1", "_rp1", "_diff", "_gain", "_loss", "_avg_gain", "_avg_loss", "_adr10", "_adr50", "_c_252d"]
+            + ["_tr_max", "_tr_min", "_tr_mean"]
+        )
 
     def _get_polars_signals(self, ticker: str, start_date: date) -> list[Signal]:
         self.calculate_indicators_pl()
@@ -269,4 +292,18 @@ class QullamaggieStrategy(TradingStrategy):
             last_trigger = d
             if d >= start_date:
                 signal_dates.append(d)
-        return [Signal(ticker=ticker, date=d, ranking=self.ranking_strategy.ranking(self.pl_df, date=d)) for d in signal_dates]
+        # `close` is the raw close throughout, so entry/last price are the tradeable ones.
+        rows_by_date = {row["date"]: row for row in candidates.iter_rows(named=True)}
+        last_bar = self.pl_df.sort("date").row(-1, named=True)
+        return [
+            Signal(
+                ticker=ticker,
+                date=d,
+                ranking=self.ranking_strategy.ranking(self.pl_df, date=d),
+                entry_price=float(rows_by_date[d]["close"]),
+                last_price=float(last_bar["close"]),
+                last_date=last_bar["date"],
+                indicators={name: float(rows_by_date[d][name]) for name in self.REPORTED_INDICATORS if rows_by_date[d][name] is not None},
+            )
+            for d in signal_dates
+        ]
