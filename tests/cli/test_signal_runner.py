@@ -19,18 +19,16 @@ def _signal(
     ticker: str,
     day: date,
     ranking: int,
-    entry_price: float | None = None,
-    last_price: float | None = None,
-    last_date: date | None = None,
     indicators: dict[str, float] | None = None,
+    signal_close: float | None = None,
+    next_open: float | None = None,
 ) -> Signal:
     return Signal(
         ticker=ticker,
         date=day,
         ranking=ranking,
-        entry_price=entry_price,
-        last_price=last_price,
-        last_date=last_date,
+        signal_close=signal_close,
+        next_open=next_open,
         indicators=indicators or {},
     )
 
@@ -45,6 +43,7 @@ class TestArgumentParser:
         assert args.trading_strategy == "qullamaggie"
         assert args.ranking_strategy == "qullamaggie"
         assert args.max_tickers == 10000
+        assert args.min_signal_ranking == 0  # no gate unless asked for
 
     def test_invalid_trading_strategy_rejected(self) -> None:
         with pytest.raises(SystemExit):
@@ -71,8 +70,41 @@ class TestHandlers:
         # the sector map really reaches the row, rather than the call being optimised away
         assert rows[0].split("│")[2].strip() == "Information Technology"
 
+    def test_min_signal_ranking_drops_low_scores(self, capsys: pytest.CaptureFixture[str]) -> None:
+        service = Mock()
+        service.scan.return_value = [
+            _signal("LOW.US", START, 34),
+            _signal("HIGH.US", START, 44),  # the gate is >=, so an exact match is kept
+        ]
+        service.ticker_repo.get_sectors.return_value = {}
+        args = create_argument_parser().parse_args([*DATE_ARGS, "--min-signal-ranking", "44"])
+
+        assert run_list(service, args) == 0
+
+        rows = capsys.readouterr().out.strip().splitlines()[2:]
+        assert [row.split("│")[1].strip() for row in rows] == ["HIGH.US"]
+
+    def test_min_signal_ranking_zero_keeps_every_signal(self, capsys: pytest.CaptureFixture[str]) -> None:
+        service = Mock()
+        service.scan.return_value = [_signal("LOW.US", START, 1), _signal("HIGH.US", START, 100)]
+        service.ticker_repo.get_sectors.return_value = {}
+        args = create_argument_parser().parse_args(DATE_ARGS)
+
+        assert run_list(service, args) == 0
+
+        rows = capsys.readouterr().out.strip().splitlines()[2:]
+        assert [row.split("│")[1].strip() for row in rows] == ["HIGH.US", "LOW.US"]
+
 
 class TestFormatSignalTable:
+    def test_next_open_blank_when_no_later_bar(self) -> None:
+        """A signal on the newest bar has no next open yet; the rest of the row still renders."""
+        signal = _signal("AAPL.US", START, 80, signal_close=199.93, next_open=None)
+        cells = [c.strip() for c in format_signal_table([signal], {}).splitlines()[2].split("│")]
+
+        assert cells[-2] == "199.93"
+        assert cells[-1] == "--"
+
     def test_no_signals(self) -> None:
         assert format_signal_table([], {}) == "No signals in the requested period."
 
@@ -85,9 +117,6 @@ class TestFormatSignalTable:
             "AAPL.US",
             START,
             80,
-            entry_price=100.0,
-            last_price=125.0,
-            last_date=END,
             indicators={
                 "pct_vs_sma50": 0.301,
                 "adr_pct": 0.054,
@@ -97,6 +126,8 @@ class TestFormatSignalTable:
                 "tight_range_ratio": 0.074,
                 "roc_252d": 0.002,
             },
+            signal_close=199.93,
+            next_open=201.50,
         )
         table = format_signal_table([signal], {"AAPL.US": "Information Technology"}).splitlines()
         cells = [c.strip() for c in table[2].split("│")]
@@ -113,23 +144,20 @@ class TestFormatSignalTable:
             "50.5",  # rsi14, unscaled
             "7.4%",  # tight_range_ratio, scaled
             "+0.2%",  # roc_252d, scaled
-            "2024-06-07",
             "80",
-            "100.00",
-            "125.00",
-            "+25.0%",  # derived from entry/last price
+            "199.93",
+            "201.50",
         ]
         assert len(table[2]) == len(table[0])  # row and header stay aligned
 
-    def test_missing_prices_render_as_dashes(self) -> None:
+    def test_missing_indicators_render_as_dashes(self) -> None:
         row = format_signal_table([_signal("AAPL.US", START, 80)], {}).splitlines()[2]
 
         cells = [c.strip() for c in row.split("│")]
         assert cells[2] == "--"  # sector
         assert cells[3:10] == ["--"] * 7  # every indicator column
-        assert cells[-5] == "--"  # Last date
-        assert cells[-4] == "80"  # Ranking is the one column every strategy fills
-        assert cells[-3:] == ["--", "--", "--"]  # Entry $, Curr Price, Change %
+        assert cells[10] == "80"  # Ranking is the one column every strategy fills
+        assert cells[-2:] == ["--", "--"]  # Signal $ and Next Open $
 
 
 class TestMain:

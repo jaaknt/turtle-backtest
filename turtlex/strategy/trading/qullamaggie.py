@@ -292,17 +292,20 @@ class QullamaggieStrategy(TradingStrategy):
             last_trigger = d
             if d >= start_date:
                 signal_dates.append(d)
-        # `close` is the raw close throughout, so entry/last price are the tradeable ones.
         rows_by_date = {row["date"]: row for row in candidates.iter_rows(named=True)}
-        last_bar = self.pl_df.sort("date").row(-1, named=True)
+        # `close`/`open` are the raw columns throughout, so both reported prices are the ones a
+        # broker screen shows. A signal on the final loaded bar has no next open yet -- and the
+        # window ends at end_date, so a historical --end-date leaves that last day empty too.
+        ordered = self.pl_df.sort("date")
+        dates, opens = ordered["date"].to_list(), ordered["open"].to_list()
+        next_open_by_date = {d: float(opens[i + 1]) for i, d in enumerate(dates[:-1])}
         return [
             Signal(
                 ticker=ticker,
                 date=d,
                 ranking=self.ranking_strategy.ranking(self.pl_df, date=d),
-                entry_price=float(rows_by_date[d]["close"]),
-                last_price=float(last_bar["close"]),
-                last_date=last_bar["date"],
+                signal_close=float(rows_by_date[d]["close"]),
+                next_open=next_open_by_date.get(d),
                 indicators={name: float(rows_by_date[d][name]) for name in self.REPORTED_INDICATORS if rows_by_date[d][name] is not None},
             )
             for d in signal_dates

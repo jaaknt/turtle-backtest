@@ -101,6 +101,9 @@ uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --max-tickers
 
 # Use a different strategy
 uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --trading-strategy mars
+
+# Show only signals clearing the reference algorithm's ranking gate
+uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --min-signal-ranking 44
 ```
 
 **Options:**
@@ -109,31 +112,38 @@ uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --trading-str
 - `--trading-strategy` — `darvas_box`, `mars`, `momentum`, `qullamaggie` (default: `qullamaggie`)
 - `--ranking-strategy` — `momentum`, `volume_momentum`, `breakout_quality`, `qullamaggie` (default: `qullamaggie`)
 - `--trading-param KEY=VALUE` — Override a trading-strategy constructor parameter, e.g. `--trading-param sma_thresh=0.20` (repeatable)
+- `--min-signal-ranking` — Drop signals scoring below this ranking (default: 0, keep all). Pass `44` to match the reference algorithm and `portfolio-runner`'s own default; the count kept is logged at INFO
 - `--max-tickers` — Maximum symbols to scan (default: 10000)
 - `--verbose` — Enable detailed logging
 
 **Output:**
 
-One fixed-width row per signal, sorted by date then ticker. The column layout matches the
-signal table of `scripts/qullamaggie-signals-v4.py`, so the two read the same way — but the row
-sets differ: that script also gates at `ranking >= 44` and drops signals whose raw close moved
-more than 50% in a day, so its table is a subset of this one.
+One fixed-width row per signal, sorted by date then ticker: identity, the signal-date
+indicators, then ranking and the two prices.
 
 ```text
-Date       │ Symbol │ Sector                 │ %abv SMA50 │   ADR% │ ADR_CHG │ VOL_DRY │  RSI14 │    TR% │  ROC252% │   Last date │ Ranking │  Entry $ │ Curr Price │  Change %
-2026-06-01 │ FA.US  │ Industrials            │     +30.8% │   5.4% │    0.83 │    0.62 │   50.5 │   7.4% │    +0.2% │  2026-08-21 │      75 │    17.07 │      20.90 │    +22.4%
+Date       │ Symbol │ Sector                 │ %abv SMA50 │   ADR% │ ADR_CHG │ VOL_DRY │  RSI14 │    TR% │  ROC252% │ Ranking │  Signal $ │ Next Open $
+2026-06-01 │ FA.US  │ Industrials            │     +30.8% │   5.4% │    0.83 │    0.62 │   50.5 │   7.4% │    +0.2% │      75 │     17.07 │       17.15
 ```
 
 The seven indicator columns carry the value each column holds on the signal-date row (most are
-computed from prior-day data — see `QullamaggieStrategy.calculate_indicators_pl`). `Entry $` is
-that day's raw close and `Curr Price` the raw close of the last bar in the window, so `Change %`
-is mark-to-window-end, not a realised return, and it is **not** adjusted for splits or dividends
-between the two dates. `Sector` comes from `turtle.company`. Every signal is listed — unlike
-`portfolio-runner` there is no `--min-signal-ranking` gate here.
+computed from prior-day data — see `QullamaggieStrategy.calculate_indicators_pl`) and share their
+layout with the signal table of `scripts/qullamaggie-signals-v4.py`; that script gates at
+`ranking >= 44`, so its rows are a subset of these. `Sector` comes from `turtle.company`. Every
+signal is listed unless `--min-signal-ranking` is passed, which defaults to 0 here rather than to
+`portfolio-runner`'s 44.
 
-Only `qullamaggie` fills these columns. `darvas_box`, `mars` and `momentum` emit a bare signal,
-so for them `Last date`, `Entry $`, `Curr Price` and `Change %` render `--` as well; only `Date`,
-`Symbol`, `Sector` and `Ranking` populate.
+`Signal $` is the signal date's **raw** close — the bar every filter was evaluated on, already
+closed by the time the signal appears. `Next Open $` is the following bar's raw open, the first
+price the signal could actually be acted on, and is blank when no later bar has been loaded: for
+the newest signals that means the market has not opened again yet, but note the window ends at
+`--end-date`, so a historical end date leaves its final day blank too. The backtest fills at this
+same open scaled by that bar's `adjusted_close / close`, so the two agree only while no split or
+dividend has intervened.
+
+Only `qullamaggie` fills these columns. `darvas_box`, `mars` and `momentum` emit a bare signal, so
+for them the indicators and both prices render `--` and only `Date`, `Symbol`, `Sector` and
+`Ranking` populate.
 
 ## backtest-runner
 
