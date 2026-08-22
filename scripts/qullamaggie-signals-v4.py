@@ -12,10 +12,6 @@ at least 20).
 Sector is turtle.company.sector; the signal universe excludes Communication Services and Real
 Estate, so neither ever appears there — the current-investments table reads the same column but
 over whatever is actually held, so both sectors can show up in it.
-0.97*Entry is the 3%-below-entry-close resting-limit level from the portfolio study;
-"Reached?" marks whether any daily low touched that level within LIMIT_WINDOW_CAL calendar
-days after the signal (fill eligible from the day after the signal, adjusted-price space —
-same convention as scripts/qullamaggie-portfolio-sim.py's run_sim_limit).
 
 Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
 ADR_change<90%, roc_12m<100%, vol_surge<2.0x, SPY>200d SMA,
@@ -89,8 +85,6 @@ COMPARE_LABEL = "bk50d_s20_v2.0"
 COMPARE_SMA_T = 0.20
 COMPARE16_LABEL = "bk50d_s16_v2.0"
 COMPARE16_SMA_T = 0.16
-LIMIT_DISCOUNT = 0.03  # 0.97*Entry column: resting-limit level 3% below the entry-day close
-LIMIT_WINDOW_CAL = 30  # "Reached?" checks lows for this many calendar days after the signal
 SIGNAL_LOOKBACK_CAL = 50  # holdings table: how far back before a buy its matching signal may sit
 
 COHORTS = [
@@ -544,31 +538,14 @@ def main() -> None:
     latest_raw_close: dict[str, float] = {}
     sym_dates: dict[str, list[date]] = {}
     sym_raw_closes: dict[str, list[float]] = {}
-    sym_adj_closes: dict[str, list[float]] = {}
-    sym_adj_lows: dict[str, list[float]] = {}
     for (sym,), grp in df.sort(["symbol", "date"]).group_by(["symbol"], maintain_order=False):
         g = grp.sort("date")
         d_list = g["date"].to_list()
         c_list = [float(c) for c in g["raw_close"].to_list()]
         sym_dates[sym] = d_list
         sym_raw_closes[sym] = c_list
-        sym_adj_closes[sym] = [float(c) for c in g["close"].to_list()]
-        sym_adj_lows[sym] = [float(v) for v in g["low"].to_list()]
         latest_date[sym] = d_list[-1]
         latest_raw_close[sym] = c_list[-1]
-
-    def limit_reached(sym: str, idx_entry: int, entry_date: date) -> bool:
-        """True if any adjusted low within LIMIT_WINDOW_CAL calendar days after the signal
-        (starting the day after) touched adjusted_entry_close * (1 - LIMIT_DISCOUNT)."""
-        limit_adj = sym_adj_closes[sym][idx_entry] * (1.0 - LIMIT_DISCOUNT)
-        dates = sym_dates[sym]
-        lows = sym_adj_lows[sym]
-        for i in range(idx_entry + 1, len(dates)):
-            if (dates[i] - entry_date).days > LIMIT_WINDOW_CAL:
-                break
-            if lows[i] <= limit_adj:
-                return True
-        return False
 
     ranker = QullamaggieRanking()
 
@@ -596,16 +573,15 @@ def main() -> None:
     compare16_keys = {(r["symbol"], r["date"]) for r in compare16_sig.iter_rows(named=True)}
 
     hdr = (
-        f"{'Date':<11}│ {'Symbol':<7}│ {'Sector':<23}│ {'Entry $':>8} │ {'Curr Price':>10} │ {'0.97*Entry':>10} │ "
-        f"{'Change %':>9} │ {'%abv SMA50':>10} │ {'ADR%':>6} │ {'ADR_CHG':>7} │ {'VOL_DRY':>7} │ {'RSI14':>6} │ "
-        f"{'TR%':>6} │ {'ROC252%':>8} │ {'Reached?':>8} │ {'Ranking':>7} │ {'Last date':>11}"
+        f"{'Date':<11}│ {'Symbol':<7}│ {'Sector':<23}│ {'%abv SMA50':>10} │ {'ADR%':>6} │ {'ADR_CHG':>7} │ "
+        f"{'VOL_DRY':>7} │ {'RSI14':>6} │ {'TR%':>6} │ {'ROC252%':>8} │ {'Last date':>11} │ "
+        f"{'Ranking':>7} │ {'Entry $':>8} │ {'Curr Price':>10} │ {'Change %':>9}"
     )
     sep = "─" * len(hdr)
 
     lines: list[str] = [hdr, sep]
     excluded_rows: list[dict] = []
     also_in_compare = 0
-    reached_count = 0
     cohort_returns: dict[str, list[float]] = {label: [] for _, _, label in COHORTS}
     cohort_mdds: dict[str, list[float]] = {label: [] for _, _, label in COHORTS}
     ranking_returns: dict[str, list[float]] = {label: [] for _, _, label in RANKING_COHORTS}
@@ -636,32 +612,26 @@ def main() -> None:
         if ranking < MIN_RANKING:
             n_below_gate += 1
             continue
-        limit_px = entry * (1.0 - LIMIT_DISCOUNT)
         in_compare = (sym, d) in compare_keys
         in_compare16 = (sym, d) in compare16_keys
-        reached = limit_reached(sym, idx_entry, d)
-        mark_reached = "✓" if reached else " "
         ld = latest_date.get(sym)
         lines.append(
-            f"{str(d):<11}│ {sym:<7}│ {sectors.get(sym) or '--':<23}│ {entry:>8.2f} │ {curr:>10.2f} │ {limit_px:>10.2f} │ "
-            f"{chg:>+8.1f}% │ {sma_pct:>+9.1f}% │ {row['adr_pct'] * 100:>5.1f}% │ {row['adr_pct_change']:>7.2f} │ "
+            f"{str(d):<11}│ {sym:<7}│ {sectors.get(sym) or '--':<23}│ {sma_pct:>+9.1f}% │ "
+            f"{row['adr_pct'] * 100:>5.1f}% │ {row['adr_pct_change']:>7.2f} │ "
             f"{row['vol_dry_up_ratio']:>7.2f} │ {row['rsi14']:>6.1f} │ {row['tight_range_ratio'] * 100:>5.1f}% │ "
-            f"{row['roc_252d'] * 100:>+7.1f}% │ {mark_reached:>8} │ {ranking:>7} │ {str(ld):>11}"
+            f"{row['roc_252d'] * 100:>+7.1f}% │ {str(ld):>11} │ "
+            f"{ranking:>7} │ {entry:>8.2f} │ {curr:>10.2f} │ {chg:>+8.1f}%"
         )
         shown += 1
         if in_compare:
             also_in_compare += 1
         if in_compare16:
             also_in_16 += 1
-        if reached:
-            reached_count += 1
 
     lines.append(sep)
-    reached_pct = reached_count / shown * 100 if shown else 0.0
     summary = (
         f"{BASE_LABEL} signals at ranking >= {MIN_RANKING}: {shown}  |  Also in {COMPARE16_LABEL}: {also_in_16}  |  "
-        f"Also in {COMPARE_LABEL}: {also_in_compare}  |  "
-        f"0.97*Entry reached: {reached_count}/{shown} ({reached_pct:.1f}%)"
+        f"Also in {COMPARE_LABEL}: {also_in_compare}"
     )
     summary += f"  |  Dropped below gate: {n_below_gate}"
     if excluded_rows:
