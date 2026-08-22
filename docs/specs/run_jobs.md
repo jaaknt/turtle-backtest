@@ -352,8 +352,8 @@ jsonb serialization edge cases:
 
 ```bash
 uv run snapshot-company                                             # success, exit 0
-# date + list[tuple] params. --trading-strategy qullamaggie is required: sma_thresh belongs to
-# qullamaggie, and the default darvas_box rejects it with "not an overridable parameter".
+# date + list[tuple] params. sma_thresh belongs to qullamaggie, which is now the default
+# --trading-strategy; the flag is left explicit so the example still holds if that default moves.
 uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 \
     --trading-strategy qullamaggie --trading-param sma_thresh=0.20
 uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 \

@@ -84,3 +84,17 @@ def test_ticker_query_get_group_ticker_codes_does_not_join_ticker_table() -> Non
     sql = str(engine.connect.return_value.execute.call_args.args[0])
     assert "turtle.ticker_group" in sql
     assert "JOIN" not in sql.upper()
+
+
+def test_ticker_query_get_sectors_maps_code_to_sector() -> None:
+    rows = [
+        MagicMock(ticker_code="AAPL.US", sector="Information Technology"),
+        MagicMock(ticker_code="JNJ.US", sector="Health Care"),
+    ]
+    repo = TickerQueryRepository(_make_engine_mock(rows))
+    assert repo.get_sectors() == {"AAPL.US": "Information Technology", "JNJ.US": "Health Care"}
+
+
+def test_ticker_query_get_sectors_empty() -> None:
+    repo = TickerQueryRepository(_make_engine_mock([]))
+    assert repo.get_sectors() == {}

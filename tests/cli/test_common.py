@@ -19,8 +19,8 @@ from turtlex.service.job_run_service import JobRunRecorder
 class TestBuildCommonAnalysisParser:
     def test_defaults(self) -> None:
         args = build_common_analysis_parser().parse_args(["--start-date", "2024-06-03", "--end-date", "2024-06-07"])
-        assert args.trading_strategy == "darvas_box"
-        assert args.ranking_strategy == "momentum"
+        assert args.trading_strategy == "qullamaggie"
+        assert args.ranking_strategy == "qullamaggie"
         assert args.trading_param == []
         assert args.verbose is False
 

@@ -18,8 +18,8 @@ class TestArgumentParser:
 
     def test_defaults(self) -> None:
         args = create_argument_parser().parse_args(DATE_ARGS)
-        assert args.trading_strategy == "darvas_box"
-        assert args.ranking_strategy == "momentum"
+        assert args.trading_strategy == "qullamaggie"
+        assert args.ranking_strategy == "qullamaggie"
         assert args.exit_strategy == "buy_and_hold"
         assert args.initial_capital == 30000.0
         assert args.position_size_pct == 0.04

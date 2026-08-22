@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import polars as pl
+import pytest
 
 from turtlex.strategy.trading.qullamaggie import QullamaggieStrategy
 
@@ -18,6 +19,7 @@ def _build_ohlcv(
     early_close_scale: float = 1.0,
     last_volume: float | None = None,
     pre_breakout_closes: list[float] | None = None,
+    raw_scale: float = 1.0,
 ) -> pl.DataFrame:
     """Build n daily bars that satisfy every filter except the breakout itself.
 
@@ -33,6 +35,9 @@ def _build_ohlcv(
         pre_breakout_closes: Optional 15 closes for indices n-16..n-2 — exactly the
             values whose 14 diffs form the shift-1 RSI(14) window of the final bar,
             letting a test pin the breakout day's RSI
+        raw_scale: Scale applied to the raw OHLC series while adjusted_close keeps the
+            unscaled basis, as an old split would leave them. Every indicator is unchanged
+            (they divide the scale back out), so only columns reading the raw close move.
     """
     closes = np.array([100.0 + (i % 2) for i in range(n)])
     if early_close_scale != 1.0:
@@ -48,13 +53,14 @@ def _build_ohlcv(
         volumes[-1] = last_volume
 
     start = date(2020, 1, 2)
+    raw = closes * raw_scale
     return pl.DataFrame(
         {
             "date": [start + timedelta(days=i) for i in range(n)],
-            "open": closes,
-            "high": closes * (1.0 + ranges),
-            "low": closes,
-            "close": closes,
+            "open": raw,
+            "high": raw * (1.0 + ranges),
+            "low": raw,
+            "close": raw,
             "adjusted_close": closes,
             "volume": volumes,
         }
@@ -224,3 +230,43 @@ def test_describe_parameters_reports_effective_sma_thresh() -> None:
     assert params["rsi_cap"] == QullamaggieStrategy.RSI_CAP
     assert params["market_ticker"] == QullamaggieStrategy.MARKET_TICKER
     assert params["min_bars"] == strategy.min_bars  # inherited from the base strategy
+
+
+def test_signal_carries_raw_prices_and_last_bar() -> None:
+    """Entry $/Curr Price must be the RAW close, and Curr Price the last bar, not the signal bar.
+
+    raw_scale=2 puts the raw and adjusted series on different bases, so reading adj_close
+    instead of close fails here; the breakout sits five bars from the end, so reading the
+    signal row instead of the last bar fails too.
+    """
+    breakout_idx = N - 5
+    ohlcv = _build_ohlcv(breakouts={breakout_idx: 120.0}, raw_scale=2.0)
+    signal_date, last_date = ohlcv["date"][breakout_idx], ohlcv["date"][-1]
+    strategy = _make_strategy(ohlcv, _build_spy(last_date))
+
+    signals = strategy.get_signals("TEST.US", signal_date, last_date)
+
+    assert len(signals) == 1
+    signal = signals[0]
+    assert signal.date == signal_date
+    assert signal.entry_price == 240.0  # raw close on the signal bar: 120.0 * raw_scale
+    assert signal.last_price == ohlcv["close"][-1]  # raw close of the FINAL bar
+    assert signal.last_price != signal.entry_price
+    assert signal.last_date == last_date
+
+
+def test_signal_carries_every_reported_indicator() -> None:
+    ohlcv = _build_ohlcv(breakouts={N - 1: 120.0})
+    last_date = ohlcv["date"][-1]
+    strategy = _make_strategy(ohlcv, _build_spy(last_date))
+
+    signal = strategy.get_signals("TEST.US", last_date, last_date)[0]
+
+    assert set(signal.indicators) == set(QullamaggieStrategy.REPORTED_INDICATORS)
+    # Both values are hand-derivable from the fixture, so a changed window or a dropped
+    # shift-1 moves them. avg_vol_10 = 600K (all inside QUIET); avg_vol_50 spans 29 quiet
+    # bars and 21 loud ones = 768K; 600/768 = 0.78125. Note QUIET=30 covers the 20-bar
+    # window too, so this fixture cannot distinguish avg_vol_10 from avg_vol_20.
+    assert signal.indicators["vol_dry_up_ratio"] == pytest.approx(600_000 / 768_000)
+    # closes alternate 100/101 over the 10 prior bars: (101 - 100) / 100.5
+    assert signal.indicators["tight_range_ratio"] == pytest.approx(1.0 / 100.5)

@@ -12,13 +12,13 @@ Options:
     --start-date YYYY-MM-DD  Start date for analysis (required for count mode)
     --end-date YYYY-MM-DD    End date for analysis (required for count mode)
     --tickers TICKER         Comma-separated list of specific tickers to test
-    --trading-strategy STRATEGY      Trading strategy: darvas_box, mars, momentum, qullamaggie (default: darvas_box)
+    --trading-strategy STRATEGY      Trading strategy: darvas_box, mars, momentum, qullamaggie (default: qullamaggie)
     --exit-strategy STRATEGY         Exit strategy: buy_and_hold, profit_loss, ema, macd, atr,
                                      trailing_percentage_loss (default: buy_and_hold)
     --exit-param KEY=VALUE    Override an exit-strategy parameter, e.g. --exit-param
                               profit_target=15 (repeatable)
     --max-holding-days NUM    Maximum calendar days a position may stay open (default: 60)
-    --ranking-strategy STRATEGY      Ranking strategy: momentum, volume_momentum, breakout_quality, qullamaggie (default: momentum)
+    --ranking-strategy STRATEGY      Ranking strategy: momentum, volume_momentum, breakout_quality, qullamaggie (default: qullamaggie)
     --trading-param KEY=VALUE Override a trading-strategy constructor parameter, e.g.
                               --trading-param sma_thresh=0.20 (repeatable)
     --max-tickers NUM        Maximum number of tickers to test (default: 10000)
