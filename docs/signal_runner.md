@@ -69,7 +69,7 @@ sequenceDiagram
             T->>T: calculate indicators, apply entry filters
             T->>R: ranking(df, date) per signal day
             R-->>T: ranking 1-100
-            T-->>S: [Signal(ticker, date, ranking, + report fields)]
+            T-->>S: [Signal(ticker, date, ranking, prices, indicators)]
         end
     end
     S-->>H: all signals
@@ -83,7 +83,7 @@ Notes on the flow:
 - **Warmup** — each strategy fetches `warmup_period` days of history before `start_date` (e.g. 730 days for qullamaggie) so indicators like SMA200 or 252-day ROC are warm on day one. Tickers with fewer than `min_bars` rows are silently skipped (logged at DEBUG).
 - **Universe ownership** — the strategy, not the CLI, decides its universe. The default (`TradingStrategy.get_universe`) reads the `active` symbol group; `QullamaggieStrategy` overrides it with a fundamentals query (`get_qullamaggie_qualified_symbols`: US common stocks, market cap ≥ 1.5B, sector exclusions).
 - **Ranking** — every emitted `Signal` carries a 0-100 ranking computed by the injected `RankingStrategy`.
-- **Report fields** — `QullamaggieStrategy` additionally fills each `Signal` with the signal-date indicator values, the signal-date raw close, and the last bar of the window, which is what `run_list` renders as columns. The other strategies leave those empty and their cells render `--`.
+- **Report fields** — `QullamaggieStrategy` additionally fills each `Signal` with its signal-date indicator values, the signal date's raw close and the next bar's raw open, which `run_list` renders as columns. The other strategies leave those empty and their cells render `--`.
 - **`--max-tickers`** — caps how many universe tickers `get_universe` returns (default 10000); harmless if the strategy's universe is smaller.
 
 ## Where things live

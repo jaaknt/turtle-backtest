@@ -15,6 +15,7 @@ Options:
     --ranking-strategy STRATEGY  momentum, volume_momentum, breakout_quality, qullamaggie (default: qullamaggie)
     --trading-param KEY=VALUE    Override a trading-strategy parameter, e.g. --trading-param
                                  sma_thresh=0.20 (repeatable)
+    --min-signal-ranking NUM     Drop signals scoring below this ranking (default: 0, keep all)
     --max-tickers NUM            Maximum number of universe tickers to scan (default: 10000)
     --verbose                    Enable verbose logging
 
@@ -63,11 +64,13 @@ def _cell(value: float | None, width: int, scale: float, spec: str, suffix: str)
 def format_signal_table(signals: list[Signal], sectors: Mapping[str, str]) -> str:
     """Render signals as a fixed-width table, one row per signal.
 
-    The column layout matches the signal table of scripts/qullamaggie-signals-v4.py, so the
-    two read the same way: identity and the signal-date indicators first, then ranking and the
-    prices at the right edge. The *rows* are not the same set -- that script additionally gates
-    at ranking >= 44 and drops signals whose raw close moved more than 50% in a day, so its
-    table is a subset of this one.
+    Identity, then the signal-date indicators, then ranking and the two prices. The indicator
+    columns share their layout with the signal table of scripts/qullamaggie-signals-v4.py; that
+    script gates at ranking >= 44, so its rows are a subset of these.
+
+    Signal $ is the signal date's raw close -- the bar every filter was evaluated on, which is
+    already closed when the signal appears. Next Open $ is the following bar's raw open, the
+    first price the signal could be acted on, and is blank until that bar exists.
 
     Args:
         signals: Signals to render, already in the order they should appear
@@ -81,20 +84,15 @@ def format_signal_table(signals: list[Signal], sectors: Mapping[str, str]) -> st
     hdr = f"{'Date':<11}│ {'Symbol':<7}│ {'Sector':<23}│ " + " │ ".join(
         f"{name:>{width}}" for name, _, width, _, _, _ in _INDICATOR_COLUMNS
     )
-    hdr += f" │ {'Last date':>11} │ {'Ranking':>7} │ {'Entry $':>8} │ {'Curr Price':>10} │ {'Change %':>9}"
+    hdr += f" │ {'Ranking':>7} │ {'Signal $':>9} │ {'Next Open $':>11}"
     lines = [hdr, "─" * len(hdr)]
     for s in signals:
         cells = " │ ".join(
             _cell(s.indicators.get(key), width, scale, spec, suffix) for _, key, width, scale, spec, suffix in _INDICATOR_COLUMNS
         )
-        # `is not None` throughout, matching _cell: a 0.0 entry price is a data fault, not a
-        # missing value, and should raise here rather than render as an indistinguishable "--".
-        change = (s.last_price / s.entry_price - 1.0) * 100.0 if s.entry_price is not None and s.last_price is not None else None
         lines.append(
-            f"{str(s.date):<11}│ {s.ticker:<7}│ {sectors.get(s.ticker) or '--':<23}│ {cells} │ "
-            f"{str(s.last_date) if s.last_date else '--':>11} │ {s.ranking:>7} │ "
-            f"{_cell(s.entry_price, 8, 1.0, '>8.2f', '')} │ {_cell(s.last_price, 10, 1.0, '>10.2f', '')} │ "
-            f"{_cell(change, 9, 1.0, '>+8.1f', '%')}"
+            f"{str(s.date):<11}│ {s.ticker:<7}│ {sectors.get(s.ticker) or '--':<23}│ {cells} │ {s.ranking:>7} │ "
+            f"{_cell(s.signal_close, 9, 1.0, '>9.2f', '')} │ {_cell(s.next_open, 11, 1.0, '>11.2f', '')}"
         )
     return "\n".join(lines)
 
@@ -105,12 +103,16 @@ def run_list(service: SignalService, args: argparse.Namespace) -> int:
     Args:
         service: Signal service used to scan the universe; its ticker repository also
             supplies turtle.company.sector for the Sector column
-        args: Parsed CLI arguments (start/end date, max_tickers)
+        args: Parsed CLI arguments (start/end date, max_tickers, min_signal_ranking)
 
     Returns:
         int: Process exit code, always 0 -- a failed scan raises rather than returning
     """
     signals = service.scan(args.start_date, args.end_date, max_tickers=args.max_tickers)
+    if args.min_signal_ranking > 0:
+        kept = [s for s in signals if s.ranking >= args.min_signal_ranking]
+        logger.info(f"Ranking gate >= {args.min_signal_ranking}: kept {len(kept)} of {len(signals)} signals")
+        signals = kept
     print(format_signal_table(sorted(signals, key=lambda s: (s.date, s.ticker)), service.ticker_repo.get_sectors()))
     return 0
 
@@ -122,6 +124,13 @@ def create_argument_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
         parents=[build_common_analysis_parser()],
+    )
+    parser.add_argument(
+        "--min-signal-ranking",
+        type=int,
+        default=0,
+        help="Drop signals scoring below this ranking; 0 keeps every signal (default: 0). "
+        "The reference algorithm gates at 44, matching portfolio-runner's own default",
     )
     parser.add_argument("--max-tickers", type=int, default=10000, help="Maximum number of universe tickers to scan")
 
