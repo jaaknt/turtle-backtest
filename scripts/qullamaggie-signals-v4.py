@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Current-period signal report for bk50d_s12_v2.0, with the overlap against the stricter
-bk50d_s16_v2.0 and bk50d_s20_v2.0 variants reported as counts in the summary line.
+Current-period signal report for bk50d_s12_v2.0.
 
 The reported signal list is gated at QullamaggieRanking >= MIN_RANKING, matching the
 portfolio-runner --min-signal-ranking default. Both cohort tables are deliberately computed
@@ -81,10 +80,6 @@ MIN_RANKING = 44  # QullamaggieRanking gate on the reported list (portfolio-runn
 
 BASE_LABEL = "bk50d_s12_v2.0"
 BASE_SMA_T = 0.12
-COMPARE_LABEL = "bk50d_s20_v2.0"
-COMPARE_SMA_T = 0.20
-COMPARE16_LABEL = "bk50d_s16_v2.0"
-COMPARE16_SMA_T = 0.16
 SIGNAL_LOOKBACK_CAL = 50  # holdings table: how far back before a buy its matching signal may sit
 
 COHORTS = [
@@ -466,7 +461,7 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
     return df.drop(["_c1", "_v1", "_rp1", "_tr_max", "_tr_min", "_tr_mean", "_adr10", "_adr50", "_c_252d"])
 
 
-def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
+def get_signals(df: pl.DataFrame, bull_dates: set[date]) -> pl.DataFrame:
     cands = (
         df.filter(
             (pl.col("date") >= CANDIDATE_START)
@@ -484,7 +479,7 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.Dat
             & (pl.col("adr_pct") >= ADR_MIN)
             & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
             & (pl.col("close") > pl.col("max_c_50d"))
-            & (pl.col("pct_vs_sma50") >= sma_t)
+            & (pl.col("pct_vs_sma50") >= BASE_SMA_T)
             & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
             & (pl.col("roc_252d") < ROC_CAP)
             & pl.col("date").is_in(bull_dates)
@@ -552,25 +547,12 @@ def main() -> None:
     print(f"Generating signals for {BASE_LABEL} …", flush=True)
     # kept over the whole candidate window, not just the display one: a position bought early in
     # the display window was triggered by a signal that precedes it
-    candidate_sig = get_signals(df, bull_dates, BASE_SMA_T)
+    candidate_sig = get_signals(df, bull_dates)
     base_sig = candidate_sig.filter((pl.col("date") >= DISPLAY_START) & (pl.col("date") <= DISPLAY_END)).sort(["date", "symbol"])
     rankings = [compute_ranking(ranker, r) for r in base_sig.iter_rows(named=True)]
     base_sig = base_sig.with_columns(pl.Series("ranking", rankings, dtype=pl.Int64))
     n_gated = int(base_sig.filter(pl.col("ranking") >= MIN_RANKING).height)
     print(f"  {len(base_sig)} signals in display window, {n_gated} at ranking >= {MIN_RANKING}", flush=True)
-
-    print(f"Generating signals for {COMPARE_LABEL} …", flush=True)
-    compare_sig = get_signals(df, bull_dates, COMPARE_SMA_T)
-    compare_sig = compare_sig.filter((pl.col("date") >= DISPLAY_START) & (pl.col("date") <= DISPLAY_END))
-    print(f"  {len(compare_sig)} signals in display window", flush=True)
-
-    compare_keys = {(r["symbol"], r["date"]) for r in compare_sig.iter_rows(named=True)}
-
-    print(f"Generating signals for {COMPARE16_LABEL} …", flush=True)
-    compare16_sig = get_signals(df, bull_dates, COMPARE16_SMA_T)
-    compare16_sig = compare16_sig.filter((pl.col("date") >= DISPLAY_START) & (pl.col("date") <= DISPLAY_END))
-    print(f"  {len(compare16_sig)} signals in display window", flush=True)
-    compare16_keys = {(r["symbol"], r["date"]) for r in compare16_sig.iter_rows(named=True)}
 
     hdr = (
         f"{'Date':<11}│ {'Symbol':<7}│ {'Sector':<23}│ {'%abv SMA50':>10} │ {'ADR%':>6} │ {'ADR_CHG':>7} │ "
@@ -581,13 +563,11 @@ def main() -> None:
 
     lines: list[str] = [hdr, sep]
     excluded_rows: list[dict] = []
-    also_in_compare = 0
     cohort_returns: dict[str, list[float]] = {label: [] for _, _, label in COHORTS}
     cohort_mdds: dict[str, list[float]] = {label: [] for _, _, label in COHORTS}
     ranking_returns: dict[str, list[float]] = {label: [] for _, _, label in RANKING_COHORTS}
     ranking_mdds: dict[str, list[float]] = {label: [] for _, _, label in RANKING_COHORTS}
     shown = 0
-    also_in_16 = 0
     n_below_gate = 0
     for row in base_sig.iter_rows(named=True):
         sym, d = row["symbol"], row["date"]
@@ -612,8 +592,6 @@ def main() -> None:
         if ranking < MIN_RANKING:
             n_below_gate += 1
             continue
-        in_compare = (sym, d) in compare_keys
-        in_compare16 = (sym, d) in compare16_keys
         ld = latest_date.get(sym)
         lines.append(
             f"{str(d):<11}│ {sym:<7}│ {sectors.get(sym) or '--':<23}│ {sma_pct:>+9.1f}% │ "
@@ -623,23 +601,15 @@ def main() -> None:
             f"{ranking:>7} │ {entry:>8.2f} │ {curr:>10.2f} │ {chg:>+8.1f}%"
         )
         shown += 1
-        if in_compare:
-            also_in_compare += 1
-        if in_compare16:
-            also_in_16 += 1
 
     lines.append(sep)
-    summary = (
-        f"{BASE_LABEL} signals at ranking >= {MIN_RANKING}: {shown}  |  Also in {COMPARE16_LABEL}: {also_in_16}  |  "
-        f"Also in {COMPARE_LABEL}: {also_in_compare}"
-    )
-    summary += f"  |  Dropped below gate: {n_below_gate}"
+    summary = f"{BASE_LABEL} signals at ranking >= {MIN_RANKING}: {shown}  |  Dropped below gate: {n_below_gate}"
     if excluded_rows:
         summary += f"  |  Excluded as suspicious: {len(excluded_rows)}"
     lines.append(summary)
 
     output = "\n".join(lines)
-    print(f"\n=== {BASE_LABEL} vs {COMPARE_LABEL} — Signal Report ===")
+    print(f"\n=== {BASE_LABEL} — Signal Report ===")
     print(f"Run date: {run_timestamp()}  |  Period: {DISPLAY_START} – {DISPLAY_END}")
     print("\n" + output)
 
