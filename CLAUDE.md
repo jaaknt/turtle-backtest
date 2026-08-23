@@ -176,6 +176,11 @@ was skipped.
 ### Database
 
 - **Schema**: `turtle` (PostgreSQL)
+- **`turtle.signal`**: one row per emitted signal, written by `signal-runner --persist`. Surrogate
+  `id` primary key with `UNIQUE (trading_strategy, symbol, signal_date)` as the natural key the
+  upsert targets. Stored **ungated** — `--min-signal-ranking` narrows the printout, never the write.
+  Per-signal indicators plus `next_open` live in `parameters` (jsonb); the run configuration does
+  not, that is `job_runs`. See [docs/specs/persist-signal.md](docs/specs/persist-signal.md).
 - **`turtle.job_runs`**: one row per CLI invocation — name, timing, `parameters` (jsonb), `version`,
   and the error if it failed. Written by `run_job()` in `turtlex/cli/common.py`, which every console
   script routes through. See [docs/specs/run_jobs.md](docs/specs/run_jobs.md).

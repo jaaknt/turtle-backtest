@@ -5,7 +5,7 @@ This module contains Table objects used for all database operations
 in the repository layer.
 """
 
-from sqlalchemy import BigInteger, Column, Date, DateTime, Float, Integer, MetaData, Numeric, Table, Text
+from sqlalchemy import BigInteger, Column, Date, DateTime, Float, Integer, MetaData, Numeric, SmallInteger, Table, Text
 from sqlalchemy.dialects.postgresql import ENUM, JSONB
 
 # Shared metadata instance for all table definitions
@@ -125,6 +125,22 @@ job_runs_table = Table(
     Column("exit_code", Integer),
     Column("error", Text),
     Column("hostname", Text),
+    schema="turtle",
+)
+
+# signal table definition. `id` is GENERATED ALWAYS AS IDENTITY and must never be supplied as a
+# value; created_at/modified_at are owned by the DB.
+signal_table = Table(
+    "signal",
+    metadata,
+    Column("id", BigInteger, primary_key=True),
+    Column("trading_strategy", Text),
+    Column("ranking_strategy", Text),
+    Column("symbol", Text),
+    Column("signal_date", Date),
+    Column("ranking", SmallInteger),
+    Column("signal_close", Float),
+    Column("parameters", JSONB),
     schema="turtle",
 )
 

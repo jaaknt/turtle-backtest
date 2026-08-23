@@ -104,6 +104,10 @@ uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --trading-str
 
 # Show only signals clearing the reference algorithm's ranking gate
 uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --min-signal-ranking 44
+
+# Store a run in turtle.signal under a variant label. Use a multi-day window: a signal on the
+# window's last bar has no next bar yet, so its next_open stays empty until a later --end-date covers it
+uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-30 --persist --persist-label bk50d_s12_v2.0
 ```
 
 **Options:**
@@ -113,8 +117,31 @@ uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01 --min-signal-
 - `--ranking-strategy` — `momentum`, `volume_momentum`, `breakout_quality`, `qullamaggie` (default: `qullamaggie`)
 - `--trading-param KEY=VALUE` — Override a trading-strategy constructor parameter, e.g. `--trading-param sma_thresh=0.20` (repeatable)
 - `--min-signal-ranking` — Drop signals scoring below this ranking (default: 0, keep all). Pass `44` to match the reference algorithm and `portfolio-runner`'s own default; the count kept is logged at INFO
+- `--persist` — Write every emitted signal to `turtle.signal` (default: off). Requires a strategy that reports the signal-date close, which today means `qullamaggie`; anything else raises a descriptive `ValueError` after the scan and before the write. A scan that emits no signals writes nothing and logs a warning, whatever the strategy
+- `--persist-label LABEL` — Value stored in `turtle.signal.trading_strategy`, e.g. `bk50d_s12_v2.0` (default: the `--trading-strategy` name). Ignored without `--persist`
 - `--max-tickers` — Maximum symbols to scan (default: 10000)
 - `--verbose` — Enable detailed logging
+
+**Persistence:**
+
+`--persist` upserts into `turtle.signal`, keyed on `(trading_strategy, symbol, signal_date)`. It
+writes **before** the `--min-signal-ranking` gate is applied, so the gate only ever narrows the
+printed table — readers apply their own threshold, and a gated write would destroy rows nothing can
+recover without a full rescan. `--persist-label` is what keeps the s12/s16/s20 variants of one
+strategy from overwriting each other, since they share a `--trading-strategy` name.
+
+Re-running the same window upserts the same rows rather than duplicating them, deliberately
+rewriting `ranking`, `ranking_strategy` and `signal_close`. `parameters` is rewritten by the latest run
+except for `next_open`, which is carried over when the new run does not have one.
+
+That matters for `next_open`, which is absent for a signal on the window's last bar because no
+later bar has been loaded. A run whose `--end-date` is later fills it in — provided its
+`--start-date` still covers the older signal date; otherwise the row is never revisited and
+`next_open` stays empty. The merge is what stops the reverse: a re-run with a *narrower* `--end-date` would otherwise delete a
+`next_open` an earlier, wider run had already stored.
+
+Row counts are stable when the same window is re-run; `modified_at` is not — the upsert rewrites every row it
+carries, so use `created_at` for first-seen.
 
 **Output:**
 

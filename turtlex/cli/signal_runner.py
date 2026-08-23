@@ -16,6 +16,9 @@ Options:
     --trading-param KEY=VALUE    Override a trading-strategy parameter, e.g. --trading-param
                                  sma_thresh=0.20 (repeatable)
     --min-signal-ranking NUM     Drop signals scoring below this ranking (default: 0, keep all)
+    --persist                    Write every emitted signal to turtle.signal (default: off)
+    --persist-label LABEL        Value written to turtle.signal.trading_strategy
+                                 (default: the --trading-strategy name)
     --max-tickers NUM            Maximum number of universe tickers to scan (default: 10000)
     --verbose                    Enable verbose logging
 
@@ -32,6 +35,7 @@ from turtlex.cli.common import build_common_analysis_parser, log_parameters, res
 from turtlex.config.logging import setup_logging
 from turtlex.config.settings import Settings
 from turtlex.model import Signal
+from turtlex.repository.ingest import SignalRepository
 from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.service.job_run_service import JobRunRecorder
 from turtlex.service.signal_service import SignalService
@@ -97,23 +101,42 @@ def format_signal_table(signals: list[Signal], sectors: Mapping[str, str]) -> st
     return "\n".join(lines)
 
 
-def run_list(service: SignalService, args: argparse.Namespace) -> int:
+def run_list(service: SignalService, args: argparse.Namespace, signal_repo: SignalRepository | None = None) -> int:
     """List all signals in the strategy's universe, sorted by date and ticker.
 
     Args:
         service: Signal service used to scan the universe; its ticker repository also
             supplies turtle.company.sector for the Sector column
-        args: Parsed CLI arguments (start/end date, max_tickers, min_signal_ranking)
+        args: Parsed CLI arguments -- start/end date, max_tickers, min_signal_ranking,
+            persist_label and ranking_strategy
+        signal_repo: Repository to persist to, or None when --persist was not given
 
     Returns:
-        int: Process exit code, always 0 -- a failed scan raises rather than returning
+        int: Process exit code, always 0 -- a failed scan or a failed persist raises rather
+            than returning
     """
+    # `signals` stays the ungated truth for the whole function; the gate produces `listed`. Rebinding
+    # `signals` to the gated list would leave the ungated one unreachable below that point, which is
+    # what forces any persist call placed after the gate to write gated rows.
     signals = service.scan(args.start_date, args.end_date, max_tickers=args.max_tickers)
+    if signal_repo is not None:
+        if not signals:
+            # An explicit --persist that wrote nothing is worth a warning: a quiet window looks
+            # identical to a broken universe query, a future-dated range, or --max-tickers 0.
+            logger.warning(
+                f"--persist requested but the scan produced no signals for {args.start_date}..{args.end_date}; "
+                "nothing written to turtle.signal"
+            )
+        # Ahead of the ranking gate on purpose: --min-signal-ranking narrows what is printed, never
+        # what is written. A gated write destroys rows no reader can recover without a full rescan.
+        written = signal_repo.upsert_signals(signals, trading_strategy=args.persist_label, ranking_strategy=args.ranking_strategy)
+        logger.info(f"Persisted {written} signals as '{args.persist_label}' ranked by {args.ranking_strategy}")
+
+    listed = signals
     if args.min_signal_ranking > 0:
-        kept = [s for s in signals if s.ranking >= args.min_signal_ranking]
-        logger.info(f"Ranking gate >= {args.min_signal_ranking}: kept {len(kept)} of {len(signals)} signals")
-        signals = kept
-    print(format_signal_table(sorted(signals, key=lambda s: (s.date, s.ticker)), service.ticker_repo.get_sectors()))
+        listed = [s for s in signals if s.ranking >= args.min_signal_ranking]
+        logger.info(f"Ranking gate >= {args.min_signal_ranking}: kept {len(listed)} of {len(signals)} signals")
+    print(format_signal_table(sorted(listed, key=lambda s: (s.date, s.ticker)), service.ticker_repo.get_sectors()))
     return 0
 
 
@@ -132,6 +155,20 @@ def create_argument_parser() -> argparse.ArgumentParser:
         help="Drop signals scoring below this ranking; 0 keeps every signal (default: 0). "
         "The reference algorithm gates at 44, matching portfolio-runner's own default",
     )
+    parser.add_argument(
+        "--persist",
+        action="store_true",
+        help="Write every emitted signal to turtle.signal, before the --min-signal-ranking gate is applied. "
+        "Requires a strategy that reports the signal-date close, which today means qullamaggie",
+    )
+    parser.add_argument(
+        "--persist-label",
+        type=str,
+        default=None,
+        metavar="LABEL",
+        help="Value written to turtle.signal.trading_strategy, e.g. bk50d_s12_v2.0 "
+        "(default: the --trading-strategy name). Ignored without --persist",
+    )
     parser.add_argument("--max-tickers", type=int, default=10000, help="Maximum number of universe tickers to scan")
 
     return parser
@@ -141,6 +178,10 @@ def main() -> int:
     """Main entry point for strategy runner."""
     parser = create_argument_parser()
     args = parser.parse_args()
+    # Normalised before log_parameters and run_job so the effective label is what both record --
+    # resolving it lazily at the call site would store persist_label=null in turtle.job_runs.
+    if not args.persist_label:
+        args.persist_label = args.trading_strategy
     run_start = time.perf_counter()
 
     # Setup logging before loading settings so the DB connection log is visible
@@ -162,7 +203,7 @@ def main() -> int:
             ticker_repo=TickerQueryRepository(settings.engine),
         )
 
-        result: int = run_list(service, args)
+        result: int = run_list(service, args, SignalRepository(settings.engine) if args.persist else None)
 
         logger.info(f"Strategy analysis completed successfully in {time.perf_counter() - run_start:.1f}s")
         return result
