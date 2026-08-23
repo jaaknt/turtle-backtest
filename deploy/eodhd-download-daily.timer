@@ -2,7 +2,7 @@
 #
 # The Sunday run (eodhd-download-weekly.timer) also refreshes tickers and
 # company fundamentals; this timer covers the remaining weekdays with an
-# incremental history download only.
+# incremental history download, followed by the signal scan.
 #
 # DEPLOY
 #   mkdir -p ~/.config/systemd/user
