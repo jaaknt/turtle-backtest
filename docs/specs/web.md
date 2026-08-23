@@ -1,6 +1,8 @@
 # Design: `turtle-web` — a read-only website over the turtle database
 
-> **Status:** draft for review. No implementation has started.
+> **Status:** Workstream 1 is implemented through §1.4 — the table, the write repository,
+> `--persist`, and the nightly run. §1.5 (the read-only role) and all of Workstream 2 are
+> outstanding; the rest of this document is still a draft for review.
 
 ## Context
 
@@ -117,9 +119,10 @@ Client-side table sorting is the one thing given up. Solve it with `ORDER BY` qu
 > §1.2's `DO UPDATE SET ranking = EXCLUDED.ranking, modified_at = now()` is not what shipped:
 > `modified_at` is trigger-owned, and `parameters` is *merged* rather than assigned so a re-run can
 > only add keys. `signal-runner` also grew `--min-signal-ranking`, which narrows
-> the printed table only — the write stays ungated, as §1.1 requires. §1.4 (the nightly timer) and
-> §1.5 (the read-only role) are still outstanding; read the `next_open` note in persist-signal.md
-> before writing the timer, since a single-day window would never backfill it.
+> the printed table only — the write stays ungated, as §1.1 requires. §1.4 has since shipped too,
+> but chained onto the existing download unit rather than as its own timer — see the section for
+> what changed and why. §1.5 (the read-only role) is the only part of this workstream still
+> outstanding.
 
 Small and additive. Four changes, no touch to `Signal` or any strategy.
 
@@ -204,28 +207,41 @@ The change in `run_list` (`turtlex/cli/signal_runner.py:44-49`) is a handful of 
 sorting, if `args.persist`, hand the list to the repository. The strategy identifier comes
 from the resolved strategy, not a hardcoded string.
 
-### 1.4 Nightly timer
+### 1.4 Nightly run — chained onto the daily download
 
-`deploy/signal-persist.{service,timer}`, copied from `deploy/eodhd-download-daily.*` including
-the DEPLOY/PREREQUISITES/STATUS/REMOVE header comments. Schedule **07:00 Europe/Tallinn,
-Mon–Sat** — a two-hour margin after the 05:00 EODHD download. Keep it a *separate* timer
-rather than chaining `Wants=`/`After=` off the download unit, so a download failure produces
-one alert instead of a cascade and either can be re-run independently.
+**Shipped, but not as designed below.** Instead of a separate `deploy/signal-persist.{service,timer}`,
+the scan is a second `ExecStart=` in `deploy/eodhd-download-daily.service`, running straight after
+`download-eodhd-data --data history` on that unit's existing **05:00 Europe/Tallinn, Mon–Sat**
+timer. No new unit, no new timer, nothing extra to symlink or enable.
 
-systemd does no command substitution, so either add a small `--start-date-days-ago` flag or
-wrap the date arithmetic in `/bin/sh -c`:
-
-```bash
-uv run signal-runner --persist \
-    --trading-strategy qullamaggie --ranking-strategy qullamaggie \
-    --persist-label bk50d_s12_v2.0 \
-    --start-date "$(date -I -d '7 days ago')" --end-date "$(date -I)"
+```ini
+ExecStart=%h/.local/bin/uv run download-eodhd-data --data history
+ExecStart=/bin/sh -c 'exec %h/.local/bin/uv run signal-runner --trading-strategy qullamaggie --ranking-strategy qullamaggie --persist --persist-label bk50d_s12_v2.0 --start-date "$(date -I -d "7 days ago")" --end-date "$(date -I)"'
 ```
+
+systemd does no command substitution of its own, which is what the `/bin/sh -c` wrapper is for:
+`%h` is expanded by systemd, while `$(date …)` reaches the shell untouched because systemd expands
+only `$VAR`/`${VAR}`. `WorkingDirectory=` is inherited by the shell, so `uv run` resolves the
+project. The originally proposed `--start-date-days-ago` flag was therefore not needed.
+
+`--trading-strategy` and `--ranking-strategy` are spelled out even though both are already the
+defaults: the label `bk50d_s12_v2.0` is a claim about *which* algorithm produced the rows, and a
+future change to either default would otherwise rewrite what that label means without touching the
+unit. Do not trim them.
+
+**The rejected trade-off, accepted.** Chaining means a failed download skips the scan rather than
+alerting separately, and the two halves cannot be re-run independently from the unit — exactly what
+the separate timer was meant to avoid. It was taken anyway because the failure modes are not
+symmetric: a scan against a half-updated universe writes wrong rows into `turtle.signal` that no
+reader can distinguish from good ones, whereas a skipped scan writes nothing and the next day's
+7-day window closes the gap on its own. Re-running by hand is still the single command above.
 
 A 7-day window rather than a 1-day one is correct, not merely cheap:
 `QullamaggieStrategy._get_polars_signals` runs its cooldown loop over the full fetched warmup
 window and only *then* filters to `d >= start_date`
-(`turtlex/strategy/trading/qullamaggie.py:262-272`), so a wider window cannot double-emit.
+(`turtlex/strategy/trading/qullamaggie.py:285-294`), so a wider window cannot double-emit. It is
+also what makes `next_open` land: that column is null until a later bar exists, so a single-day
+window would never backfill it (persist-signal.md, Verification step 6).
 
 **Cost:** `SignalService.scan` issues one `get_bars_pl` query per universe ticker
 (~2,100–2,580 tickers × 730-day warmup); budget 2–5 minutes. A 3-month backfill is the *same
@@ -648,7 +664,8 @@ every existing `Type=oneshot` unit in `deploy/`.
 3. Backfill run above → `SELECT count(*), min(signal_date), max(signal_date) FROM turtle.signal;`
    returns roughly 30–90 rows spanning ~90 days.
 4. Re-run the same command → count unchanged (proves the upsert is idempotent).
-5. `systemctl --user list-timers signal-persist.timer` shows the next 05:30 firing.
+5. `journalctl --user -u eodhd-download-daily.service` after the 05:00 firing shows the signal
+   scan running behind the history download, and `signal-runner` logging the persisted count.
 
 ### Known-good anchors
 
@@ -730,8 +747,9 @@ is the `turtle.signal` table itself.**
 
 ## Open items for implementation
 
-1. Confirm the strategy label string to persist (`bk50d_s12_v2.0` is the baseline) and add
-   `--persist-label`.
+1. ~~Confirm the strategy label string to persist (`bk50d_s12_v2.0` is the baseline) and add
+   `--persist-label`.~~ Done — the flag shipped with persist-signal.md and the daily unit pins
+   `bk50d_s12_v2.0`.
 2. Pick the Tailscale IP/hostname for the bind address.
 3. Decide `net_amount` vs `gross_amount` for the equity curve's cost basis — the €9 fee delta
    is the verification anchor either way. Keeping `net_amount` stays consistent with the
