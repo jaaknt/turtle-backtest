@@ -107,6 +107,20 @@ Client-side table sorting is the one thing given up. Solve it with `ORDER BY` qu
 
 ## Workstream 1 — `turtle-backtest` changes (precondition)
 
+> **§1.1–1.3 are superseded by [persist-signal.md](persist-signal.md), which is implemented.** The
+> shipped table differs from the sketch below in four ways: a surrogate `id` primary key with
+> `UNIQUE (trading_strategy, symbol, signal_date)` as the natural key; `strategy` split into
+> `trading_strategy` and `ranking_strategy`; a `signal_close` column; and a `parameters` jsonb column
+> carrying the signal-date indicators, which removes the need for the indicator LATERAL in
+> §"Signals, last 3 months" below. Two further corrections to what follows: §1.1's opening sentence
+> is out of date — `Signal` now also carries `signal_close`, `next_open` and `indicators` — and
+> §1.2's `DO UPDATE SET ranking = EXCLUDED.ranking, modified_at = now()` is not what shipped:
+> `modified_at` is trigger-owned, and `parameters` is *merged* rather than assigned so a re-run can
+> only add keys. `signal-runner` also grew `--min-signal-ranking`, which narrows
+> the printed table only — the write stays ungated, as §1.1 requires. §1.4 (the nightly timer) and
+> §1.5 (the read-only role) are still outstanding; read the `next_open` note in persist-signal.md
+> before writing the timer, since a single-day window would never backfill it.
+
 Small and additive. Four changes, no touch to `Signal` or any strategy.
 
 ### 1.1 New table

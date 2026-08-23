@@ -44,6 +44,8 @@ class TestArgumentParser:
         assert args.ranking_strategy == "qullamaggie"
         assert args.max_tickers == 10000
         assert args.min_signal_ranking == 0  # no gate unless asked for
+        assert args.persist is False  # the CLI stays read-only unless asked
+        assert args.persist_label is None  # resolved to trading_strategy in main()
 
     def test_invalid_trading_strategy_rejected(self) -> None:
         with pytest.raises(SystemExit):
@@ -94,6 +96,61 @@ class TestHandlers:
 
         rows = capsys.readouterr().out.strip().splitlines()[2:]
         assert [row.split("│")[1].strip() for row in rows] == ["HIGH.US", "LOW.US"]
+
+    def test_persist_writes_ungated_while_the_table_is_gated(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """The point of the whole design: --min-signal-ranking narrows the printout, never the write."""
+        service = Mock()
+        service.scan.return_value = [_signal("LOW.US", START, 34), _signal("HIGH.US", START, 44)]
+        service.ticker_repo.get_sectors.return_value = {}
+        signal_repo = Mock()
+        signal_repo.upsert_signals.return_value = 2
+        args = create_argument_parser().parse_args([*DATE_ARGS, "--persist", "--min-signal-ranking", "44"])
+        args.persist_label = args.trading_strategy
+
+        assert run_list(service, args, signal_repo) == 0
+
+        persisted = signal_repo.upsert_signals.call_args.args[0]
+        assert [s.ticker for s in persisted] == ["LOW.US", "HIGH.US"]  # both, ungated
+        rows = capsys.readouterr().out.strip().splitlines()[2:]
+        assert [row.split("│")[1].strip() for row in rows] == ["HIGH.US"]  # only the gated one
+
+    def test_persist_passes_the_label_and_ranking_strategy(self) -> None:
+        service = Mock()
+        service.scan.return_value = [_signal("FA.US", START, 75)]
+        service.ticker_repo.get_sectors.return_value = {}
+        signal_repo = Mock()
+        args = create_argument_parser().parse_args(
+            [*DATE_ARGS, "--persist", "--persist-label", "bk50d_s12_v2.0", "--ranking-strategy", "momentum"]
+        )
+        args.persist_label = args.persist_label or args.trading_strategy
+
+        assert run_list(service, args, signal_repo) == 0
+
+        kwargs = signal_repo.upsert_signals.call_args.kwargs
+        assert (kwargs["trading_strategy"], kwargs["ranking_strategy"]) == ("bk50d_s12_v2.0", "momentum")
+
+    def test_a_failed_write_prints_nothing(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Persist before print: a table printed after a failed write would read as success."""
+        service = Mock()
+        service.scan.return_value = [_signal("FA.US", START, 75)]
+        service.ticker_repo.get_sectors.return_value = {}
+        signal_repo = Mock()
+        signal_repo.upsert_signals.side_effect = ValueError("boom")
+        args = create_argument_parser().parse_args([*DATE_ARGS, "--persist"])
+        args.persist_label = args.trading_strategy
+
+        with pytest.raises(ValueError, match="boom"):
+            run_list(service, args, signal_repo)
+
+        assert capsys.readouterr().out == ""
+
+    def test_no_repository_means_no_write(self) -> None:
+        service = Mock()
+        service.scan.return_value = [_signal("FA.US", START, 75)]
+        service.ticker_repo.get_sectors.return_value = {}
+        args = create_argument_parser().parse_args(DATE_ARGS)
+
+        assert run_list(service, args) == 0  # nothing to assert on beyond it not raising
 
 
 class TestFormatSignalTable:
@@ -161,13 +218,15 @@ class TestFormatSignalTable:
 
 
 class TestMain:
-    def _patch_wiring(self, mocker: MockerFixture) -> None:
+    def _patch_wiring(self, mocker: MockerFixture) -> MagicMock:
+        """Patch main()'s collaborators; returns the Settings mock so a test can assert on the engine."""
         settings_cls = mocker.patch("turtlex.cli.signal_runner.Settings")
         # Without this settings.job_runs.enabled is a truthy MagicMock, so every test
         # would take the enabled branch and shell out to git via resolve_version()
         settings_cls.from_toml.return_value.job_runs = JobRunsConfig(enabled=False)
         mocker.patch("turtlex.cli.signal_runner.setup_logging")
         mocker.patch("turtlex.cli.signal_runner.TickerQueryRepository")
+        return settings_cls
 
     def test_main_returns_zero_on_success(self, mocker: MockerFixture) -> None:
         self._patch_wiring(mocker)
@@ -179,6 +238,50 @@ class TestMain:
 
         assert main() == 0
         strategy.get_signals.assert_called_once_with("AAPL.US", START, END)
+
+    def test_main_builds_a_repository_only_when_persisting(self, mocker: MockerFixture) -> None:
+        settings = self._patch_wiring(mocker)
+        strategy = MagicMock()
+        strategy.get_universe.return_value = []
+        mocker.patch("turtlex.cli.signal_runner.resolve_trading_strategy", return_value=(strategy, MagicMock()))
+        repo_cls = mocker.patch("turtlex.cli.signal_runner.SignalRepository")
+
+        mocker.patch("sys.argv", ["signal-runner", *DATE_ARGS])
+        assert main() == 0
+        repo_cls.assert_not_called()
+
+        mocker.patch("sys.argv", ["signal-runner", *DATE_ARGS, "--persist"])
+        assert main() == 0
+        repo_cls.assert_called_once_with(settings.from_toml.return_value.engine)
+        # the repository must actually reach run_list, not merely be constructed
+        repo_cls.return_value.upsert_signals.assert_called_once_with([], trading_strategy="qullamaggie", ranking_strategy="qullamaggie")
+
+    def test_main_keeps_an_explicit_persist_label(self, mocker: MockerFixture) -> None:
+        """Dropping the guard on the normalisation would make every run write under the registry
+        key, so s12/s16/s20 would silently overwrite each other on the natural key."""
+        self._patch_wiring(mocker)
+        strategy = MagicMock()
+        strategy.get_universe.return_value = []
+        mocker.patch("turtlex.cli.signal_runner.resolve_trading_strategy", return_value=(strategy, MagicMock()))
+        mocker.patch("turtlex.cli.signal_runner.SignalRepository")
+        log_parameters = mocker.patch("turtlex.cli.signal_runner.log_parameters")
+        mocker.patch("sys.argv", ["signal-runner", *DATE_ARGS, "--persist", "--persist-label", "bk50d_s12_v2.0"])
+
+        assert main() == 0
+        assert log_parameters.call_args.args[1]["persist_label"] == "bk50d_s12_v2.0"
+
+    def test_main_defaults_the_persist_label_to_the_trading_strategy(self, mocker: MockerFixture) -> None:
+        """Normalised before run_job records vars(args), so job_runs stores the effective label."""
+        self._patch_wiring(mocker)
+        strategy = MagicMock()
+        strategy.get_universe.return_value = []
+        mocker.patch("turtlex.cli.signal_runner.resolve_trading_strategy", return_value=(strategy, MagicMock()))
+        mocker.patch("turtlex.cli.signal_runner.SignalRepository")
+        log_parameters = mocker.patch("turtlex.cli.signal_runner.log_parameters")
+        mocker.patch("sys.argv", ["signal-runner", *DATE_ARGS, "--trading-strategy", "mars", "--persist"])
+
+        assert main() == 0
+        assert log_parameters.call_args.args[1]["persist_label"] == "mars"
 
     def test_main_returns_one_on_factory_error(self, mocker: MockerFixture) -> None:
         self._patch_wiring(mocker)

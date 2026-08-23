@@ -8,7 +8,7 @@ The runner is invoked as `uv run signal-runner ...` — a console script install
 
 ## Component composition
 
-`main()` is the composition root: it builds the object graph once per run and injects dependencies through constructors (no globals), then calls `run_list(service, args)` directly.
+`main()` is the composition root: it builds the object graph once per run and injects dependencies through constructors (no globals), then calls `run_list(service, args, signal_repo)` directly — `signal_repo` being a `SignalRepository` under `--persist` and `None` otherwise.
 
 ```mermaid
 flowchart TD
@@ -19,6 +19,7 @@ flowchart TD
     Trading["TradingStrategy\n(darvas_box | mars | momentum | qullamaggie)"]
     Bars["DailyBarsQueryRepository\nOHLCV reads (polars)"]
     Tickers["TickerQueryRepository\nuniverse reads"]
+    Signals["SignalRepository\nturtle.signal writes (--persist)"]
     Service["SignalService\nscan()"]
     DB[("PostgreSQL\nschema: turtle")]
 
@@ -29,10 +30,12 @@ flowchart TD
     Trading --> Ranking
     Trading --> Bars
     CLI --> Service
+    CLI --> Signals
     Service --> Trading
     Service --> Tickers
     Bars --> DB
     Tickers --> DB
+    Signals --> DB
 ```
 
 Key design points:
@@ -49,12 +52,13 @@ sequenceDiagram
     participant S as SignalService
     participant T as TradingStrategy
     participant TR as TickerQueryRepository
+    participant SR as SignalRepository
     participant BR as DailyBarsQueryRepository
     participant R as RankingStrategy
 
     M->>M: parse args, setup_logging(verbose), Settings.from_toml()
     M->>M: factories build ranking + trading strategy
-    M->>H: run_list(service, args)
+    M->>H: run_list(service, args, signal_repo or None)
     H->>S: scan(start_date, end_date, max_tickers)
     S->>T: get_universe(ticker_repo, limit)
     T->>TR: get_symbol_list(...) or custom query
@@ -73,6 +77,7 @@ sequenceDiagram
         end
     end
     S-->>H: all signals
+    H->>SR: upsert_signals(ungated) [--persist only]
     H->>TR: get_sectors()
     TR-->>H: {ticker: sector}
     H->>H: sort by (date, ticker), render table
