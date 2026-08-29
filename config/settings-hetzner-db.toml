@@ -6,12 +6,17 @@
 # (scripts/update-local-db.sh), which is not enough for the walk-forward folds in
 # docs/specs/qullamaggie-ranking-loop.md.
 #
-# `claude` is the VPS's read-only role, so nothing run under this profile can write. The
-# password still comes from DB_APP_PASSWORD, because that is the only database secret
-# Settings.from_toml reads — map the read-only one onto it at the call site:
+# `app_user` is the same read/write application role the CLIs use locally, so DB_APP_PASSWORD —
+# the only database secret Settings.from_toml reads — is already the right secret and the call
+# site needs no password mapping:
 #
-#     ACTIVE_PROFILE=hetzner-db DB_APP_PASSWORD="$DB_CLAUDE_PASSWORD" \
-#       uv run scripts/qullamaggie-ranking-lab.py --build-cache
+#     ACTIVE_PROFILE=hetzner-db uv run scripts/qullamaggie-ranking-lab.py --build-cache
+#
+# ⚠ This profile is NOT read-only. It was `claude` (SELECT-only) until 2026-08-29; under
+# `app_user` anything run here can INSERT/UPDATE/DELETE in the VPS's `turtle` schema — including
+# `signal-runner --persist`, which now writes to production rather than failing. The studies
+# only read, but nothing enforces that any more, so check the `Database connection:` banner each
+# run logs at INFO before doing anything that writes.
 #
 # Requires Tailscale up and Postgres listening on the VPS's Tailscale address. Postgres binds
 # at boot before that address exists, so after a VPS reboot connections time out until
@@ -21,4 +26,4 @@
 # recorded as one.
 [database]
 host = "hetzner"
-user = "claude"
+user = "app_user"

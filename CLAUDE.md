@@ -197,8 +197,10 @@ Alembic standalone mode with raw SQL (the usual `current` / `history` / `upgrade
 version table is `public.alembic_version`, and the target database comes from the same
 `load_config_data()` the app uses — `db/migrations/env.py` reads `config/settings.toml` plus any
 `ACTIVE_PROFILE` overlay, so Alembic and the CLIs can never disagree about which database they mean.
-Only `hetzner-db` redirects the database, and its role is read-only, so Alembic targets localhost
-unless that profile is active — under which migrations will fail rather than touch the VPS.
+Only `hetzner-db` redirects the database, so Alembic targets localhost unless that profile is
+active. **Do not run Alembic under `hetzner-db`** — it would target the VPS, and it connects as the
+`alembic` role with `DB_ALEMBIC_PASSWORD` regardless of the profile's `user`, so nothing about the
+profile stops a migration landing on production.
 
 ## Development Workflows
 
@@ -223,12 +225,15 @@ themselves stay environment-agnostic. It inherits the localhost database unchang
 runs on that box, and its only effect is switching job-run logging on. Dev machines leave
 `ACTIVE_PROFILE` unset.
 `config/settings-hetzner-db.toml` is the **one profile that names a database rather than a machine**:
-`ACTIVE_PROFILE=hetzner-db` points a dev machine at the VPS Postgres over Tailscale as the read-only
-`claude` role, for studies needing history deeper than the local 5-year mirror. The password still
-comes from `DB_APP_PASSWORD`, so map the read-only one onto it at the call site —
-`ACTIVE_PROFILE=hetzner-db DB_APP_PASSWORD="$DB_CLAUDE_PASSWORD" uv run …`. After a VPS reboot
-Postgres binds before the Tailscale address exists, so connections time out until
-`systemctl restart postgresql` runs there.
+`ACTIVE_PROFILE=hetzner-db` points a dev machine at the VPS Postgres over Tailscale as `app_user`,
+for studies needing history deeper than the local 5-year mirror. That is the same role the CLIs use
+locally, so `DB_APP_PASSWORD` is already the right secret and the call site needs no password
+mapping — `ACTIVE_PROFILE=hetzner-db uv run …`. ⚠ **The profile is not read-only.** It connected as
+the SELECT-only `claude` role until 2026-08-29; under `app_user` anything run through it can write to
+the VPS's `turtle` schema, so a `--persist` run or a stray write now reaches production instead of
+failing. The studies only read, but nothing enforces that — check the `Database connection:` banner
+every run logs at INFO. After a VPS reboot Postgres binds before the Tailscale address exists, so
+connections time out until `systemctl restart postgresql` runs there.
 
 Every database parameter comes from `config/settings.toml` and its profile overlay — there is no
 environment variable that changes hosts. `ACTIVE_PROFILE` selects which overlay applies; the only

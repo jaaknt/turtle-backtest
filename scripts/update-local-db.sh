@@ -30,20 +30,22 @@
 #   scripts/update-local-db.sh                 # 5 years of bars, all other tables in full
 #   BARS_YEARS=10 scripts/update-local-db.sh   # widen the daily_bars window
 #
-# Requires DB_CLAUDE_PASSWORD in the environment (the VPS's read-only role) and a running
-# `turtledb` container. See docs/implementation.md for the VPS side.
+# Requires DB_APP_PASSWORD in the environment (the VPS's `app_user` role, the same secret the
+# CLIs use) and a running `turtledb` container. See docs/implementation.md for the VPS side.
+# The remote side is read-only by construction — every statement sent to the VPS is a SELECT or
+# a `\copy … TO STDOUT`; the TRUNCATEs run against the local container.
 
 set -euo pipefail
 
 REMOTE_HOST=${REMOTE_HOST:-hetzner}
-REMOTE_USER=${REMOTE_USER:-claude}
+REMOTE_USER=${REMOTE_USER:-app_user}
 REMOTE_DB=${REMOTE_DB:-trading}
 CONTAINER=${CONTAINER:-turtledb}
 LOCAL_USER=${LOCAL_USER:-postgres}
 LOCAL_DB=${LOCAL_DB:-trading}
 BARS_YEARS=${BARS_YEARS:-5}
 
-export PGPASSWORD=${DB_CLAUDE_PASSWORD:?DB_CLAUDE_PASSWORD must be set - the read-only role on the VPS}
+export PGPASSWORD=${DB_APP_PASSWORD:?DB_APP_PASSWORD must be set - the app_user role on the VPS}
 
 CUTOFF=$(date -d "${BARS_YEARS} years ago" +%F)
 

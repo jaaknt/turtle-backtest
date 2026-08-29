@@ -40,7 +40,7 @@ what that table is there to reveal.
 Memory: --build-cache loads the qualified universe in 3-year chunks precisely so it does not
 scale with the 16-year window. Run it under the standard cap anyway (CLAUDE.md):
 
-    ACTIVE_PROFILE=hetzner-db DB_APP_PASSWORD="$DB_CLAUDE_PASSWORD" \
+    ACTIVE_PROFILE=hetzner-db \
       systemd-run --user --scope -q -p MemoryMax=4G -p MemorySwapMax=0 \
       uv run scripts/qullamaggie-ranking-lab.py --build-cache
 

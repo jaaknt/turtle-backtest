@@ -32,7 +32,7 @@ effect; it cannot resolve a small one.
 Signals come from the ranking-lab parquet cache rather than the database, so this runs in seconds
 and scores the identical signal set the ranking studies use. Build it first:
 
-    ACTIVE_PROFILE=hetzner-db DB_APP_PASSWORD="$DB_CLAUDE_PASSWORD" \
+    ACTIVE_PROFILE=hetzner-db \
       systemd-run --user --scope -q -p MemoryMax=4G -p MemorySwapMax=0 \
       uv run scripts/qullamaggie-ranking-lab.py --build-cache
 """
