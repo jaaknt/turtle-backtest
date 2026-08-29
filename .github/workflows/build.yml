@@ -22,8 +22,11 @@ jobs:
       - name: Run ruff linter
         run: uv run ruff check turtlex/ scripts/
 
+      # docs/ is included because ruff formats Python inside markdown fenced blocks, and a
+      # snippet drifting from the code it documents is exactly what that catches. The linter
+      # above stays narrow: `ruff check` does not read markdown, so docs/ would match no files.
       - name: Run ruff formatter check
-        run: uv run ruff format --check turtlex/ scripts/
+        run: uv run ruff format --check turtlex/ scripts/ docs/
 
       - name: Run markdown linter
         uses: DavidAnson/markdownlint-cli2-action@v24
