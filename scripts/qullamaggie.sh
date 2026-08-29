@@ -45,6 +45,7 @@ STUDIES=(
   "backtest-v4-2016-2020|qullamaggie-backtest-v4.py --start-date 2016-01-01 --end-date 2020-12-31 --output $RESULT_DIR/result-qullamaggie-backtest-v4-2016-2020.md"
   "backtest-v4-2021-2025|qullamaggie-backtest-v4.py --start-date 2021-01-01 --end-date 2025-12-31 --output $RESULT_DIR/result-qullamaggie-backtest-v4.md"
   "longterm-monthly|qullamaggie-longterm-monthly.py"
+  "horizon-monthly|qullamaggie-horizon-monthly.py"
   # ── Filter cohort studies ──
   "cohorts-roc|qullamaggie-cohorts-roc.py"
   "cohorts-adr|qullamaggie-cohorts-adr.py"
