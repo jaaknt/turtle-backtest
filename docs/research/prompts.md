@@ -21,6 +21,7 @@ more signals. Re-run before quoting any of them against backtest-v4. The rationa
 | -------- | -------- | --------- |
 | [Validate & run backtest v4](#validate--run-backtest-v4) | `scripts/qullamaggie-backtest-v4.py` | `result-qullamaggie-backtest-v4.md`, `-2010-2015.md`, `-2016-2020.md` |
 | [Long-term monthly analysis](#long-term-monthly-analysis) | `scripts/qullamaggie-longterm-monthly.py` | `result-qullamaggie-longterm-monthly.md` |
+| [Marginal monthly performance by signal year](#marginal-monthly-performance-by-signal-year) | `scripts/qullamaggie-horizon-monthly.py` | `result-qullamaggie-horizon-monthly.md` |
 | [ROC 12m cohorts](#roc-12m-cohorts) | `scripts/qullamaggie-cohorts-roc.py` | `result-qullamaggie-cohorts-roc.md` |
 | [ADR% cohorts](#adr-cohorts) | `scripts/qullamaggie-cohorts-adr.py` | `result-qullamaggie-cohorts-adr.md` |
 | [ADR compression cohorts](#adr-compression-cohorts) | `scripts/qullamaggie-cohorts-adr-compression.py` | `result-qullamaggie-cohorts-adr-compression.md` |
@@ -99,6 +100,110 @@ more signals. Re-run before quoting any of them against backtest-v4. The rationa
   next-day adjusted-open entry, `MIN_RANKING >= 40`), but the committed doc is the 2026-07-22 run: four
   `_v1.3_roc100` sections (s12/s15/s17/s20), same-day close entry and no ranking gate. Its monthly grids are
   therefore pre-gate and not comparable with the current standard set until the script is re-run.
+
+### Marginal monthly performance by signal year
+
+**Goal:** Decompose the holding period. Every other study measures a signal at one horizon (366d), so
+the repo can say what a signal is worth after a year but not *when* during that year the return is
+earned, nor whether that shape changed across regimes. Report the return earned **during** each of the
+18 months after entry, averaged by the year the signal was generated in.
+
+- **Period:** 2015-01-01 : 2025-12-31 (signal dates)
+- **Algorithm:** `bk50d_s12_v2.0` only (the live reference algorithm)
+- **Ranking:** reported at **`MIN_RANKING >= 44` (live), `>= 60`, `>= 70`, `>= 80` and ungated** — the
+  gated/ungated pairing the portfolio simulation uses, extended up a ladder of thresholds to show
+  whether the ranking's edge keeps scaling with selectivity or flattens out, and where the signal
+  count stops being able to fill a book. All come from one signal generation and differ only by the
+  threshold applied to the score each signal already carries — same cooldown chain, same entries,
+  same marks — so the differences isolate the gate. The gated sets are nested subsets of the ungated
+  one. Thresholds live in the `GATES` list in the script; adding one is a one-line change.
+- **Horizon:** marginal months 1-18, *not* the 366d fixed hold. `mark[0]` is the entry fill (next
+  trading day's adjusted open), `mark[M]` is the adjusted close of the first bar on or after
+  `entry_date + M` calendar months, and the cell is `mark[M] / mark[M-1] - 1`. Month 12 therefore
+  lands within a day of the 366d exit — measured at +45.4% against the canonical +46.2% on the same
+  2024 cohort, corr 0.996, the gap being entry+365 vs entry+366.
+- **Cohort:** per cell — every signal with a mark at both ends of that month. Cells rest on different
+  signal sets as M grows, which is what `N@M18` in the gate comparison quantifies. Month 18 is only
+  reachable for entries ~18 months before the last bar, so the final row's right-hand columns are a
+  small early sub-cohort, not a better one.
+- **Reading the axes:** the row is the signal's *birth year* and the column is its *age*, so calendar
+  time drifts rightward along a row — a 2015-vintage M18 cell describes 2016-2017, not 2015.
+- **Output format:** a `## Gate comparison` table first, then one Mean% matrix per treatment —
+  `R>=44`, `R>=60`, `R>=70`, `R>=80`, then ungated — years as rows and month-since-entry as columns.
+  No Win% matrix: the mean is what the study is for, and a per-month hit rate invited reading a
+  50%-ish number as if it settled anything. No per-cell N matrices either — each year's count is
+  already the Mean% grid's `Sig` column, and the totals plus month-18 attrition live in the
+  comparison table, so five N grids were five copies of the same two facts.
+
+  ```text
+  | Gate | Signals | % of universe | N@M18 | M1–12 | M13–18 | Rebuy (M1) | Crossover | Thinnest years |
+  | ungated        | 4808 | 100% | 4259 | +2.93% | +1.57% | +1.6% | M13 | 2018: 121, 2017: 161 |
+  | `R>=44` (live) | 1894 |  39% | 1672 | +4.01% | +1.76% | +2.2% | M13 | 2018: 32, 2015: 45   |
+  | …                                                                                          |
+  ```
+
+  `Rebuy (M1)` is what fresh capital earns in its first month, so `Crossover` — the first month
+  falling below it — is the exit-timing read: hold while a month beats redeployment, stop when it
+  does not. `N@M18` is how much of the sample still has eighteen months of forward data; it falls
+  short of `Signals` because recent vintages run into the end of the data, not because those trades
+  failed.
+
+  ```text
+  ──────────────────────────────────────────────────────────
+  R>=44 — bk50d_s12_v2.0, QullamaggieRanking >= 44  (the live configuration)
+  ──────────────────────────────────────────────────────────
+
+  Mean% — return earned during month M
+
+   Year |     M1     M2     M3   …    M17    M18 |    Sig
+  ----------------------------------------------------------
+   2015 |   +2.1   +1.4   -0.3   …   +0.9   +0.4 |     45
+   …
+  ----------------------------------------------------------
+    All |   +1.9   +1.1   +0.4   …   +0.5   +0.3 |   1894
+
+  ──────────────────────────────────────────────────────────
+  R>=60 / R>=70 / R>=80 — … (stricter cuts)  ── same matrix each
+  UNGATED — … (no ranking gate)              ── same matrix
+  ──────────────────────────────────────────────────────────
+  ```
+
+- **Read the gate comparison before the grids.** A thin signal year (2018 has 32 at `R>=44`) falls to
+  9 at `R>=60`, 4 at `R>=70` and 1 at `R>=80`, where a Mean% cell is one name's story rather than a
+  cohort's. A rising Mean% beside a collapsing sample is selectivity eating its own evidence, not an
+  improving edge — and a gate that leaves single-digit signals in a year cannot fill a 25-position
+  book, whatever its per-signal mean says. The `Crossover` column is the tell: it holds at M13 for
+  ungated / `R>=44` / `R>=60`, then jumps to M4 at `R>=70` and `R>=80`, which is the statistic
+  disintegrating rather than a shorter optimal hold.
+- **Cells below `MIN_CELL_N` (5) signals print `·` in the Mean% matrix**, the same floor the cohort
+  studies apply (`if len(rets) < 5: return None`). Suppression is one-sided: the row's `Sig` column
+  still reports the year's true count, so a `·` next to a non-zero `Sig` means the cell was withheld,
+  while a whole row of `·` next to a small `Sig` means the year never cleared the floor at that gate.
+- **Run:** needs the VPS — the local mirror starts 2021-08-19, and the script raises rather than
+  returning empty years if a chunk comes back with no bars.
+
+  ```bash
+  ACTIVE_PROFILE=hetzner-db DB_APP_PASSWORD="$DB_CLAUDE_PASSWORD" \
+    systemd-run --user --scope -q -p MemoryMax=4G -p MemorySwapMax=0 \
+    uv run scripts/qullamaggie-horizon-monthly.py
+  ```
+
+- **Note:** signal generation is chunked in 3-year slices with a 580-day forward pad. A single
+  2013-2026 load is wider than the relax sweep's ~3.5 GB peak and does not fit the 4 GB cap; only the
+  per-signal record list survives a chunk. Boundaries are safe for the 30-day cooldown because
+  `qm.get_signals` runs its cooldown chain over the warmup rows too.
+- **Note:** the `## Reading` section is emitted by the script, so a re-run regenerates the whole file —
+  do not hand-write findings into it without adding it to `FINDINGS_DOCS` in `scripts/qullamaggie.sh`.
+- **Caveat — the universe is survivor-only.** Every symbol in `turtle.daily_bars` still trades today
+  (5,656 symbols, none ending before 2026), so companies delisted, acquired or wound up during the
+  window never generate a signal; and the `market_cap >= 1.5B` filter reads the *current*
+  `turtle.company` snapshot, admitting a 2015 signal only if that company is large today. Both bias
+  the same way. This applies to **every** study in this file, not just this one, and it is why this
+  study's near-zero count of early-ending series is not a measure of delisting risk. The shape across
+  months is more trustworthy than the levels, and the early years are the most affected.
+- **Script:** `scripts/qullamaggie-horizon-monthly.py`
+- **Results:** `docs/research/result-qullamaggie-horizon-monthly.md`
+- **References:** `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-longterm-monthly.md`
 
 ## Filter cohort studies
 
