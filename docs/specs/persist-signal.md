@@ -316,7 +316,7 @@ answer "what did that run actually do".
 signals = service.scan(...)
 if args.min_signal_ranking > 0:
     kept = [...]
-    signals = kept          # <- the ungated list is now unreachable under any name
+    signals = kept  # <- the ungated list is now unreachable under any name
 ```
 
 After that line the ungated list does not exist, so persistence added "at the end" is *forced* to
@@ -324,13 +324,11 @@ be gated. The fix is to stop rebinding, which makes the correct behaviour indepe
 order:
 
 ```python
-signals = service.scan(...)                 # ungated, and stays that way
+signals = service.scan(...)  # ungated, and stays that way
 if signal_repo is not None:
     # Ahead of the ranking gate on purpose: --min-signal-ranking narrows what is printed, never
     # what is written. A gated write destroys rows no reader can recover without a full rescan.
-    written = signal_repo.upsert_signals(
-        signals, trading_strategy=args.persist_label, ranking_strategy=args.ranking_strategy
-    )
+    written = signal_repo.upsert_signals(signals, trading_strategy=args.persist_label, ranking_strategy=args.ranking_strategy)
     logger.info(f"Persisted {written} signals as '{args.persist_label}' ranked by {args.ranking_strategy}")
 
 listed = signals
