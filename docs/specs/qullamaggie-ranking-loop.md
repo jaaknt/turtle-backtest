@@ -84,7 +84,7 @@ names a database rather than a machine. Run it under the standard cap (CLAUDE.md
 Research Studies"):
 
 ```bash
-ACTIVE_PROFILE=hetzner-db DB_APP_PASSWORD="$DB_CLAUDE_PASSWORD" \
+ACTIVE_PROFILE=hetzner-db \
   systemd-run --user --scope -q -p MemoryMax=4G -p MemorySwapMax=0 \
   uv run scripts/qullamaggie-ranking-lab.py --build-cache
 ```

@@ -194,7 +194,7 @@ earned, nor whether that shape changed across regimes. Report the return earned 
   returning empty years if a chunk comes back with no bars.
 
   ```bash
-  ACTIVE_PROFILE=hetzner-db DB_APP_PASSWORD="$DB_CLAUDE_PASSWORD" \
+  ACTIVE_PROFILE=hetzner-db \
     systemd-run --user --scope -q -p MemoryMax=4G -p MemorySwapMax=0 \
     uv run scripts/qullamaggie-horizon-monthly.py
   ```

@@ -449,10 +449,12 @@ Then, against localhost Postgres:
 11. `SELECT parameters->'cli'->>'persist_label' FROM turtle.job_runs WHERE name = 'signal-runner' ORDER BY start_at DESC LIMIT 1;`
     — the effective label, not null.
 
-> ⚠️ **Where you can run this.** `--persist` writes, so it cannot be tested against the Hetzner VPS:
-> `ACTIVE_PROFILE=hetzner-db` connects as the read-only `claude` role. Use the local Docker Postgres.
-> Do not add a pre-flight writability check to the CLI: under the read-only profile the write fails
-> with a clear Postgres error, which is the right outcome.
+> ⚠️ **Where you can run this.** Test `--persist` against the local Docker Postgres, never against
+> the Hetzner VPS. This used to be enforced: `ACTIVE_PROFILE=hetzner-db` connected as the SELECT-only
+> `claude` role, so a write under that profile failed with a clear Postgres error. Since 2026-08-29
+> the profile connects as `app_user`, which **can** write, so a `--persist` run under `hetzner-db`
+> now inserts into production instead of failing. Check the `Database connection:` banner the CLI
+> logs at INFO before passing `--persist`.
 
 ## Deliberately rejected
 
