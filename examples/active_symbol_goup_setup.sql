@@ -72,7 +72,8 @@ select snapshot_date, count(*) from turtle.company_history group by 1 order by 1
 INSERT INTO turtle.ticker_group (code, ticker_code)
          VALUES ('lightyear','AVTR.US'),('lightyear','BULL.US'),('lightyear','DUOL.US'),('lightyear','GENI.US'),('lightyear','GDDY.US'),
                 ('lightyear','GTLB.US'),('lightyear','HNI.US'),('lightyear','PRGS.US'),('lightyear','SN.US'),('lightyear','BBY.US'),
-                ('lightyear','BILL.US'),('lightyear','PGY.US'),('lightyear','BLKB.US'),('lightyear','WGS.US'),('lightyear','TOST.US')  
+                ('lightyear','BILL.US'),('lightyear','PGY.US'),('lightyear','BLKB.US'),('lightyear','WGS.US'),('lightyear','TOST.US'),
+                ('lightyear','ZETA.US')
          ON CONFLICT DO NOTHING;
 
 select * from turtle.ticker_group where code = 'lightyear';
