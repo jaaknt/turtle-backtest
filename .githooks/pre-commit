@@ -21,11 +21,12 @@ cd "$(git rev-parse --show-toplevel)"
 echo "Running ruff check..."
 uv run ruff check turtlex/ scripts/
 
-# Mirrors CI's scope exactly, docs/ included. A hook narrower than CI is worse than no hook:
-# it reports green on a commit the build then rejects. `ruff check` above stays narrow because
-# ruff only reads Python inside markdown when formatting, never when linting.
+# Mirrors CI's scope exactly: docs/ and the root *.md included. A hook narrower than CI is worse
+# than no hook — it reports green on a commit the build then rejects. The cd above puts the glob
+# at the repo root, so it expands the same way CI's does. `ruff check` stays narrow because ruff
+# only reads Python inside markdown when formatting, never when linting.
 echo "Running ruff format --check..."
-uv run ruff format --check turtlex/ scripts/ docs/
+uv run ruff format --check turtlex/ scripts/ docs/ *.md
 
 echo "Running mypy..."
 uv run mypy turtlex/ scripts/

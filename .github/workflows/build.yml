@@ -22,11 +22,13 @@ jobs:
       - name: Run ruff linter
         run: uv run ruff check turtlex/ scripts/
 
-      # docs/ is included because ruff formats Python inside markdown fenced blocks, and a
-      # snippet drifting from the code it documents is exactly what that catches. The linter
-      # above stays narrow: `ruff check` does not read markdown, so docs/ would match no files.
+      # docs/ and the root *.md are included because ruff formats Python inside markdown fenced
+      # blocks, and a snippet drifting from the code it documents is exactly what that catches.
+      # The glob is unquoted so the shell expands it, which keeps a newly added root doc covered
+      # without editing this file. The linter above stays narrow: `ruff check` does not read
+      # markdown, so those paths would match no files there.
       - name: Run ruff formatter check
-        run: uv run ruff format --check turtlex/ scripts/ docs/
+        run: uv run ruff format --check turtlex/ scripts/ docs/ *.md
 
       - name: Run markdown linter
         uses: DavidAnson/markdownlint-cli2-action@v24
