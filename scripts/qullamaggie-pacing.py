@@ -2,12 +2,12 @@
 """
 Does capping new positions per month pay for itself?
 
-At $30,000 with 4% positions the portfolio holds 25 names, while s12 raises roughly 36 gated
-signals a month against the two or three the book can actually fund once it is full. Supply
-outruns fundable capacity by more than an order of magnitude, so the book fills first-come
-and every slot can be consumed by a single month's signals — one entry vintage carrying the whole
-year, with no capacity left for anything better that appears later. Capping intake per month is
-the obvious fix. This study asks whether it actually buys anything.
+At $30,000 with 4% positions the portfolio holds 25 names, while s12 raises roughly 14 gated
+signals a month (36 before the gate) against the two or three the book can actually fund once it is
+full. Supply outruns fundable capacity by more than an order of magnitude, so the book fills
+first-come and every slot can be consumed by a single month's signals — one entry vintage carrying
+the whole year, with no capacity left for anything better that appears later. Capping intake per
+month is the obvious fix. This study asks whether it actually buys anything.
 
 **It does not.** The cap diversifies entry vintages exactly as intended and delivers no gain in
 return, drawdown or dispersion at any horizon tested. The result is committed because the
