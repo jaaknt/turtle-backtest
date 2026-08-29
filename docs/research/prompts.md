@@ -7,13 +7,20 @@ Common references for most prompts: `docs/research/qullamaggie-backtest-v4.md` (
 **Standard algorithm set.** Unless a prompt says otherwise, "the algorithms" means `bk50d_s20_v2.0`, `bk50d_s16_v2.0` and `bk50d_s12_v2.0` — a 50-day breakout sitting more than 20% / 16% / 12% above the 50-day SMA, entered at the next trading day's split/dividend-adjusted open, held 366 calendar days, with the `QullamaggieRanking` gate `MIN_RANKING >= 44` applied. The naming convention is defined in `docs/research/qullamaggie-backtest-v4.md` (Step 1, "Algorithm naming"). Earlier runs used `_v1.3_roc100` labels and an s15/s17 pair instead of s16; where a **Note** records what a past run actually did, the original name is kept deliberately rather than rewritten.
 
 **The `avg_vol_20` floor moved 500K -> 100K on 2026-08-02**, in `QullamaggieStrategy`,
-`turtlex/research/qullamaggie.py` and every `scripts/*.py` study. Only
-[Validate & run backtest v4](#validate--run-backtest-v4) was re-run afterwards; every other committed
-result doc was produced at 500K and reports `Min avg vol (20d) | >= 500K` in its own Configuration
-table, which stays accurate for the run it records. Those numbers are internally consistent and still
-comparable with each other, but **not** with a post-change run — the wider floor admits roughly 40%
-more signals. Re-run before quoting any of them against backtest-v4. The rationale for the move is in
-[Average volume cohorts](#average-volume-cohorts).
+`turtlex/research/qullamaggie.py` and every `scripts/*.py` study. **Every committed result doc was
+re-run on or after 2026-08-09** (pacing 08-20, the horizon study 08-29), and every one that prints a
+`Min avg vol (20d)` row now reports `>= 100K`, so they are all on the wider floor and comparable with
+each other and with backtest-v4. The rationale for the move is in
+[Average volume cohorts](#average-volume-cohorts). Anything quoted from a doc predating that re-run is
+on the 500K floor, which admitted roughly 40% fewer signals.
+
+**The ranking gate moved 40 -> 44 on 2026-08-09**, after the bands were re-derived on the v2.0
+cohorts; 44 is `portfolio-runner --min-signal-ranking`'s default and the value every `scripts/*.py`
+study now uses, including the four that report it as a reference row rather than applying it. The
+ranking studies (`-ranking-weights`, `-ranking-validation`, `-ranking-lab`) are the exception by
+design: they sweep the gate instead of fixing it. `MIN_RANKING` is scheme-relative — it has to be
+re-picked at matched selectivity whenever `QullamaggieRanking` changes — so a `>= 40` figure quoted
+from an older run is not comparable with a `>= 44` one.
 
 ## Index
 
@@ -51,6 +58,8 @@ more signals. Re-run before quoting any of them against backtest-v4. The rationa
 | [Signals: s12 with cohorts](#signals-s12-with-cohorts) | `scripts/qullamaggie-signals-v4.py` | screen |
 | [Trades: s12 open-trade performance](#trades-s12-open-trade-performance) | `scripts/qullamaggie-trades-v4.py` | `result-qullamaggie-trades-v4.md` |
 | [Maintenance: lint & tests](#maintenance-lint--tests) | — | — |
+| [Validate and run cohorts](#validate-and-run-cohorts) | `scripts/qullamaggie-cohorts-*.py` | — |
+| [Gap: what is still unvalidated](#gap-what-is-still-unvalidated) | — | — |
 
 ## Backtest foundation
 
@@ -70,7 +79,7 @@ more signals. Re-run before quoting any of them against backtest-v4. The rationa
 
 ### Long-term monthly analysis
 
-**Goal:** Analyze `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` (366d hold, `MIN_RANKING >= 40`) over the long term; provide monthly Mean% and trade counts by year, plus general findings and pros/cons of the different algorithms.
+**Goal:** Analyze `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` (366d hold, `MIN_RANKING >= 44`) over the long term; provide monthly Mean% and trade counts by year, plus general findings and pros/cons of the different algorithms.
 
 - **Period:** 2007-01-01 : 2026-06-26
 - **Output format** (monthly matrix, years as rows):
@@ -96,10 +105,10 @@ more signals. Re-run before quoting any of them against backtest-v4. The rationa
 - **Script:** `scripts/qullamaggie-longterm-monthly.py`
 - **Results:** `docs/research/result-qullamaggie-longterm-monthly.md`
 - **Note:** script must follow algorithm parameters in `docs/research/qullamaggie-backtest-v4.md`.
-- **Note — the saved results predate the migration.** The script is on the shared signal layer (v2.0 labels,
-  next-day adjusted-open entry, `MIN_RANKING >= 40`), but the committed doc is the 2026-07-22 run: four
-  `_v1.3_roc100` sections (s12/s15/s17/s20), same-day close entry and no ranking gate. Its monthly grids are
-  therefore pre-gate and not comparable with the current standard set until the script is re-run.
+- **Note:** the committed doc is the 2026-08-09 re-run — three `_v2.0` sections (s20/s16/s12), next-day
+  adjusted-open entry and `QullamaggieRanking>=44` — so its monthly grids are on the current standard set.
+  The 2026-07-22 version it replaced had four `_v1.3_roc100` sections (s12/s15/s17/s20), same-day close
+  entry and no ranking gate; nothing quoted from that version is comparable with this one.
 
 ### Marginal monthly performance by signal year
 
@@ -120,8 +129,10 @@ earned, nor whether that shape changed across regimes. Report the return earned 
 - **Horizon:** marginal months 1-18, *not* the 366d fixed hold. `mark[0]` is the entry fill (next
   trading day's adjusted open), `mark[M]` is the adjusted close of the first bar on or after
   `entry_date + M` calendar months, and the cell is `mark[M] / mark[M-1] - 1`. Month 12 therefore
-  lands within a day of the 366d exit — measured at +45.4% against the canonical +46.2% on the same
-  2024 cohort, corr 0.996, the gap being entry+365 vs entry+366.
+  lands within a day of the 366d exit — an ad-hoc check on the 2024 cohort measured it at +45.4%
+  against the then-canonical +46.2%, corr 0.996, the gap being entry+365 vs entry+366. That check has
+  not been repeated since; `result-qullamaggie-backtest-v4.md` now reports **+46.4%** (N=159) for the
+  2024 s12 cohort against this study's 158.
 - **Cohort:** per cell — every signal with a mark at both ends of that month. Cells rest on different
   signal sets as M grows, which is what `N@M18` in the gate comparison quantifies. Month 18 is only
   reachable for entries ~18 months before the last bar, so the final row's right-hand columns are a
@@ -210,16 +221,18 @@ earned, nor whether that shape changed across regimes. Report the return earned 
 All cohort studies below share the same setup unless stated otherwise:
 
 - **Algorithms:** `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` (366d hold)
-- **Ranking gate:** `MIN_RANKING >= 40`, **except** the four studies whose cohort variable is the
+- **Ranking gate:** `MIN_RANKING >= 44`, **except** the four studies whose cohort variable is the
   `QullamaggieRanking` score or one of its three dimensions — ADR% (40 pts), pct-above-sma50 (35 pts), entry
-  price (25 pts) and the ranking itself. Those run **ungated**, because a >=40 gate filters on the very variable
+  price (25 pts) and the ranking itself. Those run **ungated**, because a >=44 gate filters on the very variable
   being cohorted and empties the cohorts the study exists to measure (a gated ADR run collapsed `[0-1.0)` to
-  N=1). Each of the four records the reason in its docstring; the ranking study additionally reports the `>=40`
+  N=1). Each of the four records the reason in its docstring; the ranking study additionally reports the `>=44`
   population as a reference row, so what the gate would keep can still be read off.
 - **Period:** 2015-01-01 : 2026-06-26 — longer than the `backtest-v4` baseline window on purpose, so individual
   cohorts still carry enough trades to read
 - **Output columns:** `Cohort  N  Med%  Mean%  Win%  Sortino  PF  CVaR95%`
-- **Header:** `All filter conditions from algorithm`
+- **Header:** a `## Configuration` table (`| Parameter | Value |`) carrying every filter once at the top of the
+  doc, rendered by `turtlex/common/report.py:config_table`. Values that depart from this shared setup — a
+  dropped filter, an ungated run, a non-standard algorithm set — are bolded by the caller.
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`
 
 ### ROC 12m cohorts
@@ -312,7 +325,7 @@ contraction the setup looks for ahead of a breakout; above 1.0 volume is already
 **Goal:** How `tight_range_ratio` (`(max(close[-11:-1]) − min(close[-11:-1])) / mean(close[-11:-1]) < Y`) affects results.
 
 - **Algorithms:** `bk50d_s20_tr10_v2.0`, `bk50d_s20_tr20_v2.0`, `bk50d_s15_tr15_v2.0` (366d hold,
-  `MIN_RANKING >= 40`) — the tight-range cap is the dimension under study, so the variants pair it with s20/s15
+  `MIN_RANKING >= 44`) — the tight-range cap is the dimension under study, so the variants pair it with s20/s15
   rather than following the standard s20/s16/s12 set. With the cap removed the two s20 variants draw from the
   same candidate pool and differ only in their reference row (`<=0.10` vs `<=0.20`).
 - **Cohorts:** (<0), [0.0-0.1), [0.1-0.15), [0.15-0.2), [0.2-0.25), [0.25-0.3), (>0.3)
@@ -412,13 +425,14 @@ sub-floor band the production filter never lets through.
   straddling the floor (`(<100K)` and `[100-250K)`) are deliberately narrow so the floor itself can be read
   directly rather than inferred from a wide bucket. The `[250-500K)` / `[500K-1M)` split is a leftover from
   the original 500K floor and is kept so the two runs stay comparable.
-- **Note — this study is why the floor moved, so its own committed result predates the change.** The first
-  run (2026-08-02, at a 500K floor) found volume predicts nothing above 100K — `>=500K` scored the same as no
-  floor at all while discarding 42% of signals — but `(<100K)` is genuinely bad: median +6.8% against ~+40%
-  everywhere else, worst win rate, and a -86.6% CVaR95, i.e. a right-skewed pile of near-total losses carried
-  by a few large winners. The floor moved to 100K on 2026-08-02, the one boundary that separates something.
-  `docs/research/result-qullamaggie-cohorts-avg-vol.md` still shows the `>=500K (cap)` reference row from
-  that first run; the cohort rows themselves are unaffected, since the study drops the floor either way.
+- **Note — this study is why the floor moved.** The first run (2026-08-02, at a 500K floor) found volume
+  predicts nothing above 100K — `>=500K` scored the same as no floor at all while discarding 42% of signals —
+  but `(<100K)` is genuinely bad: median +6.8% against ~+40% everywhere else, worst win rate, and a -86.6%
+  CVaR95, i.e. a right-skewed pile of near-total losses carried by a few large winners. The floor moved to
+  100K on 2026-08-02, the one boundary that separates something.
+  `docs/research/result-qullamaggie-cohorts-avg-vol.md` was re-run on 2026-08-09 and now carries the
+  `>=100K (cap)` reference row; the cohort rows themselves never moved, since the study drops the floor
+  either way.
 - **⚠ A sub-floor cohort scoring well is not automatically a relaxation.** Unlike ADR or RSI, this floor is
   partly a *tradability* constraint rather than a pure alpha filter: a 3-5% portfolio position in a thin name
   moves the price the backtest measures it at, so the returns get less attainable the lower the cohort sits.
@@ -439,10 +453,10 @@ sub-floor band the production filter never lets through.
 - **Cohorts:** two views of the same trades — fixed score bands `[0-20), [20-40), [40-50), [50-60), [60-70),
   [70-80), [80-90), [90-100]` (stable across runs, comparable with the ranking table in
   `scripts/qullamaggie-signals-v4.py`) and population deciles (which adapt to where the score mass sits).
-  Both tables carry a `>=40 (gate)` reference row at the foot.
-- **Filter under study is dropped:** no production *filter* is dropped, but the `MIN_RANKING >= 40` gate is not
-  applied — the gate is the cohort variable, so applying it would empty every cohort below 40. It returns as the
-  `>=40 (gate)` reference row, against an `ALL (ungated)` row.
+  Both tables carry a `>=44 (gate)` reference row at the foot.
+- **Filter under study is dropped:** no production *filter* is dropped, but the `MIN_RANKING >= 44` gate is not
+  applied — the gate is the cohort variable, so applying it would empty every cohort below 44. It returns as the
+  `>=44 (gate)` reference row, against an `ALL (ungated)` row.
 - **Script:** `scripts/qullamaggie-cohorts-ranking.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-ranking.md`
 
@@ -452,7 +466,7 @@ sub-floor band the production filter never lets through.
 
 **Goal:** How buying on the next day with a limit order (limit price = previous day closing price − X%) affects results.
 
-- **Algorithms:** `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` (366d hold, `MIN_RANKING >= 40`)
+- **Algorithms:** `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` (366d hold, `MIN_RANKING >= 44`)
 - **X%:** 0%, 1%, 2%, 3%, 4%, 5%; limit order is effective during the next 30 days.
 - **Period:** 2015-01-01 : 2026-06-26
 - **Output columns:** `Cohort  Fill%  N  Med%  Mean%  Win%  Sortino  PF` — `Fill%` is the share of the variant's
@@ -469,20 +483,21 @@ sub-floor band the production filter never lets through.
 - **Script:** `scripts/qullamaggie-cohorts-limit-order.py`
 - **Results:** `docs/research/result-qullamaggie-cohorts-limit-order.md`
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`
-- **Note:** vol_dry_up<90%, no tight_range (standardized 2026-07-15); saved results were generated earlier with tr20 variants and vol_dry_up<80%.
-- **Note — the script is migrated, the saved results are not.** The script now takes its signals from
-  `turtlex/research/qullamaggie.py`, so all three variants are on the `_v2.0` labels with an s16 middle variant and
-  the `MIN_RANKING >= 40` gate applied. Because the entry convention *is* the dimension under study, it reports two
-  reference columns side by side: `next-open` (the canonical v2.0 entry) and `EOD` (signal-day close, the pre-v2.0
-  convention kept for comparability with earlier runs and used by the monthly grids).
-  `docs/research/result-qullamaggie-cohorts-limit-order.md` still carries the 2026-07-22 pre-migration run
-  (`_v1.3_roc100`, s15, ungated, EOD only) — it needs a re-run before its numbers can be quoted against the v2.0 set.
+- **Note:** no tight_range and no vol_dry_up — the latter was retired from the strategy on 2026-08-01, so
+  neither appears in the fixed-filter list any more.
+- **Note:** the script takes its signals from `turtlex/research/qullamaggie.py`, so all three variants are on
+  the `_v2.0` labels with an s16 middle variant and the `MIN_RANKING >= 44` gate applied. Because the entry
+  convention *is* the dimension under study, it reports two reference columns side by side: `next-open` (the
+  canonical v2.0 entry) and `EOD` (signal-day close, the pre-v2.0 convention kept for comparability with
+  earlier runs and used by the monthly grids). `docs/research/result-qullamaggie-cohorts-limit-order.md` is
+  the 2026-08-09 re-run and carries all of that; the 2026-07-22 version it replaced (`_v1.3_roc100`, s15,
+  ungated, EOD only) is not comparable with it.
 
 ### Limit-order fill rate
 
 **Goal:** Calculate `bk50d_s12_v2.0` signals, then figure out the percentage of signals where the price drops X% during the next Y days so that a resting limit order would be filled.
 
-- **Filters:** same as `scripts/qullamaggie-signals-v4.py` (RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, SPY>200d SMA, close>$5&<$250, avg_vol>=100K, no tight_range, cooldown 30d, mcap>=1.5B excl Comm/RE), plus the standard `MIN_RANKING >= 40` gate
+- **Filters:** same as `scripts/qullamaggie-signals-v4.py` (RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, SPY>200d SMA, close>$5&<$250, avg_vol>=100K, no tight_range, cooldown 30d, mcap>=1.5B excl Comm/RE), plus the standard `MIN_RANKING >= 44` gate
 - **Limit order price:** signal-day close × (1 − X%), X = 0%, 1%, 2%, 3%, 4%, 5%
 - **Window:** order effective for Y calendar days after the signal day, Y = 30, 60, 90
 - **Fill rule:** order is eligible from the day after the signal; fills on the first trading day whose low <= limit price, else expires unfilled (adjusted prices, same convention as `scripts/qullamaggie-cohorts-limit-order.py`)
@@ -499,10 +514,11 @@ sub-floor band the production filter never lets through.
 - **Script:** `scripts/qullamaggie-limit-fill-rate.py` (created new)
 - **Results:** `docs/research/result-qullamaggie-limit-fill-rate.md`
 - **References:** `scripts/qullamaggie-signals-v4.py`, `scripts/qullamaggie-cohorts-limit-order.py`, `docs/research/qullamaggie-backtest-v4.md`, `docs/research/result-qullamaggie-backtest-v4.md`
-- **Note — the saved results predate the migration.** The script is on the shared signal layer (`bk50d_s12_v2.0`,
-  `MIN_RANKING >= 40`), but the committed doc is the 2026-07-23 run, titled `bk50d_s12_v1.3_roc100` with no ranking
-  gate in its config table. Fill rates from an ungated signal set are not the fill rates of the gated one — the
-  gate removes the low-ADR, high-priced names whose pullback behaviour differs — so re-run before quoting them.
+- **Note:** the committed doc is the 2026-08-09 re-run, titled `bk50d_s12_v2.0` with
+  `QullamaggieRanking >= 44` in its config table, so its fill rates are the gated ones. The 2026-07-23 version
+  it replaced was titled `bk50d_s12_v1.3_roc100` and had no gate; fill rates from an ungated signal set are not
+  the fill rates of the gated one — the gate removes the low-ADR, high-priced names whose pullback behaviour
+  differs — so nothing from that version is comparable.
 
 ## Filter relaxation
 
@@ -553,12 +569,12 @@ sub-floor band the production filter never lets through.
 
 ### Three-feature ranking weights
 
-**Goal:** Propose weights for `turtlex/strategy/ranking/qullamaggie.py` assuming the ranking depends only on `adr_pct`, `pct_vs_sma50` and price; validate against the previous weighting by re-running the portfolio simulation, and check whether `MIN_RANKING=40` is still a reasonable gate.
+**Goal:** Propose weights for `turtlex/strategy/ranking/qullamaggie.py` assuming the ranking depends only on `adr_pct`, `pct_vs_sma50` and price; validate against the previous weighting by re-running the portfolio simulation, and check whether the gate is still reasonable. **The gate was 40 when this study ran and is 44 now** — the script's `PROD_GATE` is 44 and its `GATES` sweep brackets it at 42/44/46, the range matching the old `>=40` selectivity under the new weights.
 
 - An ad-hoc per-trade scan (1685 bk50d_s12 signals, 2010-2020, 366d returns with each year's mean subtracted) found only three of the six dimensions kept the sign of their cross-sectional effect across both halves: ADR%(20) rho +0.121, %above-SMA50 +0.099, price -0.059. Compression/ROC252/RSI were 25-75% time effect and reversed sign. That scan is not committed — the weights it produced are.
 - Kept the cohort band *shapes* and rescaled them to 40/35/25; coarser monotone bands fitted to the scan's own decile shape were tried and were worse.
 - Validation deliberately avoids three traps: comparing schemes at a fixed gate (which compares selectivity, not skill — a score of 40 keeps 59% of signals under the old weights and 40% under the new), reading a result without a same-size random-subset null, and cutting top-K inside tie groups by date.
-- Result: the new weights win at every selectivity at s12 and s16 and are mixed at s20. `MIN_RANKING=40` remains reasonable, and becomes a live filter at s20 where the old weights never dropped a single signal.
+- Result: the new weights win at every selectivity at s12 and s16 and are mixed at s20. The gate remains reasonable, and becomes a live filter at s20 where the old weights never dropped a single signal. Re-picking it at matched selectivity is what moved it from 40 to 44 on 2026-08-09.
 - **Script:** `scripts/qullamaggie-ranking-weights.py` (new)
 - **Results:** `docs/research/result-qullamaggie-ranking-weights.md`
 - **References:** `turtlex/strategy/ranking/qullamaggie.py`, `docs/research/result-qullamaggie-cohorts-*.md`, `docs/research/result-qullamaggie-ranking-validation.md`
@@ -640,9 +656,11 @@ failed), `sma_stack`, `pct_vs_sma200` + `sma200_slope_20d`, `base_depth_50d` /
 
 **Goal:** decide whether capping new positions per calendar month improves the live portfolio.
 
-- **Motivation:** at $30,000 with 4% positions the book holds 25 names while s12 raises ~48
-  signals a month, so capacity can be consumed by a single month's signals — one entry vintage
-  carrying the whole year, with nothing left for a better signal that appears later.
+- **Motivation:** at $30,000 with 4% positions the book holds 25 names while s12 raises ~14 gated
+  signals a month (1698 over the study's 2015-2024 window; ~36 a month before the gate) against the
+  two or three the book can fund once it is full, so capacity can be consumed by a single month's
+  signals — one entry vintage carrying the whole year, with nothing left for a better signal that
+  appears later.
 - **Answer: no.** The cap diversifies entry vintages exactly as intended (busiest-month share
   38.6% -> 8.9% at an 18-month horizon) and produces no gain in return, drawdown or start-date
   dispersion at any horizon tested. At 18 months it cuts dispersion and the mean in the same
@@ -669,7 +687,7 @@ failed), `sma_stack`, `pct_vs_sma200` + `sma200_slope_20d`, `base_depth_50d` /
 - **Period:** 2021-01-01 : 2026-06-26
 - **Algorithms:** `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` (366d hold)
 - **Ranking:** Calculate ranking (turtlex/strategy/ranking/qullamaggie.py) for all transactions, prefer signals with higher ranking.
-Calculate results with applying filter `MIN_RANKING >= 40` and without applying it.
+Calculate results with applying filter `MIN_RANKING >= 44` and without applying it.
 - **Initial portfolio:** $30,000
 - **Position sizing:** invest {3%, 4%, 5%} of portfolio at a time per trade; if there is no liquidity, skip the trade.
 - **Header:** a `## Configuration` table (`| Parameter | Value |`, the same shape the cohort studies
@@ -683,38 +701,38 @@ Calculate results with applying filter `MIN_RANKING >= 40` and without applying 
   the two, so the difference isolates the gate. A `gate` column distinguishes the rows.
 
   ```text
-  **Ranking gate:** `QullamaggieRanking >= 40` drops 184 signals (0 with no fillable next-day open);
+  **Ranking gate:** `QullamaggieRanking >= 44` drops 190 signals (0 with no fillable next-day open);
   ungated drops 0 (0 with no fillable open). Each sizing is listed gated then ungated, so the pair
   reads across — a gated run alone cannot show whether the signals it removed would have compounded better.
 
   size   gate          Final$   CAGR%  MaxDD%   Calmar  Sortino  taken   skip  Uninv%
   -----------------------------------------------------------------------------------
-  3%     R>=40        188,451  +39.87   -28.24   1.412    1.785    175    335   13.8%
-  3%     ungated      151,102  +34.34   -27.66   1.242    1.625    184    510   11.6%
-  4%     R>=40        206,548  +42.23   -28.01   1.508    1.769    135    375   11.3%
-  4%     ungated      191,828  +40.32   -28.54   1.413    1.710    139    555    9.5%
-  5%     R>=40        250,869  +47.37   -31.43   1.507    1.800    110    400    9.8%
-  5%     ungated      169,102  +37.13   -29.20   1.272    1.609    114    580    9.7%
+  3%     R>=44        231,265  +45.20   -31.94   1.415    1.959    186    535    9.7%
+  3%     ungated      202,291  +41.69   -28.99   1.438    1.838    192    719    9.0%
+  4%     R>=44        166,413  +36.73   -27.47   1.337    1.621    142    579    9.0%
+  4%     ungated      157,481  +35.36   -27.47   1.287    1.599    145    766    8.9%
+  5%     R>=44        218,205  +43.66   -30.67   1.424    1.817    116    605    9.5%
+  5%     ungated      235,503  +45.68   -30.67   1.489    1.887    117    794    9.3%
   ```
 
 - List of Top 5 by Final$, List of Top 5 by Sortino
 
-- List yearly results for these algorithms `s12 R>=40 3%`, `s12 R>=40 4%`, `s12 R>=40 5%` + Top 2 from Final$
+- List yearly results for these algorithms `s12 R>=44 3%`, `s12 R>=44 4%`, `s12 R>=44 5%` + Top 2 from Final$
   Yearly means portfolio result by end of the year (2021 : 2025) compared to previous year end
 
 ```text
   algo             year          Final$   CAGR%  MaxDD%   Calmar  Sortino  taken   skip  Uninv%
   ---------------------------------------------------------------------------------------------
-  s12 R>=40 3%     2021         188,451  +39.87   -28.24   1.412    1.785    175    335   13.8%
-                   2022         188,451  +39.87   -28.24   1.412    1.785    175    335   13.8%
-                   2023         188,451  +39.87   -28.24   1.412    1.785    175    335   13.8%
-                   2024         188,451  +39.87   -28.24   1.412    1.785    175    335   13.8%
-                   2025         188,451  +39.87   -28.24   1.412    1.785    175    335   13.8%
-  s12 R>=40 4%     2021         188,451  +39.87   -28.24   1.412    1.785    175    335   13.8%
+  s12 R>=44 3%     2021         285,404  +50.88   -28.01   1.817    2.129    190    710    8.1%
+                   2022         285,404  +50.88   -28.01   1.817    2.129    190    710    8.1%
+                   2023         285,404  +50.88   -28.01   1.817    2.129    190    710    8.1%
+                   2024         285,404  +50.88   -28.01   1.817    2.129    190    710    8.1%
+                   2025         285,404  +50.88   -28.01   1.817    2.129    190    710    8.1%
+  s12 R>=44 4%     2021         263,361  +48.68   -28.27   1.722    2.021    145    755    8.3%
   ...
 ```
 
-- For the `s12 R>=40 3%`, `s12 R>=40 4%`, `s12 R>=40 5%` + Top 2 from Final$, print `monthly returns`
+- For the `s12 R>=44 3%`, `s12 R>=44 4%`, `s12 R>=44 5%` + Top 2 from Final$, print `monthly returns`
   and `trades count in particular month` by years (years are rows, months are columns):
 
   ```text
@@ -756,13 +774,13 @@ Calculate results with applying filter `MIN_RANKING >= 40` and without applying 
 
 **Goal:** Analyze different exit strategies to improve `scripts/qullamaggie-portfolio-sim.py` CAGR% and Sortino. Provide 5 ideas and validate them against the current 366d time-cap exit. To simplify testing use only `bk50d_s12_v2.0` / 366d / 3% of portfolio.
 
-- **Period:** 2021-01-01 : 2026-06-26, initial $30,000, ranking gate >= 40
+- **Period:** 2021-01-01 : 2026-06-26, initial $30,000, ranking gate >= 44
 - **Baseline to beat:** :
 
 ```text
 size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 -----------------------------------------------------------------------------------
-3%     R>=40        257,159  +48.04   -25.46   1.887    2.099    194    714    7.8%
+3%     R>=44        285,404  +50.88   -28.01   1.817    2.129    190    710    8.1%
 ```
 
 - **Pass bar (pre-registered):** CAGR **and** Sortino both above baseline, and MaxDD no more than 5pp worse
@@ -774,28 +792,41 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
   - `atr` — fixed stop at entry - k x ATR(14) measured at entry
 - **Controls:** the four exit modes already coded but unreachable in `qullamaggie-portfolio-sim.py:run_sim` (`stop30`, `trail25`, `sma200x5`, `dead120` — `EXIT_MODES = ["time"]` never selects them)
 - **Overfit guards:** baseline reconciliation against the committed portfolio-sim numbers; the full metric surface per idea rather than the winning cell alone (a real effect is a plateau, an artifact is a spike); per-year decomposition; stationary block bootstrap (1,000 resamples of 21-day blocks, paired on day indices)
-- **Robustness matrix:** the winning rule re-run across 2010-2015 / 2016-2020 / 2021-2026
+- **Robustness matrix:** the best single-window rule re-run across 2010-2015 / 2016-2020 / 2021-2026 at s20 / s16 / s12
 - **Output format:**
 
   ```text
   variant                        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip
   -------------------------------------------------------------------------------------------
-  <+5% after 90 bars            299,845  +42.62   -24.04   1.773    1.555    246    650  PASS
-  baseline (366d only)          257,159  +48.04   -25.46   1.887    2.099    194    714  fail
+  <+10% after 120 bars          239,985  +46.18   -34.37   1.343    2.066    240    650  fail
+  baseline (366d only)          284,922  +50.84   -27.91   1.821    2.168    188    702  fail
   ```
 
 - **Script:** `scripts/qullamaggie-exit-sweep.py` (new)
 - **Results:** `docs/research/result-qullamaggie-exit-sweep.md`
 - **References:** `turtlex/research/qullamaggie.py` (shared signal layer, parity-tested), `turtlex/backtest/metrics.py` (`compute_trade_metrics`), `docs/research/result-qullamaggie-portfolio-v4.md` (baseline), `docs/research/result-qullamaggie-portfolio-v4-2010-2015.md` and `-2016-2020.md` (cross-checks for the earlier matrix windows)
-- **Note — the headline result is negative; keep the 366d time cap.** On the single 2020-2026 window `<+5% after 90 bars` looked decisive (CAGR +42.62%, Sortino 1.555, MaxDD -24.04%) and cleared every single-window guard: a bounded 90-150 bar plateau, better in 6 of 7 years, 91.8% / 94.1% bootstrap win rates. The robustness matrix then failed it in **7 of 9** config/period cells — every pass sits in 2021-2026, which overlaps the window it was fitted on. A follow-up run of the full 24-cell dead-money grid across all 9 cells (216 sims, run ad-hoc; not kept as a script) found **no** parameterisation passing more than 4 of 9, and 23 of 24 had a negative mean dCAGR. The passing region *moves* between eras — 2021-2026 favours short cutoffs, 2010-2015 long ones, 2016-2020 none at all — which is the signature of regime-specificity rather than mistuning. The single-window guards all agreed with each other because they were all measuring the same six years; they cannot detect that the window itself is the special case. `sma200 x 5d` and `arm +25% / trail 25%` also cleared the single-window bar and were never put through the matrix.
-- **Note:** the study's own baseline reproduces the committed portfolio-sim figure exactly ($222,166 / +36.17% / -26.00%) despite generating signals through `turtlex/research/qullamaggie.py` rather than the sim's inline copy. For the matrix windows the harness reproduces `-2016-2020.md` to within 0.41pp CAGR. The `-2010-2015.md` gap this note used to describe (+8.48% vs +10.94%, attributed to the gate being absent from a 2026-07-21 run) is **gone**: all three portfolio docs were re-run 2026-07-29 with `min ranking: 40` in their headers, and `-2010-2015.md` now reports +8.48% at 3% sizing — the same figure as the harness.
+- **Note — the headline result is negative; keep the 366d time cap.** On the committed 2026-08-09 re-run
+  **no variant of any idea cleared the pass bar** — 0 of 8 `regime`, 0 of 12 `trail`, 0 of 24 `dead`, 0 of 9
+  `trend`, 0 of 5 `atr`, against a baseline of +50.84% CAGR / 2.168 Sortino / -27.91% MaxDD. The best variant
+  per idea loses 4.65 to 14.25pp of CAGR. The robustness matrix, still run on `<+5% after 90 bars` (the rule
+  that had looked decisive on the pre-removal signal set), now passes **1 of 9** config/period cells — and the
+  one pass is *2010-2015 s12*, not the 2021-2026 window it was fitted on, which is regime-specificity rather
+  than a surviving edge. The bootstrap agrees: every finalist wins on 7-28% of resampled CAGR paths.
+- **Note — the earlier, pre-`vol_dry_up`-removal run reached the same conclusion by a longer route,** and the
+  reasoning is worth keeping because it is the general trap. On that signal set `<+5% after 90 bars` cleared
+  every single-window guard (a bounded 90-150 bar plateau, better in 6 of 7 years, 91.8% / 94.1% bootstrap win
+  rates) and was killed only by the matrix. A follow-up run of the full 24-cell dead-money grid across all 9
+  cells (216 sims, run ad-hoc against that signal set; not kept as a script) found **no** parameterisation
+  passing more than 4 of 9, and 23 of 24 had a negative mean dCAGR. The passing region *moves* between eras —
+  2021-2026 favoured short cutoffs, 2010-2015 long ones, 2016-2020 none at all. The single-window guards all
+  agreed with each other because they were all measuring the same six years; they cannot detect that the window
+  itself is the special case.
+- **Note:** the study's own baseline reconciles with the committed portfolio-sim figure to 0.04pp CAGR
+  ($285,404 / +50.88% / -28.01% committed against $284,922 / +50.84% / -27.91% for the harness) despite
+  generating signals through `turtlex/research/qullamaggie.py` rather than the sim's inline copy — the harness
+  runs its cooldown chain through the warmup window, the sim starts it at the evaluation start, so a small
+  divergence is expected and a large one would invalidate every comparison in the doc.
 - **Note:** exits fill at the day's adjusted close, so stop-based rules are measured optimistically; the universe filter uses *current* `company.market_cap >= $1.5B`, which inflates every absolute figure (baseline included) and worsens the further back the window sits.
-- **Note — the saved results predate the `vol_dry_up` removal (2026-08-01).** The script takes its signals from
-  `turtlex/research/qullamaggie.py`, which dropped the filter that day, so a re-run would draw from a larger
-  signal population than the committed doc. The re-run was **deliberately skipped**: the study's conclusion is
-  negative (keep the 366d time cap) and rests on the *shape* of the robustness matrix — a rule that passes only
-  in the window it was fitted on — which a wider signal set does not plausibly reverse. Its absolute figures,
-  including the `$222,166` baseline, are stale and should not be quoted against post-removal portfolio-sim runs.
 
 ## Live signal generation
 
@@ -848,7 +879,8 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
     `Curr Price` comes from — and is not shown as a column of its own.
   - `Ranking` - `QullamaggieRanking` scored on the `Signal date`. Ungated like the signal it comes
     from, so a score below the 44 the signal table gates on is printed as it stands and a buy made
-    off a weak signal stays visible; `--` exactly when `Signal date` is
+    off a weak signal stays visible; `--` exactly when `Signal date` is `--`, since there is no bar
+    to score the ranking on.
   - `Avg Price` - quantity-weighted average ticker price over the **buys** in
     `turtle.lightyear_transaction`. Sells reduce `Shares` but never move the cost basis, so `PL` is
     purely unrealized — the realized gain on shares already sold is not shown. It is the per-share
@@ -862,7 +894,7 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
   - A `TOTAL` row closes the table with portfolio cost, value, change and PL — the "value" this bullet asks for
 
   ```text
-  Symbol │ Signal date │ Entry date │ Days │ Ranking │ Avg Price │ Shares │ Curr Price │ Change % │ PL
+  Symbol │ Sector │ Signal date │ Entry date │ Days │ Ranking │ Avg Price │ Shares │ Curr Price │ Change % │ PL
   ```
 
 - Compare also mean(Mean%) with SPY.US and QQQ.US return for the whole period. Exclude LC.US and other suspicious data points.
@@ -919,8 +951,11 @@ Run Ruff + mypy + pytest.
 
 ## Gap: what is still unvalidated
 
-`cooldown 30d` is the last filter with no cohort study — no study varies it, so there is no evidence either way
-on whether it helps.
+`cooldown 30d` is the last filter with no **cohort** study, but it is not unmeasured: the relaxation sweep runs a
+`cd15` variant (30 -> 15 days) and `docs/research/result-qullamaggie-relax-sweep.md` reports it as mildly
+favourable — N 1541 -> 1658, F/mo 11.2 -> 12.1, Mean% +57.76 -> +58.08, Sortino 3.454 -> 3.471 — and it survives
+into two of the three combos. What is missing is a cohort study sweeping the window properly (15/30/45/60), so
+the shape of the tradeoff past 15 days is unknown.
 
 `market_cap >= 1.5B` now has a study but is **not** validated by it: the cohort variable carries look-ahead (see
 [Market cap cohorts](#market-cap-cohorts)), so the study describes which of today's size classes the good trades
