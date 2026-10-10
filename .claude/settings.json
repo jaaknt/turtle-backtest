@@ -12,7 +12,7 @@
   "hooks": {
     "PostToolUse": [{
       "matcher": "Edit|Write",
-      "hooks": [{"type": "command", "command": "if [[ $CLAUDE_FILE_PATH == *.py ]]; then ruff check --fix \"$CLAUDE_FILE_PATH\" && mypy \"$CLAUDE_FILE_PATH\"; fi"}]
+      "hooks": [{"type": "command", "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.py) cd \"$CLAUDE_PROJECT_DIR\" && uv run ruff check --fix \"$f\" && uv run mypy \"$f\" ;; esac"}]
     }]
   }
 }

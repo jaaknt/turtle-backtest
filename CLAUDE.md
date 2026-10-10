@@ -82,18 +82,7 @@ Full CLI reference — every flag and worked examples — is in [docs/scripts.md
 
 | Task | Command | Use When |
 | ------ | --------- | ---------- |
-| **Generate signals** | `uv run signal-runner --start-date 2024-06-01 --end-date 2024-06-01` | Analyze trading opportunities |
-| **Portfolio backtest** | `uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31` | Test multi-position strategy |
-| **Single backtest** | `uv run backtest-runner --tickers AAPL --start-date 2024-01-01 --end-date 2024-01-01` | Test specific ticker |
-| **Download data** | `uv run download-eodhd-data` | Bulk historical/reference data from EODHD |
-| **Snapshot fundamentals** | `uv run snapshot-company` | Refresh the `company` table |
-| **Import Lightyear trades** | `uv run lightyear-import` | Load real Buy/Sell executions from statement CSVs |
 | **Install deps** | `uv sync --extra lint` | First setup, or after a dependency change |
-| **Enable git hooks** | `git config core.hooksPath .githooks` | Once per clone — see [Git Workflow](#git-workflow) |
-| **Start database** | `docker-compose up -d` | Before any data operations |
-| **Apply migrations** | `uv run alembic upgrade head` | After pulling schema changes |
-| **Run tests** | `uv run pytest` | Verify code changes |
-| **Test coverage** | `uv run pytest --cov=turtlex --cov-report=term-missing` | Find untested code paths |
 | **Lint markdown docs** | `npx markdownlint-cli2` | Check README/CLAUDE.md/docs before committing (`--fix` to auto-fix) |
 | **Run Bruno API smoke tests** | `uv run pytest -m bruno` | Verify live EODHD endpoints still match expectations (requires `npm install -g @usebruno/cli` + real `EODHD_API_KEY` in `bruno/eodhd/.env`) |
 
@@ -131,7 +120,6 @@ convention: `docs/research/qullamaggie-backtest-v4.md` (Step 1).
 
 ## Tool Preferences
 
-- For GitHub queries (PRs, issues, Actions, workflow runs), ALWAYS use the GitHub MCP server first. Only fall back to `gh` CLI or Bash if MCP lacks the needed tool.
 - For Postgres queries, use the `mcp__postgres__query` tool with parameter name `sql` (not `query`).
 - For library/framework documentation lookups, use context7 MCP rather than guessing or web search.
 - For code analysis — locating a symbol, understanding how a class/function is used, tracing call paths, or assessing the blast radius of a change — use the `codegraph_explore` MCP tool (or the `codegraph explore` / `codegraph node` CLI if MCP isn't available) before grep/find or reading files one by one.
@@ -192,15 +180,8 @@ described in [docs/service.md](docs/service.md).
 
 ## Database Migrations
 
-Alembic standalone mode with raw SQL (the usual `current` / `history` / `upgrade head` /
-`downgrade -1` / `revision -m` commands apply). Migrations live in `db/migrations/versions/`, the
-version table is `public.alembic_version`, and the target database comes from the same
-`load_config_data()` the app uses — `db/migrations/env.py` reads `config/settings.toml` plus any
-`ACTIVE_PROFILE` overlay, so Alembic and the CLIs can never disagree about which database they mean.
-Only `hetzner-db` redirects the database, so Alembic targets localhost unless that profile is
-active. **Do not run Alembic under `hetzner-db`** — it would target the VPS, and it connects as the
-`alembic` role with `DB_ALEMBIC_PASSWORD` regardless of the profile's `user`, so nothing about the
-profile stops a migration landing on production.
+**Do not run Alembic under `ACTIVE_PROFILE=hetzner-db`** — it would migrate the production VPS, and
+nothing about the profile stops it. Details load from `db/migrations/CLAUDE.md` when working there.
 
 ## Development Workflows
 
@@ -214,37 +195,12 @@ Committing and pushing to `main`: see the `commit-push` skill.
 
 `Settings.from_toml()` is the single entry point for all config. It loads TOML, validates required env vars (raises `ValueError` if missing — never falls back to TOML values for secrets), builds nested config objects, and creates the connection pool. See `turtlex/config/settings.py`.
 
-**Profiles (Spring Boot style).** `config/settings.toml` holds a complete set of defaults pointing at
-localhost. `ACTIVE_PROFILE=<name>` deep-merges `config/settings-<name>.toml` over it, so an overlay
-only names the keys it changes. Adding a profile needs no code change.
-
-A profile names **the machine you are running on**, not a database to connect to.
-`config/settings-hetzner.toml` is what the VPS runs under — `ACTIVE_PROFILE=hetzner` lives in its
-`~/.config/turtle-backtest/secrets.env`, the `EnvironmentFile` every unit loads, so the units
-themselves stay environment-agnostic. It inherits the localhost database unchanged, because Postgres
-runs on that box, and its only effect is switching job-run logging on. Dev machines leave
-`ACTIVE_PROFILE` unset.
-`config/settings-hetzner-db.toml` is the **one profile that names a database rather than a machine**:
-`ACTIVE_PROFILE=hetzner-db` points a dev machine at the VPS Postgres over Tailscale as `app_user`,
-for studies needing history deeper than the local 5-year mirror. That is the same role the CLIs use
-locally, so `DB_APP_PASSWORD` is already the right secret and the call site needs no password
-mapping — `ACTIVE_PROFILE=hetzner-db uv run …`. ⚠ **The profile is not read-only.** It connected as
-the SELECT-only `claude` role until 2026-08-29; under `app_user` anything run through it can write to
-the VPS's `turtle` schema, so a `--persist` run or a stray write now reaches production instead of
-failing. The studies only read, but nothing enforces that — check the `Database connection:` banner
-every run logs at INFO. After a VPS reboot Postgres binds before the Tailscale address exists, so
-connections time out until `systemctl restart postgresql` runs there.
-
-Every database parameter comes from `config/settings.toml` and its profile overlay — there is no
-environment variable that changes hosts. `ACTIVE_PROFILE` selects which overlay applies; the only
-env vars read are the two secrets. A profile with no matching file raises `ValueError` rather than
-silently falling back — a typo must not point a run at the wrong database. The check is in
-`load_config_data()`, not `Settings.from_toml`, so Alembic inherits it.
-
-`[job_runs] enabled` is a flat key, **off in the base file** and switched on by the `hetzner` profile,
-so the VPS records runs and dev machines do not. Unlike the database section, a missing `[job_runs]`,
-a non-table value, or an unknown key means disabled rather than an exception — telemetry config must
-never be able to take a job down.
+**Profiles.** `ACTIVE_PROFILE=<name>` deep-merges `config/settings-<name>.toml` over
+`config/settings.toml`; dev machines leave it unset. ⚠ **`hetzner-db` is not read-only** — it points
+a dev machine at the VPS Postgres as `app_user`, so a `--persist` run or a stray write reaches
+production. Check the `Database connection:` banner every run logs at INFO. Full profile semantics
+load from `.claude/rules/config-profiles.md` when working with `config/`, `turtlex/config/`,
+`db/migrations/` or `scripts/`.
 
 ### Async Boundary
 
@@ -256,7 +212,7 @@ Async is used only in the data-download path; analytical queries are always sync
 ### Naming Conventions
 
 Folders and packages are **singular** snake_case: `turtlex/service/`, `turtlex/repository/` — not
-`services/` or `repositories/`. Everything else follows PEP 8.
+`services/` or `repositories/`.
 
 ### Docstrings
 
@@ -286,5 +242,4 @@ things they cover:
   tuples, and that their filter constants have not drifted apart.
 - `scripts/test_metric_conventions.py` — keeps the `scripts/` studies on the shared metric helpers.
 
-Run with `uv run pytest` or `uv run pytest tests/strategy/trading/test_darvas_box.py`.
 `-m bruno` tests hit the live EODHD API and are deselected by default.
