@@ -7,9 +7,10 @@
 # touches EODHD — running the downloader locally as well would spend API quota twice and
 # let the two copies disagree.
 #
-# What it mirrors — every table is TRUNCATEd and refilled, so upstream deletions propagate:
-#   company, company_history, exchange, lightyear_transaction, ticker, ticker_group
-#       Every row.
+# What it mirrors — every table is cleared and refilled, so upstream deletions propagate:
+#   company, company_history, exchange, signal, lightyear_transaction, ticker, ticker_group
+#       Every row. `signal` goes before `lightyear_transaction`, whose signal_id references it,
+#       and is cleared with DELETE rather than TRUNCATE (see the copy loop).
 #   daily_bars
 #       The last BARS_YEARS years only (5 by default). The truncate is not windowed, so bars
 #       older than the cutoff are dropped rather than kept: the local table ends up holding
@@ -54,6 +55,7 @@ TABLES=(
     "company"
     "company_history"
     "exchange"
+    "signal"
     "lightyear_transaction"
     "ticker"
     "ticker_group"
@@ -122,9 +124,22 @@ for entry in "${TABLES[@]}"; do
     expected=$(remote_query "SELECT count(*) FROM turtle.${table} ${filter}")
     before=$(local_query "SELECT count(*) FROM turtle.${table}")
     log "turtle.${table}: ${before} local rows -> ${expected} from ${REMOTE_HOST}"
-    copy_table "SELECT * FROM turtle.${table} ${filter}" "TRUNCATE turtle.${table}" "turtle.${table}"
+    # Postgres refuses to TRUNCATE a table another table's foreign key references, and
+    # lightyear_transaction.signal_id references signal. DELETE is allowed: the FK's ON DELETE
+    # SET NULL only clears the links, so a run that dies before the lightyear_transaction entry
+    # leaves those rows in place, and any other referencing table follows its own FK rule (an
+    # error by default) instead of being emptied the way TRUNCATE ... CASCADE would.
+    clear="TRUNCATE turtle.${table}"
+    if [ "$table" = "signal" ]; then clear="DELETE FROM turtle.${table}"; fi
+    copy_table "SELECT * FROM turtle.${table} ${filter}" "$clear" "turtle.${table}"
     actual=$(local_query "SELECT count(*) FROM turtle.${table}")
     [ "$actual" = "$expected" ] || die "turtle.${table}: copied ${actual} rows, expected ${expected}"
+    if [ "$table" = "signal" ]; then
+        # COPY writes the VPS ids verbatim and never advances the identity sequence, so without
+        # this the next local signal-runner --persist would collide on pk_signal.
+        local_query "SELECT setval(pg_get_serial_sequence('turtle.signal', 'id'),
+                                   COALESCE(max(id), 0) + 1, false) FROM turtle.signal" >/dev/null
+    fi
     # TRUNCATE leaves no dead tuples to vacuum, but the reloaded table has no statistics either.
     local_query "ANALYZE turtle.${table}" >/dev/null
 done

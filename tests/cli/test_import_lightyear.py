@@ -42,7 +42,9 @@ class TestMain:
         return service_cls
 
     def test_main_returns_zero_and_logs_summary(self, mocker: MockerFixture, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-        summary = ImportSummary(files=[FileImportSummary(file_name="statement.csv", rows=51, buy_sell=14, matched=12, inserted=3)])
+        summary = ImportSummary(
+            files=[FileImportSummary(file_name="statement.csv", rows=51, buy_sell=14, matched=12, inserted=3)], linked=2
+        )
         service_cls = self._patch_wiring(mocker, summary)
         mocker.patch("sys.argv", ["lightyear-import", "--folder", str(tmp_path)])
 
@@ -51,6 +53,7 @@ class TestMain:
 
         service_cls.return_value.import_folder.assert_called_once_with(tmp_path, "lightyear")
         assert "statement.csv: 51 rows, 14 buy/sell, 12 matched, 3 inserted, 9 already stored" in caplog.text
+        assert "9 already stored, 2 buys linked to a signal" in caplog.text
 
     def test_main_warns_about_unseeded_symbols(self, mocker: MockerFixture, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         summary = ImportSummary(

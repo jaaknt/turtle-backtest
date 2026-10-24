@@ -53,6 +53,7 @@ def _write_csv(folder: Path, name: str, *rows: str) -> Path:
 def _make_service(group: set[str], inserted: int | None = None) -> tuple[LightyearService, Mock, Mock]:
     repository = Mock()
     repository.insert_transactions.side_effect = (lambda txs: len(txs)) if inserted is None else (lambda txs: inserted)
+    repository.link_signals.return_value = 0
     ticker_repo = Mock()
     ticker_repo.get_group_ticker_codes.return_value = group
     return LightyearService(repository=repository, ticker_repo=ticker_repo), repository, ticker_repo
@@ -319,6 +320,30 @@ class TestFolderScan:
 
         assert summary.matched == 2
         assert summary.inserted == 0
+
+
+class TestSignalLinking:
+    def test_links_once_per_run_after_all_files(self, tmp_path: Path) -> None:
+        service, repository, _ = _make_service({"DUOL.US", "PRGS.US"})
+        repository.link_signals.return_value = 2
+        _write_csv(tmp_path, "a.csv", BUY_DUOL)
+        _write_csv(tmp_path, "b.csv", BUY_PRGS)
+
+        summary = service.import_folder(tmp_path, "lightyear")
+
+        repository.link_signals.assert_called_once_with()
+        assert summary.linked == 2
+
+    def test_links_even_when_nothing_new_is_inserted(self, tmp_path: Path) -> None:
+        # Earlier buys whose signal was persisted after they were imported still get linked
+        service, repository, _ = _make_service({"DUOL.US"}, inserted=0)
+        repository.link_signals.return_value = 1
+        _write_csv(tmp_path, "statement.csv", BUY_DUOL)
+
+        summary = service.import_folder(tmp_path, "lightyear")
+
+        assert summary.inserted == 0
+        assert summary.linked == 1
 
 
 class TestDuplicateReferences:

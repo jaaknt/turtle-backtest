@@ -426,6 +426,8 @@ The `lightyear-import` console script parses every `*.csv` account statement in 
 
 The `reference` column is the unique key and inserts use `ON CONFLICT DO NOTHING`, so re-importing overlapping statements never double-counts. A second run over an unchanged folder reports 0 inserted.
 
+After inserting, every run links each stored buy whose `signal_id` is still NULL to the `turtle.signal` row it was most plausibly bought off: same symbol, `signal_date` within the 30 calendar days strictly before the buy, newest first, then highest ranking. No ranking gate is applied, so a buy off a sub-44 signal still links. Because it covers all unlinked buys, not just this run's inserts, a buy imported before `signal-runner --persist` stored its signal is linked by the next import. Sells are never linked. The summary line reports the count as `buys linked to a signal`.
+
 The ticker group is a hand-maintained watchlist; nothing in this codebase writes it. Seed it with SQL before the first run, or every row is silently dropped:
 
 ```sql
@@ -461,7 +463,7 @@ uv run lightyear-import --folder /path/to/statements --ticker-group lightyear
 
 `scripts/update-local-db.sh` refreshes the local Docker Postgres from the Hetzner VPS over Tailscale. The VPS is the authoritative copy — its timers run the EODHD downloads — so this pulls its tables back down instead of downloading locally, which would spend API quota twice. It is a plain shell script, not a console script, so it does not record a `turtle.job_runs` row.
 
-It mirrors `company`, `company_history`, `exchange`, `lightyear_transaction`, `ticker` and `ticker_group` in full, and `daily_bars` for the last `BARS_YEARS` years. Each table is truncated and refilled in a single transaction, so upstream deletions propagate and a dropped stream rolls back to the old contents; row counts are then checked against the VPS. The VPS side is read-only — every statement sent there is a `SELECT` or `\copy … TO STDOUT`.
+It mirrors `company`, `company_history`, `exchange`, `signal`, `lightyear_transaction`, `ticker` and `ticker_group` in full, and `daily_bars` for the last `BARS_YEARS` years. Each table is truncated and refilled in a single transaction, so upstream deletions propagate and a dropped stream rolls back to the old contents; row counts are then checked against the VPS. The VPS side is read-only — every statement sent there is a `SELECT` or `\copy … TO STDOUT`.
 
 **Usage:**
 
@@ -484,4 +486,5 @@ Requires a running `turtledb` container (`docker-compose up -d`). If the VPS is 
 This is a mirror, not a merge:
 
 - Bars older than the window are deleted locally, not kept. Re-run with a wider `BARS_YEARS` to pull deep history back.
+- `signal` is cleared with `DELETE`, not `TRUNCATE`, because `lightyear_transaction.signal_id` references it. The foreign key's `ON DELETE SET NULL` only blanks the links until `lightyear_transaction` is refilled straight after, and the identity sequence is reset to the copied ids so a local `signal-runner --persist` keeps working.
 - `lightyear_transaction` is replaced wholesale, so a statement imported only locally is lost. Import statements on the VPS, or re-run `uv run lightyear-import` locally afterwards.

@@ -95,13 +95,14 @@ def _import_statements(args: argparse.Namespace, settings: Settings) -> int:
             f.already_stored,
         )
     logger.info(
-        "Import complete: %d files, %d rows, %d buy/sell, %d matched, %d inserted, %d already stored",
+        "Import complete: %d files, %d rows, %d buy/sell, %d matched, %d inserted, %d already stored, %d buys linked to a signal",
         len(summary.files),
         summary.rows,
         summary.buy_sell,
         summary.matched,
         summary.inserted,
         summary.already_stored,
+        summary.linked,
     )
 
     unseeded = summary.unseeded_symbols
