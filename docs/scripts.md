@@ -456,3 +456,32 @@ uv run lightyear-import --folder /path/to/statements --ticker-group lightyear
 - `--verbose` — Enable detailed logging
 
 `data/lightyear/` is gitignored: statements are personal financial records. `docs/specs/lightyear-example.csv` is an anonymised fixture of the format.
+
+## update-local-db.sh
+
+`scripts/update-local-db.sh` refreshes the local Docker Postgres from the Hetzner VPS over Tailscale. The VPS is the authoritative copy — its timers run the EODHD downloads — so this pulls its tables back down instead of downloading locally, which would spend API quota twice. It is a plain shell script, not a console script, so it does not record a `turtle.job_runs` row.
+
+It mirrors `company`, `company_history`, `exchange`, `lightyear_transaction`, `ticker` and `ticker_group` in full, and `daily_bars` for the last `BARS_YEARS` years. Each table is truncated and refilled in a single transaction, so upstream deletions propagate and a dropped stream rolls back to the old contents; row counts are then checked against the VPS. The VPS side is read-only — every statement sent there is a `SELECT` or `\copy … TO STDOUT`.
+
+**Usage:**
+
+```bash
+# Last 5 years of bars, every other table in full
+scripts/update-local-db.sh
+
+# Widen the daily_bars window
+BARS_YEARS=10 scripts/update-local-db.sh
+```
+
+**Environment:**
+
+- `DB_APP_PASSWORD` — the VPS's `app_user` password (required)
+- `BARS_YEARS` — years of `daily_bars` to keep (default: `5`)
+- `REMOTE_HOST`, `REMOTE_USER`, `REMOTE_DB`, `CONTAINER`, `LOCAL_USER`, `LOCAL_DB` — connection overrides (defaults: `hetzner`, `app_user`, `trading`, `turtledb`, `postgres`, `trading`)
+
+Requires a running `turtledb` container (`docker-compose up -d`). If the VPS is unreachable after a server reboot, Postgres there likely bound before the Tailscale IP existed — `systemctl restart postgresql` on the VPS. A column mismatch aborts before anything is copied; run `uv run alembic upgrade head` on the side that is behind (never under `ACTIVE_PROFILE=hetzner-db`, which would migrate production).
+
+This is a mirror, not a merge:
+
+- Bars older than the window are deleted locally, not kept. Re-run with a wider `BARS_YEARS` to pull deep history back.
+- `lightyear_transaction` is replaced wholesale, so a statement imported only locally is lost. Import statements on the VPS, or re-run `uv run lightyear-import` locally afterwards.
