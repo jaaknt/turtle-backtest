@@ -1,4 +1,5 @@
 ---
+name: my-code-review
 description: Review staged and unstaged changes before committing, or review a specific commit — runs the built-in code-review for bugs, then checks project conventions, tests and docs. Use when the user wants a code review of pending or already-committed changes.
 ---
 

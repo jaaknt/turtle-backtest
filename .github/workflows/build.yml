@@ -40,7 +40,6 @@ jobs:
             README.md
             CLAUDE.md
             docs/**/*.md
-            .claude/commands/*.md
             .claude/skills/**/*.md
 
       - name: Run mypy for static type checking
