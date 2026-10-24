@@ -74,7 +74,7 @@ INSERT INTO turtle.ticker_group (code, ticker_code)
                 ('lightyear','GTLB.US'),('lightyear','HNI.US'),('lightyear','PRGS.US'),('lightyear','SN.US'),('lightyear','BBY.US'),
                 ('lightyear','BILL.US'),('lightyear','PGY.US'),('lightyear','BLKB.US'),('lightyear','WGS.US'),('lightyear','TOST.US'),
                 ('lightyear','ZETA.US'),('lightyear','ASAN.US'),('lightyear','ELF.US'),('lightyear','TEAM.US'),('lightyear','CHYM.US'),
-                ('lightyear','CAI.US')
+                ('lightyear','CAI.US'),('lightyear','TENB.US')
          ON CONFLICT DO NOTHING;
 
 select * from turtle.ticker_group where code = 'lightyear';
