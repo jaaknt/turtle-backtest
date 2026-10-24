@@ -18,9 +18,9 @@ that passes it will not break the build.
    ```bash
    uv run ruff check turtlex/ scripts/
    uv run ruff format turtlex/ scripts/ docs/ *.md   # write mode — fix formatting here, not in the hook
+   npx markdownlint-cli2                             # the hook does NOT run this — needed only if a tracked .md changed
    uv run mypy                                       # no arguments, per CLAUDE.md
-   uv run pytest                                     # the hook does NOT run this
-   npx markdownlint-cli2                             # nor this — needed only if a tracked .md changed
+   uv run pytest                                     # nor this
    ```
 
    Any failure stops here — report it and fix it. Never reach for `git commit --no-verify`.
@@ -50,9 +50,12 @@ that passes it will not break the build.
 
    Body explaining why the change was made, not what the diff already shows.
 
-   Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+   Co-Authored-By: <the attribution line Claude Code currently supplies>
    EOF
    ```
+
+   Copy the trailer from the session's current attribution instructions rather than from this
+   template — the model name in it changes between releases.
 
 6. **Push**: `git push origin main`, and note the SHA range from the push output.
 

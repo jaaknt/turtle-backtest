@@ -18,8 +18,10 @@ description: Review staged and unstaged changes before committing, or review a s
 
 **If no commit hash (default — reviewing uncommitted changes):**
 
-1. Run `git diff HEAD` and `git diff --cached` to get all staged and unstaged changes
-2. Run `git status` to understand what files are affected
+1. Run `git diff HEAD` to get all staged and unstaged changes to tracked files
+2. Run `git status --porcelain` to see what files are affected, then read every untracked (`??`)
+   file in full — `git diff HEAD` does not include them, so a brand-new module is otherwise never
+   reviewed
 
 Then review the changes against the criteria below and report findings grouped by severity.
 
@@ -27,7 +29,7 @@ Then review the changes against the criteria below and report findings grouped b
 
 ### Project Conventions
 
-Check the diff against CLAUDE.md — in particular the "Design Patterns & Principles" section (strategy/repository/DI patterns, dataclasses vs Pydantic, async boundary, naming, docstrings, type hints, logging, error handling) and the "Standard Workflow" section (polars for all new code; flag any new pandas import). Do not restate those rules here — CLAUDE.md is the single source of truth.
+Check the diff against CLAUDE.md — in particular the "Package Rules" section (shared dataclasses in `turtlex/model.py`, SQL only in `turtlex/repository/`, strategy registries in `factory.py`, Pydantic only for EODHD responses, research/production parity, shared metrics), the "Design Patterns & Principles" section (configuration, async boundary, naming, docstrings, logging, error handling) and the "Standard Workflow" section (polars for all new code; flag any new pandas import). Do not restate those rules here — CLAUDE.md is the single source of truth.
 
 ### Correctness
 
