@@ -36,9 +36,19 @@ description: Steps and template for adding a new trading strategy to turtlex —
            bars_history: DailyBarsQueryRepository,
            ranking_strategy: RankingStrategy,
            time_frame_unit: TimeFrameUnit = TimeFrameUnit.DAY,
-           warmup_period: int = 365,  # calendar days of history needed before start_date
+           warmup_period: int = 365,
            min_bars: int = 100,
        ):
+           """
+           Initialize the strategy.
+
+           Args:
+               bars_history: Repository for accessing historical bar data
+               ranking_strategy: Strategy for ranking signals
+               time_frame_unit: Time frame for analysis (DAY, WEEK, etc.)
+               warmup_period: Calendar days of history loaded before start_date for indicators
+               min_bars: Minimum number of bars required for analysis
+           """
            super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars)
 
        def calculate_indicators_pl(self) -> None:
@@ -48,6 +58,9 @@ description: Steps and template for adding a new trading strategy to turtlex —
        def _get_polars_signals(self, ticker: str, start_date: date) -> list[Signal]:
            self.calculate_indicators_pl()
            filtered = self.pl_df.filter(pl.col("date") >= start_date)
+           if filtered.is_empty():
+               logger.debug(f"{ticker} - no data after date filtering")
+               return []
            signal_dates = filtered.filter(pl.col("close") >= pl.col("max_close_20"))["date"].to_list()
            return [Signal(ticker=ticker, date=d, ranking=self.ranking_strategy.ranking(self.pl_df, date=d)) for d in signal_dates]
    ```
