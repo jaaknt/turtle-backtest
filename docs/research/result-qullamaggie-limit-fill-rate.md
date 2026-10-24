@@ -1,8 +1,8 @@
 # Limit-Order Fill Rate — bk50d_s12_v2.0
 
-Run date: 2026-08-09 18:57:08 Tallinn time
+Run date: 2026-10-24 18:13:03 Tallinn time
 
-Period: 2010-06-01 – 2026-08-09
+Period: 2010-06-01 – 2026-10-24
 
 ## Configuration
 
@@ -22,7 +22,7 @@ Period: 2010-06-01 – 2026-08-09
 
 ## Results
 
-N signals: 2247  |  N attempted (>=1 bar after signal): 2245  |  N with full 90d window of data: 2184
+N signals: 2216  |  N attempted (>=1 bar after signal): 2216  |  N with full 90d window of data: 2141
 
 Fill% = n_filled / N attempted. MedD/MeanD = median/mean trading days from the signal day to the fill day, filled orders only (1 = fills on the first trading day after the signal).
 
@@ -30,12 +30,12 @@ Fill% = n_filled / N attempted. MedD/MeanD = median/mean trading days from the s
   X%  |         Y=30d          |         Y=60d          |         Y=90d         
       |   Fill%   MedD  MeanD |   Fill%   MedD  MeanD |   Fill%   MedD  MeanD
 -----------------------------------------------------------------------------
-  0%  |   97.5%    1.0    1.4 |   98.0%    1.0    1.6 |   98.2%    1.0    1.7
-  1%  |   94.9%    1.0    2.0 |   95.9%    1.0    2.2 |   96.4%    1.0    2.5
-  2%  |   89.3%    1.0    2.6 |   91.7%    1.0    3.3 |   92.7%    1.0    3.8
-  3%  |   84.0%    2.0    3.5 |   87.5%    2.0    4.5 |   88.7%    2.0    5.1
-  4%  |   78.8%    2.0    4.4 |   83.1%    3.0    5.7 |   85.3%    3.0    6.8
-  5%  |   73.4%    3.0    5.2 |   78.8%    3.5    6.9 |   81.6%    4.0    8.4
+  0%  |   97.3%    1.0    1.4 |   98.0%    1.0    1.6 |   98.2%    1.0    1.7
+  1%  |   94.8%    1.0    2.0 |   95.9%    1.0    2.3 |   96.4%    1.0    2.6
+  2%  |   89.4%    1.0    2.7 |   92.1%    1.0    3.4 |   93.1%    1.0    3.9
+  3%  |   84.1%    2.0    3.5 |   87.9%    2.0    4.6 |   89.2%    2.0    5.3
+  4%  |   79.0%    2.0    4.4 |   83.7%    3.0    5.8 |   86.0%    3.0    7.0
+  5%  |   73.6%    3.0    5.3 |   79.2%    4.0    7.0 |   82.1%    4.0    8.5
 ```
 
 ### n_filled per cell
@@ -43,12 +43,12 @@ Fill% = n_filled / N attempted. MedD/MeanD = median/mean trading days from the s
 ```text
   X%  | n_filled Y=30d | n_filled Y=60d | n_filled Y=90d
 --------------------------------------------------------
-  0%  |           2188 |           2201 |           2205
-  1%  |           2130 |           2153 |           2164
-  2%  |           2005 |           2059 |           2080
-  3%  |           1885 |           1964 |           1991
-  4%  |           1768 |           1866 |           1915
-  5%  |           1647 |           1770 |           1832
+  0%  |           2157 |           2172 |           2176
+  1%  |           2100 |           2126 |           2137
+  2%  |           1982 |           2040 |           2062
+  3%  |           1864 |           1948 |           1976
+  4%  |           1751 |           1855 |           1905
+  5%  |           1631 |           1754 |           1819
 ```
 
 ## Findings & Caveats
