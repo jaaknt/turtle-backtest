@@ -1,5 +1,5 @@
 ---
-description: Review staged and unstaged changes before committing, or review a specific commit. Use when the user wants a code review of pending or already-committed changes.
+description: Review staged and unstaged changes before committing, or review a specific commit — runs the built-in code-review for bugs, then checks project conventions, tests and docs. Use when the user wants a code review of pending or already-committed changes.
 ---
 
 # Code Review
@@ -8,40 +8,37 @@ description: Review staged and unstaged changes before committing, or review a s
 
 - `/my-code-review` — review all uncommitted and staged changes
 - `/my-code-review <commit>` — review a specific commit (e.g. `/my-code-review 8350bf8`)
+- `/my-code-review [<commit>] <level>` — set the bug-review depth (`low`, `medium`, `high`, `xhigh`,
+  `max`); without one, the built-in review reuses the level used last
 
 ## Steps
 
-**If a commit hash was provided:**
+1. **Bug review**: invoke the built-in `code-review` skill via the Skill tool, passing the commit
+   hash (if given) and the level (if given) as its arguments. It covers correctness, security,
+   reuse and simplification — do not repeat any of that below. Wait for it to finish before step 2.
 
-1. Run `git show <commit>` to get the full diff
-2. Run `git show <commit> --stat` to see affected files and the commit message
+2. **Gather the diff for the project checks:**
 
-**If no commit hash (default — reviewing uncommitted changes):**
+   **If a commit hash was provided:**
 
-1. Run `git diff HEAD` to get all staged and unstaged changes to tracked files
-2. Run `git status --porcelain` to see what files are affected, then read every untracked (`??`)
-   file in full — `git diff HEAD` does not include them, so a brand-new module is otherwise never
-   reviewed
+   1. Run `git show <commit>` to get the full diff
+   2. Run `git show <commit> --stat` to see affected files and the commit message
 
-Then review the changes against the criteria below and report findings grouped by severity.
+   **If no commit hash (default — reviewing uncommitted changes):**
 
-## Review Criteria
+   1. Run `git diff HEAD` to get all staged and unstaged changes to tracked files
+   2. Run `git status --porcelain` to see what files are affected, then read every untracked (`??`)
+      file in full — `git diff HEAD` does not include them, so a brand-new module is otherwise never
+      reviewed
+
+3. **Project review**: check the diff against the criteria below only, and report findings grouped
+   by severity.
+
+## Project Review Criteria
 
 ### Project Conventions
 
 Check the diff against CLAUDE.md — in particular the "Package Rules" section (shared dataclasses in `turtlex/model.py`, SQL only in `turtlex/repository/`, strategy registries in `factory.py`, Pydantic only for EODHD responses, research/production parity, shared metrics), the "Design Patterns & Principles" section (configuration, async boundary, naming, docstrings, logging, error handling) and the "Standard Workflow" section (polars for all new code; flag any new pandas import). Do not restate those rules here — CLAUDE.md is the single source of truth.
-
-### Correctness
-
-- Logic errors, off-by-one errors, incorrect conditionals
-- Edge cases not handled (empty lists, None values, date boundaries)
-- Data transformations that could silently produce wrong results
-
-### Security
-
-- No secrets, API keys, or credentials in code or logs
-- No command injection risks in shell calls
-- SQL parameterisation (no string formatting into queries)
 
 ### Tests
 
@@ -55,10 +52,11 @@ Check the diff against CLAUDE.md — in particular the "Package Rules" section (
 
 ## Output Format
 
-Report findings as:
+Report the project findings as:
 
-**[CRITICAL]** — Must fix before committing (bugs, security issues, broken conventions)
-**[WARNING]** — Should fix (design smells, missing tests, style violations)
+**[CRITICAL]** — Must fix before committing (broken conventions)
+**[WARNING]** — Should fix (missing tests, stale docs, style violations)
 **[SUGGESTION]** — Optional improvements
 
-End with a one-line overall verdict: `READY TO COMMIT`, `FIX BEFORE COMMITTING`, or `NEEDS DISCUSSION`.
+End with a one-line overall verdict covering both reviews — a confirmed bug from step 1 counts as
+critical: `READY TO COMMIT`, `FIX BEFORE COMMITTING`, or `NEEDS DISCUSSION`.
