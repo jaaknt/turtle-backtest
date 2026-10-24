@@ -1,6 +1,6 @@
 ---
 name: commit-push
-description: Commit work to main and push it — runs the full CI-parity gate first, stages deliberately so unrelated work never rides along, and reports the pushed SHA range. Use when the user asks to commit, push, or ship changes.
+description: Commit work to main and push it — runs the full CI-parity gate first, stages deliberately so unrelated work never rides along, reports the pushed SHA range, and confirms the GitHub Build workflow passes. Use when the user asks to commit, push, or ship changes.
 ---
 
 # Commit and Push to main
@@ -54,5 +54,24 @@ that passes it will not break the build.
    EOF
    ```
 
-6. **Push**: `git push origin main`, then report the SHA range from the push output and note that
-   the `Build` workflow is now running.
+6. **Push**: `git push origin main`, and note the SHA range from the push output.
+
+7. **Confirm CI passed**: the push is not done until the `Build` workflow is green on the pushed
+   head. The run takes a few seconds to register, so wait for it to appear before watching it:
+
+   ```bash
+   sha=$(git rev-parse HEAD)
+   until run=$(gh run list --workflow build.yml --commit "$sha" --json databaseId \
+       --jq '.[0].databaseId') && [ -n "$run" ]; do sleep 5; done
+   gh run watch "$run" --exit-status
+   ```
+
+   Run this in the background (`run_in_background`), since a build takes minutes. When it exits,
+   report the outcome with the run URL (`gh run view "$run" --json url --jq .url`). On failure,
+   show the failing step's log (`gh run view "$run" --log-failed`) and diagnose it. A gate that
+   passed locally but fails in CI usually means environment drift, such as an unpinned tool
+   version or a test that depends on local data. Don't stop at "CI failed". `CodeQL` also runs
+   on push, but it is slow and not part of the build gate, so don't wait for it.
+
+   If `gh` returns 401, `GH_TOKEN` is probably unset. Say that CI was not verified rather than
+   skipping the step without a word.
