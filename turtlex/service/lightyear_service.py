@@ -84,9 +84,12 @@ class ImportSummary:
 
     Attributes:
         files: Per-file summaries, in the order the files were parsed
+        linked: Stored buys newly linked to a turtle.signal row by this run, including buys
+            imported by earlier runs that had no signal then
     """
 
     files: list[FileImportSummary] = field(default_factory=list)
+    linked: int = 0
 
     @property
     def rows(self) -> int:
@@ -203,6 +206,7 @@ class LightyearService:
             except StatementParseError as e:
                 logger.error("%s: parse failed, nothing from this file was stored: %s", path.name, e)
                 summary.files.append(FileImportSummary(file_name=path.name, failed=True))
+        summary.linked = self.repository.link_signals()
         return summary
 
     def _import_file(self, path: Path, group_tickers: set[str]) -> FileImportSummary:

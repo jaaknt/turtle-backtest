@@ -8,6 +8,7 @@ from sqlalchemy.dialects import postgresql
 
 from turtlex.model import LightyearTransaction
 from turtlex.repository.ingest import LightyearRepository
+from turtlex.repository.ingest.lightyear import SIGNAL_LOOKBACK_DAYS
 
 
 def _make_engine_mock(returned: int) -> tuple[MagicMock, MagicMock]:
@@ -88,3 +89,25 @@ def test_insert_transactions_payload_omits_db_owned_timestamps() -> None:
     assert compiled.params["reference_m0"] == "OR-AAA"
     assert compiled.params["transaction_type_m0"] == "buy"
     assert compiled.params["quantity_m0"] == Decimal("8.000000000")
+
+
+def test_link_signals_counts_returned_rows() -> None:
+    engine, conn = _make_engine_mock(3)
+    repo = LightyearRepository(engine)
+    assert repo.link_signals() == 3
+    conn.execute.assert_called_once()
+
+
+def test_link_signals_updates_only_unlinked_buys_within_the_lookback() -> None:
+    engine, conn = _make_engine_mock(0)
+    repo = LightyearRepository(engine)
+    repo.link_signals()
+
+    stmt, params = conn.execute.call_args.args
+    sql = " ".join(str(stmt).split())
+    assert "t.transaction_type = 'buy' AND t.signal_id IS NULL" in sql
+    assert "s.signal_date < t.transacted_at::date" in sql
+    assert "s.signal_date >= t.transacted_at::date - :lookback_days" in sql
+    assert "ORDER BY t.reference, s.signal_date DESC, s.ranking DESC, s.id" in sql
+    assert params == {"lookback_days": SIGNAL_LOOKBACK_DAYS}
+    assert SIGNAL_LOOKBACK_DAYS == 30

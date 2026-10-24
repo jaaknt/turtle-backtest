@@ -105,6 +105,7 @@ lightyear_transaction_table = Table(
     Column("tax", Numeric(20, 2)),
     Column("net_amount", Numeric(20, 2)),
     Column("source_file", Text),
+    Column("signal_id", BigInteger),
     schema="turtle",
 )
 

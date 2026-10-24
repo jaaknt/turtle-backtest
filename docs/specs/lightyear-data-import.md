@@ -116,6 +116,11 @@ appear twice**, once per FX leg — so non-unique references demonstrably occur 
 
 ## Implementation
 
+> **Later addition:** `signal_id` (FK to `turtle.signal`, `ON DELETE SET NULL`) was added by
+> `db/migrations/versions/2026_10_24_000001_add_lightyear_transaction_signal_id.py`. It is filled by
+> `LightyearRepository.link_signals()` after each import — see the `lightyear-import` section of
+> `docs/scripts.md` for the match rule.
+
 ### 1. Migration — `db/migrations/versions/2026_08_03_000001_create_lightyear_transaction_table.py`
 
 Copy the shape of `db/migrations/versions/2026_03_20_000001_create_ticker_group_table.py`:
