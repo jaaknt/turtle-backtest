@@ -1,6 +1,6 @@
 # Portfolio Simulation — size sweep + ranking deciles
 
-Run date: 2026-10-24 18:27:38 Tallinn time
+Run date: 2026-10-24 22:54:15 Tallinn time
 
 ## Configuration
 
@@ -12,7 +12,7 @@ Run date: 2026-10-24 18:27:38 Tallinn time
 | Entry | next trading day's split/dividend-adjusted open |
 | Initial equity | $30,000 |
 | Position sizing | 3%, 4%, 5% of portfolio per trade |
-| Ranking gate | QullamaggieRanking >= 44, reported against an ungated run of the same signals |
+| Ranking gate | QullamaggieRanking >= 55 and >= 44, reported against an ungated run of the same signals |
 | Fixed filters | breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, roc_12m<100% (no tight_range) |
 | Market regime | SPY close > 200d SMA |
 | Price range | > $5 and < $250 |
@@ -36,15 +36,18 @@ QQQ         85,956  +23.46   -28.56   0.821    1.492
 
 `%abv_SMA50 > 20%` — every other filter is in the Configuration table above.
 
-**Ranking gate:** `QullamaggieRanking >= 44` drops 190 signals (0 with no fillable next-day open); ungated drops 0 (0 with no fillable open). Each sizing is listed gated then ungated, so the pair reads across — a gated run alone cannot show whether the signals it removed would have compounded better.
+**Ranking gate:** `R>=55` drops 623 signals (0 with no fillable next-day open); `R>=44` drops 190 signals (0 with no fillable next-day open); `ungated` drops 0 signals (0 with no fillable next-day open). Each sizing is listed strictest gate first, so the rows read across — a gated run alone cannot show whether the signals it removed would have compounded better.
 
 ```text
 size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 -----------------------------------------------------------------------------------
+3%     R>=55        110,056  +29.72   -35.81   0.830    1.703    119    359   39.2%
 3%     R>=44        118,584  +31.68   -23.84   1.329    1.818    139    772   24.0%
 3%     ungated      118,737  +31.71   -25.45   1.246    1.822    144    957   21.9%
+4%     R>=55        120,809  +32.17   -25.75   1.249    1.824     96    382   33.5%
 4%     R>=44        129,077  +33.93   -27.33   1.242    1.859    107    804   22.6%
 4%     ungated      123,224  +32.69   -29.11   1.123    1.837    112    989   19.7%
+5%     R>=55        138,555  +35.85   -26.08   1.374    1.910     82    396   26.8%
 5%     R>=44        116,564  +31.23   -31.87   0.980    1.717     87    824   21.7%
 5%     ungated      139,017  +35.94   -32.06   1.121    1.929     88   1013   19.2%
 ```
@@ -53,15 +56,18 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
 
 `%abv_SMA50 > 16%` — every other filter is in the Configuration table above.
 
-**Ranking gate:** `QullamaggieRanking >= 44` drops 699 signals (1 with no fillable next-day open); ungated drops 0 (4 with no fillable open). Each sizing is listed gated then ungated, so the pair reads across — a gated run alone cannot show whether the signals it removed would have compounded better.
+**Ranking gate:** `R>=55` drops 1206 signals (0 with no fillable next-day open); `R>=44` drops 699 signals (1 with no fillable next-day open); `ungated` drops 0 signals (4 with no fillable next-day open). Each sizing is listed strictest gate first, so the rows read across — a gated run alone cannot show whether the signals it removed would have compounded better.
 
 ```text
 size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 -----------------------------------------------------------------------------------
+3%     R>=55        124,477  +32.96   -36.72   0.898    1.894    116    361   39.1%
 3%     R>=44        145,603  +37.20   -24.68   1.507    2.065    141    842   22.6%
 3%     ungated      122,617  +32.56   -44.02   0.740    1.663    159   1520   12.8%
+4%     R>=55        139,240  +35.98   -29.77   1.209    2.009     97    380   32.9%
 4%     R>=44        121,047  +32.22   -31.21   1.032    1.802    109    874   20.0%
 4%     ungated      106,397  +28.85   -47.52   0.607    1.437    123   1556   11.0%
+5%     R>=55        167,595  +41.12   -24.57   1.674    2.147     83    394   27.6%
 5%     R>=44        124,234  +32.91   -32.20   1.022    1.779     88    895   19.1%
 5%     ungated      116,689  +31.25   -42.22   0.740    1.556     97   1582   11.7%
 ```
@@ -70,15 +76,18 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
 
 `%abv_SMA50 > 12%` — every other filter is in the Configuration table above.
 
-**Ranking gate:** `QullamaggieRanking >= 44` drops 1404 signals (1 with no fillable next-day open); ungated drops 0 (4 with no fillable open). Each sizing is listed gated then ungated, so the pair reads across — a gated run alone cannot show whether the signals it removed would have compounded better.
+**Ranking gate:** `R>=55` drops 1939 signals (0 with no fillable next-day open); `R>=44` drops 1404 signals (1 with no fillable next-day open); `ungated` drops 0 signals (4 with no fillable next-day open). Each sizing is listed strictest gate first, so the rows read across — a gated run alone cannot show whether the signals it removed would have compounded better.
 
 ```text
 size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 -----------------------------------------------------------------------------------
+3%     R>=55        115,394  +30.96   -40.77   0.759    1.760    116    357   39.1%
 3%     R>=44        139,170  +35.97   -22.66   1.587    2.035    141    866   22.6%
 3%     ungated       91,249  +24.95   -46.31   0.539    1.271    164   2244    9.2%
+4%     R>=55        136,539  +35.45   -39.01   0.909    1.905     99    374   32.2%
 4%     R>=44        146,279  +37.33   -25.13   1.485    2.059    109    898   20.3%
 4%     ungated       86,328  +23.57   -46.50   0.507    1.189    121   2287    9.6%
+5%     R>=55        147,837  +37.62   -34.37   1.095    1.962     84    389   26.9%
 5%     R>=44        156,170  +39.14   -30.09   1.301    2.058     88    919   18.7%
 5%     ungated       94,345  +25.78   -49.51   0.521    1.244     96   2312    9.7%
 ```
@@ -88,11 +97,11 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
 ```text
  #  algo                size      Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 ------------------------------------------------------------------------------------------------
- 1  s12 R>=44             5%     156,170  +39.14   -30.09   1.301    2.058     88    919   18.7%
- 2  s12 R>=44             4%     146,279  +37.33   -25.13   1.485    2.059    109    898   20.3%
- 3  s16 R>=44             3%     145,603  +37.20   -24.68   1.507    2.065    141    842   22.6%
- 4  s12 R>=44             3%     139,170  +35.97   -22.66   1.587    2.035    141    866   22.6%
- 5  s20 ungated           5%     139,017  +35.94   -32.06   1.121    1.929     88   1013   19.2%
+ 1  s16 R>=55             5%     167,595  +41.12   -24.57   1.674    2.147     83    394   27.6%
+ 2  s12 R>=44             5%     156,170  +39.14   -30.09   1.301    2.058     88    919   18.7%
+ 3  s12 R>=55             5%     147,837  +37.62   -34.37   1.095    1.962     84    389   26.9%
+ 4  s12 R>=44             4%     146,279  +37.33   -25.13   1.485    2.059    109    898   20.3%
+ 5  s16 R>=44             3%     145,603  +37.20   -24.68   1.507    2.065    141    842   22.6%
 ```
 
 ## Top 5 by Sortino
@@ -100,11 +109,11 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
 ```text
  #  algo                size      Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 ------------------------------------------------------------------------------------------------
- 1  s16 R>=44             3%     145,603  +37.20   -24.68   1.507    2.065    141    842   22.6%
- 2  s12 R>=44             4%     146,279  +37.33   -25.13   1.485    2.059    109    898   20.3%
- 3  s12 R>=44             5%     156,170  +39.14   -30.09   1.301    2.058     88    919   18.7%
- 4  s12 R>=44             3%     139,170  +35.97   -22.66   1.587    2.035    141    866   22.6%
- 5  s20 ungated           5%     139,017  +35.94   -32.06   1.121    1.929     88   1013   19.2%
+ 1  s16 R>=55             5%     167,595  +41.12   -24.57   1.674    2.147     83    394   27.6%
+ 2  s16 R>=44             3%     145,603  +37.20   -24.68   1.507    2.065    141    842   22.6%
+ 3  s12 R>=44             4%     146,279  +37.33   -25.13   1.485    2.059    109    898   20.3%
+ 4  s12 R>=44             5%     156,170  +39.14   -30.09   1.301    2.058     88    919   18.7%
+ 5  s12 R>=44             3%     139,170  +35.97   -22.66   1.587    2.035    141    866   22.6%
 ```
 
 ## Yearly results
@@ -129,16 +138,16 @@ s12 R>=44 5%        2016      42,705  +42.35   -10.78   3.929    2.514     19   
                     2018      58,296  +11.04   -19.02   0.581    0.618     12     17   17.9%
                     2019      72,917  +25.08   -19.48   1.287    1.490     19     63    8.8%
                     2020     156,170 +114.17   -30.09   3.794    3.112     19    644   13.2%
-s16 R>=44 3%        2016      43,594  +45.31   -10.71   4.232    2.673     33    143   22.3%
-                    2017      50,863  +16.67    -7.30   2.282    1.749     31     12   42.3%
-                    2018      63,970  +25.77   -14.68   1.755    1.542     11     16   17.4%
-                    2019      86,538  +35.28   -11.75   3.003    2.253     33     45   12.9%
-                    2020     145,603  +68.25   -24.68   2.765    2.257     33    626   18.0%
-s20 ungated 5%      2016      44,505  +48.35   -11.56   4.183    2.795     19    166   23.6%
-                    2017      56,569  +27.11    -9.25   2.929    2.507     19     24   31.2%
-                    2018      54,810   -3.11   -23.74  -0.131   -0.225     11     20   17.9%
-                    2019      64,587  +17.84   -14.28   1.249    1.082     20     71    9.8%
-                    2020     139,017 +115.24   -32.06   3.595    3.111     19    732   13.7%
+s16 R>=55 5%        2016      46,136  +53.79   -10.28   5.233    2.748     20     81   21.5%
+                    2017      53,344  +15.62    -8.72   1.791    1.595     14      3   52.7%
+                    2018      70,631  +32.41   -16.36   1.981    1.772      9      1   15.6%
+                    2019      81,592  +15.52   -17.36   0.894    1.163     19      7   34.6%
+                    2020     167,595 +105.41   -24.57   4.290    2.933     21    302   13.9%
+s12 R>=55 5%        2016      46,136  +53.79   -10.28   5.233    2.748     20     78   21.5%
+                    2017      53,401  +15.74    -8.72   1.805    1.608     14      3   52.7%
+                    2018      69,430  +30.02   -17.17   1.748    1.650     10      1   15.2%
+                    2019      74,358   +7.10   -21.58   0.329    0.534     20      5   34.2%
+                    2020     147,837  +98.82   -34.13   2.895    2.703     20    302   11.1%
 ```
 
 ## Monthly returns/transactions — s12 R>=44 at each sizing, plus the top 2 by Final$
@@ -179,35 +188,54 @@ s20 ungated 5%      2016      44,505  +48.35   -11.56   4.183    2.795     19   
  2020 |    -1.7|0    +1.1|1   -11.3|0   +12.5|0   +7.8|11    +4.4|3    +7.3|1   +10.1|1    -7.3|2    +2.0|0   +40.9|0   +22.0|0 |  +114.2    19
 ```
 
-### s16 R>=44 — size 3%  (Final $145,603)
+### s16 R>=55 — size 5%  (Final $167,595)
 
 ```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
- 2016 |    +0.0|0    +0.0|0   +0.0|33   +12.6|0    -3.5|0    +3.4|0   +11.4|0    +2.5|0    +5.1|0    -3.7|0   +13.6|0    -1.4|0 |   +45.3    33
- 2017 |    +6.3|0    -1.7|0    -0.6|2    +0.2|0    +0.4|3    +3.4|3    -0.1|4    +0.0|3    +1.4|5    +0.1|7    +5.0|1    +1.4|3 |   +16.7    31
- 2018 |    +3.0|0    -6.3|0    +5.2|0    +9.5|3   +10.7|3    -2.5|3    +5.8|0   +11.7|1    +0.1|1    -7.3|0    +2.3|0    -6.6|0 |   +25.8    11
- 2019 |    +5.8|0   +1.7|17    -0.1|5    +0.7|2    -6.3|3   +17.0|3    +3.0|0    -6.5|3    +0.1|0    +3.3|0    +4.1|0    +9.9|0 |   +35.3    33
- 2020 |    -4.7|0    -2.9|2    -9.3|0    +7.9|0   +1.9|25    +1.9|3    +4.5|0   +15.0|3    -6.2|0    -2.0|0   +38.6|0   +16.8|0 |   +68.3    33
+ 2016 |    +0.0|0    +0.0|0   -0.2|20   +19.9|0    -6.7|0    +8.0|0   +13.4|0    +2.0|0    +6.1|0    -3.0|0   +11.3|0    -3.7|0 |   +53.8    20
+ 2017 |    +8.3|0    -2.1|0    -0.7|0    +0.0|0    -0.1|2    +2.9|1    +2.0|3    -2.0|1    -1.5|2    -0.6|2    +4.6|1    +4.4|2 |   +15.6    14
+ 2018 |    +2.1|4    -5.1|0    +4.6|0   +10.9|0   +13.7|3    -6.0|1    +6.8|0   +15.3|0    +2.5|1    -8.5|0    +7.9|0   -11.6|0 |   +32.4     9
+ 2019 |    +4.4|0    +2.3|3    -1.8|4    +1.4|0    -3.3|1    +6.7|1    +0.8|5   -10.6|2    -2.7|0    +2.8|3    +3.7|0   +12.7|0 |   +15.5    19
+ 2020 |    -6.2|0    +3.0|1   -10.0|0   +18.1|0   +1.3|10    +5.8|0    +9.9|4   +10.4|2    -5.3|0    -3.7|1   +38.8|3   +21.6|0 |  +105.4    21
 ```
 
-### s20 ungated — size 5%  (Final $139,017)
+### s12 R>=55 — size 5%  (Final $147,837)
 
 ```text
  Year |       Jan       Feb       Mar       Apr       May       Jun       Jul       Aug       Sep       Oct       Nov       Dec |   Year%  Txns
 -----------------------------------------------------------------------------------------------------------------------------------------------
- 2016 |    +0.0|0    +0.0|0   -0.0|19    +9.8|0    -1.0|0    -0.8|0   +11.0|0    +5.1|0    +3.8|0    -1.6|0   +18.0|0    -2.2|0 |   +48.3    19
- 2017 |    +7.0|0    -3.0|0    -0.1|2    -0.6|0    +0.6|2    +4.7|4    +3.7|4    -3.3|3    +4.3|4    +2.0|0    +7.8|0    +1.9|0 |   +27.1    19
- 2018 |    +3.1|0    -5.1|0    +1.9|1    +2.6|1   +10.7|3    +0.7|3    +0.8|1    +6.4|1    +0.7|1   -10.3|0    -0.5|0   -11.9|0 |    -3.1    11
- 2019 |    +8.8|0    +8.1|9    -4.1|0    +3.6|2    -9.4|2    +7.9|4    -0.0|1    -5.4|1    +0.4|0    +2.8|1    +2.2|0    +3.4|0 |   +17.8    20
- 2020 |    +7.2|0    +0.0|1   -15.0|0    +9.8|0  +10.4|10    +4.0|5    +8.1|0   +12.9|1    -5.6|0    -6.8|2   +42.6|0   +22.2|0 |  +115.2    19
+ 2016 |    +0.0|0    +0.0|0   -0.2|20   +19.9|0    -6.7|0    +8.0|0   +13.4|0    +2.0|0    +6.1|0    -3.0|0   +11.3|0    -3.7|0 |   +53.8    20
+ 2017 |    +8.3|0    -2.1|0    -0.7|0    +0.0|0    -0.1|2    +2.9|1    +2.0|3    -2.0|1    -1.5|2    -0.6|2    +4.6|1    +4.5|2 |   +15.7    14
+ 2018 |    +2.1|4    -5.0|0    +4.7|0   +10.9|0   +13.7|3    -6.0|1    +6.8|0   +15.3|0    +2.6|1    -8.5|0    +8.0|0   -13.3|1 |   +30.0    10
+ 2019 |    +5.8|0    +3.0|3    -0.6|3    +0.1|0    -7.2|1    +3.6|1    +0.3|5   -10.7|2    -1.0|0    +1.4|3    +3.0|1   +11.1|1 |    +7.1    20
+ 2020 |    -4.1|0    -2.3|1   -14.7|0   +21.7|0    +2.5|7    +6.1|1    +9.6|4    +9.8|2    -4.2|0    -2.0|1   +36.7|3   +21.6|1 |   +98.8    20
 ```
 
 ## Ranking Deciles (QullamaggieRanking)
 
-Every taken trade of every config (at 4% sizing, the middle of the 3%/4%/5% sweep) is scored 0-100 with turtlex/strategy/ranking/qullamaggie.py at entry, split into 10 equal-count deciles (D1=lowest score .. D10=highest), and each decile's own signal subset is re-simulated in isolation (same sizing, same universe) to report that decile's standalone portfolio metrics — this tests whether higher-ranked signals produce a better standalone portfolio, not just a higher per-trade return.
+Every taken trade of every config (at 4% sizing, the middle of the 3%/4%/5% sweep) is scored 0-100 with turtlex/strategy/ranking/qullamaggie.py at entry, split into 10 equal-count deciles (D1=lowest score .. D10=highest), and each decile's own signal subset is re-simulated in isolation (same sizing, same universe) to report that decile's standalone portfolio metrics — this tests whether higher-ranked signals produce a better standalone portfolio, not just a higher per-trade return. Each config is decomposed once per gated signal set, strictest gate first as in the size sweep: the deciles split the trades that gate's own run took, so each table spans only that gate..100 and reads against the matching size-sweep row.
 
-### s20  (bk50d_s20_v2.0)
+### s20 R>=55  (bk50d_s20_v2.0)
+
+Trades scored: 96  |  size: 4%
+
+```text
+Decile     Ranking     N   CAGR%   MaxDD%  Calmar  Sortino
+----------------------------------------------------------
+D1        55-57        9   +2.76    -4.83   0.571    1.215
+D2        57-61       10   +2.39    -7.33   0.326    0.828
+D3        61-61        9   +2.89    -5.77   0.501    0.918
+D4        61-65       10   +0.25   -11.93   0.021    0.111
+D5        65-65       10   +8.47   -10.87   0.779    1.922
+D6        65-71        9   +0.41    -5.87   0.069    0.212
+D7        71-75       10   +2.60    -5.72   0.455    0.995
+D8        75-93        9   +4.72    -4.80   0.983    1.327
+D9        93-100      10   +4.69    -9.67   0.485    0.984
+D10      100-100      10   +4.62   -16.62   0.278    0.848
+```
+
+### s20 R>=44  (bk50d_s20_v2.0)
 
 Trades scored: 107  |  size: 4%
 
@@ -226,7 +254,26 @@ D9        96-100      11   +5.11   -11.00   0.465    1.034
 D10      100-100      11   +5.24   -16.62   0.316    0.928
 ```
 
-### s16  (bk50d_s16_v2.0)
+### s16 R>=55  (bk50d_s16_v2.0)
+
+Trades scored: 97  |  size: 4%
+
+```text
+Decile     Ranking     N   CAGR%   MaxDD%  Calmar  Sortino
+----------------------------------------------------------
+D1        55-57        9   +2.05   -10.49   0.195    0.758
+D2        57-58       10   +4.32    -7.98   0.541    1.623
+D3        60-61       10   +1.77    -5.55   0.318    0.682
+D4        61-64        9   +4.58    -5.13   0.893    1.698
+D5        64-65       10   +2.23    -7.37   0.303    0.692
+D6        65-68       10   +6.95    -9.70   0.716    1.497
+D7        68-75        9   +2.66    -4.96   0.537    0.969
+D8        75-89       10   +3.42    -4.15   0.825    1.377
+D9        93-100      10   +4.30   -11.01   0.390    0.801
+D10      100-100      10   +4.62   -16.62   0.278    0.848
+```
+
+### s16 R>=44  (bk50d_s16_v2.0)
 
 Trades scored: 109  |  size: 4%
 
@@ -245,7 +292,26 @@ D9        79-100      11   +5.08    -7.52   0.675    1.429
 D10      100-100      11   +5.76   -16.62   0.347    1.013
 ```
 
-### s12  (bk50d_s12_v2.0)
+### s12 R>=55  (bk50d_s12_v2.0)
+
+Trades scored: 99  |  size: 4%
+
+```text
+Decile     Ranking     N   CAGR%   MaxDD%  Calmar  Sortino
+----------------------------------------------------------
+D1        55-55        9   +1.13   -12.93   0.088    0.424
+D2        57-58       10   +4.30    -3.79   1.134    1.866
+D3        58-61       10   +2.99    -5.55   0.538    1.049
+D4        61-64       10   +1.45   -10.97   0.132    0.495
+D5        64-65       10   +3.76    -7.14   0.526    1.151
+D6        65-68       10   +7.37   -10.93   0.675    1.513
+D7        68-75       10   +2.42    -6.59   0.367    0.878
+D8        75-89       10   +2.32    -4.82   0.482    0.945
+D9        89-100      10   +4.62   -10.23   0.452    0.918
+D10      100-100      10   +6.80    -9.71   0.701    1.326
+```
+
+### s12 R>=44  (bk50d_s12_v2.0)
 
 Trades scored: 109  |  size: 4%
 
@@ -271,6 +337,26 @@ D10      100-100      11   +5.76   -16.62   0.347    1.013
 > added ~45% more signals. Figures quoted below no longer match — e.g. the ranking gate's CAGR
 > advantage is now **+7.92pp winning 7 of 9 cells**, not +12.09pp winning 9 of 9. Treat the
 > reasoning as still useful and every number as superseded.
+>
+> **2026-10-24:** the tables now carry three rows per sizing — `R>=55`, `R>=44` and ungated — and
+> the gate is `MIN_RANKING >= 44`, not the `>= 40` the text below refers to. The R>=55 comparison
+> is summarised in the next subsection; everything after it is the original 2026-07-30 text.
+
+### R>=55 against R>=44 (2026-10-24 run)
+
+Across the 9 config/size cells, R>=55 minus R>=44 CAGR averages **+0.02pp** and wins **3 of 9**
+(range −5.01 to +8.21pp); Sortino is better in 3 of 9 and MaxDD in 4 of 9. For the reference
+`s12` R>=55 loses at every sizing (−5.01 / −1.88 / −1.52pp at 3/4/5%), and its drawdown roughly
+doubles at 3% (−40.77% against −22.66%) — fewer positions means each one weighs more. The wins
+are at s16/s20, where the best cell of the window (`s16 R>=55 @5%`, +41.12%, Sortino 2.147) sits
+on only 83 trades. Uninvested capital rises from 18.7–24.0% to 26.8–39.2%. **Verdict here: a wash
+on average, and worse for the live `s12` config.**
+
+The R>=55 decile tables are equally flat: for `s12` R>=55, D1 (score 55) has the worst
+drawdown (−12.93%), and the best CAGR is D6 (score 65-68, +7.37%), not D10 (score 100, +6.80%),
+with no order between. In the R>=44 tables
+the 44-54 deciles (D1-D5) post +2.3% to +5.2% standalone — no worse than 55-61 — which is why
+cutting them costs return here.
 
 **What changed in this run.** Each config is now reported twice — through the `MIN_RANKING >= 40`
 gate and with no ranking condition. This is also the first portfolio run on the 40/35/25

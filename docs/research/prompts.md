@@ -687,7 +687,9 @@ failed), `sma_stack`, `pct_vs_sma200` + `sma200_slope_20d`, `base_depth_50d` /
 - **Period:** 2021-01-01 : 2026-06-26
 - **Algorithms:** `bk50d_s20_v2.0`, `bk50d_s16_v2.0`, `bk50d_s12_v2.0` (366d hold)
 - **Ranking:** Calculate ranking (turtlex/strategy/ranking/qullamaggie.py) for all transactions, prefer signals with higher ranking.
-Calculate results with applying filter `MIN_RANKING >= 44` and without applying it.
+Calculate results three ways: with the reference gate `MIN_RANKING >= 44`, with a stricter
+comparison gate `STRICT_RANKING >= 55` (a separate constant — `MIN_RANKING` stays at 44), and
+without any ranking gate.
 - **Initial portfolio:** $30,000
 - **Position sizing:** invest {3%, 4%, 5%} of portfolio at a time per trade; if there is no liquidity, skip the trade.
 - **Header:** a `## Configuration` table (`| Parameter | Value |`, the same shape the cohort studies
@@ -695,24 +697,29 @@ Calculate results with applying filter `MIN_RANKING >= 44` and without applying 
   Only `%abv_SMA50`, the swept dimension each algorithm is named for, stays on the per-algorithm
   heading — repeating the full filter list per section made three near-identical lines that could
   drift apart.
-- **Output format:** **one table per algorithm**, carrying both ranking treatments. Each sizing
-  appears twice on adjacent rows — gated then ungated — so the pair reads across rather than
-  across two separate tables. Everything else (period, sizing, entry, exit) is identical between
-  the two, so the difference isolates the gate. A `gate` column distinguishes the rows.
+- **Output format:** **one table per algorithm**, carrying all three ranking treatments. Each sizing
+  appears three times on adjacent rows — `R>=55`, `R>=44`, then ungated — so the rows read across
+  rather than across separate tables. Everything else (period, sizing, entry, exit) is identical
+  between them, so the difference isolates the gate. A `gate` column distinguishes the rows.
+  Example: the real `s12` table from the 2026-10-24 run of 2021-01-01 : 2026-06-26.
 
   ```text
-  **Ranking gate:** `QullamaggieRanking >= 44` drops 190 signals (0 with no fillable next-day open);
-  ungated drops 0 (0 with no fillable open). Each sizing is listed gated then ungated, so the pair
-  reads across — a gated run alone cannot show whether the signals it removed would have compounded better.
+  **Ranking gate:** `R>=55` drops 1967 signals (0 with no fillable next-day open); `R>=44` drops 1512
+  signals (0 with no fillable next-day open); `ungated` drops 0 signals (3 with no fillable next-day
+  open). Each sizing is listed strictest gate first, so the rows read across — a gated run alone
+  cannot show whether the signals it removed would have compounded better.
 
-  size   gate          Final$   CAGR%  MaxDD%   Calmar  Sortino  taken   skip  Uninv%
+  size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
   -----------------------------------------------------------------------------------
-  3%     R>=44        231,265  +45.20   -31.94   1.415    1.959    186    535    9.7%
-  3%     ungated      202,291  +41.69   -28.99   1.438    1.838    192    719    9.0%
-  4%     R>=44        166,413  +36.73   -27.47   1.337    1.621    142    579    9.0%
-  4%     ungated      157,481  +35.36   -27.47   1.287    1.599    145    766    8.9%
-  5%     R>=44        218,205  +43.66   -30.67   1.424    1.817    116    605    9.5%
-  5%     ungated      235,503  +45.68   -30.67   1.489    1.887    117    794    9.3%
+  3%     R>=55        316,042  +53.72   -28.62   1.877    2.263    167    216   14.4%
+  3%     R>=44        352,259  +56.79   -30.27   1.876    2.345    186    652    8.2%
+  3%     ungated      146,566  +33.59   -23.19   1.449    1.787    196   2151    6.3%
+  4%     R>=55        406,015  +60.91   -33.61   1.813    2.272    132    251   11.1%
+  4%     R>=44        243,714  +46.59   -28.53   1.633    1.977    145    693    8.1%
+  4%     ungated      151,989  +34.48   -22.94   1.503    1.817    145   2202    6.5%
+  5%     R>=55        440,427  +63.32   -33.83   1.872    2.224    107    276    9.8%
+  5%     R>=44        241,726  +46.37   -28.71   1.615    1.958    114    724    8.6%
+  5%     ungated      191,691  +40.31   -24.38   1.653    1.986    116   2231    6.2%
   ```
 
 - List of Top 5 by Final$, List of Top 5 by Sortino
