@@ -1,6 +1,6 @@
 # Portfolio Simulation — size sweep + ranking deciles
 
-Run date: 2026-10-24 18:26:27 Tallinn time
+Run date: 2026-10-24 22:53:04 Tallinn time
 
 ## Configuration
 
@@ -12,7 +12,7 @@ Run date: 2026-10-24 18:26:27 Tallinn time
 | Entry | next trading day's split/dividend-adjusted open |
 | Initial equity | $30,000 |
 | Position sizing | 3%, 4%, 5% of portfolio per trade |
-| Ranking gate | QullamaggieRanking >= 44, reported against an ungated run of the same signals |
+| Ranking gate | QullamaggieRanking >= 55 and >= 44, reported against an ungated run of the same signals |
 | Fixed filters | breakout>50d high, RSI(14)<70, ADR%(20)>=3.0%, ADR_change<90%, vol_surge<2.0x, roc_12m<100% (no tight_range) |
 | Market regime | SPY close > 200d SMA |
 | Price range | > $5 and < $250 |
@@ -36,15 +36,18 @@ QQQ         72,292  +15.81   -16.09   0.983    1.327
 
 `%abv_SMA50 > 20%` — every other filter is in the Configuration table above.
 
-**Ranking gate:** `QullamaggieRanking >= 44` drops 34 signals (0 with no fillable next-day open); ungated drops 0 (0 with no fillable open). Each sizing is listed gated then ungated, so the pair reads across — a gated run alone cannot show whether the signals it removed would have compounded better.
+**Ranking gate:** `R>=55` drops 142 signals (0 with no fillable next-day open); `R>=44` drops 34 signals (0 with no fillable next-day open); `ungated` drops 0 signals (0 with no fillable next-day open). Each sizing is listed strictest gate first, so the rows read across — a gated run alone cannot show whether the signals it removed would have compounded better.
 
 ```text
 size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 -----------------------------------------------------------------------------------
+3%     R>=55         52,604   +9.83   -18.16   0.541    0.962    102      0   50.3%
 3%     R>=44         74,047  +16.28   -25.89   0.629    1.169    146     64   29.9%
 3%     ungated       73,081  +16.02   -27.42   0.584    1.176    151     93   27.9%
+4%     R>=55         56,583  +11.17   -23.38   0.478    0.915     94      8   39.9%
 4%     R>=44         76,323  +16.86   -28.04   0.601    1.167    120     90   24.4%
 4%     ungated       70,694  +15.38   -23.72   0.648    1.082    123    121   22.9%
+5%     R>=55         60,046  +12.28   -25.51   0.481    0.904     87     15   31.5%
 5%     R>=44         70,870  +15.43   -26.93   0.573    1.040    101    109   21.7%
 5%     ungated       70,527  +15.33   -24.08   0.637    1.025    102    142   21.2%
 ```
@@ -53,15 +56,18 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
 
 `%abv_SMA50 > 16%` — every other filter is in the Configuration table above.
 
-**Ranking gate:** `QullamaggieRanking >= 44` drops 268 signals (0 with no fillable next-day open); ungated drops 0 (0 with no fillable open). Each sizing is listed gated then ungated, so the pair reads across — a gated run alone cannot show whether the signals it removed would have compounded better.
+**Ranking gate:** `R>=55` drops 433 signals (0 with no fillable next-day open); `R>=44` drops 268 signals (0 with no fillable next-day open); `ungated` drops 0 signals (0 with no fillable next-day open). Each sizing is listed strictest gate first, so the rows read across — a gated run alone cannot show whether the signals it removed would have compounded better.
 
 ```text
 size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 -----------------------------------------------------------------------------------
+3%     R>=55         47,636   +8.02   -19.93   0.402    0.781    104      2   49.7%
 3%     R>=44         70,220  +15.25   -27.31   0.558    1.070    158    113   24.4%
 3%     ungated       81,826  +18.23   -24.13   0.756    1.193    184    355   13.8%
+4%     R>=55         52,456   +9.77   -23.42   0.417    0.800     96     10   38.8%
 4%     R>=44         74,018  +16.27   -26.44   0.615    1.081    126    145   20.8%
 4%     ungated       65,466  +13.91   -26.98   0.516    0.927    142    397   11.9%
+5%     R>=55         57,789  +11.56   -27.39   0.422    0.826     88     18   29.3%
 5%     R>=44         64,573  +13.65   -29.73   0.459    0.914    102    169   18.8%
 5%     ungated       67,070  +14.37   -34.08   0.422    0.918    117    422   11.0%
 ```
@@ -70,15 +76,18 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
 
 `%abv_SMA50 > 12%` — every other filter is in the Configuration table above.
 
-**Ranking gate:** `QullamaggieRanking >= 44` drops 732 signals (0 with no fillable next-day open); ungated drops 0 (0 with no fillable open). Each sizing is listed gated then ungated, so the pair reads across — a gated run alone cannot show whether the signals it removed would have compounded better.
+**Ranking gate:** `R>=55` drops 928 signals (0 with no fillable next-day open); `R>=44` drops 732 signals (0 with no fillable next-day open); `ungated` drops 0 signals (0 with no fillable next-day open). Each sizing is listed strictest gate first, so the rows read across — a gated run alone cannot show whether the signals it removed would have compounded better.
 
 ```text
 size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uninv%
 -----------------------------------------------------------------------------------
+3%     R>=55         51,794   +9.54   -19.93   0.479    0.909    104      0   49.0%
 3%     R>=44         62,974  +13.17   -27.99   0.471    0.912    164    136   22.4%
 3%     ungated       61,045  +12.59   -34.47   0.365    0.839    196    836    6.2%
+4%     R>=55         58,633  +11.83   -23.93   0.495    0.937     96      8   37.7%
 4%     R>=44         64,735  +13.70   -32.56   0.421    0.913    127    173   19.2%
 4%     ungated       70,599  +15.35   -34.97   0.439    0.959    148    884    4.7%
+5%     R>=55         64,992  +13.77   -27.39   0.503    0.957     88     16   28.4%
 5%     R>=44         62,494  +13.03   -33.72   0.386    0.863    101    199   18.6%
 5%     ungated       73,591  +16.16   -35.19   0.459    0.991    119    913    3.8%
 ```
@@ -215,9 +224,28 @@ s20 R>=44 4%        2010      33,532  +11.77   -19.53   0.603    0.891     24   
 
 ## Ranking Deciles (QullamaggieRanking)
 
-Every taken trade of every config (at 4% sizing, the middle of the 3%/4%/5% sweep) is scored 0-100 with turtlex/strategy/ranking/qullamaggie.py at entry, split into 10 equal-count deciles (D1=lowest score .. D10=highest), and each decile's own signal subset is re-simulated in isolation (same sizing, same universe) to report that decile's standalone portfolio metrics — this tests whether higher-ranked signals produce a better standalone portfolio, not just a higher per-trade return.
+Every taken trade of every config (at 4% sizing, the middle of the 3%/4%/5% sweep) is scored 0-100 with turtlex/strategy/ranking/qullamaggie.py at entry, split into 10 equal-count deciles (D1=lowest score .. D10=highest), and each decile's own signal subset is re-simulated in isolation (same sizing, same universe) to report that decile's standalone portfolio metrics — this tests whether higher-ranked signals produce a better standalone portfolio, not just a higher per-trade return. Each config is decomposed once per gated signal set, strictest gate first as in the size sweep: the deciles split the trades that gate's own run took, so each table spans only that gate..100 and reads against the matching size-sweep row.
 
-### s20  (bk50d_s20_v2.0)
+### s20 R>=55  (bk50d_s20_v2.0)
+
+Trades scored: 94  |  size: 4%
+
+```text
+Decile     Ranking     N   CAGR%   MaxDD%  Calmar  Sortino
+----------------------------------------------------------
+D1        55-55        9   +2.54    -5.64   0.451    1.103
+D2        55-57        9   +2.15    -5.83   0.369    1.032
+D3        58-58       10   +0.02    -5.05   0.004    0.030
+D4        58-61        9   +0.41   -10.46   0.039    0.168
+D5        61-61       10   +3.83    -7.01   0.545    1.150
+D6        61-65        9   -0.43    -7.98  -0.054   -0.209
+D7        65-65        9   +0.56    -6.49   0.086    0.264
+D8        65-75       10   -0.44    -6.24  -0.070   -0.194
+D9        75-82        9   +0.96    -6.05   0.159    0.427
+D10       86-100      10   +2.35    -5.38   0.437    0.814
+```
+
+### s20 R>=44  (bk50d_s20_v2.0)
 
 Trades scored: 120  |  size: 4%
 
@@ -236,7 +264,26 @@ D9        65-75       12   -0.18    -6.14  -0.029   -0.054
 D10       79-100      12   +1.49    -8.08   0.184    0.494
 ```
 
-### s16  (bk50d_s16_v2.0)
+### s16 R>=55  (bk50d_s16_v2.0)
+
+Trades scored: 96  |  size: 4%
+
+```text
+Decile     Ranking     N   CAGR%   MaxDD%  Calmar  Sortino
+----------------------------------------------------------
+D1        55-55        9   +2.05    -5.98   0.343    0.880
+D2        57-57       10   +2.09    -5.41   0.386    0.856
+D3        57-58        9   -0.22    -6.95  -0.031   -0.067
+D4        58-61       10   -0.04    -5.36  -0.007   -0.002
+D5        61-61       10   +3.72    -6.21   0.599    1.085
+D6        61-61        9   +0.46    -7.96   0.057    0.248
+D7        65-65       10   +0.31    -6.49   0.048    0.156
+D8        65-75        9   -0.85    -8.51  -0.099   -0.448
+D9        75-82       10   +0.68    -6.05   0.112    0.288
+D10       86-100      10   +2.35    -5.38   0.437    0.814
+```
+
+### s16 R>=44  (bk50d_s16_v2.0)
 
 Trades scored: 126  |  size: 4%
 
@@ -255,7 +302,26 @@ D9        65-75       13   +0.43    -6.68   0.064    0.180
 D10       75-100      13   +1.16    -8.16   0.143    0.377
 ```
 
-### s12  (bk50d_s12_v2.0)
+### s12 R>=55  (bk50d_s12_v2.0)
+
+Trades scored: 96  |  size: 4%
+
+```text
+Decile     Ranking     N   CAGR%   MaxDD%  Calmar  Sortino
+----------------------------------------------------------
+D1        55-57        9   +3.47    -7.40   0.469    1.305
+D2        57-57       10   +2.09    -4.87   0.428    0.861
+D3        57-58        9   +0.07    -5.05   0.014    0.054
+D4        58-61       10   -0.22    -7.32  -0.030   -0.079
+D5        61-61       10   +2.83    -6.10   0.464    0.932
+D6        61-65        9   +0.26    -7.19   0.036    0.158
+D7        65-65       10   +0.51    -6.65   0.076    0.241
+D8        68-75        9   -1.08    -9.91  -0.109   -0.522
+D9        75-86       10   +1.03    -6.05   0.170    0.420
+D10       86-100      10   +3.64    -8.21   0.444    1.015
+```
+
+### s12 R>=44  (bk50d_s12_v2.0)
 
 Trades scored: 127  |  size: 4%
 
@@ -281,6 +347,25 @@ D10       75-100      13   +1.52    -7.64   0.199    0.488
 > added ~45% more signals. Figures quoted below no longer match — e.g. the ranking gate's CAGR
 > advantage is now **+7.92pp winning 7 of 9 cells**, not +12.09pp winning 9 of 9. Treat the
 > reasoning as still useful and every number as superseded.
+>
+> **2026-10-24:** the tables now carry three rows per sizing — `R>=55`, `R>=44` and ungated — and
+> the gate is `MIN_RANKING >= 44`, not the `>= 40` the text below refers to. The R>=55 comparison
+> is summarised in the next subsection; everything after it is the original 2026-07-30 text.
+
+### R>=55 against R>=44 (2026-10-24 run)
+
+Across the 9 config/size cells, R>=55 minus R>=44 CAGR averages **−3.99pp** and wins **1 of 9**
+(range −7.23 to +0.74pp); Sortino is better in only 2 of 9. For the reference `s12` the deltas at
+3/4/5% sizing are −3.63 / −1.87 / +0.74pp. The stricter gate removes signals from a window that
+already has too few, so uninvested capital rises from 18.6–29.9% at R>=44 to 28.4–50.3%. Its
+MaxDD is shallower in all 9 cells, but that is cash, not better trades — the same artifact as
+point 5 below. **Verdict here: R>=55 costs return and buys only idle-cash safety.**
+
+The R>=55 decile tables (9-10 trades per decile) show no ordering inside 55..100: for `s12`, D1 (score
+55-57, +3.47%) and D10 (86-100, +3.64%) lead while D4 (58-61, −0.22%) and D8 (68-75, −1.08%) are
+negative. Nothing in 55..100
+separates better than the 44..54 deciles of the R>=44 tables do, so dropping 44-54 removes
+trades of similar quality rather than the weak tail.
 
 **What changed in this run.** Each config is now reported twice — through the `MIN_RANKING >= 40`
 gate and with no ranking condition. This is also the first portfolio run on the 40/35/25

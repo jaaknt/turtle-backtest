@@ -12,11 +12,11 @@ close is used only for the $5-$250 price band, matching scripts/qullamaggie-back
 
 Rules:
   - Period 2021-01-01 .. 2026-06-26, initial equity $30,000.
-  - Each config's size sweep is one table carrying both ranking treatments: every sizing appears
-    twice, once with signals scoring below MIN_RANKING on QullamaggieRanking dropped (matching the
-    portfolio-runner --min-signal-ranking default) and once with no ranking condition at all, on
-    adjacent rows. Everything else is identical between the two, so the pair isolates what the gate
-    is worth once position sizing and cash competition are in play.
+  - Each config's size sweep is one table carrying three ranking treatments: every sizing appears
+    three times on adjacent rows — signals scoring below STRICT_RANKING on QullamaggieRanking
+    dropped, below MIN_RANKING dropped (matching the portfolio-runner --min-signal-ranking
+    default), and no ranking condition at all. Everything else is identical between them, so the
+    rows isolate what each gate is worth once position sizing and cash competition are in play.
   - Signals competing for cash on the same day are funded best-ranked first. Entries arrive
     in bursts and cash runs out mid-burst, so this ordering decides which trades exist at all.
   - Each signal: buy at the next trading day's split/dividend-adjusted open (matching
@@ -31,10 +31,10 @@ SPY/QQQ buy & hold benchmarks ($INIT_EQUITY lump-sum, first close to last close 
 are reported alongside the main sweep. Each taken trade of every config is also scored
 with QullamaggieRanking (turtlex/strategy/ranking/qullamaggie.py); trades are split into 10
 equal-count ranking deciles and each decile's signal subset is re-simulated in isolation (same
-position sizing) to report that decile's own standalone CAGR/MaxDD/Calmar/Sortino. Note the
-deciles are built from the **gated** signal set, so they only span MIN_RANKING..100 and cannot
-speak to scores below it — the ungated size-sweep table above is what shows whether the gate
-earns its keep.
+position sizing) to report that decile's own standalone CAGR/MaxDD/Calmar/Sortino. Deciles are
+built once per gated signal set — MIN_RANKING and STRICT_RANKING — so each spans only its own
+gate..100 and cannot speak to scores below it; the ungated size-sweep rows are what show whether
+a gate earns its keep.
 
 Outputs: monthly portfolio return + transaction-count grid (year x month), Max DD, Calmar,
 Sortino, signals taken/skipped, average uninvested capital.
@@ -91,6 +91,12 @@ RSI_CAP = 70.0
 ADR_FLOOR = 0.03
 ADR_CHANGE_CAP = 0.90
 MIN_RANKING = 44  # QullamaggieRanking entry gate, matching the portfolio-runner default
+STRICT_RANKING = 55  # tighter comparison gate, reported alongside MIN_RANKING and ungated
+# Every ranking treatment, strictest first: the size sweep reports them in this order and the
+# decile section walks the gated ones in the same order. A floor of 0 keeps every signal.
+GATES: list[tuple[str, int]] = [(f"R>={STRICT_RANKING}", STRICT_RANKING), (f"R>={MIN_RANKING}", MIN_RANKING), ("ungated", 0)]
+# run_sim result fields only the yearly/monthly focus rows read; dropped from every other result
+HEAVY_RESULT_KEYS = ("eom", "entries", "skips", "dates", "eq", "cash", "trades")
 
 CONFIGS = [
     ("s20", 0.20),
@@ -119,7 +125,10 @@ def config_rows() -> list[tuple[str, str]]:
         ("Entry", "next trading day's split/dividend-adjusted open"),
         ("Initial equity", f"${INIT_EQUITY:,.0f}"),
         ("Position sizing", ", ".join(f"{f:.0%}" for f in POS_FRACTIONS) + " of portfolio per trade"),
-        ("Ranking gate", f"QullamaggieRanking >= {MIN_RANKING}, reported against an ungated run of the same signals"),
+        (
+            "Ranking gate",
+            f"QullamaggieRanking >= {STRICT_RANKING} and >= {MIN_RANKING}, reported against an ungated run of the same signals",
+        ),
         (
             "Fixed filters",
             f"breakout>50d high, RSI(14)<{RSI_CAP:.0f}, ADR%(20)>={ADR_FLOOR * 100:.1f}%, "
@@ -734,42 +743,75 @@ def main() -> None:
 
     # collect all baseline (366d) results first, then rank for monthly grids
     all_results: list[tuple[str, float, dict]] = []  # (name, pos_fraction, result)
-    signals_by_day_by_config: dict[str, dict[int, list[dict]]] = {}
+    # Gated signal sets keyed by (config, gate label), for the decile section
+    signals_by_day_by_gate: dict[tuple[str, str], dict[int, list[dict]]] = {}
     hdr = (
         f"{'size':<6} {'gate':<8} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} "
         f"{'Sortino':>8} {'taken':>6} {'skip':>6} {'Uninv%':>7}"
     )
 
-    def resolve(sig: pl.DataFrame, min_ranking: int) -> tuple[dict[int, list[dict]], int, int]:
-        """Score every signal and attach its entry day and price, keyed by the day it is funded.
+    def resolve(sig: pl.DataFrame) -> list[dict]:
+        """Score every signal once and attach its fill: the next trading day's adjusted open.
 
-        The entry is the production rule — the next trading day's adjusted open. Resolved once
-        here rather than inside run_sim, because the size sweep and the decile re-simulations
-        replay the same signals many times over.
+        Done once per config, not per gate or inside run_sim: the gates, the size sweep and the
+        decile re-simulations all replay the same signals, and run_sim never mutates them, so
+        every gated view can share these dicts.
 
         Args:
             sig: Signal frame for one config, from `get_signals`
-            min_ranking: QullamaggieRanking floor; 0 keeps every signal, which is how the
-                ungated half of each config's report is produced
 
         Returns:
-            (signals keyed by entry date-int, dropped by the ranking gate, unfilled).
+            One dict per signal carrying `ranking`, plus `entry_dint`/`entry_px` — both None when
+            no fillable next-day open falls inside the evaluation calendar.
         """
-        by_day: dict[int, list[dict]] = {}
-        n_rank = n_unfilled = 0
+        resolved: list[dict] = []
         for row in sig.iter_rows(named=True):
             r = dict(row)
             r["ranking"] = compute_ranking(r)
+            fill = next_open(r["symbol"], (r["date"] - _EPOCH).days)
+            r["entry_dint"], r["entry_px"] = fill if fill is not None and fill[0] in cal_set else (None, None)
+            resolved.append(r)
+        return resolved
+
+    def gate_signals(resolved: list[dict], min_ranking: int) -> tuple[dict[int, list[dict]], int, int]:
+        """Apply one ranking floor to resolved signals, keyed by the day each is funded.
+
+        Signals are keyed by their *entry* day (the next trading day), so run_sim funds a
+        position on the day it is actually filled.
+
+        Args:
+            resolved: Output of `resolve` for one config
+            min_ranking: QullamaggieRanking floor; 0 keeps every signal, which is how the
+                ungated rows of each config's report are produced
+
+        Returns:
+            (signals keyed by entry date-int, dropped by the ranking gate, unfilled among the
+            signals the gate kept).
+        """
+        by_day: dict[int, list[dict]] = {}
+        n_rank = n_unfilled = 0
+        for r in resolved:
             if r["ranking"] < min_ranking:
                 n_rank += 1
-                continue
-            fill = next_open(r["symbol"], (r["date"] - _EPOCH).days)
-            if fill is None or fill[0] not in cal_set:
+            elif r["entry_dint"] is None:
                 n_unfilled += 1
-                continue
-            entry_dint, r["entry_px"] = fill
-            by_day.setdefault(entry_dint, []).append(r)
+            else:
+                by_day.setdefault(r["entry_dint"], []).append(r)
         return by_day, n_rank, n_unfilled
+
+    focus_name = f"s12 R>={MIN_RANKING}"
+
+    def prune_results() -> None:
+        """Drop the daily series from results that cannot reach the yearly/monthly focus set.
+
+        That set is the reference algorithm at every sizing plus the two best others by Final$,
+        so any other result past the current top two never needs its series. Pruning as the
+        sweep goes keeps peak memory near the focus set rather than all 27 results.
+        """
+        others = sorted((x for x in all_results if x[0] != focus_name), key=lambda x: x[2]["final"], reverse=True)
+        for _name, _pf, res in others[2:]:
+            for key in HEAVY_RESULT_KEYS:
+                res.pop(key, None)
 
     for name, sma_t in CONFIGS:
         print(f"Simulating {name} …", flush=True)
@@ -778,27 +820,28 @@ def main() -> None:
         out(f"## {name}  (bk50d_{name}_v2.0 / {HOLD_CAL}d)")
         out("")
         out(f"`%abv_SMA50 > {sma_t * 100:.0f}%` — every other filter is in the Configuration table above.")
-        # Same signals, sized the same way, reported under both ranking treatments on adjacent
-        # rows of one table. The pair is the only way to read what the gate is worth in
+        # Same signals, sized the same way, reported under every ranking treatment on adjacent
+        # rows of one table. Reading across is the only way to see what a gate is worth in
         # *portfolio* terms — a gated run alone cannot show whether the signals it removed
         # would have compounded better.
-        # Score and resolve the fill once per gate, not per entry inside run_sim: the sweep
-        # and the decile re-simulations replay the same signals many times over. Signals are
-        # keyed by their *entry* day (the next trading day), so run_sim funds a position on
-        # the day it is actually filled.
+        resolved = resolve(sig)
         gate_runs: list[tuple[str, dict[int, list[dict]], int, int]] = []
-        for gate_label, gate in ((f"R>={MIN_RANKING}", MIN_RANKING), ("ungated", 0)):
-            signals_by_day, n_below_rank, n_no_fill = resolve(sig, gate)
-            if gate == MIN_RANKING:
-                signals_by_day_by_config[name] = signals_by_day
+        for gate_label, gate in GATES:
+            signals_by_day, n_below_rank, n_no_fill = gate_signals(resolved, gate)
+            if gate > 0:
+                signals_by_day_by_gate[(name, gate_label)] = signals_by_day
             gate_runs.append((gate_label, signals_by_day, n_below_rank, n_no_fill))
 
         out("")
+        # Built from each run's own label, so reordering or adding a gate can never pair a label
+        # with another gate's counts.
+        drops = "; ".join(
+            f"`{label}` drops {n_below} signals ({n_no_fill} with no fillable next-day open)"
+            for label, _signals_by_day, n_below, n_no_fill in gate_runs
+        )
         out(
-            f"**Ranking gate:** `QullamaggieRanking >= {MIN_RANKING}` drops {gate_runs[0][2]} signals "
-            f"({gate_runs[0][3]} with no fillable next-day open); ungated drops {gate_runs[1][2]} "
-            f"({gate_runs[1][3]} with no fillable open). Each sizing is listed gated then ungated, so the "
-            "pair reads across — a gated run alone cannot show whether the signals it removed would have "
+            f"**Ranking gate:** {drops}. Each sizing is listed strictest gate first, so the rows read "
+            "across — a gated run alone cannot show whether the signals it removed would have "
             "compounded better."
         )
         rows: list[str] = []
@@ -806,6 +849,7 @@ def main() -> None:
             for gate_label, signals_by_day, _n_below, _n_no_fill in gate_runs:
                 r = run_sim(signals_by_day, "time", pf)
                 all_results.append((f"{name} {gate_label}", pf, r))
+                prune_results()
                 rows.append(
                     f"{pf:<6.0%} {gate_label:<8} {r['final']:>11,.0f} {r['cagr'] * 100:>+7.2f} "
                     f"{r['max_dd'] * 100:>8.2f} {r['calmar']:>7.3f} {r['sortino']:>8.3f} "
@@ -836,7 +880,7 @@ def main() -> None:
 
     # The per-year and monthly sections cover a fixed set: the reference algorithm at every
     # sizing, plus the two best by Final$ (skipped if already present, so the set can be short).
-    focus: list[tuple[str, float, dict]] = [r for r in all_results if r[0] == f"s12 R>={MIN_RANKING}"]
+    focus: list[tuple[str, float, dict]] = [r for r in all_results if r[0] == focus_name]
     focus += [r for r in ranked_final if r not in focus][:2]
 
     out("")
@@ -880,14 +924,20 @@ def main() -> None:
         f"{N_DECILES} equal-count deciles (D1=lowest score .. D{N_DECILES}=highest), and each "
         "decile's own signal subset is re-simulated in isolation (same sizing, same universe) "
         "to report that decile's standalone portfolio metrics — this tests whether higher-ranked "
-        "signals produce a better standalone portfolio, not just a higher per-trade return."
+        "signals produce a better standalone portfolio, not just a higher per-trade return. Each "
+        "config is decomposed once per gated signal set, strictest gate first as in the size sweep: "
+        "the deciles split the trades that gate's own run took, so each table "
+        "spans only that gate..100 and reads against the matching size-sweep row."
     )
     for name, _ in CONFIGS:
-        print(f"Scoring ranking deciles for {name} …", flush=True)
-        out("")
-        out(f"### {name}  (bk50d_{name}_v2.0)")
-        out("")
-        ranking_decile_table(name, signals_by_day_by_config[name], DECILE_POS_FRACTION)
+        for gate_label, gate in GATES:
+            if gate == 0:
+                continue
+            print(f"Scoring ranking deciles for {name} {gate_label} …", flush=True)
+            out("")
+            out(f"### {name} {gate_label}  (bk50d_{name}_v2.0)")
+            out("")
+            ranking_decile_table(name, signals_by_day_by_gate[(name, gate_label)], DECILE_POS_FRACTION)
 
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
     RESULT_PATH.write_text("\n".join(lines) + "\n")
