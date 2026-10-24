@@ -166,6 +166,22 @@ if [[ ${#selected[@]} -eq 0 ]]; then
   exit 1
 fi
 
+# Resolve the target database the way the studies will — same .env, same profile overlay — so a
+# missing ACTIVE_PROFILE=hetzner-db shows up here rather than as empty deep-history results. A
+# profile with no matching file raises, which aborts the run before any study starts.
+if ! db_target=$(uv run python -c '
+import os
+from dotenv import load_dotenv
+from turtlex.config.settings import load_config_data
+load_dotenv()
+db = load_config_data()["database"]
+print(f"{db["host"]}:{db["port"]}/{db["dbname"]} as {db["user"]} (ACTIVE_PROFILE={os.getenv("ACTIVE_PROFILE") or "unset"})")
+'); then
+  echo "Could not resolve the database configuration — see the error above." >&2
+  exit 1
+fi
+echo "Database: $db_target"
+
 if [[ $DRY_RUN -eq 1 ]]; then
   for entry in "${selected[@]}"; do
     read -ra argv <<<"${entry#*|}"
