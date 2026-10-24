@@ -1,10 +1,10 @@
 # Qullamaggie Exit-Strategy Sweep
 
-Run date: 2026-08-09 20:53:40 Tallinn time
+Run date: 2026-10-24 18:30:42 Tallinn time
 
 Config: `bk50d_s12_v2.0` | 2021-01-01 – 2026-06-26 | initial $30,000 | sizing 3% of portfolio value | ranking >= 44 | time-cap backstop 366d
 
-890 signals entered the simulation (1515 dropped below the ranking gate, 0 with no entry bar in the window). Exits fill at the day's adjusted close.
+829 signals entered the simulation (1478 dropped below the ranking gate, 0 with no entry bar in the window). Exits fill at the day's adjusted close.
 
 ## Baseline reconciliation
 
@@ -14,28 +14,28 @@ Signals here come from `turtlex.research.qullamaggie`, whose cooldown chain runs
 source                         Final$   CAGR%   MaxDD%  Sortino
 ---------------------------------------------------------------
 portfolio-sim (committed)     285,404  +50.88   -28.01    2.129
-this harness                  284,922  +50.84   -27.91    2.168
+this harness                  347,392  +56.39   -29.98    2.320
 ```
 
-CAGR divergence: 0.04pp (within the 1.0pp tolerance).
+CAGR divergence: 5.51pp (ABOVE the 1.0pp tolerance).
 
-Pass bar: CAGR > +50.84%, Sortino > 2.168, MaxDD > -32.91%.
+Pass bar: CAGR > +56.39%, Sortino > 2.320, MaxDD > -34.98%.
 
 ## 1. regime — SPY below its 200d SMA
 
 ```text
 variant                        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip      
 -------------------------------------------------------------------------------------------
-regime 1d                     115,099  +27.83   -26.98   1.032    1.646    356    534  fail
-regime 1d (losers only)       151,075  +34.34   -25.74   1.334    1.778    289    601  fail
-regime 3d                     116,179  +28.05   -26.85   1.044    1.591    305    585  fail
-regime 3d (losers only)       163,270  +36.25   -24.95   1.453    1.856    260    630  fail
-regime 5d                     123,058  +29.40   -25.13   1.170    1.643    291    599  fail
-regime 5d (losers only)       173,879  +37.83   -21.63   1.749    1.928    250    640  fail
-regime 10d                    180,166  +38.73   -24.47   1.583    1.998    244    646  fail
-regime 10d (losers only)      197,802  +41.11   -20.66   1.990    2.056    220    670  fail
+regime 1d                     111,084  +27.00   -27.91   0.967    1.608    352    477  fail
+regime 1d (losers only)       150,442  +34.23   -25.78   1.328    1.759    287    542  fail
+regime 3d                     132,067  +31.08   -27.13   1.145    1.732    301    528  fail
+regime 3d (losers only)       144,416  +33.23   -25.27   1.315    1.735    252    577  fail
+regime 5d                     139,554  +32.40   -25.48   1.272    1.777    288    541  fail
+regime 5d (losers only)       161,332  +35.96   -23.13   1.554    1.827    246    583  fail
+regime 10d                    208,182  +42.44   -22.87   1.855    2.137    244    585  fail
+regime 10d (losers only)      190,552  +40.15   -20.57   1.952    2.007    216    613  fail
 -------------------------------------------------------------------------------------------
-baseline (366d only)          284,922  +50.84   -27.91   1.821    2.168    188    702  fail
+baseline (366d only)          347,392  +56.39   -29.98   1.881    2.320    184    645  fail
 ```
 
 ## 2. trail — profit-armed trailing stop
@@ -43,20 +43,20 @@ baseline (366d only)          284,922  +50.84   -27.91   1.821    2.168    188  
 ```text
 variant                        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip      
 -------------------------------------------------------------------------------------------
-arm +15% / trail 15%          165,471  +36.59   -26.17   1.398    2.251    384    506  fail
-arm +15% / trail 20%          182,560  +39.06   -26.48   1.475    2.232    318    572  fail
-arm +15% / trail 25%          151,742  +34.44   -25.68   1.341    1.930    282    608  fail
-arm +15% / trail 30%          144,136  +33.19   -25.69   1.292    1.828    238    652  fail
-arm +25% / trail 15%          185,837  +39.51   -25.28   1.563    2.200    325    565  fail
-arm +25% / trail 20%          167,209  +36.85   -29.20   1.262    1.990    285    605  fail
-arm +25% / trail 25%          164,509  +36.44   -27.30   1.335    1.914    254    636  fail
-arm +25% / trail 30%          151,303  +34.37   -26.82   1.282    1.812    228    662  fail
-arm +40% / trail 15%          156,915  +35.27   -26.90   1.311    1.963    259    631  fail
-arm +40% / trail 20%          156,865  +35.26   -32.17   1.096    1.879    243    647  fail
-arm +40% / trail 25%          204,064  +41.92   -27.02   1.551    2.124    229    661  fail
-arm +40% / trail 30%          173,324  +37.75   -33.26   1.135    1.836    215    675  fail
+arm +15% / trail 15%          183,440  +39.18   -24.68   1.587    2.387    372    457  fail
+arm +15% / trail 20%          185,563  +39.48   -27.98   1.411    2.264    315    514  fail
+arm +15% / trail 25%          163,870  +36.34   -28.16   1.291    2.022    272    557  fail
+arm +15% / trail 30%          167,337  +36.87   -25.22   1.462    1.957    236    593  fail
+arm +25% / trail 15%          154,789  +34.93   -23.50   1.487    2.051    314    515  fail
+arm +25% / trail 20%          192,211  +40.37   -27.71   1.457    2.184    279    550  fail
+arm +25% / trail 25%          186,334  +39.58   -25.88   1.530    2.083    252    577  fail
+arm +25% / trail 30%          165,274  +36.56   -25.54   1.431    1.819    222    607  fail
+arm +40% / trail 15%          168,450  +37.03   -20.09   1.843    2.048    259    570  fail
+arm +40% / trail 20%          170,447  +37.33   -23.38   1.597    2.015    239    590  fail
+arm +40% / trail 25%          194,664  +40.70   -26.37   1.544    2.072    226    603  fail
+arm +40% / trail 30%          215,247  +43.31   -24.68   1.755    2.136    212    617  fail
 -------------------------------------------------------------------------------------------
-baseline (366d only)          284,922  +50.84   -27.91   1.821    2.168    188    702  fail
+baseline (366d only)          347,392  +56.39   -29.98   1.881    2.320    184    645  fail
 ```
 
 ## 3. dead — dead-money time stop
@@ -64,32 +64,32 @@ baseline (366d only)          284,922  +50.84   -27.91   1.821    2.168    188  
 ```text
 variant                        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip      
 -------------------------------------------------------------------------------------------
-<+0% after 20 bars            139,136  +32.33   -24.48   1.321    1.721    414    476  fail
-<+5% after 20 bars            149,181  +34.03   -19.83   1.716    1.892    485    405  fail
-<+10% after 20 bars           145,708  +33.45   -20.45   1.635    1.909    541    349  fail
-<+0% after 40 bars            123,306  +29.45   -29.01   1.015    1.517    335    555  fail
-<+5% after 40 bars            125,944  +29.95   -28.77   1.041    1.559    361    529  fail
-<+10% after 40 bars           177,491  +38.35   -28.10   1.365    1.911    377    513  fail
-<+0% after 60 bars            135,102  +31.62   -27.91   1.133    1.578    289    601  fail
-<+5% after 60 bars            136,521  +31.87   -27.94   1.141    1.552    304    586  fail
-<+10% after 60 bars           138,789  +32.27   -27.32   1.181    1.559    324    566  fail
-<+0% after 90 bars            199,368  +41.31   -25.92   1.594    1.985    252    638  fail
-<+5% after 90 bars            226,831  +44.68   -31.50   1.419    1.977    254    636  fail
-<+10% after 90 bars           222,776  +44.21   -32.41   1.364    1.980    264    626  fail
-<+0% after 120 bars           203,078  +41.79   -30.48   1.371    1.888    228    662  fail
-<+5% after 120 bars           233,982  +45.51   -30.17   1.508    2.020    225    665  fail
-<+10% after 120 bars          239,985  +46.18   -34.37   1.343    2.066    240    650  fail
-<+0% after 150 bars           194,354  +40.66   -28.80   1.412    1.840    206    684  fail
-<+5% after 150 bars           167,478  +36.89   -28.18   1.309    1.767    212    678  fail
-<+10% after 150 bars          157,079  +35.30   -31.66   1.115    1.681    219    671  fail
-<+0% after 180 bars           223,088  +44.25   -31.44   1.408    1.929    200    690  fail
-<+5% after 180 bars           167,043  +36.82   -33.04   1.115    1.708    202    688  fail
-<+10% after 180 bars          221,501  +44.06   -31.71   1.389    2.010    207    683  fail
-<+0% after 240 bars           250,764  +47.36   -27.31   1.734    2.050    191    699  fail
-<+5% after 240 bars           255,504  +47.86   -27.31   1.753    2.052    192    698  fail
-<+10% after 240 bars          252,377  +47.53   -27.30   1.741    2.041    191    699  fail
+<+0% after 20 bars            132,119  +31.09   -24.74   1.257    1.607    403    426  fail
+<+5% after 20 bars            132,802  +31.21   -20.43   1.528    1.774    471    358  fail
+<+10% after 20 bars           149,920  +34.15   -20.03   1.705    1.939    517    312  fail
+<+0% after 40 bars            135,797  +31.75   -29.68   1.070    1.515    320    509  fail
+<+5% after 40 bars            165,983  +36.66   -29.85   1.228    1.760    346    483  fail
+<+10% after 40 bars           177,602  +38.36   -27.20   1.411    1.824    373    456  fail
+<+0% after 60 bars            134,541  +31.52   -30.67   1.028    1.566    285    544  fail
+<+5% after 60 bars            131,104  +30.90   -31.52   0.980    1.513    304    525  fail
+<+10% after 60 bars           171,807  +37.53   -28.76   1.305    1.743    312    517  fail
+<+0% after 90 bars            199,337  +41.31   -32.21   1.283    1.939    246    583  fail
+<+5% after 90 bars            222,745  +44.20   -34.08   1.297    2.005    251    578  fail
+<+10% after 90 bars           268,206  +49.18   -32.08   1.533    2.187    259    570  fail
+<+0% after 120 bars           223,115  +44.25   -30.98   1.428    2.043    224    605  fail
+<+5% after 120 bars           229,554  +45.00   -30.41   1.480    2.094    227    602  fail
+<+10% after 120 bars          193,048  +40.49   -33.61   1.205    1.907    237    592  fail
+<+0% after 150 bars           138,838  +32.28   -30.52   1.058    1.538    203    626  fail
+<+5% after 150 bars           191,616  +40.30   -32.43   1.242    1.800    210    619  fail
+<+10% after 150 bars          142,539  +32.92   -29.85   1.103    1.596    221    608  fail
+<+0% after 180 bars           213,386  +43.08   -30.77   1.400    1.871    198    631  fail
+<+5% after 180 bars           206,760  +42.26   -32.77   1.290    1.842    199    630  fail
+<+10% after 180 bars          234,503  +45.57   -30.98   1.471    2.043    201    628  fail
+<+0% after 240 bars           270,385  +49.40   -26.18   1.887    2.144    188    641  fail
+<+5% after 240 bars           265,237  +48.88   -26.72   1.829    2.111    188    641  fail
+<+10% after 240 bars          274,538  +49.82   -26.21   1.900    2.135    189    640  fail
 -------------------------------------------------------------------------------------------
-baseline (366d only)          284,922  +50.84   -27.91   1.821    2.168    188    702  fail
+baseline (366d only)          347,392  +56.39   -29.98   1.881    2.320    184    645  fail
 ```
 
 ## 4. trend — closes below own MA
@@ -97,17 +97,17 @@ baseline (366d only)          284,922  +50.84   -27.91   1.821    2.168    188  
 ```text
 variant                        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip      
 -------------------------------------------------------------------------------------------
-ema20 x 1d                     57,821  +12.73   -19.39   0.657    1.437    784    106  fail
-ema20 x 3d                     75,300  +18.30   -17.02   1.075    1.704    684    206  fail
-ema20 x 5d                     96,594  +23.80   -18.73   1.271    1.857    605    285  fail
-sma50 x 1d                     81,368  +19.98   -25.01   0.799    1.553    594    296  fail
-sma50 x 3d                    100,945  +24.80   -18.77   1.321    1.746    533    357  fail
-sma50 x 5d                     98,550  +24.26   -18.81   1.289    1.678    485    405  fail
-sma200 x 1d                   175,287  +38.03   -23.46   1.621    1.966    358    532  fail
-sma200 x 3d                   205,134  +42.05   -24.46   1.719    2.070    315    575  fail
-sma200 x 5d                   129,946  +30.69   -24.29   1.263    1.521    306    584  fail
+ema20 x 1d                     52,683  +10.83   -20.96   0.517    1.278    735     94  fail
+ema20 x 3d                     73,864  +17.88   -18.21   0.982    1.699    651    178  fail
+ema20 x 5d                    112,235  +27.24   -18.38   1.482    2.064    583    246  fail
+sma50 x 1d                     73,408  +17.75   -24.64   0.720    1.423    580    249  fail
+sma50 x 3d                     85,838  +21.16   -18.80   1.126    1.559    523    306  fail
+sma50 x 5d                     93,252  +23.01   -17.56   1.310    1.619    477    352  fail
+sma200 x 1d                   188,506  +39.88   -23.73   1.681    2.048    338    491  fail
+sma200 x 3d                   171,577  +37.49   -23.27   1.611    1.904    319    510  fail
+sma200 x 5d                   117,326  +28.28   -27.10   1.043    1.390    297    532  fail
 -------------------------------------------------------------------------------------------
-baseline (366d only)          284,922  +50.84   -27.91   1.821    2.168    188    702  fail
+baseline (366d only)          347,392  +56.39   -29.98   1.881    2.320    184    645  fail
 ```
 
 ## 5. atr — volatility-normalised stop
@@ -115,13 +115,13 @@ baseline (366d only)          284,922  +50.84   -27.91   1.821    2.168    188  
 ```text
 variant                        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip      
 -------------------------------------------------------------------------------------------
-entry - 3x ATR14              185,638  +39.49   -21.73   1.817    1.937    276    614  fail
-entry - 4x ATR14              155,176  +34.99   -27.42   1.276    1.736    243    647  fail
-entry - 5x ATR14              152,040  +34.49   -26.02   1.325    1.686    221    669  fail
-entry - 6x ATR14              159,822  +35.72   -25.63   1.394    1.668    212    678  fail
-entry - 8x ATR14              235,129  +45.64   -27.03   1.688    2.034    200    690  fail
+entry - 3x ATR14              179,893  +38.69   -21.48   1.801    1.918    280    549  fail
+entry - 4x ATR14              161,933  +36.05   -26.67   1.352    1.790    239    590  fail
+entry - 5x ATR14              159,019  +35.60   -27.36   1.301    1.728    222    607  fail
+entry - 6x ATR14              167,645  +36.91   -26.67   1.384    1.712    207    622  fail
+entry - 8x ATR14              162,163  +36.08   -28.28   1.276    1.677    196    633  fail
 -------------------------------------------------------------------------------------------
-baseline (366d only)          284,922  +50.84   -27.91   1.821    2.168    188    702  fail
+baseline (366d only)          347,392  +56.39   -29.98   1.881    2.320    184    645  fail
 ```
 
 ## Controls
@@ -131,26 +131,26 @@ The four exit modes already coded but unreachable in `qullamaggie-portfolio-sim.
 ```text
 variant                        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip      
 -------------------------------------------------------------------------------------------
-stop30 — fixed -30% stop      202,259  +41.69   -31.24   1.334    1.906    209    681  fail
-trail25 — 25% from day one     94,710  +23.36   -24.31   0.961    1.538    347    543  fail
-sma200 x 5d                   129,946  +30.69   -24.29   1.263    1.521    306    584  fail
-dead120 — <+5% after 120 c    156,931  +35.27   -30.07   1.173    1.682    275    615  fail
+stop30 — fixed -30% stop      162,064  +36.07   -26.41   1.366    1.747    209    620  fail
+trail25 — 25% from day one     91,439  +22.57   -24.66   0.915    1.486    334    495  fail
+sma200 x 5d                   117,326  +28.28   -27.10   1.043    1.390    297    532  fail
+dead120 — <+5% after 120 c    151,004  +34.32   -27.70   1.239    1.608    266    563  fail
 -------------------------------------------------------------------------------------------
-baseline (366d only)          284,922  +50.84   -27.91   1.821    2.168    188    702  fail
+baseline (366d only)          347,392  +56.39   -29.98   1.881    2.320    184    645  fail
 ```
 
 ## Composed rule
 
 The two best-scoring ideas with non-overlapping mechanisms, run together.
 
-Rule: `arm +15% / trail 15% + sma200 x 3d` (name truncated in the table below).
+Rule: `arm +15% / trail 15% + <+10% after 90 bars` (name truncated in the table below).
 
 ```text
 variant                        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip      
 -------------------------------------------------------------------------------------------
-arm +15% / trail 15% + sma     98,438  +24.23   -23.67   1.023    1.856    541    349  fail
+arm +15% / trail 15% + <+1    144,810  +33.30   -26.50   1.257    2.147    442    387  fail
 -------------------------------------------------------------------------------------------
-baseline (366d only)          284,922  +50.84   -27.91   1.821    2.168    188    702  fail
+baseline (366d only)          347,392  +56.39   -29.98   1.881    2.320    184    645  fail
 ```
 
 ## Verdict by idea
@@ -160,11 +160,11 @@ Deltas are the idea's best-by-Sortino variant against the baseline.
 ```text
 idea                                    cells  pass best variant               dCAGR  dSortino   dMaxDD
 -------------------------------------------------------------------------------------------------------
-1. regime — SPY below its 200d SMA          8     0 regime 10d (losers only)   -9.72    -0.112    +7.25
-2. trail — profit-armed trailing stop      12     0 arm +15% / trail 15%      -14.25    +0.083    +1.74
-3. dead — dead-money time stop             24     0 <+10% after 120 bars       -4.65    -0.102    -6.46
-4. trend — closes below own MA              9     0 sma200 x 3d                -8.78    -0.098    +3.46
-5. atr — volatility-normalised stop         5     0 entry - 8x ATR14           -5.20    -0.134    +0.88
+1. regime — SPY below its 200d SMA          8     0 regime 10d                -13.96    -0.182    +7.11
+2. trail — profit-armed trailing stop      12     0 arm +15% / trail 15%      -17.21    +0.067    +5.29
+3. dead — dead-money time stop             24     0 <+10% after 90 bars        -7.22    -0.133    -2.10
+4. trend — closes below own MA              9     0 ema20 x 5d                -29.15    -0.255   +11.60
+5. atr — volatility-normalised stop         5     0 entry - 3x ATR14          -17.71    -0.401    +8.50
 ```
 
 ## Finalists — trade metrics and exit attribution
@@ -174,12 +174,12 @@ idea                                    cells  pass best variant               d
 ```text
 variant                       N   Win%    Mean%     Med%     PF  CVaR95%  tSortino  exits by rule
 -------------------------------------------------------------------------------------------------
-baseline (366d only)        188   72.9   +56.94   +22.31   7.87   -64.18     3.218  time=161
-arm +15% / trail 15%        384   70.6   +17.76    +8.19   4.18   -61.79     1.759  time=51, trail=299
-sma200 x 3d                 315   47.6   +27.10    -0.72   4.72   -33.11     3.478  time=42, trend=247
-<+10% after 120 bars        240   61.7   +42.99    +6.85   5.77   -58.11     3.040  dead=160, time=49
-regime 10d (losers only)    220   54.1   +39.40    +5.60   6.10   -50.21     3.251  regime=70, time=125
-entry - 8x ATR14            200   66.0   +48.58   +14.56   5.30   -55.98     2.623  stop=41, time=130
+baseline (366d only)        184   71.7   +62.47   +24.52   8.60   -60.49     3.600  time=155
+arm +15% / trail 15%        372   71.5   +19.73    +8.31   5.06   -56.86     2.157  time=44, trail=292
+<+10% after 90 bars         259   62.2   +38.76    +6.51   5.76   -48.76     3.369  dead=181, time=48
+regime 10d                  244   53.7   +35.78    +2.35   5.45   -50.28     3.113  regime=119, time=93
+ema20 x 5d                  583   44.4    +9.57    -2.70   2.56   -26.89     2.640  trend=556
+entry - 3x ATR14            280   37.1   +27.43   -13.36   3.65   -26.66     3.008  stop=169, time=84
 ```
 
 ## Finalists — per-year decomposition
@@ -189,12 +189,12 @@ An edge concentrated in one year is regime-contingent, not a general improvement
 ```text
 variant                        2021     2022     2023     2024     2025     2026
 --------------------------------------------------------------------------------
-baseline (366d only)          +53.7    +25.3    +27.6    +26.6   +133.2    +31.0
-arm +15% / trail 15%          +19.2     -0.6    +25.9    +29.2   +136.3    +21.1
-sma200 x 3d                   +50.7    -10.2    +31.2    +71.5    +49.8    +49.9
-<+10% after 120 bars          +48.1     -6.0    +30.1    +36.8   +137.3    +36.0
-regime 10d (losers only)      +53.7     -2.7    +20.0    +41.9    +86.9    +38.5
-entry - 8x ATR14              +53.7    +15.9    +26.0    +26.0   +120.8    +25.5
+baseline (366d only)          +52.6    +26.2    +33.7    +56.2   +145.7    +17.2
+arm +15% / trail 15%          +20.8     +3.1    +24.4    +30.6   +165.6    +13.8
+<+10% after 90 bars           +48.3     +0.4    +36.2    +43.7   +140.0    +27.9
+regime 10d                    +52.6     -9.4    +37.2    +51.4    +85.4    +30.3
+ema20 x 5d                     +8.9     -9.3    +22.6     +7.2   +126.3    +27.4
+entry - 3x ATR14              +53.1     -6.5    +33.0    +35.4    +85.8    +25.2
 ```
 
 ## Finalists — bootstrap win rate vs baseline
@@ -204,11 +204,11 @@ Stationary block bootstrap, 1,000 resamples of 21-day blocks, paired on day indi
 ```text
 variant                     CAGR win%  Sortino win%
 ---------------------------------------------------
-arm +15% / trail 15%              9.2          57.9
-sma200 x 3d                      19.0          38.7
-<+10% after 120 bars             28.2          37.3
-regime 10d (losers only)         16.4          37.8
-entry - 8x ATR14                  7.1          14.3
+arm +15% / trail 15%              6.0          56.9
+<+10% after 90 bars              15.1          27.3
+regime 10d                       12.5          31.6
+ema20 x 5d                        1.9          30.9
+entry - 3x ATR14                  1.8           8.4
 ```
 
 ## Robustness matrix — `<+5% after 90 bars` across configs and periods
@@ -218,18 +218,18 @@ The winning rule's parameters were chosen on **s12 / 2021-01-01–2026-06-26**. 
 ```text
 period       cfg     N | base CAGR rule CAGR       d | base Srt rule Srt       d |  base DD  rule DD |      
 ------------------------------------------------------------------------------------------------------------
-2010-2015    s20   146 |    +15.43    +14.60   -0.83 |    1.118    1.177  +0.059 |   -27.00   -23.37 |  fail
-2010-2015    s16   157 |    +15.43    +14.44   -1.00 |    1.079    1.076  -0.002 |   -28.60   -27.25 |  fail
-2010-2015    s12   164 |    +12.50    +13.59   +1.08 |    0.881    0.999  +0.119 |   -29.00   -27.47 |  PASS
-2016-2020    s20   139 |    +41.94    +28.76  -13.19 |    2.409    1.719  -0.690 |   -21.74   -30.81 |  fail
-2016-2020    s16   141 |    +39.92    +38.20   -1.71 |    2.299    2.120  -0.179 |   -24.87   -30.34 |  fail
-2016-2020    s12   140 |    +42.66    +37.23   -5.43 |    2.502    2.098  -0.404 |   -21.00   -32.00 |  fail
-2021-2026    s20   185 |    +45.83    +37.14   -8.69 |    1.996    1.776  -0.220 |   -31.31   -32.15 |  fail
-2021-2026    s16   189 |    +48.87    +39.07   -9.81 |    2.021    1.815  -0.207 |   -26.88   -32.02 |  fail
-2021-2026    s12   188 |    +50.84    +44.68   -6.15 |    2.168    1.977  -0.191 |   -27.91   -31.50 |  fail
+2010-2015    s20   146 |    +16.28    +14.08   -2.20 |    1.169    1.139  -0.030 |   -25.89   -23.80 |  fail
+2010-2015    s16   158 |    +14.69    +14.91   +0.22 |    1.039    1.081  +0.043 |   -27.39   -28.67 |  PASS
+2010-2015    s12   164 |    +12.94    +13.51   +0.57 |    0.900    0.981  +0.081 |   -27.99   -27.92 |  PASS
+2016-2020    s20   140 |    +30.86    +18.29  -12.57 |    1.946    1.236  -0.709 |   -21.66   -32.20 |  fail
+2016-2020    s16   142 |    +30.79    +32.97   +2.18 |    1.954    1.943  -0.011 |   -19.99   -28.95 |  fail
+2016-2020    s12   142 |    +34.90    +31.15   -3.75 |    2.171    1.845  -0.326 |   -22.66   -33.55 |  fail
+2021-2026    s20   178 |    +45.03    +39.28   -5.75 |    2.016    1.867  -0.148 |   -32.09   -34.83 |  fail
+2021-2026    s16   186 |    +53.31    +43.17  -10.14 |    2.168    1.948  -0.220 |   -32.42   -34.67 |  fail
+2021-2026    s12   184 |    +56.39    +44.20  -12.19 |    2.320    2.005  -0.315 |   -29.98   -34.08 |  fail
 ```
 
-**1 of 9 cells pass**, on the same bar used for the sweep.
+**2 of 9 cells pass**, on the same bar used for the sweep.
 
 `N` is the baseline trade count, which doubles as a read on how capital-constrained each cell is: the rule's second mechanism is recycling capital into signals that would otherwise go unfunded, so it has less to work with where cash was already idle.
 
@@ -245,12 +245,12 @@ SM.US      2021-01-06   2021-01-15        6.91      7.68   +11.04     9  trail
 GSL.US     2021-01-06   2021-01-22        8.39      9.08    +8.26    16  trail
 FTI.US     2021-01-06   2021-01-25        7.83      7.69    -1.77    19  trail
 OII.US     2021-01-06   2021-01-25        9.67      9.72    +0.52    19  trail
-HROW.US    2021-02-04   2021-02-11        9.46      9.37    -0.95     7  trail
 HCC.US     2021-01-05   2021-02-25       19.96     17.81   -10.79    51  trail
-PGNY.US    2021-01-07   2021-02-25       43.80     43.31    -1.12    49  trail
 KRYS.US    2021-01-06   2021-03-04       61.37     71.65   +16.75    57  trail
+ESTA.US    2021-02-05   2021-03-04       53.84     62.44   +15.97    27  trail
 WHD.US     2021-01-06   2021-03-09       28.23     30.77    +9.00    62  trail
 AMR.US     2021-01-15   2021-03-15       13.09     12.53    -4.28    59  trail
+PARR.US    2021-01-06   2021-03-16       14.50     16.64   +14.76    69  trail
 ```
 
 ## Limitations
