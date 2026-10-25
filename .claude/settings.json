@@ -6,7 +6,13 @@
   "permissions": {
     "allow": [
       "Bash(uv run pytest *)",
-      "Bash(uv run mypy *)"
+      "Bash(uv run mypy *)",
+      "mcp__dbhub__execute_sql_local_ro",
+      "mcp__dbhub__execute_sql_hetzner_ro"
+    ],
+    "ask": [
+      "mcp__dbhub__execute_sql_local_rw",
+      "mcp__dbhub__execute_sql_hetzner_rw"
     ]
   },
   "hooks": {

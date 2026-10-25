@@ -1,16 +1,12 @@
 {
   "mcpServers": {
-    "postgres": {
+    "dbhub": {
       "type": "stdio",
-      "command": "npx",
+      "command": "sh",
       "args": [
-        "-y",
-        "@modelcontextprotocol/server-postgres",
-        "postgresql://claude@hetzner:5432/trading"
-      ],
-      "env": {
-        "PGPASSWORD": "${DB_CLAUDE_PASSWORD}"
-      }
+        "-c",
+        "exec npx -y @bytebase/dbhub@1.5.0 --config \"$CLAUDE_PROJECT_DIR/.claude/dbhub.toml\""
+      ]
     }
   }
 }
