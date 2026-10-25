@@ -51,6 +51,8 @@ SELECT column_name FROM information_schema.columns
 
 select * from turtle.company;
 
+select * from turtle.signal order by id;
+
 select type, count(*)  from turtle.ticker t group by 1;
 
 select count(*) from (
