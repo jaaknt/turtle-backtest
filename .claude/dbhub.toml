@@ -1,0 +1,63 @@
+# DBHub (https://dbhub.ai) config for the `dbhub` MCP server in .mcp.json.
+#
+# One source per (database x access) pair, named <db>_<ro|rw>; each gets a tool
+# `execute_sql_<id>`, which is what .claude/settings.json permissions key on.
+# Adding a database = two more sources + two tools here, and two permission rules.
+#
+# The database role is the real boundary, DBHub's `readonly` is only a second layer:
+#   *_ro -> `claude` role (SELECT only), DB_CLAUDE_PASSWORD
+#   *_rw -> `app_user` role (DML, no CREATE on the turtle schema), DB_APP_PASSWORD
+# Schema changes go through Alembic, never through here.
+#
+# `lazy = true` on every source: without it one unreachable database (e.g. the VPS after a
+# reboot, before `systemctl restart postgresql`) makes the whole server exit at startup.
+# An unset ${VAR} is left literal by DBHub and surfaces as an auth failure on first query.
+# Passwords are substituted into the DSN unescaped, so they must not contain @ / : # ? %.
+# sslmode: disable for local (loopback); require for the VPS, which serves TLS, on top of Tailscale.
+#
+# .mcp.json passes this file's path as $CLAUDE_PROJECT_DIR/.claude/dbhub.toml (set by Claude Code
+# in the server's environment), so the server starts whichever directory `claude` was launched from.
+
+[[sources]]
+id = "local_ro"
+description = "Local Postgres (rolling 5-year mirror), read-only"
+dsn = "postgres://claude:${DB_CLAUDE_PASSWORD}@localhost:5432/trading?sslmode=disable"
+lazy = true
+
+[[sources]]
+id = "local_rw"
+description = "Local Postgres (rolling 5-year mirror), read/write as app_user"
+dsn = "postgres://app_user:${DB_APP_PASSWORD}@localhost:5432/trading?sslmode=disable"
+lazy = true
+
+[[sources]]
+id = "hetzner_ro"
+description = "VPS production Postgres (full history), read-only"
+dsn = "postgres://claude:${DB_CLAUDE_PASSWORD}@hetzner:5432/trading?sslmode=require"
+lazy = true
+
+[[sources]]
+id = "hetzner_rw"
+description = "VPS PRODUCTION Postgres, read/write as app_user - writes reach production"
+dsn = "postgres://app_user:${DB_APP_PASSWORD}@hetzner:5432/trading?sslmode=require"
+lazy = true
+
+[[tools]]
+name = "execute_sql"
+source = "local_ro"
+readonly = true
+
+[[tools]]
+name = "execute_sql"
+source = "local_rw"
+readonly = false
+
+[[tools]]
+name = "execute_sql"
+source = "hetzner_ro"
+readonly = true
+
+[[tools]]
+name = "execute_sql"
+source = "hetzner_rw"
+readonly = false

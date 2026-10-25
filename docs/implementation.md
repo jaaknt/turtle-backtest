@@ -145,9 +145,10 @@ export POSTGRES_DB=postgres
 export POSTGRES_PASSWORD=<postgres_password>
 export DB_ALEMBIC_PASSWORD=<alembic_password>
 export DB_APP_PASSWORD=<app_password>
-# `claude` is the SELECT-only role, and its one remaining consumer is the Postgres MCP server in
-# .mcp.json. The application and scripts/update-local-db.sh both connect as app_user, so this
-# password is needed at provisioning time only and is deliberately absent from secrets.env below.
+# `claude` is the SELECT-only role, and its one remaining consumer is the read-only sources of the
+# DBHub MCP server (.claude/dbhub.toml; its read/write sources connect as app_user). The
+# application and scripts/update-local-db.sh both connect as app_user, so this password is needed
+# at provisioning time only and is deliberately absent from secrets.env below.
 export DB_CLAUDE_PASSWORD=<claude_password>
 sudo -E -u postgres bash ./db/init.sh
 

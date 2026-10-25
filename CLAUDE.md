@@ -120,7 +120,11 @@ convention: `docs/research/qullamaggie-backtest-v4.md` (Step 1).
 
 ## Tool Preferences
 
-- For Postgres queries, use the `mcp__postgres__query` tool with parameter name `sql` (not `query`).
+- For Postgres queries, use the `dbhub` MCP server's `execute_sql_<db>_<ro|rw>` tools (parameter
+  `sql`); sources are defined in `.claude/dbhub.toml`. Default to `execute_sql_local_ro`; use
+  `execute_sql_hetzner_ro` for history deeper than the local 5-year mirror. Use a `_rw` tool only
+  when a write was asked for — `hetzner_rw` writes to production. RO tools run as the SELECT-only
+  `claude` role, RW as `app_user`; never run DDL through MCP, schema changes go through Alembic.
 - For library/framework documentation lookups, use context7 MCP rather than guessing or web search.
 - For code analysis — locating a symbol, understanding how a class/function is used, tracing call paths, or assessing the blast radius of a change — use the `codegraph_explore` MCP tool (or the `codegraph explore` / `codegraph node` CLI if MCP isn't available) before grep/find or reading files one by one.
 
