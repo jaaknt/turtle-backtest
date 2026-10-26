@@ -5,9 +5,9 @@ Current-period signal report for bk50d_s12_v2.0.
 The reported signal list is gated at QullamaggieRanking >= MIN_RANKING, matching the
 portfolio-runner --min-signal-ranking default. Both cohort tables are deliberately computed
 over the *ungated* s12 signals: their job is to show whether ranking and %abv SMA50 separate
-outcomes, which a table containing only scores >= 44 could not do (the [20-40) bucket would
-always be empty; [0-20) is empty regardless, since a signal clearing the entry filters scores
-at least 20).
+outcomes, which a table containing only scores >= 44 could not do (the [20-30) and [30-40)
+buckets would always be empty; [0-10) and [10-20) are empty regardless, since a signal clearing
+the entry filters scores at least 20).
 Sector is turtle.company.sector; the signal universe excludes Communication Services and Real
 Estate, so neither ever appears there — the current-investments table reads the same column but
 over whatever is actually held, so both sectors can show up in it.
@@ -90,11 +90,16 @@ COHORTS = [
 ]
 
 RANKING_COHORTS = [
-    (0.0, 20.0, "[0-20)"),
-    (20.0, 40.0, "[20-40)"),
-    (40.0, 60.0, "[40-60)"),
-    (60.0, 80.0, "[60-80)"),
-    (80.0, float("inf"), "[>=80)"),
+    (0.0, 10.0, "[0-10)"),
+    (10.0, 20.0, "[10-20)"),
+    (20.0, 30.0, "[20-30)"),
+    (30.0, 40.0, "[30-40)"),
+    (40.0, 50.0, "[40-50)"),
+    (50.0, 60.0, "[50-60)"),
+    (60.0, 70.0, "[60-70)"),
+    (70.0, 80.0, "[70-80)"),
+    (80.0, 90.0, "[80-90)"),
+    (90.0, float("inf"), "[>=90)"),
 ]
 
 
