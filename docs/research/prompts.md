@@ -865,7 +865,7 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
   Cohort | N | Med% | Mean% | Win% | PF | Sortino | Max DD
   ```
 
-- Write also a separate table with aggregated results where `Ranking` is in cohorts [0-20), [20-40), [40-60), [60-80), (>80):
+- Write also a separate table with aggregated results where `Ranking` is in cohorts [0-10), [10-20), [20-30), [30-40), [40-50), [50-60), [60-70), [70-80), [80-90), (>=90):
 
   ```text
   Cohort | N | Med% | Mean% | Win% | PF | Sortino | Max DD
@@ -909,7 +909,7 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
 - **Output:** screen
 - **References:** `docs/research/qullamaggie-backtest-v4.md`, `scripts/qullamaggie-backtest-v4.py`
 - **Note:** the script prints the full report — signal table, exclusions, both cohort tables, current investments and the benchmark comparison — to stdout. It used to also write `docs/research/result-qullamaggie-signals-v4.md`; that doc was deleted 2026-07-25 because the report is only meaningful for the day it is run.
-- **Note:** the signal table is gated at `MIN_RANKING >= 44`, but both cohort tables are computed over the *ungated* s12 signals on purpose. Gating them would leave the `[0-20)` and `[20-40)` ranking buckets permanently empty and destroy the only thing those tables measure — whether the score separates outcomes at all. The summary line reports how many signals the gate dropped so the two views reconcile.
+- **Note:** the signal table is gated at `MIN_RANKING >= 44`, but both cohort tables are computed over the *ungated* s12 signals on purpose. Gating them would leave the `[0-10)` through `[30-40)` ranking buckets permanently empty and destroy the only thing those tables measure — whether the score separates outcomes at all. The summary line reports how many signals the gate dropped so the two views reconcile.
 
 ### Trades: s12 open-trade performance
 
