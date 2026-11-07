@@ -133,7 +133,7 @@ and a `downgrade()` that drops the trigger then the table.
 - **No `GRANT` statement needed.** Confirmed via `pg_default_acl`: role `alembic` in schema `turtle`
   already grants `app_user=arwd` and `claude=r` on every relation it creates. The `GRANT INSERT`
   line in the `company_history` migration is redundant; do not copy it.
-- Column name is `modified_at`, **not** `updated_at` (renamed repo-wide in `fb1e3c0`).
+- Column name is `modified_at`, **not** `updated_at` (renamed repo-wide in `d55b5a1`).
 
 ```sql
 CREATE TABLE turtle.lightyear_transaction (

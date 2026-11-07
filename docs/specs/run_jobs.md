@@ -154,7 +154,7 @@ def resolve_version() -> str:
 ```
 
 - Package half from `turtlex.__version__`. `turtlex/__init__.py` and `pyproject.toml` now agree on
-  `1.0.0` (aligned in `124bd6e`), so either source works; use `__version__` because it is always
+  `1.0.0` (aligned in `20e75a8`), so either source works; use `__version__` because it is always
   importable and needs no `importlib.metadata` lookup. The git SHA is the half that actually
   identifies deployed code, since the VPS updates by `git pull`.
 - SHA via `subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=<repo root>, ...)` with
