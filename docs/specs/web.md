@@ -174,6 +174,9 @@ overridden. Both INSERTs run inside a rolled-back transaction.
 
 ### Step 1 — Create the repository
 
+**Done.** [`jaaknt/turtle-web`](https://github.com/jaaknt/turtle-web) created 2026-11-08 (the repo
+itself was made in the GitHub UI, since the fine-grained token cannot create repositories).
+
 ```bash
 gh repo create turtle-web --public --license mit --gitignore Python --clone
 cd turtle-web
@@ -227,6 +230,8 @@ turtle-web/
 
 ### Step 2 — Demo database
 
+**Done.** Implemented in `turtle-web` 2026-11-08.
+
 A public repo is only runnable if it doesn't need your database. `db/schema.sql` is the
 **contract**: the subset of `turtle` tables and columns the API reads, copied by hand from
 `turtle-backtest`'s migrations. A column rename over there must be mirrored here.
@@ -254,7 +259,11 @@ CREATE TABLE turtle.lightyear_transaction (
 );
 ```
 
-`db/seed_demo.py` (run with the API's venv, `random.seed(42)` so the output is deterministic):
+`db/seed_demo.py` is a standalone [uv script](https://docs.astral.sh/uv/guides/scripts/) with
+inline dependencies (`psycopg`), so it runs before `api/` exists and needs no venv:
+`uv run db/seed_demo.py`. Its generator is seeded, so the same `--end-date` (default: today)
+always produces identical rows. It truncates its four tables, so it first refuses to run if the
+target holds any non-demo symbol or transaction reference.
 
 - **Symbols:** 8 synthetic tickers (`DEMOA.US` … `DEMOH.US`) plus `BENCH.US` as the benchmark.
   Use made-up names, so no real company's price is implied.
@@ -283,6 +292,11 @@ services:
     ports: ["5433:5432"]
     volumes:
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:   # lets `docker compose up --wait` return only once Postgres accepts connections
+      test: ["CMD-SHELL", "pg_isready -U postgres -d trading"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
 ```
 
 `.env.example` (copied to `api/.env` for dev):
@@ -295,7 +309,7 @@ TURTLE_WEB_DB_PASSWORD=demo
 TURTLE_WEB_BENCHMARK_SYMBOL=BENCH.US
 ```
 
-**Verify:** `docker compose up -d db && uv run --project api python db/seed_demo.py`, then
+**Verify:** `docker compose up -d --wait && uv run db/seed_demo.py`, then
 `SELECT count(*) FROM turtle.daily_bars` returns about 6,750 rows (9 symbols × ~750 days).
 
 ### Step 3 — API skeleton
@@ -962,7 +976,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: psql -h localhost -p 5433 -U postgres -d trading -f db/schema.sql
-      - run: uv run --project api python db/seed_demo.py
+      - run: uv run db/seed_demo.py
       - working-directory: api
         run: uv run ruff check && uv run ruff format --check && uv run mypy && uv run pytest
 
