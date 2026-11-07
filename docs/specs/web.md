@@ -570,6 +570,8 @@ since 2026-07-19 and the visibility map was stale (Open item 6).
 
 ### Step 5 — The ledger
 
+**Done.** Implemented in `turtle-web` 2026-11-08.
+
 `turtleweb/ledger.py` is the heart of the app and the part most worth testing. It is a pure
 function from transactions and closes to positions and history.
 
@@ -595,7 +597,7 @@ class Close:
 
 @dataclass
 class _Position:
-    shares: float = 0.0  # quantity as traded (pre-split)
+    shares: float = 0.0  # as the broker counts them: rescaled by every split while held
     units: float = 0.0  # shares in adjusted_close terms: sum of quantity / f at each fill
     cost: float = 0.0  # open cost basis, average-cost method, fees and tax included
     realized: float = 0.0
@@ -608,23 +610,29 @@ def build(fills: list[Fill], closes: list[Close], benchmark: str) -> Ledger:
     """Replay fills over the benchmark's trading calendar.
 
     Args:
-        fills: Every transaction, ordered by date.
+        fills: Every transaction, in any order; applied by date, stable within a day.
         closes: Daily closes for every traded symbol and the benchmark.
-        benchmark: Symbol whose dates form the calendar and which the shadow portfolio buys.
+        benchmark: Symbol whose dates (plus any fill date after its last bar) form the calendar,
+            and which the shadow portfolio buys.
 
     Returns:
         Ledger: Open positions as of the last day, totals, and one history point per day.
     """
 ```
 
-Before the loop, seed `last[symbol]` from every close dated before the first fill: the 7-day
-lookback CLOSES fetches. Without that seed, a first fill on a day its symbol has no bar (a halt,
-or a date missing from the benchmark calendar) raises even though a prior close was fetched.
+The calendar is the benchmark's dates from the first fill on, **plus any fill date after the
+benchmark's last bar**. A fill imported before that day's bars are loaded would otherwise drop
+out; with its own day it counts, valued at the previous close. Earlier fill dates are not added:
+an after-hours fill whose UTC date rolls into a Saturday lands on Monday instead of creating a
+weekend point.
 
-The loop, per calendar day `d` (the benchmark's dates, starting at the first fill):
+The loop, per calendar day `d`:
 
-1. Update `last[symbol]` from that day's closes. Missing days keep the previous close (forward fill).
-2. Apply every fill dated `≤ d` that is not yet applied, using `f = last[s].adjusted_close / last[s].close`
+1. Take in every close dated `≤ d` into `last[symbol]`. Missing days keep the previous close
+   (forward fill), and on the first day this seeds prices from the 7-day lookback CLOSES fetches,
+   so a first fill on a day its symbol has no bar (a halt) still has a prior close. **On a split,
+   rescale `shares`** of a held symbol (see below).
+2. Apply every fill dated `≤ d` not yet applied, using `f = last[s].adjusted_close / last[s].close`
    and `b = last[benchmark].adjusted_close`:
    - **buy:** `amount = q·price + fee + tax`; `shares += q`; `units += q / f`; `cost += amount`;
      `bench_units += amount / b`.
@@ -635,24 +643,59 @@ The loop, per calendar day `d` (the benchmark's dates, starting at the first fil
    `realized = Σ realized`, `total_pnl = market_value − cost_basis + realized`,
    `benchmark_pnl = Σ bench_units · b − cost_basis + Σ bench_realized`.
 
-Raise `ValueError` naming the symbol and date if a fill has no close on or before its date.
-A ledger that silently drops a position is worse than a loud 500 that tells you which ticker's
-bars are missing.
+**Splits.** The broker quotes sells in post-split shares, so `shares` must follow splits, or a sell
+after one is checked against the wrong count. There is no split table, but the bars show splits:
+between two consecutive closes of a symbol, `f` jumps by the split ratio (×2 for 2:1), while an
+ex-dividend day moves it about 1–2%. A change of more than 25% counts as a split. The ratio snaps to
+the nearest "N for M" with `M ≤ 4`, through its inverse for a reverse split, so a same-day dividend
+or float noise cannot leave a ghost fraction. That gives 2, 3/2, 1/20 and 1/50. `cost` is unchanged,
+so `avg_cost = cost / shares` stays comparable with the raw price. A split smaller than 25% (5:4)
+goes undetected. On live data, 2026-11-08: no false split; the largest day-over-day move in `f`
+across the held symbols' 2,134 bars was 1.05%.
+
+**Dividends are total return.** Only buys and sells are imported, never dividends. So
+`units · adjusted_close` counts dividends as reinvested, the same basis as the benchmark's adjusted
+close. After a split and no dividend, `units · adjusted_close == shares · close`. The two differ
+only by dividends.
+
+Raise `ValueError` naming the symbol and date if a fill's symbol or the benchmark has no close by
+the day the fill is applied, and if a sell exceeds the shares held. A ledger that silently drops a
+position is worse than a loud 500 that tells you which ticker's bars are missing. Share counts are
+compared with a tolerance of `1e-9`, so fractional shares (0.1 + 0.2 sold as 0.3) neither raise a
+false oversell nor leave a ghost position.
+
+The shadow benchmark invests the whole buy amount, fee and tax included, and pays neither on
+either side. So with an identical price series it **leads by the fees and tax paid**, plus what
+that cash earned in the benchmark. That is intended: it is the cost of trading single stocks
+instead of the index.
 
 `tests/test_ledger.py`: hand-built fixtures, no database. Each test pins one rule:
 
 | Test | Asserts |
 | --- | --- |
 | Single buy, flat price | `unrealized == −fee`, `realized == 0` |
-| 2:1 split while held (raw close halves, adjusted continuous) | `market_value` unchanged across the split date |
+| 2:1 split while held (raw close halves, adjusted continuous) | `market_value` unchanged across the split date; `shares` doubles |
+| Sell all 20 post-split shares of a 10-share buy | Position closed, no error |
+| Sell 10 of the 20 post-split shares | Half the shares and half the cost remain |
+| 3:2, 1:20 and 1:50 splits; 2:1 with a 1% dividend the same day | Shares rescale by exactly the split ratio |
+| Ex-dividend day (`f` moves 2%) | Shares unchanged; `market_value` counts the dividend as reinvested |
 | Buy 10 @ 100, buy 10 @ 120, sell 10 @ 130, fee 1 each | Cost 2,202 → `cost_out` 1,101; `realized == 1,299 − 1,101 == 198`; remaining `cost == 1,101` |
-| Benchmark identical to the stock | `benchmark_pnl == total_pnl` every day |
+| Benchmark identical to the stock, no fees | `benchmark_pnl == total_pnl` every day |
+| Same at flat prices, with fees and tax | `benchmark_pnl − total_pnl` equals the fees and tax paid so far |
+| Fill dated after the last bar | Counted, valued at the previous close |
+| Fill dated on a Saturday | Applied on Monday; no weekend history point |
+| Sell larger than the position | `ValueError` |
+| Buy 0.1 and 0.2, sell 0.3 | No ghost position |
+| Buy then sell everything | No row in `positions`; `totals.realized` keeps the gain |
 | Holding with a missing bar mid-window | That day's value uses the previous close; no exception |
 | First fill on a day its symbol has no bar, prior close in the lookback | Uses the seeded prior close; no exception |
 | Fill with no close anywhere on or before its date | `ValueError` naming the symbol |
+| No benchmark bars | `ValueError` naming the benchmark |
 
-**Verify:** `uv run pytest tests/test_ledger.py` passes, and the split test fails if `units` is
-replaced with `shares · close`. Try it once to prove the test has teeth.
+**Verify:** `uv run pytest tests/test_ledger.py` passes, and the ex-dividend test fails if
+`units · adjusted_close` is replaced with `shares · close` in the history point. The split test no
+longer catches that swap, because split-rescaled shares make the two equal without dividends. Try
+it once to prove the test has teeth.
 
 ### Step 6 — Endpoints and response models
 
