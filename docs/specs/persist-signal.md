@@ -8,7 +8,7 @@
 > Two notes from the run. Step 2 produced **169** rows, not the 208 the step predicts: local
 > `daily_bars` ends 2026-08-18 against the VPS's 2026-08-21, so the window is three trading days
 > shorter — a data-freshness difference, not a defect. And no `GRANT` was needed after all: the
-> `ALTER DEFAULT PRIVILEGES` in `db/init.sh:37` had applied, and `app_user` came out with
+> `ALTER DEFAULT PRIVILEGES` in `db/init.sh:41` had applied, and `app_user` came out with
 > SELECT/INSERT/UPDATE/DELETE on the new table.
 
 ## Context
@@ -132,7 +132,7 @@ keep them out rather than escaping):
 The `ranking` comment is where the spec's ungated rule earns its keep: it puts the rule where an
 analyst finds it with no code in front of them.
 
-**Probably no `GRANT` — but verify rather than assume.** `db/init.sh:37` does
+**Probably no `GRANT` — but verify rather than assume.** `db/init.sh:41` does
 `ALTER DEFAULT PRIVILEGES FOR ROLE alembic IN SCHEMA turtle GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user`,
 so an alembic-created table should already be writable by `app_user`. That only holds if the target
 database was initialised after that line was added, which I could not confirm for the live Hetzner

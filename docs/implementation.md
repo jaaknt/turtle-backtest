@@ -150,6 +150,10 @@ export DB_APP_PASSWORD=<app_password>
 # application and scripts/update-local-db.sh both connect as app_user, so this password is needed
 # at provisioning time only and is deliberately absent from secrets.env below.
 export DB_CLAUDE_PASSWORD=<claude_password>
+# `turtle_web` is the read-only role the turtle-web dashboard connects as (docs/specs/web.md, Step 0).
+# Like DB_CLAUDE_PASSWORD it is needed here at provisioning time; the dashboard reads it from its
+# own ~/.config/turtle-web/secrets.env, not from turtle-backtest's.
+export DB_WEB_PASSWORD=<web_password>
 sudo -E -u postgres bash ./db/init.sh
 
 # Set user postgres password <optonal>
@@ -157,6 +161,62 @@ sudo -u postgres psql
 \password postgres
 <postgres_password>
 ```
+
+#### Add the `turtle_web` role to an existing database
+
+`init.sh` only runs when the database is first created. A database provisioned before
+`turtle_web` existed (the VPS, or a local Docker volume) needs the role added once, by hand. It
+mirrors the `turtle_web` block in `db/init.sh`. Run it as `postgres`, not through the MCP server.
+`\getenv` reads the password from the environment, so it never appears in shell history or `ps`.
+
+```bash
+read -rs DB_WEB_PASSWORD && export DB_WEB_PASSWORD
+# The prompt echoes nothing, so a stray Enter gives an empty password: Postgres would accept it
+# and create a role that can never log in. The `test -n` guard skips psql in that case.
+test -n "$DB_WEB_PASSWORD" || echo "DB_WEB_PASSWORD is empty, run the read line again" >&2
+
+# VPS (native PostgreSQL):
+test -n "$DB_WEB_PASSWORD" && sudo --preserve-env=DB_WEB_PASSWORD -u postgres psql -v ON_ERROR_STOP=1 -d trading <<'EOSQL'
+\getenv web_password DB_WEB_PASSWORD
+CREATE USER turtle_web WITH PASSWORD :'web_password';
+GRANT CONNECT ON DATABASE trading TO turtle_web;
+GRANT USAGE ON SCHEMA turtle TO turtle_web;
+GRANT SELECT ON ALL TABLES IN SCHEMA turtle TO turtle_web;
+ALTER DEFAULT PRIVILEGES FOR ROLE alembic IN SCHEMA turtle GRANT SELECT ON TABLES TO turtle_web;
+ALTER ROLE turtle_web SET default_transaction_read_only = on;
+ALTER ROLE turtle_web SET statement_timeout = '10s';
+ALTER ROLE turtle_web SET idle_in_transaction_session_timeout = '30s';
+ALTER ROLE turtle_web SET jit = off;
+EOSQL
+
+# Local Docker: same heredoc, with the psql line replaced by
+#   test -n "$DB_WEB_PASSWORD" && docker exec -i -e DB_WEB_PASSWORD turtledb psql -v ON_ERROR_STOP=1 -U postgres -d trading <<'EOSQL'
+```
+
+Verify as `turtle_web`. This applies equally to a fresh `init.sh` install. Each INSERT runs
+inside a transaction that is rolled back, so even a misconfigured role cannot write a row. The
+comments give the expected output:
+
+```bash
+PGPASSWORD="$DB_WEB_PASSWORD" psql -h localhost -U turtle_web -d trading <<'EOSQL'
+-- 1. reads work: a row count
+SELECT count(*) FROM turtle.signal;
+-- 2. the guard rails are set: on | 10s | 30s | off
+SELECT current_setting('default_transaction_read_only'), current_setting('statement_timeout'),
+       current_setting('idle_in_transaction_session_timeout'), current_setting('jit');
+-- 3. the session default rejects a write: ERROR: cannot execute INSERT in a read-only transaction
+BEGIN; INSERT INTO turtle.signal DEFAULT VALUES; ROLLBACK;
+-- 4. GRANT SELECT is the real barrier, even with the default overridden:
+--    ERROR: permission denied for table signal
+BEGIN READ WRITE; INSERT INTO turtle.signal DEFAULT VALUES; ROLLBACK;
+EOSQL
+```
+
+For local Docker, replace the psql line with
+`docker exec -i -e PGPASSWORD="$DB_WEB_PASSWORD" turtledb psql -h localhost -U turtle_web -d trading <<'EOSQL'`.
+
+If check 3 or 4 reports anything other than the expected error, stop: the role is misconfigured.
+A NOT NULL violation in particular means the statement got past both barriers.
 
 #### Allow access to database from external the Tailscale IP  
 

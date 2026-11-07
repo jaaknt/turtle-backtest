@@ -1,8 +1,9 @@
 # Design: `turtle-web` — a FastAPI + Vue + Lightweight Charts dashboard
 
-> **Status:** Draft for implementation. The `turtle-web` repo does not exist yet. The one precondition
-> in this repo — the read-only `turtle_web` role (Step 0) — is also outstanding. The signal
-> persistence this spec used to describe has shipped; see [the appendix](#appendix--what-shipped-from-the-previous-draft).
+> **Status:** Draft for implementation. The `turtle-web` repo does not exist yet. Step 0, the one
+> precondition in this repo, is implemented in `db/init.sh`. It still has to be applied once to the
+> existing VPS database with the command in `docs/implementation.md`. The signal persistence this
+> spec used to describe has shipped; see [the appendix](#appendix--what-shipped-from-the-previous-draft).
 
 ## Context
 
@@ -117,22 +118,17 @@ the result stays correct.
 
 ### Step 0 — Read-only role (in `turtle-backtest`)
 
-The only change in this repo. Mirror the `claude` role in `db/init.sh`, plus four role-level
-settings that role lacks. `claude` is an MCP client; this one is a network service.
+The only change in this repo: a `turtle_web` role that mirrors the `claude` role, plus four
+role-level settings that role lacks. `claude` is an MCP client; this one is a network service. The
+SQL lives in **`db/init.sh`** (the `turtle_web` block), the single source this section describes
+rather than copies:
 
-```sql
-CREATE USER turtle_web WITH PASSWORD '${DB_WEB_PASSWORD}';
-GRANT CONNECT ON DATABASE trading TO turtle_web;
-GRANT USAGE   ON SCHEMA turtle    TO turtle_web;
-GRANT SELECT  ON ALL TABLES IN SCHEMA turtle TO turtle_web;
--- FOR ROLE alembic: tables created by future migrations inherit this
-ALTER DEFAULT PRIVILEGES FOR ROLE alembic IN SCHEMA turtle GRANT SELECT ON TABLES TO turtle_web;
-
-ALTER ROLE turtle_web SET default_transaction_read_only       = on;    -- writes fail at the server
-ALTER ROLE turtle_web SET statement_timeout                   = '10s'; -- one bad query can't wedge a worker
-ALTER ROLE turtle_web SET idle_in_transaction_session_timeout = '30s';
-ALTER ROLE turtle_web SET jit                                 = off;
-```
+- `GRANT SELECT` on every existing `turtle` table, and default privileges for tables `alembic`
+  creates later.
+- `default_transaction_read_only = on`, `statement_timeout = '10s'` (one bad query can't wedge a
+  worker), `idle_in_transaction_session_timeout = '30s'`, and `jit = off`.
+- The password comes from `DB_WEB_PASSWORD`. `init.sh` refuses to run if it is unset or empty,
+  and binds it with `\getenv` so a quote in the password is harmless.
 
 - **`GRANT SELECT` is the barrier; `default_transaction_read_only = on` is a guard rail.** The
   session default turns an accidental write from app code into an immediate, explicit error.
@@ -143,11 +139,26 @@ ALTER ROLE turtle_web SET jit                                 = off;
   1,472 ms query. Row-count misestimates on small results routinely trip the JIT threshold
   here, and every query in this app returns few rows.
 
-Extend `db/init.sh` for fresh installs and run the equivalent `psql` once on the VPS (as the
-`alembic`/owner role — not through MCP).
+**Implemented.** The role is in `db/init.sh` for fresh installs, with its password in
+`DB_WEB_PASSWORD` (`docker-compose.yml`, `.env.example`). A database that already exists — the
+VPS, or a local Docker volume — needs it added once, as `postgres` and not through MCP. The command
+is in `docs/implementation.md`, §"Add the `turtle_web` role to an existing database".
 
-**Verify:** `psql -U turtle_web -c "SELECT 1 FROM turtle.signal LIMIT 1"` succeeds. An `INSERT` is
-rejected with *cannot execute INSERT in a read-only transaction*, not merely *permission denied*.
+Verified on a throwaway Postgres 17 container, both from a fresh `init.sh` and by applying the
+documented command to a database initialised without the role:
+
+- SELECT works, on tables that existed before the role and on a table `alembic` creates afterwards.
+- An INSERT fails with *cannot execute INSERT in a read-only transaction*.
+- After `SET default_transaction_read_only = off` or `BEGIN READ WRITE`, the INSERT still fails,
+  with *permission denied for table*.
+- The role reports `default_transaction_read_only = on`, `statement_timeout = 10s`,
+  `idle_in_transaction_session_timeout = 30s` and `jit = off`.
+
+**Verify:** run the verification block in `docs/implementation.md`, §"Add the `turtle_web` role
+to an existing database". It works the same after a fresh `init.sh`. It checks that reads work,
+that the four settings read `on | 10s | 30s | off`, that an INSERT is rejected as *read-only*, and
+that the INSERT is still rejected as *permission denied* once the read-only default is
+overridden. Both INSERTs run inside a rolled-back transaction.
 
 ### Step 1 — Create the repository
 
@@ -1093,15 +1104,16 @@ The earlier draft of this document was organised into numbered sections. They ma
 | --- | --- |
 | §1.1 New table, §1.2 Write repository, §1.3 `--persist` | Shipped as specified in [persist-signal.md](persist-signal.md): surrogate `id`, `trading_strategy`/`ranking_strategy`, `signal_close`, `parameters` jsonb |
 | §1.4 Nightly run | Shipped as a second `ExecStart=` in `deploy/eodhd-download-daily.service`, chained after the history download (05:00 Europe/Tallinn, Mon–Sat), with a 7-day window so `next_open` backfills |
-| §1.5 Read-only role | Outstanding — now [Step 0](#step-0--read-only-role-in-turtle-backtest) |
+| §1.5 Read-only role | Implemented in `db/init.sh` — now [Step 0](#step-0--read-only-role-in-turtle-backtest); still to be applied on the VPS |
 | Workstream 2 (FastAPI + Jinja) | Replaced by this FastAPI + Vue design |
 | §"Signals, last 3 months" | Simplified into the SIGNALS query ([Step 4](#step-4--the-sql-module)) using the persisted indicators; page in [Step 9](#step-9--the-four-pages) |
 
 ## Open items
 
-1. **Licence `turtle-backtest`.** It is public with no `LICENSE`, so it is legally "all rights
-   reserved". `turtle-web`'s README will point there for the schema and the data pipeline.
-2. **Verify sell semantics** against the first real sell statement, and add it as a ledger fixture.
-3. **Pick the Tailscale bind address** for `BIND_HOST`.
-4. **Benchmark choice:** `SPY.US` by default. An equal-weight or small-cap benchmark may suit a
+1. ~~**Licence `turtle-backtest`.**~~ Done: MIT, matching `turtle-web`.
+2. **Apply Step 0 on the VPS** with the command in `docs/implementation.md`, then put the same
+   password in turtle-web's `secrets.env` (Step 11).
+3. **Verify sell semantics** against the first real sell statement, and add it as a ledger fixture.
+4. **Pick the Tailscale bind address** for `BIND_HOST`.
+5. **Benchmark choice:** `SPY.US` by default. An equal-weight or small-cap benchmark may suit a
    momentum book better; it is a one-line setting.
