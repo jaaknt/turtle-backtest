@@ -72,7 +72,7 @@ class TestParsing:
 
         (tx,) = _inserted_transactions(repository)
         assert tx.reference == "OR-EXAMPLE003"
-        # Day-first: 30/07 is 30 July, not an invalid month
+        # Day-first: 16/01 is 16 January, not an invalid month
         assert tx.transacted_at == datetime(2026, 1, 16, 14, 30)
         assert tx.ticker_code == "DUOL.US"
         assert tx.isin == "US26603R1068"
