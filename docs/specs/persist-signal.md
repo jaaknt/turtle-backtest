@@ -15,21 +15,21 @@
 
 `signal-runner` computes signals in memory and prints them; nothing is stored. Every look at
 "what fired last week" means re-running a 2–3 minute universe scan, and the planned read-only
-website ([web.md](web.md)) has no table to read from — that spec names this work as
-**Workstream 1**, a precondition for its signals page.
+website ([web.md](web.md)) has no table to read from — this work is a precondition for its
+signals page.
 
 This adds an opt-in `--persist` flag that writes each signal to a new `turtle.signal` table. The
 signal-date close gets its own `signal_close` column; the remaining per-signal values live in a
 `parameters jsonb` column, so a stored row is self-describing and its values are frozen as they
 were when the signal fired.
 
-That freezing is the main reason to prefer this over the spec's original narrow table.
-[web.md](web.md) proposed storing only `(strategy, symbol, signal_date, ranking)` and
+That freezing is the main reason to prefer this over the website design's original narrow table.
+The website design originally proposed storing only `(strategy, symbol, signal_date, ranking)` and
 re-deriving every display column in SQL, which carries two costs this avoids:
 
-- a three-lateral query the spec measures at **92 ms**, and **2,851 ms** if anyone drops its
-  `date > signal_date - 130` bound (web.md §"Signals, last 3 months");
-- a documented correctness caveat (web.md §1.1): `pct_vs_sma50` is re-derived from
+- a three-lateral query measured at **92 ms**, and **2,851 ms** if anyone drops its
+  `date > signal_date - 130` bound;
+- a documented correctness caveat: `pct_vs_sma50` is re-derived from
   `adjusted_close`, which EODHD rewrites retroactively on every dividend, so the displayed inputs
   drift from the ones the persisted `ranking` was computed from.
 
@@ -93,7 +93,7 @@ CREATE INDEX idx_signal_signal_date ON turtle.signal (signal_date DESC);
 
 Every element has a precedent here: `BIGINT GENERATED ALWAYS AS IDENTITY` from `job_runs:26`,
 `uq_<table>_<cols>` from `ticker:38` (`uq_ticker_symbol_exchange`), `FLOAT8` for prices from
-`daily_bars:32`, `idx_<table>_<cols>` from `job_runs:73` — note `idx_`, not the `ix_` in web.md §1.1.
+`daily_bars:32`, `idx_<table>_<cols>` from `job_runs:73` — note `idx_`, not `ix_`.
 
 Two points to state in the migration comments:
 
@@ -244,7 +244,7 @@ reach.
 
 **`DO UPDATE`, not `DO NOTHING`.** Two values legitimately change on a re-run: `next_open` arrives
 once a later bar is loaded, and `ranking` itself can move, because `pct_vs_sma50` derives from
-`adjusted_close`, which EODHD rewrites retroactively on every dividend (web.md §1.1). `DO
+`adjusted_close`, which EODHD rewrites retroactively on every dividend. `DO
 NOTHING` would freeze the first, emptier payload forever.
 
 Return `len(values)`, as `daily_bars.py:49` does — `DO UPDATE` writes every row, so the count *is*
@@ -308,7 +308,7 @@ normalising first means the *effective* label is what gets logged and recorded. 
 the call site would work but would record `persist_label: null` in the one table that exists to
 answer "what did that run actually do".
 
-**The ordering trap, and why it is structural.** [web.md](web.md) §1.1 requires persisting
+**The ordering trap, and why it is structural.** The design requires persisting
 *ungated* — "Gating at write time destroys information you cannot recover." But `run_list` today
 **rebinds** the name:
 
@@ -359,19 +359,18 @@ read-only path entirely.
 - `docs/signal_runner.md` — a `SignalRepository` node in the component diagram and an
   `H->>SR: upsert_signals(ungated)` arrow placed before the gate step.
 - `CLAUDE.md` §Database — a `turtle.signal` bullet beside the `turtle.job_runs` one.
-- [web.md](web.md) §1.1–1.3 — amend to match: surrogate key, the `trading_strategy` /
-  `ranking_strategy` split, `signal_close`, `parameters`, and the `--min-signal-ranking`
-  interaction, all of which postdate that section.
+- ~~[web.md](web.md) §1.1–1.3 — amend to match.~~ Done: web.md was rewritten and no longer carries
+  those sections; its appendix maps each one to where it landed.
 - `npx markdownlint-cli2` after any markdown edit.
 
 ## Not in scope
 
-- **The nightly systemd timer** ([web.md](web.md) §1.4). Its example command in §1.4 is now
-  over-specified — since `c1ae107`, `--trading-strategy qullamaggie` and `--ranking-strategy
-  qullamaggie` are the defaults. See the `next_open` note in Verification before writing it.
-- **The 3-month backfill run** (web.md §1.4) — operational, and blocked on the same
+- **The nightly systemd timer.** Since shipped as a second `ExecStart=` in
+  `deploy/eodhd-download-daily.service`, with a rolling 7-day window per the `next_open` note in
+  Verification.
+- **The 3-month backfill run** — operational, and blocked on the same
   local-database prerequisite as verification.
-- **The `turtle_web` read-only role** (web.md §1.5) — belongs with the website.
+- **The `turtle_web` read-only role** — belongs with the website; now [web.md](web.md) Step 0.
 
 ## Tests
 
@@ -435,7 +434,7 @@ Then, against localhost Postgres:
    signals dated D; re-run with `--end-date D+5` and confirm it flips true. Note the direction —
    re-running the *same* `--end-date` never fills it, because the window ends there and the last bar
    still has no successor (`qullamaggie.py:297-299`). Only a later `--end-date` backfills. **This is
-   why the eventual §1.4 timer needs a rolling multi-day window, not a single day.**
+   why the eventual nightly timer needs a rolling multi-day window, not a single day.**
 7. **Variant separation:** `--trading-param sma_thresh=0.16 --persist-label bk50d_s16_v2.0` → both
    labels coexist for a symbol/date both variants emit, with different `id`s.
 8. **Ranking-scheme overwrite** (the consequence of keeping `ranking_strategy` out of the key):
@@ -461,7 +460,7 @@ Then, against localhost Postgres:
 - **A `SignalPersistService`** — one call site, one method; CLAUDE.md §2 forbids abstractions for
   single-use code. `SignalService` is a scan orchestrator; giving it a write repository would couple
   the read path to a write path only one CLI wants.
-- **Promoting the indicators to real columns.** Note web.md §1.1's parity argument does **not**
+- **Promoting the indicators to real columns.** Note the website design's parity argument does **not**
   transfer: it was made about widening `Signal` with newly *computed* fields, whereas these floats
   are already computed on both paths, and the parity tuple is
   `(symbol, signal_date, entry_date, entry_price)` — it covers them under neither design. Two
@@ -469,7 +468,7 @@ Then, against localhost Postgres:
   was retired *as an entry filter* on 2026-08-01 and is still reported, and `tight_range_ratio` has
   always been reported-only, so which values are worth keeping is under active revision; and absent-means-not-reported maps cleanly onto a missing
   key but badly onto a nullable column, where NULL conflates "this strategy does not report it"
-  with "reported as nothing". Separately, the parity gap web.md names is real and already open —
+  with "reported as nothing". Separately, the parity gap that argument names is real and already open —
   that is an argument for widening the parity tuple, not against columns.
 - **A `job_run_id` column** — tempting for provenance, but a re-run overwrites the row, so after the
   second run the recorded id names a run that did not produce the current values.

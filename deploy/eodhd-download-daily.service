@@ -12,9 +12,9 @@ WorkingDirectory=%h/turtle-backtest
 EnvironmentFile=%h/.config/turtle-backtest/secrets.env
 ExecStart=%h/.local/bin/uv run download-eodhd-data --data history
 # Rolling 7-day window, not a single day: a signal's next_open only lands once a later bar
-# exists, so re-scanning the last week backfills it (docs/specs/web.md §1.4). The wider window
-# cannot double-emit — the cooldown loop runs over the full warmup window before filtering to
-# start_date. systemd does no command substitution of its own, hence /bin/sh -c.
+# exists, so re-scanning the last week backfills it (docs/specs/persist-signal.md, Verification
+# step 6). The wider window cannot double-emit — the cooldown loop runs over the full warmup
+# window before filtering to start_date. systemd does no command substitution of its own, hence /bin/sh -c.
 ExecStart=/bin/sh -c 'exec %h/.local/bin/uv run signal-runner --trading-strategy qullamaggie --ranking-strategy qullamaggie --persist --persist-label bk50d_s12_v2.0 --start-date "$(date -I -d "7 days ago")" --end-date "$(date -I)"'
 StandardOutput=journal
 StandardError=journal

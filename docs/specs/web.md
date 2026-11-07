@@ -1,395 +1,491 @@
-# Design: `turtle-web` — a read-only website over the turtle database
+# Design: `turtle-web` — a FastAPI + Vue + Lightweight Charts dashboard
 
-> **Status:** Workstream 1 is implemented through §1.4 — the table, the write repository,
-> `--persist`, and the nightly run. §1.5 (the read-only role) and all of Workstream 2 are
-> outstanding; the rest of this document is still a draft for review.
+> **Status:** Draft for implementation. The `turtle-web` repo does not exist yet. The one precondition
+> in this repo — the read-only `turtle_web` role (Step 0) — is also outstanding. The signal
+> persistence this spec used to describe has shipped; see [the appendix](#appendix--what-shipped-from-the-previous-draft).
 
 ## Context
 
-`turtle-backtest` produces everything through CLIs that print to stdout and drop a
-quantstats HTML blob into `reports/`. To see today's signals or what you are holding, you
-run a script and read a fixed-width table in a terminal. There is no way to look at a price
-chart with your own entries marked on it.
+`turtle-backtest` produces everything through CLIs that print to stdout. To see what you hold,
+what it is worth, or a chart with your own fills marked on it, you run a script and read a
+fixed-width table in a terminal.
 
-This document designs a **separate, read-only website** on the Hetzner VPS, private to
-Tailscale, with three pages: signals for the last 3 months, current portfolio state, and
-stock price charts. The overriding constraint is **minimum self-written code** — the design
-leans on TradingView Lightweight Charts, a classless CSS framework, and SQL, and writes as
-little application code as possible.
+This document is a **step-by-step guide** to building a separate, open-source, read-only
+dashboard over the `turtle` schema. It covers five things:
 
-### Decisions already made
+1. **Portfolio** — current value, cost basis, unrealized and realized P&L, per-position table.
+2. **Portfolio over time** — holdings value vs cost basis, and P&L vs a benchmark.
+3. **Transactions** — every Lightyear fill, joined to the signal it was bought off.
+4. **Price history** — candlestick chart for any symbol, with your fills and average cost marked.
+5. **Signals** — what the baseline algorithm fired over the last 3 months, how each has moved since
+   entry, and which ones you actually bought.
+
+### Decisions
 
 | Decision | Choice |
 | --- | --- |
-| Deployment | Hetzner VPS, Tailscale-only, no TLS/auth needed |
-| Access | Strictly read-only (SELECT only) |
-| Repo | New standalone repo; does **not** import `turtlex` |
-| Charts | TradingView **Lightweight Charts v5.2** (Apache-2.0, vendored, no npm) |
-| Chart scope | Any of the 5,627 symbols in `daily_bars` |
-| Portfolio | **Real** Lightyear positions, not the simulated backtest portfolio |
-| Signals | Persisted nightly into a new `turtle.signal` table by `turtle-backtest` |
+| Repo | New **public** GitHub repo `turtle-web`, MIT licence. Does **not** import `turtlex` |
+| Backend | FastAPI, sync SQLAlchemy Core with raw SQL strings, no ORM |
+| Frontend | Vue 3 + Vite + TypeScript, `vue-router`, PrimeVue `DataTable` for tables |
+| Charts | TradingView **Lightweight Charts v5** from npm (Apache-2.0) |
+| Price data | Served from `turtle.daily_bars` — the library ships no data of its own |
+| Portfolio | **Real** Lightyear transactions, not the simulated backtest portfolio |
+| Access | Strictly read-only: `turtle_web` role with `default_transaction_read_only = on` |
+| Serving | FastAPI serves the built SPA from `web/dist` — one process, one systemd unit, same origin, no CORS |
+| Build | GitHub Actions builds the frontend; the VPS never runs Node |
+| Deployment | Hetzner VPS, bound to the Tailscale IP, no TLS or auth |
 
-## The blocking finding
+### What changed from the previous draft
 
-**The database holds market data only.** Verified against the live Hetzner DB — the `turtle`
-schema has exactly 7 tables:
+The previous draft recommended FastAPI + Jinja2 with no npm and no build step, and rejected a
+JS-framework frontend as "a second toolchain for a page only you can reach". Two things moved
+that trade-off:
 
-| Table | Rows | Note |
-| --- | --- | --- |
-| `daily_bars` | 20,049,330 (4.4 GB) | PK `(symbol, date)` — **the only index**. 5,627 symbols, 2000-01-02 → 2026-08-09 |
-| `ticker` | 53,717 | PK `code` (`AAPL.US`) |
-| `company` | 6,607 | sector, industry, market_cap, pe |
-| `company_history` | 18,923 | monthly point-in-time snapshots |
-| `ticker_group` | 2,589 | `active` = 2,580 (strategy universe), `lightyear` = 9 (really held) |
-| `exchange` | 73 | |
-| `lightyear_transaction` | **9** | real executed buys/sells |
+- **The repo is public.** A familiar SPA stack and a clean JSON API are what make an
+  open-source project something others can run, read and contribute to.
+- **GitHub Actions removes the toolchain objection.** CI builds `dist/`; the VPS downloads a
+  release artifact and never needs Node.
 
-There is **no signal, trade, or position table**. `signal-runner` computes signals in memory
-and `print()`s them (`turtlex/cli/signal_runner.py:41`); nothing writes them. `PortfolioState`
-(`turtlex/model.py:275`) is an in-memory object that vanishes at process exit, and
-`PortfolioManager` has no repository injected at all.
+The React-specific trap the old draft cited (StrictMode double-mounting two overlaid charts)
+does not exist in Vue: `onMounted` runs once and `onBeforeUnmount` is the single cleanup point.
 
-So the work splits into **two repos**. Workstream 1 lands in `turtle-backtest` and is a
-precondition for the signals page.
-
-## Recommended architecture
-
-**FastAPI + Jinja2 server-rendered pages + Lightweight Charts. No HTMX, no npm, no build step.**
+## Architecture
 
 ```text
-Browser ──HTTP──> uvicorn/FastAPI ──SELECT──> PostgreSQL (turtle schema)
-   │                    │
-   │                    ├── Jinja2 renders tables directly into HTML
-   │                    └── /api/* returns JSON only for the charts
-   │
-   └── vendored lightweight-charts.standalone.production.js (~50 KB) draws candles
+GitHub: turtle-web (public)
+├── api/   FastAPI ── sync Engine (turtle_web, read-only) ──SELECT──> PostgreSQL turtle schema
+├── web/   Vue 3 + Vite + TS + lightweight-charts ──fetch /api/*──> api
+└── db/    schema.sql (the columns we read) + seed_demo.py (synthetic data)
+
+Dev:   Vite :5173 ──proxy /api──> uvicorn :8000 ──> docker-compose Postgres :5433 (demo data)
+Prod:  Browser ──Tailscale──> uvicorn :8080 ├── /api/*  JSON
+                                            └── /*      web/dist (SPA, index.html fallback)
+CI:    lint + type-check + test (against demo DB) → on tag: release web-dist.tgz
 ```
 
-Tables are the bulk of this UI, and a Jinja `{% for %}` loop renders one in ~10 lines. The
-only genuinely interactive surface is the chart, and Lightweight Charts is self-contained —
-it needs no frontend framework around it. No npm, no bundler, no `dist/`; deploy is
-`git pull && systemctl --user restart`, matching the existing EODHD timer pattern exactly.
+Two layers of logic, nothing more:
 
-### Options considered
+- **SQL** (`api/turtleweb/sql.py`) fetches rows. Six statements, all index-bounded.
+- **The ledger** (`api/turtleweb/ledger.py`) turns transactions + closes into positions, P&L and
+  a daily history. Pure Python, no I/O, fully unit-tested. Average-cost accounting is
+  sequential, which is awkward in SQL and twenty clear lines in Python — and the data is tiny
+  (22 transactions, ~2,100 close rows).
 
-All three assume a Python backend and Lightweight Charts on the frontend; they differ in how
-much structure they impose between the two.
+No repository classes, no service layer, no Pinia store: six queries and four pages do not
+need them.
 
-| | **A. FastAPI + Jinja2** ✅ | **B. FastAPI JSON + vanilla ESM** | **C. FastAPI JSON + React/Vite** |
-| --- | --- | --- | --- |
-| Self-written LOC | **~550** | ~800–900 | ~1,200–1,400 |
-| JS LOC | ~90 | ~300 | ~500 |
-| Runtime deps | 6 | 5 | 5 + ~250 npm |
-| Build step | **none** | none (TS would add one) | Vite + tsc |
-| Deploy | 1 systemd unit | 1 systemd unit | build, then serve `dist/` |
-| Tables come from | Jinja loops (free) | hand-written DOM code | TanStack Table |
+## The P&L model
 
-The two table pages contain **zero JavaScript** under option A. The chart page contains one
-`<script>` that parses a JSON blob already on the page.
+These definitions are the contract every page follows. Put them in the README and in a page
+footer.
 
-**Why not B:** the API boundary is cleaner, but you hand-write ~180 lines of
-`innerHTML`/`createElement` table rendering that Jinja gives you free, and number formatting
-gets written twice. It costs +250 LOC to remove one dependency. TypeScript would reintroduce
-the build step.
+| Quantity | Definition |
+| --- | --- |
+| Buy cost | `price × quantity + fee + tax`. Verified: equals `gross_amount` on every live buy |
+| Sell proceeds | `price × quantity − fee − tax` — **unverified**, there are no sells yet (see caveats) |
+| Cost basis | Average-cost method. A sell removes `cost × (sold / held)`; the per-share average is unchanged |
+| Realized P&L | Σ over sells of `proceeds − cost removed` |
+| Market value | `units × adjusted_close`, where each fill adds `units += quantity / f` and `f = adjusted_close / close` on the fill date |
+| Unrealized P&L | `market value − cost basis` |
+| Total P&L | `unrealized + realized` |
+| Benchmark P&L | A shadow portfolio: every buy spends the same cash on the benchmark (default `SPY.US`), every sell sells the same fraction of that position's shadow |
 
-**Why not C:** best ceiling if this grows, and TanStack Table gives sorting/filtering free —
-but it is a second toolchain (node on the VPS, or a committed `dist/`) plus an npm supply
-chain, for a page only you can reach. Lightweight Charts in React also needs
-`useRef`/`useEffect` with a `chart.remove()` cleanup, and StrictMode's double-invoked effects
-produce two overlaid charts — the most commonly reported LWC-in-React bug.
+**Why `units` instead of `shares × close`.** The Lightyear importer keeps only Buy/Sell rows, so a
+split never appears as a transaction. `shares × close` would show a 2:1 split as a 50% loss.
+`units` expresses the position in `adjusted_close` terms, so splits cancel exactly and dividends
+paid since the fill are included (total return). `f` is recomputed from current data on every
+request. EODHD rewrites `adjusted_close` retroactively, but it rewrites both ends of the ratio, so
+the result stays correct.
 
-**HTMX was considered and rejected.** Swapping a container that holds a live chart does not
-reliably re-run its `<script>`, so you must hook `htmx:afterSwap` and re-`createChart` —
-and call `chart.remove()` on the old instance or leak a canvas and a `ResizeObserver` per
-swap. For three pages and one user, a full page reload costs ~30 ms of server time. HTMX
-buys nothing here and adds a second mental model plus that trap.
+**Caveats the page must state:**
 
-Client-side table sorting is the one thing given up. Solve it with `ORDER BY` query params
-(`/signals?sort=ranking`) — about six lines of Python with a whitelist dict, no JS.
+- **Not an equity curve.** Deposits, withdrawals, dividends and FX are never imported, so cash
+  is unknowable. Label the chart "Holdings value vs cost basis", never "Equity".
+- **USD only.** The importer keeps USD rows only.
+- **Dividends sit inside market value.** `adjusted_close` folds dividends into the price, while
+  Lightyear pays them out as cash that the importer never sees. Total P&L therefore tracks the
+  broker's position value plus dividends received, so a per-position value reads slightly above
+  Lightyear's.
+- **The Shares column shows quantity as traded.** After a split, Lightyear shows more shares
+  than this page does. Market value is still correct.
+- **Sell semantics are unverified.** When the first sell lands, check the proceeds formula
+  against the statement's `gross_amount`/`net_amount` and add that row as a ledger test fixture.
+- **Prices are forward-filled.** A symbol with no bar on a given day (halt, delisting) keeps its
+  last close. Each position reports `last_date`, so staleness is visible rather than silent.
 
-## Workstream 1 — `turtle-backtest` changes (precondition)
+## Step-by-step build
 
-> **§1.1–1.3 are superseded by [persist-signal.md](persist-signal.md), which is implemented.** The
-> shipped table differs from the sketch below in four ways: a surrogate `id` primary key with
-> `UNIQUE (trading_strategy, symbol, signal_date)` as the natural key; `strategy` split into
-> `trading_strategy` and `ranking_strategy`; a `signal_close` column; and a `parameters` jsonb column
-> carrying the signal-date indicators, which removes the need for the indicator LATERAL in
-> §"Signals, last 3 months" below. Two further corrections to what follows: §1.1's opening sentence
-> is out of date — `Signal` now also carries `signal_close`, `next_open` and `indicators` — and
-> §1.2's `DO UPDATE SET ranking = EXCLUDED.ranking, modified_at = now()` is not what shipped:
-> `modified_at` is trigger-owned, and `parameters` is *merged* rather than assigned so a re-run can
-> only add keys. `signal-runner` also grew `--min-signal-ranking`, which narrows
-> the printed table only — the write stays ungated, as §1.1 requires. §1.4 has since shipped too,
-> but chained onto the existing download unit rather than as its own timer — see the section for
-> what changed and why. §1.5 (the read-only role) is the only part of this workstream still
-> outstanding.
+### Step 0 — Read-only role (in `turtle-backtest`)
 
-Small and additive. Four changes, no touch to `Signal` or any strategy.
-
-### 1.1 New table
-
-`Signal` (`turtlex/model.py:8-20`) carries exactly three fields — `ticker`, `date`, `ranking`.
-**Persist only those, plus the strategy name.** Everything display-related (entry date/price,
-current price, change %, %above SMA50, ADR%) is derived in SQL on the read side.
-
-Rationale — and note this is *not* the obvious one. Widening `Signal` would **not** break
-`tests/research/test_qullamaggie_parity.py`: that test builds `set[tuple]` of exactly
-`(symbol, signal_date, entry_date, entry_price)` (see its docstring and the
-`for symbol, _, _, _ in entries` unpacking), so extra dataclass fields are invisible to it.
-
-The real risk is the opposite and worse: new fields would be **uncovered** by parity, so the
-bulk path (`turtlex/research/qullamaggie.py`) and the production path (`QullamaggieStrategy`)
-could silently disagree on `adr_pct`/`pct_vs_sma50` forever with a green suite. CLAUDE.md's
-"keep both, and keep them identical" would quietly stop holding for half the payload.
-Widening the table pressures you to widen the parity tuple too — real work in this repo.
-
-Keeping it narrow also stays fast: the derived SQL below runs in **92 ms for 250 signals**,
-and a 3-month window realistically holds tens, not hundreds.
-
-The escape hatch is clean — the migration is additive, so if the derived SQL drifts or gets
-slow, add columns later and the view collapses to a plain SELECT.
-
-> ⚠️ **Documented caveat, not a thing to engineer around.** `pct_vs_sma50` is re-derived from
-> `adjusted_close`, which EODHD rewrites retroactively on every dividend. If the 50-day
-> window straddles a later ex-date, the displayed value drifts from what it was when the
-> signal fired — roughly `(dividend/price) × (fraction of window before ex-date)`, well under
-> 0.25% for a typical quarterly dividend. Splits cancel entirely; `adr_pct` is immune. So the
-> persisted `ranking` will very occasionally be one point off what the displayed inputs
-> imply. Fine for a display; not fine for research, which is why research keeps using Polars.
-
-New alembic migration in `db/migrations/versions/`, raw SQL via `op.execute` per house style:
-
-Follow the shape of `2026_08_03_000001_create_lightyear_transaction_table.py` exactly — raw
-SQL, `SET search_path`, a `COMMENT` on every column, and the `modified_at` trigger.
-
-```sql
-CREATE TABLE turtle.signal (
-    strategy     TEXT     NOT NULL,
-    symbol       TEXT     NOT NULL,
-    signal_date  DATE     NOT NULL,
-    ranking      SMALLINT NOT NULL,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    modified_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_signal PRIMARY KEY (strategy, symbol, signal_date),
-    CONSTRAINT signal_ranking_check CHECK (ranking BETWEEN 0 AND 100)
-);
-CREATE INDEX ix_signal_signal_date ON turtle.signal (signal_date DESC);
-
-CREATE TRIGGER signal_modified_at
-    BEFORE UPDATE ON turtle.signal
-    FOR EACH ROW EXECUTE FUNCTION turtle.update_modified_at_column();
-```
-
-Two design calls worth stating explicitly in the migration comments:
-
-1. **`strategy` holds the full variant label** (`bk50d_s12_v2.0`), not the registry key
-   (`qullamaggie`). The CLI takes `--trading-strategy qullamaggie --trading-param
-   sma_thresh=0.16`, so without a label column s12 and s16 **collide on the primary key**.
-   Add a `--persist-label` flag defaulting to `args.trading_strategy`.
-2. **Persist ungated.** Write every signal the strategy emits and let readers apply
-   `ranking >= :min_ranking`. This mirrors `qullamaggie-signals-v4.py`, which deliberately
-   computes cohorts on the ungated pool and shows a held position's sub-gate score rather
-   than `--` (`:250-255`). Gating at write time destroys information you cannot recover.
-
-Add the matching `Table` to `turtlex/repository/tables.py`.
-
-### 1.2 Write repository
-
-`turtlex/repository/ingest/signal.py` — sync `Engine` (the CLI has no I/O to overlap, so it
-follows the caller per the package rules), `INSERT ... ON CONFLICT (strategy, symbol,
-signal_date) DO UPDATE SET ranking = EXCLUDED.ranking, modified_at = now()`. Model it on
-`turtlex/repository/ingest/lightyear.py:19-46`.
-
-### 1.3 `--persist` flag on signal-runner
-
-`SignalService.scan()` already returns `list[Signal]` (`turtlex/service/signal_service.py:46`).
-The change in `run_list` (`turtlex/cli/signal_runner.py:44-49`) is a handful of lines: after
-sorting, if `args.persist`, hand the list to the repository. The strategy identifier comes
-from the resolved strategy, not a hardcoded string.
-
-### 1.4 Nightly run — chained onto the daily download
-
-**Shipped, but not as designed below.** Instead of a separate `deploy/signal-persist.{service,timer}`,
-the scan is a second `ExecStart=` in `deploy/eodhd-download-daily.service`, running straight after
-`download-eodhd-data --data history` on that unit's existing **05:00 Europe/Tallinn, Mon–Sat**
-timer. No new unit, no new timer, nothing extra to symlink or enable.
-
-```ini
-ExecStart=%h/.local/bin/uv run download-eodhd-data --data history
-ExecStart=/bin/sh -c 'exec %h/.local/bin/uv run signal-runner --trading-strategy qullamaggie --ranking-strategy qullamaggie --persist --persist-label bk50d_s12_v2.0 --start-date "$(date -I -d "7 days ago")" --end-date "$(date -I)"'
-```
-
-systemd does no command substitution of its own, which is what the `/bin/sh -c` wrapper is for:
-`%h` is expanded by systemd, while `$(date …)` reaches the shell untouched because systemd expands
-only `$VAR`/`${VAR}`. `WorkingDirectory=` is inherited by the shell, so `uv run` resolves the
-project. The originally proposed `--start-date-days-ago` flag was therefore not needed.
-
-`--trading-strategy` and `--ranking-strategy` are spelled out even though both are already the
-defaults: the label `bk50d_s12_v2.0` is a claim about *which* algorithm produced the rows, and a
-future change to either default would otherwise rewrite what that label means without touching the
-unit. Do not trim them.
-
-**The rejected trade-off, accepted.** Chaining means a failed download skips the scan rather than
-alerting separately, and the two halves cannot be re-run independently from the unit — exactly what
-the separate timer was meant to avoid. It was taken anyway because the failure modes are not
-symmetric: a scan against a half-updated universe writes wrong rows into `turtle.signal` that no
-reader can distinguish from good ones, whereas a skipped scan writes nothing and the next day's
-7-day window closes the gap on its own. Re-running by hand is still the single command above.
-
-A 7-day window rather than a 1-day one is correct, not merely cheap:
-`QullamaggieStrategy._get_polars_signals` runs its cooldown loop over the full fetched warmup
-window and only *then* filters to `d >= start_date`
-(`turtlex/strategy/trading/qullamaggie.py:285-294`), so a wider window cannot double-emit. It is
-also what makes `next_open` land: that column is null until a later bar exists, so a single-day
-window would never backfill it (persist-signal.md, Verification step 6).
-
-**Cost:** `SignalService.scan` issues one `get_bars_pl` query per universe ticker
-(~2,100–2,580 tickers × 730-day warmup); budget 2–5 minutes. A 3-month backfill is the *same
-single pass* with a wider date range — not 90× the work.
-
-**Backfill:** one manual run seeds the three months the site needs:
-
-```bash
-uv run signal-runner --trading-strategy qullamaggie --ranking-strategy qullamaggie \
-    --start-date 2026-05-12 --end-date 2026-08-11 --persist
-```
-
-### 1.5 Read-only DB role
-
-Mirror the `claude` role (`db/init.sh:40-47`), plus four role-level settings that role does
-not have — it is an MCP client, this one is a network service:
+The only change in this repo. Mirror the `claude` role in `db/init.sh`, plus four role-level
+settings that role lacks. `claude` is an MCP client; this one is a network service.
 
 ```sql
 CREATE USER turtle_web WITH PASSWORD '${DB_WEB_PASSWORD}';
 GRANT CONNECT ON DATABASE trading TO turtle_web;
 GRANT USAGE   ON SCHEMA turtle    TO turtle_web;
 GRANT SELECT  ON ALL TABLES IN SCHEMA turtle TO turtle_web;
--- FOR ROLE alembic: tables created by future migrations (turtle.signal) inherit this
+-- FOR ROLE alembic: tables created by future migrations inherit this
 ALTER DEFAULT PRIVILEGES FOR ROLE alembic IN SCHEMA turtle GRANT SELECT ON TABLES TO turtle_web;
 
 ALTER ROLE turtle_web SET default_transaction_read_only       = on;    -- writes fail at the server
 ALTER ROLE turtle_web SET statement_timeout                   = '10s'; -- one bad query can't wedge a worker
 ALTER ROLE turtle_web SET idle_in_transaction_session_timeout = '30s';
-ALTER ROLE turtle_web SET jit                                 = off;   -- see below
+ALTER ROLE turtle_web SET jit                                 = off;
 ```
 
-`default_transaction_read_only = on` is the important one: a `GRANT`-only role still permits
-a write if a table's grants are ever widened. This makes it structurally impossible rather
-than conventional.
+- **`GRANT SELECT` is the barrier; `default_transaction_read_only = on` is a guard rail.** The
+  session default turns an accidental write from app code into an immediate, explicit error.
+  But it is only a default: any session can `SET default_transaction_read_only = off` or
+  `BEGIN READ WRITE`. It does **not** protect against the role's grants being widened later.
+  Never grant `turtle_web` anything beyond `SELECT`.
+- **`jit = off` is not cosmetic.** Measured on this database, JIT compilation was 352 ms of a
+  1,472 ms query. Row-count misestimates on small results routinely trip the JIT threshold
+  here, and every query in this app returns few rows.
 
-`jit = off` is not cosmetic. Measured on this database, JIT compilation was **352 ms of a
-1,472 ms** query and **138 ms of a 2,851 ms** one — row-count misestimates on small results
-routinely trip the JIT cost threshold here, and every query in this app returns few rows.
+Extend `db/init.sh` for fresh installs and run the equivalent `psql` once on the VPS (as the
+`alembic`/owner role — not through MCP).
 
-Extend `db/init.sh` for fresh installs and run the equivalent `psql` once on the VPS.
+**Verify:** `psql -U turtle_web -c "SELECT 1 FROM turtle.signal LIMIT 1"` succeeds. An `INSERT` is
+rejected with *cannot execute INSERT in a read-only transaction*, not merely *permission denied*.
 
-## Workstream 2 — the `turtle-web` repo
+### Step 1 — Create the repository
 
-### Layout
+```bash
+gh repo create turtle-web --public --license mit --gitignore Python --clone
+cd turtle-web
+mkdir -p api/turtleweb api/tests db deploy .github/workflows
+npm create vite@latest web -- --template vue-ts
+```
+
+Then, before the first real commit:
+
+1. **Extend `.gitignore`:** `.env`, `*.env`, `web/node_modules/`, `web/dist/`, `*.dump`, `*.csv`.
+2. **Enable secret scanning and push protection** (repo Settings → Code security — both are free
+   for public repos). Enable **Dependabot** for `pip`, `npm` and `github-actions`.
+3. **Add `NOTICE`** crediting TradingView Lightweight Charts (Apache-2.0 requires it). If you turn
+   off the chart's `attributionLogo`, you must credit TradingView visibly in the UI instead. Put a
+   link in the page footer either way.
+4. **README rule — no real data, ever.** No exported `daily_bars` rows (EODHD's terms forbid
+   redistribution), no real positions in fixtures, screenshots or issues. Screenshots come from
+   the demo database.
+
+Target layout:
 
 ```text
 turtle-web/
-├── pyproject.toml                # uv + hatchling; ruff line-length 140; mypy disallow_untyped_defs
-├── config/settings.toml          # [database] / [database.pool]
-├── .env.example                  # DB_WEB_PASSWORD  (no EODHD_API_KEY)
-├── deploy/turtle-web.service
-├── turtleweb/
-│   ├── config.py                 # mirrors Settings.from_toml() minus the EODHD requirement
-│   ├── db.py                     # sync Engine factory
-│   ├── sql.py                    # every SQL string, one place — the whole data layer
-│   ├── catalog.py                # symbol catalog, loaded once in the lifespan
-│   ├── payload.py                # rows -> chart JSON shapes (isoformat, float casts)
-│   ├── main.py                   # FastAPI app + 4 routes
-│   ├── templates/{base,signals,portfolio,chart}.html
-│   └── static/
-│       ├── vendor/lightweight-charts.standalone.production.js
-│       ├── vendor/pico.min.css
-│       └── chart.js
-└── tests/{test_queries.py,test_routes.py}
+├── LICENSE  NOTICE  README.md  docker-compose.yml  .env.example
+├── db/
+│   ├── schema.sql            # DDL for exactly the columns the API reads
+│   └── seed_demo.py          # deterministic synthetic data
+├── api/
+│   ├── pyproject.toml  uv.lock
+│   ├── turtleweb/
+│   │   ├── settings.py       # pydantic-settings, env only
+│   │   ├── db.py             # Engine factory
+│   │   ├── sql.py            # every SQL string — the whole data layer
+│   │   ├── ledger.py         # transactions + closes -> positions, P&L, history
+│   │   ├── models.py         # pydantic response models (-> OpenAPI -> TS types)
+│   │   ├── routes.py         # /api/* endpoints
+│   │   └── main.py           # create_app(): lifespan, router, SPA static mount
+│   └── tests/{test_ledger.py,test_routes.py,test_sql_plans.py}
+├── web/
+│   ├── package.json  package-lock.json  vite.config.ts
+│   └── src/
+│       ├── main.ts  router.ts  format.ts
+│       ├── api/{client.ts,schema.d.ts}   # schema.d.ts generated, committed
+│       ├── components/{PriceChart.vue,LineChart.vue,KpiTile.vue}
+│       └── views/{PortfolioView.vue,TransactionsView.vue,ChartView.vue,SignalsView.vue}
+├── deploy/{turtle-web.service,deploy.sh}
+└── .github/workflows/{ci.yml,release.yml}
 ```
 
-`config.py` deliberately does **not** reuse `Settings.from_toml()`: it hard-requires
-`EODHD_API_KEY` and hands out an `app_user` read-write engine. Copy the "TOML for structure, env
-for secrets" pattern, require only `DB_WEB_PASSWORD`.
+**Verify:** the repo is public, push protection is on, and `git status` is clean after `npm install`.
 
-### Routes
+### Step 2 — Demo database
 
-| Route | Returns | Notes |
-| --- | --- | --- |
-| `GET /` | 302 → `/signals` | |
-| `GET /signals` | HTML | `?days=90&min_ranking=44` |
-| `GET /portfolio` | HTML | positions + totals + equity-curve container |
-| `GET /chart?symbol=` | HTML | full page load, no HTMX swap |
-| `GET /healthz` | JSON | |
-
-There is **no JSON API and no `/api/symbols` endpoint.** Chart data is embedded in the page
-it belongs to as `<script type="application/json">`, and symbol autocomplete is a native
-`<datalist>` (see §2.4). That removes four routes, a debounce, and a request-race class of
-bug.
-
-> ⚠️ **The Jinja→JS handoff is the most likely way this app breaks.** Emit the payload as
-> `<script type="application/json">{{ payload|tojson }}</script>` and read it with
-> `JSON.parse(el.textContent)` — never interpolate into inline JS, where a company name
-> containing an apostrophe breaks the page. `tojson` uses `json.dumps`, which raises on raw
-> `datetime.date` and `Decimal`, so call `.isoformat()` on dates and cast money to `float8`
-> in SQL.
-
-### Dependencies
-
-`fastapi`, `uvicorn[standard]`, `jinja2`, `sqlalchemy`, `psycopg[binary,pool]`,
-`pydantic-settings`. Vendored assets: `lightweight-charts.standalone.production.js` and
-`pico.min.css` (classless — the entire stylesheet is one `<link>`, zero CSS written).
-
-Note `fastapi`, **not** `fastapi[standard]`: the extra pulls in the CLI, `email-validator`
-and `python-multipart`, none of which a GET-only server-rendered app uses. Deliberately
-absent: **polars, pandas, numpy, alembic**. This app does no dataframe work — SQL returns
-display-ready rows, which is the point of pushing the derivations into SQL.
-
-Use `pydantic-settings` with `TomlConfigSettingsSource` rather than cloning the parent repo's
-60 lines of hand-rolled TOML loading. Order the sources env > `.env` > TOML so a secret can
-never be read from a committed file, and give `db_password` no default so a missing
-`DB_WEB_PASSWORD` fails at import — matching the parent's "never fall back for secrets" rule.
-
-Skip profiles entirely. `turtle-backtest` has an `ACTIVE_PROFILE` overlay so one checkout can behave
-differently on a dev machine and on the VPS; a *server* has exactly one deployment shape, whose host
-and password are both per-machine and both belong in `.env`.
-
-## The SQL
-
-All verified with `EXPLAIN ANALYZE` against the live Hetzner database. Put every statement in
-one module, `turtleweb/sql.py`, as module-level constants — that module *is* the data layer.
-No repository classes, no ORM models, no service layer: five queries and no writes would make
-an abstraction over them exactly the "abstractions for single-use code" CLAUDE.md §2 forbids.
-
-Engine-level guards, applied once rather than per query:
-
-```python
-sa.create_engine(
-    settings.sqlalchemy_url,
-    pool_size=2,
-    max_overflow=2,
-    pool_pre_ping=True,
-    connect_args={"options": "-c statement_timeout=10000 -c jit=off"},
-)
-```
-
-### Price bars — 1 ms
+A public repo is only runnable if it doesn't need your database. `db/schema.sql` is the
+**contract**: the subset of `turtle` tables and columns the API reads, copied by hand from
+`turtle-backtest`'s migrations. A column rename over there must be mirrored here.
 
 ```sql
-SELECT date, open, high, low, close, adjusted_close, volume
-FROM turtle.daily_bars
-WHERE symbol = :symbol AND date >= :start AND date <= :end
-ORDER BY date;
+CREATE SCHEMA turtle;
+
+CREATE TABLE turtle.daily_bars (
+    symbol TEXT NOT NULL, date DATE NOT NULL,
+    open DOUBLE PRECISION, high DOUBLE PRECISION, low DOUBLE PRECISION,
+    close DOUBLE PRECISION, adjusted_close DOUBLE PRECISION, volume BIGINT,
+    CONSTRAINT pk_daily_bars PRIMARY KEY (symbol, date)
+);
+CREATE TABLE turtle.ticker (code TEXT PRIMARY KEY, name TEXT);
+CREATE TABLE turtle.signal (
+    id BIGINT PRIMARY KEY, trading_strategy TEXT NOT NULL, ranking_strategy TEXT NOT NULL,
+    symbol TEXT NOT NULL, signal_date DATE NOT NULL, ranking SMALLINT, signal_close DOUBLE PRECISION,
+    parameters JSONB NOT NULL DEFAULT '{}'
+);
+CREATE TABLE turtle.lightyear_transaction (
+    reference TEXT PRIMARY KEY, transacted_at TIMESTAMP NOT NULL, ticker_code TEXT NOT NULL,
+    transaction_type TEXT NOT NULL, quantity NUMERIC NOT NULL, currency TEXT NOT NULL,
+    price NUMERIC NOT NULL, gross_amount NUMERIC, fee NUMERIC NOT NULL DEFAULT 0,
+    tax NUMERIC NOT NULL DEFAULT 0, net_amount NUMERIC, signal_id BIGINT
+);
 ```
 
-`Index Scan using pk_daily_bars … Execution Time: 0.983 ms` for AAPL.US over 2.5 years.
-Charts are effectively free. Serialize `date` as `YYYY-MM-DD` — Lightweight Charts wants a
-date string, and a naive `datetime` cast introduces a timezone offset.
+`db/seed_demo.py` (run with the API's venv, `random.seed(42)` so the output is deterministic):
 
-### Symbol catalog — 142 ms, cached at startup
+- **Symbols:** 8 synthetic tickers (`DEMOA.US` … `DEMOH.US`) plus `BENCH.US` as the benchmark.
+  Use made-up names, so no real company's price is implied.
+- **Bars:** about 750 business days of a geometric random walk. `high`/`low` sit a random 0–3%
+  outside `open`/`close`, and `volume` is random.
+- **One 2:1 split** in `DEMOC.US`, a few months after its buy. From the split date, raw
+  OHLC halves while `adjusted_close` stays continuous (earlier `adjusted_close = close / 2`).
+  This is what proves the ledger is split-safe.
+- **Transactions:** 8 buys and **one partial sell**, with `fee = 1.00`, exercising every branch of
+  the ledger.
+- **Signals:** about 40 rows labelled `bk50d_s12_v2.0` / `qullamaggie` over the last 90 days, with `ranking` spread
+  across 30–80, and `parameters` carrying `next_open`, `pct_vs_sma50` and `adr_pct`. Include
+  **one signal at exactly 44**, so the `>= 44` gate is tested at its boundary. Also include a signal
+  from the last day with no `next_open` yet, as the nightly run produces. Link most buys to a
+  signal; leave one buy unlinked (`signal_id NULL`), as two of the live ones are.
 
-The obvious `SELECT symbol, max(date) FROM daily_bars GROUP BY symbol` is a **full 20M-row
-seq scan at 1,472 ms**. Use a loose index scan instead — index-only, no new index needed:
+`docker-compose.yml` — port **5433** so it never collides with a local `turtle` Postgres on 5432:
+
+```yaml
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: trading
+      POSTGRES_PASSWORD: demo
+    ports: ["5433:5432"]
+    volumes:
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+```
+
+`.env.example` (copied to `api/.env` for dev):
+
+```dotenv
+TURTLE_WEB_DB_HOST=localhost
+TURTLE_WEB_DB_PORT=5433
+TURTLE_WEB_DB_USER=postgres
+TURTLE_WEB_DB_PASSWORD=demo
+TURTLE_WEB_BENCHMARK_SYMBOL=BENCH.US
+```
+
+**Verify:** `docker compose up -d db && uv run --project api python db/seed_demo.py`, then
+`SELECT count(*) FROM turtle.daily_bars` returns about 6,750 rows (9 symbols × ~750 days).
+
+### Step 3 — API skeleton
+
+```bash
+cd api
+uv init --package --name turtleweb --python 3.14
+uv add fastapi "uvicorn[standard]" sqlalchemy "psycopg[binary,pool]" pydantic-settings
+uv add --dev pytest httpx ruff mypy
+```
+
+Use `fastapi`, **not** `fastapi[standard]`. The extra pulls in the CLI, `email-validator` and
+`python-multipart`, none of which a GET-only API uses. Polars, pandas and numpy are also
+deliberately absent: the data volume is tiny, and pure Python keeps the dependency list short
+for contributors.
+
+`turtleweb/settings.py`: environment only. There is no TOML and no profiles, because a server
+has one deployment shape:
+
+```python
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Runtime configuration, read from TURTLE_WEB_* environment variables and api/.env."""
+
+    model_config = SettingsConfigDict(env_prefix="TURTLE_WEB_", env_file=".env")
+
+    db_host: str = "localhost"
+    db_port: int = 5432
+    db_name: str = "trading"
+    db_user: str = "turtle_web"
+    db_password: str  # no default: a missing secret fails at startup, never falls back
+    benchmark_symbol: str = "SPY.US"
+    signal_strategy: str = "bk50d_s12_v2.0"  # the baseline label the nightly run persists
+    signal_ranking_strategy: str = "qullamaggie"  # the gate of 44 is only meaningful on this scale
+    static_dir: Path | None = None  # web/dist in production; None in dev, where Vite serves the UI
+```
+
+`turtleweb/db.py`: engine-level guards, applied once. The `options` repeat the role settings so
+the demo database (where you connect as `postgres`) is read-only too:
+
+```python
+def make_engine(s: Settings) -> sa.Engine:
+    """Build the read-only connection pool."""
+    url = sa.URL.create(
+        "postgresql+psycopg", username=s.db_user, password=s.db_password, host=s.db_host, port=s.db_port, database=s.db_name
+    )
+    return sa.create_engine(
+        url,
+        pool_size=2,
+        max_overflow=2,
+        pool_pre_ping=True,
+        connect_args={"options": "-c default_transaction_read_only=on -c statement_timeout=10000 -c jit=off"},
+    )
+```
+
+`turtleweb/main.py`: an app factory, so tests and the OpenAPI export can build the app without
+a database:
+
+```python
+class SpaStaticFiles(StaticFiles):
+    """Serve web/dist; unknown non-API paths get index.html so deep links like /chart/AAPL.US work."""
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        try:
+            return await super().get_response(path, scope)
+        except HTTPException as exc:
+            if exc.status_code != 404 or path.startswith("api/"):
+                raise
+            return await super().get_response("index.html", scope)
+
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    """Build the FastAPI app; settings default to the environment."""
+    settings = settings or Settings()
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        engine = make_engine(settings)
+        app.state.engine = engine
+        app.state.settings = settings
+        app.state.symbols = None  # loaded on first /api/symbols request, see Step 4
+        yield
+        engine.dispose()
+
+    app = FastAPI(title="turtle-web", lifespan=lifespan)
+    app.include_router(router, prefix="/api")
+    if settings.static_dir:
+        app.mount("/", SpaStaticFiles(directory=settings.static_dir, html=True), name="spa")  # last
+    return app
+```
+
+**Startup must not touch the database.** `create_engine` connects lazily, and nothing in the
+lifespan queries. That matters on this VPS: after a reboot Postgres refuses connections until it
+is restarted. An app that queried at startup would exhaust systemd's restart limit and stay down
+after Postgres recovered. Instead, the first request after recovery simply succeeds.
+`/api/healthz` likewise answers without a query.
+
+Write every endpoint as plain `def`, **not** `async def`. The engine is sync, and FastAPI runs
+`def` endpoints in a threadpool. An `async def` endpoint calling a sync engine blocks the event
+loop.
+
+**Verify:** `uv run uvicorn --factory turtleweb.main:create_app --reload` returns 200 on
+`curl localhost:8000/api/healthz`.
+
+### Step 4 — The SQL module
+
+Put every statement in `turtleweb/sql.py` as module-level constants; that module *is* the data
+layer. Cast money to `float8` in SQL. Pydantic serialises `Decimal` as a JSON **string**, which
+would make every number on the frontend a string.
+
+```sql
+-- TRANSACTIONS: every fill, with the signal it was bought off (22 rows today)
+SELECT t.reference, t.transacted_at, t.ticker_code AS symbol, tk.name, t.transaction_type AS side,
+       t.quantity::float8, t.price::float8, t.fee::float8, t.tax::float8, t.currency,
+       t.signal_id, s.signal_date, s.ranking,
+       (s.parameters->>'next_open')::float8 AS next_open
+FROM turtle.lightyear_transaction t
+LEFT JOIN turtle.ticker tk ON tk.code = t.ticker_code
+LEFT JOIN turtle.signal s  ON s.id = t.signal_id
+ORDER BY t.transacted_at;
+
+-- CLOSES: everything the ledger needs, in one query — 13 ms on the live DB for 23 symbols
+SELECT symbol, date, close::float8, adjusted_close::float8
+FROM turtle.daily_bars
+WHERE symbol = ANY(:symbols) AND date >= :start AND close > 0 AND adjusted_close > 0
+ORDER BY date, symbol;
+
+-- BARS: one symbol's chart — ~1 ms
+SELECT date, open::float8, high::float8, low::float8, close::float8,
+       adjusted_close::float8, volume
+FROM turtle.daily_bars
+WHERE symbol = :symbol AND date >= :start AND close > 0
+ORDER BY date;
+
+-- FILLS: one symbol's transactions, for chart markers
+SELECT transacted_at::date AS date, transaction_type AS side, quantity::float8, price::float8
+FROM turtle.lightyear_transaction
+WHERE ticker_code = :symbol
+ORDER BY transacted_at;
+
+-- SIGNALS: the signals page — 22 ms on the live DB for 63 rows (90 days, R >= 44)
+SELECT s.id, s.symbol, t.name, s.signal_date, s.ranking,
+       (s.parameters->>'next_open')::float8    AS next_open,
+       (s.parameters->>'pct_vs_sma50')::float8 AS pct_vs_sma50,
+       (s.parameters->>'adr_pct')::float8      AS adr_pct,
+       e.entry_date, e.entry_price,                                  -- RAW open: recognisable
+       last.close AS curr_price, last.date AS curr_date,             -- RAW close; staleness visible
+       100.0 * (last.adj_close / e.entry_adj - 1.0) AS change_pct,   -- ADJUSTED: split-safe total return
+       EXISTS (SELECT 1 FROM turtle.lightyear_transaction lt WHERE lt.signal_id = s.id) AS bought
+FROM turtle.signal s
+LEFT JOIN turtle.ticker t ON t.code = s.symbol
+LEFT JOIN LATERAL (
+    SELECT b.date AS entry_date, b.open::float8 AS entry_price,
+           b.open * b.adjusted_close / b.close AS entry_adj
+    FROM turtle.daily_bars b
+    WHERE b.symbol = s.symbol AND b.date > s.signal_date AND b.date <= s.signal_date + 10
+      AND b.close > 0 AND b.adjusted_close > 0 AND b.volume > 0
+    ORDER BY b.date LIMIT 1
+) e ON TRUE
+LEFT JOIN LATERAL (
+    SELECT b.date, b.close::float8 AS close, b.adjusted_close AS adj_close
+    FROM turtle.daily_bars b
+    WHERE b.symbol = s.symbol AND b.date > CURRENT_DATE - 400
+      AND b.close > 0 AND b.adjusted_close > 0 AND b.volume > 0
+    ORDER BY b.date DESC LIMIT 1
+) last ON TRUE
+WHERE s.trading_strategy = :strategy
+  AND s.ranking_strategy = :ranking_strategy
+  AND s.signal_date >= CURRENT_DATE - CAST(:days AS int)
+  AND s.ranking >= :min_ranking
+ORDER BY s.signal_date DESC, s.ranking DESC;
+```
+
+Notes on SIGNALS:
+
+- **The indicators are read, not re-derived.** `turtle.signal.parameters` freezes `pct_vs_sma50`
+  and `adr_pct` as of the signal date ([persist-signal.md](persist-signal.md)). The earlier draft
+  re-computed them in a window-function lateral that cost 92 ms with a mandatory 130-day bound,
+  and 2,851 ms without it. That lateral, its bound, and its dividend-drift caveat are all gone.
+- **The gate is `>= 44`, not `> 44`.** Signals are stored ungated, so the reader applies the
+  gate. Three live signals in the window score exactly 44.
+- **Filter on `ranking_strategy` too.** `turtle.signal`'s unique key leaves it out, so a re-run
+  under another ranking scheme overwrites `ranking` in place. Gate values are scheme-relative,
+  so `>= 44` applied to another scheme's scores would silently select the wrong rows.
+- **`entry_*` is NULL until the bar after `signal_date` is loaded**, i.e. for signals from the
+  last trading day. Render it as "pending", not 0. It comes from `daily_bars`, not from
+  `next_open`. The two can disagree for about a day: `next_open` is only filled when the nightly
+  7-day re-scan next runs, so a signal can have an `entry_price` while `next_open` is still
+  absent. The transactions page's slippage uses `next_open` and shows "—" until it lands.
+- **Every bar filter matches turtlex's** (`close > 0 AND adjusted_close > 0 AND volume > 0`). A
+  bad row with `adjusted_close = 0` would otherwise show a −100% change.
+- **Both laterals are bounded.** `signal_date + 10` and `CURRENT_DATE - 400` keep each one to a
+  single index probe. The plan shows `Index Scan using pk_daily_bars` for the entry bar and
+  `Index Scan Backward` for the latest bar, each with a `date` bound in `Index Cond`.
+  Re-measured with the `ranking_strategy` and `adjusted_close` filters: same 63 rows and the same
+  plan, 22 ms cold and about 6 ms warm.
+- **`turtle.signal` is seq-scanned** (306 rows today). Once it reaches tens of thousands of rows,
+  consider an index on `(trading_strategy, signal_date)` in a turtle-backtest migration, not here.
+
+`:symbols` for CLOSES is the distinct transaction symbols plus the benchmark. `:start` is the
+first transaction date minus 7 days. The ledger seeds its last-known prices from those earlier
+closes (Step 5), so a fill on a day its symbol has no bar still has a prior close. psycopg adapts
+a Python `list[str]` to a Postgres array for `ANY(:symbols)`. The plan is
+`Index Scan using pk_daily_bars` with both `symbol = ANY(...)` and `date >=` in the
+`Index Cond`.
+
+**SYMBOLS — 142 ms, loaded once in the lifespan.** The obvious
+`SELECT DISTINCT symbol FROM daily_bars` is a full 20M-row seq scan (1,472 ms). Use a loose index
+scan instead. It is index-only and needs no new index:
 
 ```sql
 WITH RECURSIVE syms AS (
@@ -403,354 +499,609 @@ FROM syms s LEFT JOIN turtle.ticker t ON t.code = s.symbol
 WHERE s.symbol IS NOT NULL;
 ```
 
-`Execution Time: 142.298 ms`, 5,627 rows — **10× faster**. This is a *loose index scan* (skip
-scan): PostgreSQL 17 has no native one, so the recursive CTE does 5,627 `min(symbol) WHERE
-symbol > ?` index probes instead of reading all 20 million index entries.
+PostgreSQL 17 has no native skip scan. The recursive CTE does about 5,600 `min(symbol) WHERE
+symbol > ?` index probes instead of reading 20 million index entries. Load it on the first
+`/api/symbols` request and keep it in `app.state.symbols` (not in the lifespan — see Step 3). Two
+concurrent first requests may both load it, which is harmless. About 180 KB raw, about 60 KB
+gzipped, fetched once by the chart page.
 
-**Do not write a search endpoint.** Load the list once in the FastAPI lifespan and serve
-autocomplete from a native `<datalist>` — 5,627 symbols plus names is ~178 KB raw, ~60 KB
-gzipped. Ship it with the page.
+**Verify:** run each statement under `EXPLAIN` as `turtle_web` against the live database. Every
+`daily_bars` access must show `Index Scan using pk_daily_bars` with both a `symbol` and a `date`
+bound.
 
-```html
-<form method="get" action="/chart">
-  <input name="symbol" list="symbols" value="{{ symbol }}" required
-         placeholder="AAPL.US" autocomplete="off">
-  <datalist id="symbols">
-    {% for s in symbols %}<option value="{{ s.symbol }}">{{ s.name }}</option>{% endfor %}
-  </datalist>
-  <button>Load</button>
-</form>
+### Step 5 — The ledger
+
+`turtleweb/ledger.py` is the heart of the app and the part most worth testing. It is a pure
+function from transactions and closes to positions and history.
+
+```python
+@dataclass(frozen=True)
+class Fill:
+    date: date
+    symbol: str
+    side: str  # 'buy' | 'sell'
+    quantity: float
+    price: float
+    fee: float
+    tax: float
+
+
+@dataclass(frozen=True)
+class Close:
+    symbol: str
+    date: date
+    close: float
+    adjusted_close: float
+
+
+@dataclass
+class _Position:
+    shares: float = 0.0  # quantity as traded (pre-split)
+    units: float = 0.0  # shares in adjusted_close terms: sum of quantity / f at each fill
+    cost: float = 0.0  # open cost basis, average-cost method, fees and tax included
+    realized: float = 0.0
+    bench_units: float = 0.0  # shadow position in the benchmark
+    bench_realized: float = 0.0
+    first_buy: date | None = None
+
+
+def build(fills: list[Fill], closes: list[Close], benchmark: str) -> Ledger:
+    """Replay fills over the benchmark's trading calendar.
+
+    Args:
+        fills: Every transaction, ordered by date.
+        closes: Daily closes for every traded symbol and the benchmark.
+        benchmark: Symbol whose dates form the calendar and which the shadow portfolio buys.
+
+    Returns:
+        Ledger: Open positions as of the last day, totals, and one history point per day.
+    """
 ```
 
-Zero JS, zero debounce, zero request races, zero new index. For comparison, `ILIKE` against
-`turtle.ticker` is a **69 ms seq scan per keystroke** *and* returns 53,717 rows including
-symbols with no bars — worse on every axis.
+Before the loop, seed `last[symbol]` from every close dated before the first fill: the 7-day
+lookback CLOSES fetches. Without that seed, a first fill on a day its symbol has no bar (a halt,
+or a date missing from the benchmark calendar) raises even though a prior close was fetched.
 
-### Current positions — 70 ms
+The loop, per calendar day `d` (the benchmark's dates, starting at the first fill):
 
-Reuse the proven netting query at `scripts/qullamaggie-signals-v4.py:207-228` verbatim. Its
-documented caveats (`:189-198`) must be repeated in the page footer:
+1. Update `last[symbol]` from that day's closes. Missing days keep the previous close (forward fill).
+2. Apply every fill dated `≤ d` that is not yet applied, using `f = last[s].adjusted_close / last[s].close`
+   and `b = last[benchmark].adjusted_close`:
+   - **buy:** `amount = q·price + fee + tax`; `shares += q`; `units += q / f`; `cost += amount`;
+     `bench_units += amount / b`.
+   - **sell:** `frac = q / shares`; `cost_out = cost · frac`;
+     `realized += (q·price − fee − tax) − cost_out`; `bench_realized += bench_units·frac·b − cost_out`;
+     then scale `shares`, `units`, `cost`, `bench_units` down by `frac`.
+3. Record a point: `market_value = Σ units · last[s].adjusted_close`, `cost_basis = Σ cost`,
+   `realized = Σ realized`, `total_pnl = market_value − cost_basis + realized`,
+   `benchmark_pnl = Σ bench_units · b − cost_basis + Σ bench_realized`.
 
-- `avg_price` is **buy-weighted only** — a partial sell leaves the cost basis unmoved.
-- Fees and tax are excluded, so P&L reads slightly better than realised.
-- `curr_price` is the **raw** close, not adjusted — that is what compares to actual fills.
+Raise `ValueError` naming the symbol and date if a fill has no close on or before its date.
+A ledger that silently drops a position is worse than a loud 500 that tells you which ticker's
+bars are missing.
 
-Optional: adding `AND date >= CURRENT_DATE - INTERVAL '30 days'` to the `latest` CTE cuts it
-from 23,643 rows scanned to ~90. At 70 ms for one user this is not urgent, and the guard
-would blank out a delisted symbol's last known close.
+`tests/test_ledger.py`: hand-built fixtures, no database. Each test pins one rule:
 
-### Portfolio equity curve
+| Test | Asserts |
+| --- | --- |
+| Single buy, flat price | `unrealized == −fee`, `realized == 0` |
+| 2:1 split while held (raw close halves, adjusted continuous) | `market_value` unchanged across the split date |
+| Buy 10 @ 100, buy 10 @ 120, sell 10 @ 130, fee 1 each | Cost 2,202 → `cost_out` 1,101; `realized == 1,299 − 1,101 == 198`; remaining `cost == 1,101` |
+| Benchmark identical to the stock | `benchmark_pnl == total_pnl` every day |
+| Holding with a missing bar mid-window | That day's value uses the previous close; no exception |
+| First fill on a day its symbol has no bar, prior close in the lookback | Uses the seeded prior close; no exception |
+| Fill with no close anywhere on or before its date | `ValueError` naming the symbol |
 
-Verified against live data — returns 9 positions on every trading day; latest row is
-**market value $10,678.97 vs cost basis $9,598.61**.
+**Verify:** `uv run pytest tests/test_ledger.py` passes, and the split test fails if `units` is
+replaced with `shares · close`. Try it once to prove the test has teeth.
 
-```sql
-WITH tx AS (
-  SELECT ticker_code, transacted_at::date AS d,
-         CASE WHEN transaction_type='buy' THEN quantity ELSE -quantity END AS dq,
-         CASE WHEN transaction_type='buy' THEN price*quantity ELSE -price*quantity END AS dcost
-  FROM turtle.lightyear_transaction
-),
-cal AS (
-  SELECT date FROM turtle.daily_bars
-  WHERE symbol='SPY.US' AND date >= (SELECT min(d) FROM tx)
-),
-pos AS (
-  SELECT c.date, t.ticker_code, SUM(t.dq) AS shares, SUM(t.dcost) AS cost
-  FROM cal c JOIN tx t ON t.d <= c.date
-  GROUP BY c.date, t.ticker_code
-)
-SELECT p.date,
-       SUM(p.shares * px.close) AS market_value,
-       SUM(p.cost)              AS cost_basis
-FROM pos p
-CROSS JOIN LATERAL (            -- last known close on or before p.date
-    SELECT b.close FROM turtle.daily_bars b
-    WHERE b.symbol = p.ticker_code AND b.date <= p.date
-      AND b.date > p.date - 30 AND b.close > 0
-    ORDER BY b.date DESC LIMIT 1
-) px
-WHERE p.shares > 0
-GROUP BY p.date ORDER BY p.date;
-```
+### Step 6 — Endpoints and response models
 
-The lateral is defensive, not a fix for a live bug: I compared it against the simpler
-`JOIN … ON b.date = p.date` and **they agree exactly on today's data**, since all 9 holdings
-are US symbols sharing the SPY calendar. But the plain join silently *understates the whole
-day* the first time any holding has no bar — a halt, a delisting, a calendar mismatch — and
-that failure is invisible in the output. The lateral costs nothing and cannot do that.
+Every endpoint declares a Pydantic `response_model`. That gives FastAPI an exact OpenAPI schema,
+which generates the frontend's TypeScript types in Step 7.
 
-> ⚠️ **This is not a true equity curve, and the page must say so.** The Lightyear importer
-> keeps only Buy/Sell rows in USD (`turtlex/service/lightyear_service.py:161-267`) — deposits,
-> withdrawals, dividends and FX are never imported, so cash is unknowable. What is plotted is
-> **holdings market value vs cumulative cost basis**. Label it that way rather than "equity".
-
-### Signals, last 3 months
-
-Reads the new table and derives every display column. Three laterals: entry bar, latest bar,
-and the indicator window.
-
-```sql
-SELECT s.symbol, t.name, s.signal_date, s.ranking,
-       e.entry_date,
-       e.entry_price,                                                -- RAW open: recognisable
-       last.close                                   AS curr_price,   -- RAW close: recognisable
-       last.date                                    AS curr_date,    -- staleness is visible
-       100.0 * (last.adj_close / e.entry_adj - 1.0) AS change_pct,   -- ADJUSTED: split-safe
-       100.0 * ind.pct_vs_sma50                     AS pct_vs_sma50,
-       100.0 * ind.adr_pct                          AS adr_pct
-FROM turtle.signal s
-LEFT JOIN turtle.ticker t ON t.code = s.symbol
-LEFT JOIN LATERAL (
-    SELECT b.date AS entry_date, b.open AS entry_price,
-           b.open * b.adjusted_close / b.close AS entry_adj
-    FROM turtle.daily_bars b
-    WHERE b.symbol = s.symbol
-      AND b.date >  s.signal_date
-      AND b.date <= s.signal_date + 10             -- bound: next trading day is within 10 days
-      AND b.close > 0 AND b.adjusted_close > 0 AND b.volume > 0
-    ORDER BY b.date LIMIT 1
-) e ON TRUE
-LEFT JOIN LATERAL (
-    SELECT b.date, b.close, b.adjusted_close AS adj_close
-    FROM turtle.daily_bars b
-    WHERE b.symbol = s.symbol
-      AND b.date > CURRENT_DATE - 400              -- bound: avoids a full backward index scan
-      AND b.close > 0 AND b.volume > 0
-    ORDER BY b.date DESC LIMIT 1
-) last ON TRUE
-LEFT JOIN LATERAL (
-    SELECT w.adjusted_close / w.sma50 - 1.0 AS pct_vs_sma50, w.adr_pct
-    FROM (
-        SELECT b.date, b.adjusted_close,
-               avg(b.adjusted_close)                   OVER win50 AS sma50,
-               count(*)                                OVER win50 AS n50,
-               avg((b.high - b.low) / NULLIF(b.low,0)) OVER win20 AS adr_pct,
-               count(*)                                OVER win20 AS n20
-        FROM turtle.daily_bars b
-        WHERE b.symbol = s.symbol
-          AND b.date <= s.signal_date
-          AND b.date >  s.signal_date - 130        -- ### CRITICAL ### 2851 ms -> 92 ms
-          AND b.close > 0 AND b.adjusted_close > 0 AND b.volume > 0
-        WINDOW win50 AS (ORDER BY b.date ROWS BETWEEN 50 PRECEDING AND 1 PRECEDING),
-               win20 AS (ORDER BY b.date ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING)
-    ) w
-    WHERE w.date = s.signal_date AND w.n50 = 50 AND w.n20 = 20
-) ind ON TRUE
-WHERE s.strategy = :strategy
-  AND s.signal_date >= CURRENT_DATE - CAST(:days AS int)
-  AND s.ranking >= :min_ranking
-ORDER BY s.signal_date DESC, s.ranking DESC;
-```
-
-#### The date bound is the whole ballgame
-
-**PostgreSQL cannot push a `LIMIT` through a `WindowAgg`.** Without
-`AND b.date > s.signal_date - 130`, each lateral computes the window over the symbol's
-*entire* history and discards all but one row. Measured on this database with 250 signals:
-
-| Form | Rows per lateral | Execution |
+| Route | Response | Built from |
 | --- | --- | --- |
-| Unbounded (`date <= signal_date` only) | 3,371 | **2,851 ms** |
-| Bounded (`+ date > signal_date - 130`) | 87 | **92 ms** |
+| `GET /api/healthz` | `{"status": "ok"}` | — |
+| `GET /api/portfolio` | `Portfolio` = `totals` + `positions[]` + `history[]` | TRANSACTIONS + CLOSES → `ledger.build` |
+| `GET /api/transactions` | `Transaction[]` | TRANSACTIONS, plus `slippage_pct = price / next_open − 1` for linked buys |
+| `GET /api/symbols` | `Symbol[]` | SYMBOLS, loaded on first request into `app.state.symbols` |
+| `GET /api/chart/{symbol}?start=&adjusted=false` | `ChartData` | BARS + FILLS |
+| `GET /api/signals?days=90&min_ranking=44` | `SignalRow[]` | SIGNALS, `:strategy` / `:ranking_strategy` from `settings.signal_strategy` / `signal_ranking_strategy` |
 
-A 31× speedup from one WHERE clause, and the difference between a usable page and a timeout.
-130 calendar days yields ~89 trading bars, comfortably above the 51 the SMA50 window needs.
+Key models (`turtleweb/models.py`):
 
-#### Conventions that differ from the research script, deliberately
+```python
+class Position(BaseModel):
+    symbol: str
+    name: str | None
+    shares: float
+    avg_cost: float  # cost basis / shares, fees included
+    last_close: float  # raw, comparable with fill prices
+    last_date: date  # staleness is visible
+    market_value: float
+    cost_basis: float
+    unrealized: float
+    unrealized_pct: float
+    realized: float
+    first_buy: date
+    days_held: int
 
-- **`ROWS BETWEEN 50 PRECEDING AND 1 PRECEDING` is exactly Polars `shift(1).rolling_mean(50)`.**
-  The `n50 = 50 AND n20 = 20` guard reproduces Polars' `min_samples`; without it a newly
-  listed ticker silently shows a 12-bar "SMA50".
-- **The adjustment factor cancels out of ADR%.** `turtlex/strategy/trading/qullamaggie.py:184`
-  computes `adj_high = high * (adjusted_close/close)`, so
-  `(adj_high − adj_low)/adj_low ≡ (high − low)/low`. The cheap raw form is exactly right.
-- **Display raw prices, compute the return from adjusted ones.** The research script uses raw
-  for all three (`:29-31`) and therefore needs `SUSPICIOUS_DAY_MOVE = 0.50` (`:79`) to
-  suppress the split artifacts that convention creates. On a live page holding positions for
-  366 days a split is a matter of when, not if. Deriving `change_pct` from
-  `adjusted_close / adjusted_open` makes splits and dividends cancel exactly and removes the
-  heuristic. Document that it is now a *total* return, dividends reinvested.
-- **`CURRENT_DATE - 400` instead of an unbounded backward scan.** The script's
-  `DISTINCT ON (symbol) … ORDER BY symbol, date DESC` reads every bar for every symbol; a
-  bounded lateral is ~1 ms. Surfacing `curr_date` makes staleness visible rather than silent.
 
-Expected volume is **~30–90 signals per 3 months** for the baseline `bk50d_s12_v2.0` at
-`R >= 44` (11.4 gated signals/month per `docs/research/result-qullamaggie-backtest-v4.md`),
-so the page never paginates.
+class HistoryPoint(BaseModel):
+    date: date
+    market_value: float
+    cost_basis: float
+    realized: float
+    total_pnl: float
+    benchmark_pnl: float
 
-## The chart code
 
-This is the whole of `chart.js`, using the confirmed v5.2 API:
+class Bar(BaseModel):
+    time: str  # 'YYYY-MM-DD' — what Lightweight Charts expects; never a datetime
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
 
-```js
-const {createChart, CandlestickSeries, HistogramSeries, LineSeries,
-       createSeriesMarkers} = LightweightCharts;
 
-const d = JSON.parse(document.getElementById('chart-data').textContent);
+class ChartData(BaseModel):
+    symbol: str
+    name: str | None
+    adjusted: bool
+    bars: list[Bar]
+    fills: list[ChartFill]  # time, side, quantity, price (raw)
+    avg_cost: float | None  # average cost incl. fees of an open position; None when flat or adjusted
 
-const chart   = createChart(el, { autoSize: true });
-const candles = chart.addSeries(CandlestickSeries,
-                    { upColor: '#26a69a', downColor: '#ef5350', borderVisible: false });
-const sma50   = chart.addSeries(LineSeries, { lineWidth: 1, lastValueVisible: false });
-const volume  = chart.addSeries(HistogramSeries,
-                    { priceFormat: { type: 'volume' } }, 1);   // <- paneIndex, 3rd arg
 
-candles.setData(d.bars);                    // [{time:'2026-08-09',open,high,low,close}]
-volume.setData(d.volume);
-sma50.setData(d.sma50);
-if (d.markers.length) createSeriesMarkers(candles, d.markers);
-chart.timeScale().fitContent();
+class SignalRow(BaseModel):
+    id: int
+    symbol: str
+    name: str | None
+    signal_date: date
+    ranking: int
+    next_open: float | None  # absent until a bar after signal_date is loaded
+    pct_vs_sma50: float | None
+    adr_pct: float | None
+    entry_date: date | None
+    entry_price: float | None
+    curr_price: float | None
+    curr_date: date | None
+    change_pct: float | None
+    bought: bool
 ```
 
-`addSeries` takes `paneIndex` as its third argument, so there is no need for a follow-up
-`.moveToPane(1)` — that method is for relocating an *existing* series.
+Validate the signals query parameters at the edge, so a bad URL is a 422 and never a slow query:
+`days: int = Query(90, ge=1, le=366)` and `min_ranking: int = Query(44, ge=0, le=100)`.
 
-Emit `sma50` as `null` where fewer than 50 bars are available; Lightweight Charts renders
-`{time, value: null}` as a gap. Note this is a *display* SMA on the raw close, centred on the
-current bar — deliberately **not** the strategy's shift-1 adjusted SMA50 from the signals
-query. Label the legend "SMA50 (close)" so the two are never compared.
+Chart endpoint details:
 
-The equity curve is the same library: a `LineSeries` for market value and another for cost
-basis. Prefer `LineSeries` over `AreaSeries` here — with only ~30 points an area fill reads
-as a placeholder — and overlay a normalized benchmark so the points have something to sit
-against.
+- **`start` defaults to three years back.** That is about 750 bars. A full 2000-to-today history
+  is about 6,700 bars, roughly 400 KB of JSON or 70 KB gzipped — also fine if asked for.
+- **`adjusted=false` is the default**, because the page's job is to show your fills against the
+  prices you actually paid. With `adjusted=true`, multiply O/H/L/C by `adjusted_close / close`
+  per bar and return `avg_cost = None`: a raw cost line on adjusted candles would be wrong.
+- **Fill markers need no price adjustment.** They are drawn `belowBar`/`aboveBar`, positioned by
+  time only.
+- **`avg_cost`** is `Σ (price·q + fee + tax) / Σ q` over buys: fees included, so it equals the
+  positions page's `avg_cost`. Under average cost a sell does not change the per-share average.
+  Ignore the edge case of a position closed and reopened; note it in a comment.
+- **Enable gzip** with `app.add_middleware(GZipMiddleware, minimum_size=1024)`.
+- **Set `Cache-Control: max-age=3600`** on `/api/chart` and `/api/symbols`. Data changes once a
+  night.
 
-## Deployment
+`tests/test_routes.py` runs against the seeded demo database through `TestClient`. It asserts
+response shapes, that `bars[0].time` matches `^\d{4}-\d{2}-\d{2}$`, that `/api/portfolio`
+`totals.market_value` and `totals.cost_basis` equal the sums over `positions`, and that the demo
+split symbol's market value has no discontinuity. Do **not** assert the same for `realized`:
+the totals include fully closed positions, which have no row in `positions`. For signals: `min_ranking=44` includes the seeded 44-point row and `min_ranking=45`
+excludes it; every row has `ranking >= min_ranking`; and the last-day signal comes back with
+`entry_price: null`.
 
-`deploy/turtle-web.service`, modelled on `deploy/eodhd-download-daily.service` with the same
-header-comment convention:
+**Verify:** `/docs` (FastAPI's Swagger UI) lists all six routes with typed schemas, and
+`uv run pytest && uv run mypy` passes.
+
+### Step 7 — Frontend scaffold
+
+```bash
+cd web
+npm install vue-router lightweight-charts primevue @primeuix/themes
+npm install -D openapi-typescript
+```
+
+Pin exact versions in `package-lock.json` and let Dependabot move them. Lightweight Charts
+must be **v5**: the code below uses the v5 `addSeries(SeriesType, options, paneIndex)` and
+`createSeriesMarkers` API, which v4 lacks.
+
+`vite.config.ts`: the dev proxy is why the API needs no CORS middleware:
+
+```ts
+export default defineConfig({
+  plugins: [vue()],
+  server: { proxy: { '/api': 'http://localhost:8000' } },
+})
+```
+
+`src/router.ts`: history mode works in production because of `SpaStaticFiles`'s index.html fallback:
+
+```ts
+export const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    { path: '/', component: () => import('./views/PortfolioView.vue') },
+    { path: '/transactions', component: () => import('./views/TransactionsView.vue') },
+    { path: '/chart/:symbol?', component: () => import('./views/ChartView.vue'), props: true },
+    { path: '/signals', component: () => import('./views/SignalsView.vue') },
+  ],
+})
+```
+
+**Generated types are the API contract.** Add to `package.json`:
+
+```json
+"scripts": {
+  "gen:api": "cd ../api && uv run python -c \"import json; from turtleweb.main import create_app; from turtleweb.settings import Settings; print(json.dumps(create_app(Settings(db_password='x')).openapi()))\" > ../web/openapi.json && openapi-typescript ../web/openapi.json -o src/api/schema.d.ts",
+  "type-check": "vue-tsc --noEmit"
+}
+```
+
+Commit `src/api/schema.d.ts` (and `openapi.json`). CI regenerates both and fails on a diff
+(Step 10), so a backend model change can never silently break the frontend.
+
+`src/api/client.ts`: native `fetch`, no axios:
+
+```ts
+import type { components } from './schema'
+
+export type Portfolio = components['schemas']['Portfolio']
+export type Transaction = components['schemas']['Transaction']
+export type ChartData = components['schemas']['ChartData']
+export type SymbolRow = components['schemas']['Symbol']
+export type SignalRow = components['schemas']['SignalRow']
+
+async function get<T>(path: string): Promise<T> {
+  const res = await fetch(`/api${path}`)
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${path}`)
+  return res.json() as Promise<T>
+}
+
+export const api = {
+  portfolio: () => get<Portfolio>('/portfolio'),
+  transactions: () => get<Transaction[]>('/transactions'),
+  symbols: () => get<SymbolRow[]>('/symbols'),
+  chart: (symbol: string, adjusted = false) =>
+    get<ChartData>(`/chart/${encodeURIComponent(symbol)}?adjusted=${adjusted}`),
+  signals: (days = 90, minRanking = 44) =>
+    get<SignalRow[]>(`/signals?days=${days}&min_ranking=${minRanking}`),
+}
+```
+
+`src/format.ts`: one place for `Intl.NumberFormat` money and percentage formatters, plus a
+`pnlClass(v)` that returns `'pos'`/`'neg'` for green/red.
+
+**Verify:** `npm run dev` with the API running shows the router shell, and `npm run type-check`
+passes.
+
+### Step 8 — The price chart component
+
+`src/components/PriceChart.vue` is the only place the chart library is touched.
+
+```vue
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
+import {
+  CandlestickSeries, HistogramSeries, LineStyle, createChart, createSeriesMarkers,
+  type IChartApi, type IPriceLine, type ISeriesApi, type ISeriesMarkersPluginApi,
+  type SeriesMarker, type Time,
+} from 'lightweight-charts'
+import type { ChartData } from '../api/client'
+
+const props = defineProps<{ data: ChartData }>()
+const el = useTemplateRef<HTMLDivElement>('el')
+
+// Plain variables, NOT ref()/reactive(): Vue's deep proxy over the chart instance
+// breaks it and slows every redraw. This is the #1 Vue + Lightweight Charts mistake.
+let chart: IChartApi | undefined
+let candles: ISeriesApi<'Candlestick'> | undefined
+let volume: ISeriesApi<'Histogram'> | undefined
+let markers: ISeriesMarkersPluginApi<Time> | undefined
+let costLine: IPriceLine | undefined
+
+function render(d: ChartData): void {
+  if (!chart || !candles || !volume || !markers) return
+  candles.setData(d.bars)
+  volume.setData(d.bars.map((b) => ({ time: b.time, value: b.volume })))
+  markers.setMarkers(
+    d.fills.map((f): SeriesMarker<Time> =>
+      f.side === 'buy'
+        ? { time: f.time, position: 'belowBar', shape: 'arrowUp', color: '#26a69a', text: `B ${f.quantity}@${f.price}` }
+        : { time: f.time, position: 'aboveBar', shape: 'arrowDown', color: '#ef5350', text: `S ${f.quantity}@${f.price}` },
+    ),
+  )
+  if (costLine) candles.removePriceLine(costLine)
+  costLine = d.avg_cost == null ? undefined
+    : candles.createPriceLine({ price: d.avg_cost, title: 'avg cost', lineStyle: LineStyle.Dashed, color: '#888' })
+  chart.timeScale().fitContent()
+}
+
+onMounted(() => {
+  chart = createChart(el.value!, { autoSize: true })
+  candles = chart.addSeries(CandlestickSeries, { upColor: '#26a69a', downColor: '#ef5350', borderVisible: false })
+  volume = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' } }, 1) // 3rd arg = paneIndex
+  markers = createSeriesMarkers(candles, [])
+  render(props.data)
+})
+watch(() => props.data, render) // /chart/A -> /chart/B reuses this instance
+onBeforeUnmount(() => chart?.remove()) // frees the canvas and ResizeObserver
+</script>
+
+<template><div ref="el" class="price-chart" /></template>
+
+<style scoped>
+.price-chart { height: 520px; }
+</style>
+```
+
+`src/components/LineChart.vue` follows the same lifecycle. It takes
+`series: { name, color, points: { time, value }[] }[]` and draws one `LineSeries` per entry. Use
+`LineSeries` rather than `AreaSeries`: with a few dozen points, an area fill reads as a
+placeholder.
+
+**Verify:** on the demo data, `DEMOC.US` raw shows the split cliff, and `?adjusted=true`
+removes it. Buy arrows sit under their fill-date candles, and the dashed average-cost line
+matches the buy price. Switching symbols leaves exactly one chart on the page (check the DOM for
+a single `<canvas>` set).
+
+### Step 9 — The four pages
+
+**`PortfolioView.vue`** (`/`): one `api.portfolio()` call.
+
+- **KPI row** (`KpiTile.vue`): market value, cost basis, unrealized P&L ($ and %), realized P&L,
+  total P&L vs benchmark P&L, open positions count, and the as-of date (the last history point).
+- **Positions table:** a PrimeVue `DataTable` sorted by `unrealized_pct` descending. The symbol
+  cell is a `RouterLink` to `/chart/:symbol`. A `last_date` older than the as-of date renders as
+  a warning badge.
+- **Two `LineChart`s:** "Holdings value vs cost basis" (`market_value`, `cost_basis`) and
+  "P&L vs benchmark" (`total_pnl`, `benchmark_pnl`).
+- **Footer:** the caveats from [The P&L model](#the-pl-model), verbatim.
+
+```vue
+<DataTable :value="portfolio.positions" sortField="unrealized_pct" :sortOrder="-1" size="small" stripedRows>
+  <Column field="symbol" header="Symbol" sortable>
+    <template #body="{ data }"><RouterLink :to="`/chart/${data.symbol}`">{{ data.symbol }}</RouterLink></template>
+  </Column>
+  <Column field="shares" header="Shares" sortable />
+  <Column field="avg_cost" header="Avg cost" sortable>
+    <template #body="{ data }">{{ money(data.avg_cost) }}</template>
+  </Column>
+  <!-- last_close, market_value, unrealized, unrealized_pct (with pnlClass), days_held … -->
+</DataTable>
+```
+
+**`TransactionsView.vue`** (`/transactions`): one `api.transactions()` call. A `DataTable` with
+columns date, symbol (linked to the chart), side, quantity, price, fee, amount, signal date,
+ranking, `next_open`, and slippage %. Unlinked buys show "—" for the signal columns, not 0.
+Default sort is newest first.
+
+**`ChartView.vue`** (`/chart/:symbol?`):
+
+- **Symbol picker:** an `<input list="symbols">` with a native `<datalist>` filled from
+  `api.symbols()`, fetched once. That gives autocomplete over about 5,600 symbols with no
+  search endpoint, no debounce and no request races. Submitting calls `router.push`.
+- **Raw/adjusted toggle**, stored in the query string.
+- **`<PriceChart :data="chart" />`**, with a loading state and a visible error for unknown symbols.
+
+**`SignalsView.vue`** (`/signals`): one `api.signals(days, minRanking)` call.
+
+- **Controls:** a days selector (30 / 90 / 180) and a minimum-ranking number input, defaulting to
+  90 and 44. Both live in the query string (`/signals?days=90&min_ranking=44`), so a filtered view
+  can be bookmarked; changing either re-fetches.
+- **Table:** a `DataTable` with columns signal date, symbol (linked to `/chart/:symbol`), name,
+  ranking, % vs SMA50, ADR %, entry date, entry price, current price, change %, and bought.
+  Default sort is `signal_date` descending, then `ranking` descending, matching the SQL.
+- **`bought` rows are highlighted** (`:rowClass`), so the signals you took stand out from the ones
+  you passed on.
+- **Pending entries:** signals from the last trading day show "pending" in the entry and change
+  columns.
+- **Summary line above the table:** count of signals, count bought, and the median change % of
+  bought vs not-bought signals, computed client-side from the rows.
+- **Footer:** "Change % is a total return from the next-day open, split- and dividend-adjusted.
+  Prices shown are raw."
+
+**Verify:** all four pages render from the demo DB. The market value and cost basis KPIs equal
+the column sums of the positions table. Realized P&L can exceed the table's sum, since it includes
+closed positions. Each transaction's chart link opens that symbol with its arrow on the right date. The signals
+page's row count changes as `min_ranking` moves across 44, and bought rows match the transactions
+page's linked buys.
+
+### Step 10 — CI
+
+`.github/workflows/ci.yml`, on push and pull request:
+
+```yaml
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env: { POSTGRES_DB: trading, POSTGRES_PASSWORD: demo }
+        ports: ["5433:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      TURTLE_WEB_DB_PORT: "5433"
+      TURTLE_WEB_DB_USER: postgres
+      TURTLE_WEB_DB_PASSWORD: demo
+      TURTLE_WEB_BENCHMARK_SYMBOL: BENCH.US
+      PGPASSWORD: demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: psql -h localhost -p 5433 -U postgres -d trading -f db/schema.sql
+      - run: uv run --project api python db/seed_demo.py
+      - working-directory: api
+        run: uv run ruff check && uv run ruff format --check && uv run mypy && uv run pytest
+
+  web:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: web } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json }
+      - run: npm ci
+      - run: npm run gen:api && git diff --exit-code -- openapi.json src/api/schema.d.ts
+      - run: npm run type-check && npm run build
+```
+
+`.github/workflows/release.yml`, on a `v*` tag: build `web/` and attach it to a GitHub Release
+as `web-dist.tgz` (`tar -czf web-dist.tgz -C web/dist .` then `gh release create "$GITHUB_REF_NAME" web-dist.tgz`).
+
+**Verify:** a PR that changes a response model without re-running `gen:api` fails the `web`
+job. A tag produces a release with `web-dist.tgz` attached.
+
+### Step 11 — Deploy to the VPS
+
+One-time setup:
+
+```bash
+git clone https://github.com/jaaknt/turtle-web.git ~/turtle-web
+cd ~/turtle-web && uv sync --project api --frozen --no-dev
+mkdir -p ~/.config/turtle-web
+loginctl enable-linger "$USER"
+```
+
+`~/.config/turtle-web/secrets.env`:
+
+```dotenv
+TURTLE_WEB_DB_PASSWORD=...
+TURTLE_WEB_STATIC_DIR=/home/<user>/turtle-web/web/dist
+BIND_HOST=<output of: tailscale ip -4>
+```
+
+Use **absolute paths** here. systemd expands specifiers like `%h` in unit directives, but never
+inside an `EnvironmentFile`. A literal `%h/...` would reach `StaticFiles`, which raises on a
+missing directory, and the unit would crash-loop.
+
+`deploy/deploy.sh` covers every later release:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+tag="${1:?usage: deploy.sh <tag>}"
+cd ~/turtle-web
+git fetch --tags && git checkout "$tag"
+uv sync --project api --frozen --no-dev
+# Download into a temp dir first: a failed download aborts here (pipefail) with the old
+# web/dist still in place. Public release asset, so plain curl — no gh login on the VPS.
+tmp="$(mktemp -d)"
+curl -fsSL "https://github.com/jaaknt/turtle-web/releases/download/$tag/web-dist.tgz" | tar -xz -C "$tmp"
+rm -rf web/dist && mv "$tmp" web/dist
+systemctl --user restart turtle-web
+```
+
+`deploy/turtle-web.service`, modelled on `deploy/eodhd-download-daily.service`:
 
 ```ini
 [Unit]
-Description=Turtle Web (read-only dashboard)
-After=network-online.target
+Description=turtle-web (read-only dashboard)
+After=network-online.target tailscaled.service
 
 [Service]
 Type=simple
-WorkingDirectory=%h/turtle-web
+WorkingDirectory=%h/turtle-web/api
 EnvironmentFile=%h/.config/turtle-web/secrets.env
-ExecStart=%h/.local/bin/uv run uvicorn turtleweb.main:app --host 100.x.y.z --port 8080
+ExecStart=%h/.local/bin/uv run --frozen --no-sync uvicorn --factory turtleweb.main:create_app --host ${BIND_HOST} --port 8080
 Restart=on-failure
-StandardOutput=journal
-StandardError=journal
+RestartSec=10
 
 [Install]
 WantedBy=default.target
 ```
 
-Take `BIND_HOST` from the `EnvironmentFile` (`$(tailscale ip -4)`) and add
-`After=network-online.target tailscaled.service`.
+- **`--frozen --no-sync` on `uv run`.** Plain `uv run` syncs the default groups, dev included,
+  before it starts. That would undo the `--no-dev` sync and need PyPI reachable at boot.
+  `deploy.sh` owns the sync; the unit only runs what is already installed.
+- **`RestartSec=10`.** Without it, systemd's default limit (5 starts in 10 s) gives up on a
+  transient failure within seconds. Startup no longer depends on Postgres (Step 3), so this is
+  belt and braces.
+- **Bind to the Tailscale IP, never `0.0.0.0`.** The Hetzner firewall allows inbound SSH from one
+  IP only (`docs/implementation.md`). Binding explicitly means a later firewall change can never
+  expose the site.
+- **`WantedBy=default.target`, not `timers.target`.** This is a persistent service, unlike every
+  `Type=oneshot` unit in `turtle-backtest/deploy/`.
+- **Slowness is probably Tailscale relaying, not the app.** With all inbound UDP blocked,
+  Tailscale cannot set up a direct peer connection and relays through DERP. Adding an inbound
+  rule for **UDP 41641** enables the direct path.
 
-**Bind to the Tailscale IP, never `0.0.0.0`.** The Hetzner firewall currently allows inbound
-SSH from one IP and blocks everything else (`docs/implementation.md`), so port 8080 is
-unreachable from the public internet — but binding explicitly means a firewall change can
-never accidentally expose it. Requires `loginctl enable-linger`, same as the existing timers.
-Note `WantedBy=default.target`, not `timers.target`: this is a persistent service, unlike
-every existing `Type=oneshot` unit in `deploy/`.
-
-> **Worth knowing before you conclude the app is slow:** with all inbound UDP blocked,
-> Tailscale cannot establish a direct peer connection and falls back to relaying through
-> DERP. It works — every measurement in this document was taken over it — but it adds latency
-> and caps throughput. Adding an inbound rule for **UDP 41641** to the Hetzner firewall is
-> what enables the direct path.
+**Verify:** see [Verification](#verification) items 5–8.
 
 ## Verification
 
-### Workstream 1 checks
+### Known-good anchors (live Hetzner DB, measured 2026-11-07)
 
-1. `uv run alembic upgrade head` → `\d turtle.signal` shows the table and `ix_signal_date`.
-2. `uv run pytest && uv run mypy` clean.
-3. Backfill run above → `SELECT count(*), min(signal_date), max(signal_date) FROM turtle.signal;`
-   returns roughly 30–90 rows spanning ~90 days.
-4. Re-run the same command → count unchanged (proves the upsert is idempotent).
-5. `journalctl --user -u eodhd-download-daily.service` after the 05:00 firing shows the signal
-   scan running behind the history download, and `signal-runner` logging the persisted count.
-
-### Known-good anchors
-
-Assert against these; they were measured on 2026-08-12 and move only with fresh bars.
+These move as new transactions and bars arrive. The check is that the page and a hand-run query
+agree.
 
 | Check | Expected |
 | --- | --- |
-| `SYMBOL_LIST` row count | 5,627 (2,580 with `in_universe = true`) |
-| `POSITIONS` row count | 9 (all buys, no sells yet) |
-| `EQUITY_CURVE` final row | `market_value ≈ 10678.97`, `cost_basis = 9598.61` |
-| `cost_basis` if you use `gross_amount` instead | 9,607.61 — the €9 delta is 9 × €1.00 in fees, the cleanest check that you picked the column you meant |
-| `BARS` for AAPL.US since 2000-01-02 | 6,690 rows |
+| `lightyear_transaction` rows | 22, all buys, 22 distinct symbols, 2026-06-29 → 2026-10-12 |
+| Linked to a signal | 20 of 22 |
+| Total cost basis, fees included | **$23,258.69** (= Σ `gross_amount` on buys) |
+| Σ `price × quantity` | $23,236.79 — the **$21.90** difference is fees. This is the cleanest check that fees reached the cost basis |
+| CLOSES query, 22 symbols + SPY since 2026-06-29 | 2,139 rows, ~13 ms, `Index Scan using pk_daily_bars` |
+| Latest `SPY.US` bar | 2026-11-06 |
+| `turtle.signal` | 306 rows for `bk50d_s12_v2.0`, 2026-06-01 → 2026-11-06 |
+| `/api/signals?days=90&min_ranking=44` | 63 rows (148 ungated); **3** score exactly 44; **11** bought; ~22 ms |
+| SYMBOLS row count | ~5,600 |
 
-### Guard the 31× regression in a test
+### End-to-end checks
 
-Correctness tests cannot see it — the unbounded query returns identical rows, just 31× slower.
-Assert on the plan shape instead:
-
-```python
-def test_signals_query_is_index_bounded(engine: sa.Engine) -> None:
-    """The indicator LATERAL must stay date-bounded; without it this query takes ~2.9 s."""
-    plan = "\n".join(r[0] for r in engine.connect().execute(sa.text("EXPLAIN " + sql.SIGNALS), PARAMS))
-    assert plan.count("Index Cond") >= 3
-    assert "Seq Scan on daily_bars" not in plan
-```
-
-More generally: every `EXPLAIN` in this app should show `Index Scan using pk_daily_bars` with
-an `Index Cond` containing **both** `symbol =` and a `date` bound. A bare `symbol =` with no
-date bound is the slow shape.
-
-The other high-value test parses the embedded chart JSON — `date`/`Decimal` leaking into
-`|tojson` produces a blank chart and a console error rather than a 500, so nothing else
-catches it:
-
-```python
-def test_chart_payload_is_valid_json(client):
-    html = client.get("/chart?symbol=AAPL.US").text
-    blob = re.search(r'<script id="chart-data"[^>]*>(.*?)</script>', html, re.S).group(1)
-    data = json.loads(blob)
-    assert set(data["bars"][0]) == {"time", "open", "high", "low", "close"}
-    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", data["bars"][0]["time"])
-```
-
-### Workstream 2 checks
-
-1. `psql -U turtle_web` → `SELECT 1 FROM turtle.signal LIMIT 1` succeeds; `INSERT` is
-   **denied by `default_transaction_read_only`**, not merely ungranted.
-2. `curl localhost:8080/healthz` → 200.
-3. `/signals` renders rows matching the SQL run directly in psql.
-4. `/portfolio` totals match `market_value 10678.97 / cost_basis 9598.61` for 2026-08-09
-   (numbers move with fresh bars; the check is that page and SQL agree).
-5. `/chart?symbol=AAPL.US` draws candles + volume pane + SMA50. Then load a *held* symbol and
-   confirm an entry marker sits on its signal date; then a thin symbol with gaps, to confirm
-   nulls don't throw.
-6. Typing `AAPL` in the symbol box offers completions with no network request.
-7. From a second Tailscale device the site loads; from the public IP,
-   `curl --max-time 5 http://<public-ip>:8080/signals` times out or is refused.
-8. `systemctl --user restart turtle-web`, then reboot the VPS and confirm it returns without
-   an SSH login — this is what actually tests `enable-linger`, the classic silent failure.
+1. `psql -U turtle_web` can SELECT. An INSERT fails with the read-only-transaction error (Step 0).
+2. CI is green on `main`: ruff, mypy, pytest against the demo DB, vue-tsc, build, and the
+   OpenAPI drift check.
+3. `/api/portfolio` `totals.cost_basis` equals 23,258.69 on the live DB, until the next fill.
+4. The split fixture: the demo `DEMOC.US` market value is continuous across its split date.
+5. `curl http://<tailscale-ip>:8080/api/healthz` returns 200. From the public IP,
+   `curl --max-time 5 http://<public-ip>:8080/` times out or is refused.
+6. A deep link `http://<tailscale-ip>:8080/chart/AAPL.US` loads directly (SPA fallback), and
+   `/api/nope` returns 404 JSON, not index.html.
+7. A held symbol's chart shows its buy arrow on the fill date and the average-cost line at the
+   fill price. `/signals` shows 63 rows with 11 highlighted as bought (as of 2026-11-07).
+8. Reboot the VPS and confirm the site returns without an SSH login. This is what actually
+   tests `enable-linger`, the classic silent failure.
 
 ## Index recommendations: add nothing to `daily_bars`
 
-Worth stating explicitly, because two queries here *look* like they need an index and neither
-does. The only index on `turtle.daily_bars` is `pk_daily_bars` — 955 MB against a 3,471 MB
-heap. Every hot path is `symbol = ? AND date <bounded>`, a perfect prefix match.
+The only index on `turtle.daily_bars` is `pk_daily_bars` (955 MB against a 3,471 MB heap). Every
+query here is `symbol = ? AND date >= ?` or `symbol = ANY(?) AND date >= ?`, which is a perfect
+prefix match.
 
 | Candidate | Verdict |
 | --- | --- |
-| `daily_bars (date)` | **No.** ~450–600 MB of new index, and it slows the nightly bulk insert. No query here filters by date without a symbol, so it would never be chosen. |
-| `daily_bars (symbol) INCLUDE (…)` | **No.** Redundant with the PK's leading column. |
-| `ticker (code text_pattern_ops)` or a `pg_trgm` GIN index | **No.** Made moot by the startup symbol cache. |
-| `signal (signal_date DESC)` | **Yes** — but it ships with the new table's own DDL. |
+| `daily_bars (date)` | **No.** ~500 MB, slows the nightly bulk insert, and no query filters by date without a symbol |
+| `daily_bars (symbol) INCLUDE (…)` | **No.** Redundant with the PK's leading column |
+| `ticker` trigram / `text_pattern_ops` | **No.** The startup symbol cache plus `<datalist>` makes search moot |
 
-Both queries that looked index-hungry were fixed by rewriting instead, and both rewrites beat
-any index: the ticker search does 5,627 probes for the *entire* list rather than deduping
-13,289 matching rows, and no index helps a window aggregate that has been asked to read 4,630
-rows — bounding the range means it reads 87. **So the only migration `turtle-backtest` needs
-is the `turtle.signal` table itself.**
+## Appendix — What shipped from the previous draft
 
-## Open items for implementation
+The earlier draft of this document was organised into numbered sections. They map as follows:
 
-1. ~~Confirm the strategy label string to persist (`bk50d_s12_v2.0` is the baseline) and add
-   `--persist-label`.~~ Done — the flag shipped with persist-signal.md and the daily unit pins
-   `bk50d_s12_v2.0`.
-2. Pick the Tailscale IP/hostname for the bind address.
-3. Decide `net_amount` vs `gross_amount` for the equity curve's cost basis — the €9 fee delta
-   is the verification anchor either way. Keeping `net_amount` stays consistent with the
-   `avg_price` basis on the positions page.
+| Old section | Outcome |
+| --- | --- |
+| §1.1 New table, §1.2 Write repository, §1.3 `--persist` | Shipped as specified in [persist-signal.md](persist-signal.md): surrogate `id`, `trading_strategy`/`ranking_strategy`, `signal_close`, `parameters` jsonb |
+| §1.4 Nightly run | Shipped as a second `ExecStart=` in `deploy/eodhd-download-daily.service`, chained after the history download (05:00 Europe/Tallinn, Mon–Sat), with a 7-day window so `next_open` backfills |
+| §1.5 Read-only role | Outstanding — now [Step 0](#step-0--read-only-role-in-turtle-backtest) |
+| Workstream 2 (FastAPI + Jinja) | Replaced by this FastAPI + Vue design |
+| §"Signals, last 3 months" | Simplified into the SIGNALS query ([Step 4](#step-4--the-sql-module)) using the persisted indicators; page in [Step 9](#step-9--the-four-pages) |
+
+## Open items
+
+1. **Licence `turtle-backtest`.** It is public with no `LICENSE`, so it is legally "all rights
+   reserved". `turtle-web`'s README will point there for the schema and the data pipeline.
+2. **Verify sell semantics** against the first real sell statement, and add it as a ledger fixture.
+3. **Pick the Tailscale bind address** for `BIND_HOST`.
+4. **Benchmark choice:** `SPY.US` by default. An equal-weight or small-cap benchmark may suit a
+   momentum book better; it is a one-line setting.
