@@ -214,7 +214,7 @@ turtle-web/
 │   │   ├── models.py         # pydantic response models (-> OpenAPI -> TS types)
 │   │   ├── routes.py         # /api/* endpoints
 │   │   └── main.py           # create_app(): lifespan, router, SPA static mount
-│   └── tests/{test_ledger.py,test_routes.py,test_sql_plans.py}
+│   └── tests/{test_main.py,test_ledger.py,test_routes.py,test_sql_plans.py}
 ├── web/
 │   ├── package.json  package-lock.json  vite.config.ts
 │   └── src/
@@ -314,12 +314,18 @@ TURTLE_WEB_BENCHMARK_SYMBOL=BENCH.US
 
 ### Step 3 — API skeleton
 
+**Done.** Implemented in `turtle-web` 2026-11-08.
+
 ```bash
 cd api
 uv init --package --name turtleweb --python 3.14
 uv add fastapi "uvicorn[standard]" sqlalchemy "psycopg[binary,pool]" pydantic-settings
-uv add --dev pytest httpx ruff mypy
+uv add --dev pytest httpx2 ruff mypy
 ```
+
+`uv init --package` creates a `src/` layout. Move the package to `api/turtleweb/` to match the
+target layout, and set `[tool.uv.build-backend] module-root = ""`. The test client needs
+`httpx2`, not `httpx`: Starlette deprecated `httpx` for its `TestClient`.
 
 Use `fastapi`, **not** `fastapi[standard]`. The extra pulls in the CLI, `email-validator` and
 `python-multipart`, none of which a GET-only API uses. Polars, pandas and numpy are also
