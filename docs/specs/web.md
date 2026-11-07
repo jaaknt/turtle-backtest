@@ -1,8 +1,8 @@
 # Design: `turtle-web` — a FastAPI + Vue + Lightweight Charts dashboard
 
 > **Status:** Draft for implementation. The `turtle-web` repo does not exist yet. Step 0, the one
-> precondition in this repo, is implemented in `db/init.sh`. It still has to be applied once to the
-> existing VPS database with the command in `docs/implementation.md`. The signal persistence this
+> precondition in this repo, is **done**: the `turtle_web` role is in `db/init.sh` and exists on both
+> the VPS and the local database (validated 2026-11-08). The signal persistence this
 > spec used to describe has shipped; see [the appendix](#appendix--what-shipped-from-the-previous-draft).
 
 ## Context
@@ -139,7 +139,8 @@ rather than copies:
   1,472 ms query. Row-count misestimates on small results routinely trip the JIT threshold
   here, and every query in this app returns few rows.
 
-**Implemented.** The role is in `db/init.sh` for fresh installs, with its password in
+**Done.** Applied by hand to the VPS and local databases and validated on 2026-11-08 (see below).
+The role is in `db/init.sh` for fresh installs, with its password in
 `DB_WEB_PASSWORD` (`docker-compose.yml`, `.env.example`). A database that already exists — the
 VPS, or a local Docker volume — needs it added once, as `postgres` and not through MCP. The command
 is in `docs/implementation.md`, §"Add the `turtle_web` role to an existing database".
@@ -153,6 +154,17 @@ documented command to a database initialised without the role:
   with *permission denied for table*.
 - The role reports `default_transaction_read_only = on`, `statement_timeout = 10s`,
   `idle_in_transaction_session_timeout = 30s` and `jit = off`.
+
+Validated live on 2026-11-08 against both the VPS (over Tailscale, with SSL) and the local
+database, by logging in as `turtle_web` and reading the catalogs:
+
+- Login works with `DB_WEB_PASSWORD`.
+- The role is not superuser and cannot create databases or roles, replicate, or bypass row-level
+  security. It belongs to no other role and owns no objects.
+- SELECT on all 9 `turtle` tables, and no other table privilege anywhere.
+- `turtle_web=r/alembic` in the `turtle` default privileges, so future migration tables are readable.
+- The session settings read `on | 10s | 30s | off`.
+- Both INSERT checks were rejected with the expected errors.
 
 **Verify:** run the verification block in `docs/implementation.md`, §"Add the `turtle_web` role
 to an existing database". It works the same after a fresh `init.sh`. It checks that reads work,
@@ -1104,15 +1116,15 @@ The earlier draft of this document was organised into numbered sections. They ma
 | --- | --- |
 | §1.1 New table, §1.2 Write repository, §1.3 `--persist` | Shipped as specified in [persist-signal.md](persist-signal.md): surrogate `id`, `trading_strategy`/`ranking_strategy`, `signal_close`, `parameters` jsonb |
 | §1.4 Nightly run | Shipped as a second `ExecStart=` in `deploy/eodhd-download-daily.service`, chained after the history download (05:00 Europe/Tallinn, Mon–Sat), with a 7-day window so `next_open` backfills |
-| §1.5 Read-only role | Implemented in `db/init.sh` — now [Step 0](#step-0--read-only-role-in-turtle-backtest); still to be applied on the VPS |
+| §1.5 Read-only role | Done — now [Step 0](#step-0--read-only-role-in-turtle-backtest); in `db/init.sh` and applied on the VPS and locally |
 | Workstream 2 (FastAPI + Jinja) | Replaced by this FastAPI + Vue design |
 | §"Signals, last 3 months" | Simplified into the SIGNALS query ([Step 4](#step-4--the-sql-module)) using the persisted indicators; page in [Step 9](#step-9--the-four-pages) |
 
 ## Open items
 
 1. ~~**Licence `turtle-backtest`.**~~ Done: MIT, matching `turtle-web`.
-2. **Apply Step 0 on the VPS** with the command in `docs/implementation.md`, then put the same
-   password in turtle-web's `secrets.env` (Step 11).
+2. ~~**Apply Step 0 on the VPS.**~~ Done 2026-11-08, on the VPS and locally. Remaining: put the
+   same `DB_WEB_PASSWORD` in turtle-web's `secrets.env` (Step 11).
 3. **Verify sell semantics** against the first real sell statement, and add it as a ledger fixture.
 4. **Pick the Tailscale bind address** for `BIND_HOST`.
 5. **Benchmark choice:** `SPY.US` by default. An equal-weight or small-cap benchmark may suit a
