@@ -426,6 +426,9 @@ loop.
 
 ### Step 4 — The SQL module
 
+**Done.** Implemented in `turtle-web` 2026-11-08, with the plans re-checked on the live database
+(see Verify).
+
 Put every statement in `turtleweb/sql.py` as module-level constants; that module *is* the data
 layer. Cast money to `float8` in SQL. Pydantic serialises `Decimal` as a JSON **string**, which
 would make every number on the frontend a string.
@@ -441,7 +444,7 @@ LEFT JOIN turtle.ticker tk ON tk.code = t.ticker_code
 LEFT JOIN turtle.signal s  ON s.id = t.signal_id
 ORDER BY t.transacted_at;
 
--- CLOSES: everything the ledger needs, in one query — 13 ms on the live DB for 23 symbols
+-- CLOSES: everything the ledger needs, in one query — 14 ms on the live DB for 23 symbols
 SELECT symbol, date, close::float8, adjusted_close::float8
 FROM turtle.daily_bars
 WHERE symbol = ANY(:symbols) AND date >= :start AND close > 0 AND adjusted_close > 0
@@ -460,7 +463,7 @@ FROM turtle.lightyear_transaction
 WHERE ticker_code = :symbol
 ORDER BY transacted_at;
 
--- SIGNALS: the signals page — 22 ms on the live DB for 63 rows (90 days, R >= 44)
+-- SIGNALS: the signals page — 8 ms on the live DB for 63 rows (90 days, R >= 44)
 SELECT s.id, s.symbol, t.name, s.signal_date, s.ranking,
        (s.parameters->>'next_open')::float8    AS next_open,
        (s.parameters->>'pct_vs_sma50')::float8 AS pct_vs_sma50,
@@ -509,13 +512,12 @@ Notes on SIGNALS:
   `next_open`. The two can disagree for about a day: `next_open` is only filled when the nightly
   7-day re-scan next runs, so a signal can have an `entry_price` while `next_open` is still
   absent. The transactions page's slippage uses `next_open` and shows "—" until it lands.
-- **Every bar filter matches turtlex's** (`close > 0 AND adjusted_close > 0 AND volume > 0`). A
-  bad row with `adjusted_close = 0` would otherwise show a −100% change.
+- **Every bar filter in SIGNALS matches turtlex's** (`close > 0 AND adjusted_close > 0 AND
+  volume > 0`). A bad row with `adjusted_close = 0` would otherwise show a −100% change. CLOSES
+  deliberately keeps zero-volume days, so a held position still has a price on a halted day.
 - **Both laterals are bounded.** `signal_date + 10` and `CURRENT_DATE - 400` keep each one to a
   single index probe. The plan shows `Index Scan using pk_daily_bars` for the entry bar and
   `Index Scan Backward` for the latest bar, each with a `date` bound in `Index Cond`.
-  Re-measured with the `ranking_strategy` and `adjusted_close` filters: same 63 rows and the same
-  plan, 22 ms cold and about 6 ms warm.
 - **`turtle.signal` is seq-scanned** (306 rows today). Once it reaches tens of thousands of rows,
   consider an index on `(trading_strategy, signal_date)` in a turtle-backtest migration, not here.
 
@@ -526,7 +528,7 @@ a Python `list[str]` to a Postgres array for `ANY(:symbols)`. The plan is
 `Index Scan using pk_daily_bars` with both `symbol = ANY(...)` and `date >=` in the
 `Index Cond`.
 
-**SYMBOLS — 142 ms, loaded once in the lifespan.** The obvious
+**SYMBOLS — about 105 ms warm, loaded on the first `/api/symbols` request.** The obvious
 `SELECT DISTINCT symbol FROM daily_bars` is a full 20M-row seq scan (1,472 ms). Use a loose index
 scan instead. It is index-only and needs no new index:
 
@@ -539,7 +541,8 @@ WITH RECURSIVE syms AS (
 )
 SELECT s.symbol, t.name
 FROM syms s LEFT JOIN turtle.ticker t ON t.code = s.symbol
-WHERE s.symbol IS NOT NULL;
+WHERE s.symbol IS NOT NULL
+ORDER BY s.symbol;  -- the recursion yields ascending order, but only ORDER BY guarantees it (~3 ms)
 ```
 
 PostgreSQL 17 has no native skip scan. The recursive CTE does about 5,600 `min(symbol) WHERE
@@ -551,6 +554,19 @@ gzipped, fetched once by the chart page.
 **Verify:** run each statement under `EXPLAIN` as `turtle_web` against the live database. Every
 `daily_bars` access must show `Index Scan using pk_daily_bars` with both a `symbol` and a `date`
 bound.
+
+`tests/test_sql_plans.py` holds the demo database to the same rule. The demo tables are tiny, so
+the planner would seq-scan them; the test turns off sequential and bitmap scans and then asserts
+that every `daily_bars` node is an index scan on `pk_daily_bars` with a `symbol` and `date` bound.
+SYMBOLS is only checked for the index scan itself: its probes have a `symbol` bound and no `date`
+bound by design, and its first `min()` has no bound at all. If the latest demo bar is more than
+7 days old, the database tests fail and ask you to re-seed, because the queries use
+`CURRENT_DATE` windows.
+
+Live re-check, 2026-11-08: SIGNALS returned 63 rows in 8 ms, CLOSES 2,254 rows in 14 ms, and BARS
+took under 1 ms, each with the expected plan. SYMBOLS took 105 ms warm and 1.2 s on a cold cache.
+Its index-only scans still did 5,270 heap fetches, because autovacuum had not run on `daily_bars`
+since 2026-07-19 and the visibility map was stale (Open item 6).
 
 ### Step 5 — The ledger
 
@@ -1149,3 +1165,9 @@ The earlier draft of this document was organised into numbered sections. They ma
 4. **Pick the Tailscale bind address** for `BIND_HOST`.
 5. **Benchmark choice:** `SPY.US` by default. An equal-weight or small-cap benchmark may suit a
    momentum book better; it is a one-line setting.
+6. **Vacuum `daily_bars` (turtle-backtest).** As of 2026-11-08, autovacuum last ran on
+   `turtle.daily_bars` on 2026-07-19: the ~430k rows inserted nightly since then stay far below the
+   default insert threshold (20% of 20M rows). The stale visibility map turns SYMBOLS' index-only
+   scans into heap fetches. Fix it in turtle-backtest, either with a `VACUUM (ANALYZE)
+   turtle.daily_bars` after the nightly download, or with a lower
+   `autovacuum_vacuum_insert_scale_factor` on the table through an Alembic migration.
