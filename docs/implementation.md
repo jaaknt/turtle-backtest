@@ -150,7 +150,7 @@ export DB_APP_PASSWORD=<app_password>
 # application and scripts/update-local-db.sh both connect as app_user, so this password is needed
 # at provisioning time only and is deliberately absent from secrets.env below.
 export DB_CLAUDE_PASSWORD=<claude_password>
-# `turtle_web` is the read-only role the turtle-web dashboard connects as (docs/specs/web.md, Step 0).
+# `turtle_web` is the read-only role the turtle-web dashboard connects as (turtle-web's docs/specs/web.md, Step 0).
 # Like DB_CLAUDE_PASSWORD it is needed here at provisioning time; the dashboard reads it from its
 # own ~/.config/turtle-web/secrets.env, not from turtle-backtest's.
 export DB_WEB_PASSWORD=<web_password>

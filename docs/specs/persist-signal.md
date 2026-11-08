@@ -15,7 +15,7 @@
 
 `signal-runner` computes signals in memory and prints them; nothing is stored. Every look at
 "what fired last week" means re-running a 2–3 minute universe scan, and the planned read-only
-website ([web.md](web.md)) has no table to read from — this work is a precondition for its
+website ([web.md](https://github.com/jaaknt/turtle-web/blob/main/docs/specs/web.md)) has no table to read from — this work is a precondition for its
 signals page.
 
 This adds an opt-in `--persist` flag that writes each signal to a new `turtle.signal` table. The
@@ -359,7 +359,7 @@ read-only path entirely.
 - `docs/signal_runner.md` — a `SignalRepository` node in the component diagram and an
   `H->>SR: upsert_signals(ungated)` arrow placed before the gate step.
 - `CLAUDE.md` §Database — a `turtle.signal` bullet beside the `turtle.job_runs` one.
-- ~~[web.md](web.md) §1.1–1.3 — amend to match.~~ Done: web.md was rewritten and no longer carries
+- ~~[web.md](https://github.com/jaaknt/turtle-web/blob/main/docs/specs/web.md) §1.1–1.3 — amend to match.~~ Done: web.md was rewritten and no longer carries
   those sections; its appendix maps each one to where it landed.
 - `npx markdownlint-cli2` after any markdown edit.
 
@@ -370,7 +370,7 @@ read-only path entirely.
   Verification.
 - **The 3-month backfill run** — operational, and blocked on the same
   local-database prerequisite as verification.
-- **The `turtle_web` read-only role** — belongs with the website; now [web.md](web.md) Step 0.
+- **The `turtle_web` read-only role** — belongs with the website; now [web.md](https://github.com/jaaknt/turtle-web/blob/main/docs/specs/web.md) Step 0.
 
 ## Tests
 

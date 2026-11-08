@@ -3,7 +3,7 @@ set -e
 
 # Fail before creating anything: docker compose turns an unset variable into an empty string, and
 # CREATE USER ... PASSWORD '' succeeds but leaves a role that can never log in.
-: "${DB_WEB_PASSWORD:?DB_WEB_PASSWORD must be set (turtle_web role, docs/specs/web.md Step 0)}"
+: "${DB_WEB_PASSWORD:?DB_WEB_PASSWORD must be set (turtle_web role, turtle-web's docs/specs/web.md Step 0)}"
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
     CREATE DATABASE trading
@@ -50,7 +50,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "trading" <<-EOSQL
     ALTER DEFAULT PRIVILEGES FOR ROLE alembic IN SCHEMA turtle GRANT SELECT ON TABLES TO claude;
     ALTER DEFAULT PRIVILEGES FOR ROLE alembic IN SCHEMA turtle GRANT SELECT ON SEQUENCES TO claude;
 
-    -- turtle_web: readonly network service, the turtle-web dashboard (docs/specs/web.md, Step 0)
+    -- turtle_web: readonly network service, the turtle-web dashboard (turtle-web's docs/specs/web.md, Step 0)
     -- \getenv binds the password as a psql variable, so a quote in it cannot break the statement
     \getenv web_password DB_WEB_PASSWORD
     CREATE USER turtle_web WITH PASSWORD :'web_password';
