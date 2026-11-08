@@ -454,14 +454,9 @@ ORDER BY date, symbol;
 SELECT date, open::float8, high::float8, low::float8, close::float8,
        adjusted_close::float8, volume
 FROM turtle.daily_bars
-WHERE symbol = :symbol AND date >= :start AND close > 0
+WHERE symbol = :symbol AND date >= :start
+  AND open > 0 AND high > 0 AND low > 0 AND close > 0 AND adjusted_close > 0
 ORDER BY date;
-
--- FILLS: one symbol's transactions, for chart markers
-SELECT transacted_at::date AS date, transaction_type AS side, quantity::float8, price::float8
-FROM turtle.lightyear_transaction
-WHERE ticker_code = :symbol
-ORDER BY transacted_at;
 
 -- SIGNALS: the signals page — 8 ms on the live DB for 63 rows (90 days, R >= 44)
 SELECT s.id, s.symbol, t.name, s.signal_date, s.ranking,
@@ -470,7 +465,7 @@ SELECT s.id, s.symbol, t.name, s.signal_date, s.ranking,
        (s.parameters->>'adr_pct')::float8      AS adr_pct,
        e.entry_date, e.entry_price,                                  -- RAW open: recognisable
        last.close AS curr_price, last.date AS curr_date,             -- RAW close; staleness visible
-       100.0 * (last.adj_close / e.entry_adj - 1.0) AS change_pct,   -- ADJUSTED: split-safe total return
+       last.adj_close / e.entry_adj - 1.0 AS change_pct,             -- ADJUSTED: split-safe total return, a fraction
        EXISTS (SELECT 1 FROM turtle.lightyear_transaction lt WHERE lt.signal_id = s.id) AS bought
 FROM turtle.signal s
 LEFT JOIN turtle.ticker t ON t.code = s.symbol
@@ -658,11 +653,14 @@ across the held symbols' 2,134 bars was 1.05%.
 close. After a split and no dividend, `units · adjusted_close == shares · close`. The two differ
 only by dividends.
 
-Raise `ValueError` naming the symbol and date if a fill's symbol or the benchmark has no close by
+Raise `LedgerError` (a `ValueError` subclass) naming the symbol and date if a fill's symbol or the benchmark has no close by
 the day the fill is applied, and if a sell exceeds the shares held. A ledger that silently drops a
 position is worse than a loud 500 that tells you which ticker's bars are missing. Share counts are
 compared with a tolerance of `1e-9`, so fractional shares (0.1 + 0.2 sold as 0.3) neither raise a
 false oversell nor leave a ghost position.
+
+`first_buy` is the first buy of the current holding period: selling down to zero clears it, and
+the next buy starts a new one, so `days_held` never counts a time the position was flat.
 
 The shadow benchmark invests the whole buy amount, fee and tax included, and pays neither on
 either side. So with an identical price series it **leads by the fees and tax paid**, plus what
@@ -684,13 +682,13 @@ instead of the index.
 | Same at flat prices, with fees and tax | `benchmark_pnl − total_pnl` equals the fees and tax paid so far |
 | Fill dated after the last bar | Counted, valued at the previous close |
 | Fill dated on a Saturday | Applied on Monday; no weekend history point |
-| Sell larger than the position | `ValueError` |
+| Sell larger than the position | `LedgerError` |
 | Buy 0.1 and 0.2, sell 0.3 | No ghost position |
 | Buy then sell everything | No row in `positions`; `totals.realized` keeps the gain |
 | Holding with a missing bar mid-window | That day's value uses the previous close; no exception |
 | First fill on a day its symbol has no bar, prior close in the lookback | Uses the seeded prior close; no exception |
-| Fill with no close anywhere on or before its date | `ValueError` naming the symbol |
-| No benchmark bars | `ValueError` naming the benchmark |
+| Fill with no close anywhere on or before its date | `LedgerError` naming the symbol |
+| No benchmark bars | `LedgerError` naming the benchmark |
 
 **Verify:** `uv run pytest tests/test_ledger.py` passes, and the ex-dividend test fails if
 `units · adjusted_close` is replaced with `shares · close` in the history point. The split test no
@@ -698,6 +696,32 @@ longer catches that swap, because split-rescaled shares make the two equal witho
 it once to prove the test has teeth.
 
 ### Step 6 — Endpoints and response models
+
+**Done.** Implemented in `turtle-web` 2026-11-08. Decisions made while implementing:
+
+- **Every `*_pct` field is a fraction** (0.05 is 5%), because `pct_vs_sma50` and `adr_pct` are
+  stored that way. SIGNALS' `change_pct` dropped its `100.0 *` to match; the frontend formats.
+- **`avg_cost` on the chart comes from the ledger**, not from `Σ (price·q + fee + tax) / Σ q`
+  over the symbol's fills. Summing fills would be wrong after a split. The ledger's value is
+  split-aware, fee-inclusive, handles a closed-and-reopened position, and equals the positions
+  page's by construction. The cost is the TRANSACTIONS query, plus CLOSES (14 ms live) and a
+  replay of every fill, on each chart of a symbol that has fills.
+- **The chart's fill markers come from the TRANSACTIONS rows** it already loads for the ledger,
+  so there is no separate FILLS query.
+- **A ledger error on the chart drops only the cost line.** The replay covers every ticker, so a
+  buy imported before its bars would otherwise break every held symbol's chart. The chart logs a
+  warning and returns `avg_cost: null`; `/api/portfolio` still fails loudly.
+- **Ledger errors are a 500 with the message.** `ledger.LedgerError` subclasses `ValueError`; an
+  exception handler returns `{"detail": "no close for X.US on or before …"}`. Other exceptions
+  stay a bare 500, so nothing internal leaks.
+- **`Portfolio.totals` is a `HistoryPoint`** (the last day's), `None` before the first fill, when
+  `positions` and `history` are empty too. `days_held` runs from the current holding period's
+  first buy to that last ledger day.
+- **`unrealized_pct` is `None` when the cost basis is 0**, rather than a division error.
+- **An unknown chart symbol is a 404** (BARS returned nothing), not an empty chart. The chart's
+  `name` is looked up in the symbol cache; on a cold cache the first chart request loads it.
+- **The symbol cache reloads after an hour**, matching `/api/symbols`' `max-age`, so a ticker the
+  nightly load adds gets its name without a restart.
 
 Every endpoint declares a Pydantic `response_model`. That gives FastAPI an exact OpenAPI schema,
 which generates the frontend's TypeScript types in Step 7.
@@ -707,8 +731,8 @@ which generates the frontend's TypeScript types in Step 7.
 | `GET /api/healthz` | `{"status": "ok"}` | — |
 | `GET /api/portfolio` | `Portfolio` = `totals` + `positions[]` + `history[]` | TRANSACTIONS + CLOSES → `ledger.build` |
 | `GET /api/transactions` | `Transaction[]` | TRANSACTIONS, plus `slippage_pct = price / next_open − 1` for linked buys |
-| `GET /api/symbols` | `Symbol[]` | SYMBOLS, loaded on first request into `app.state.symbols` |
-| `GET /api/chart/{symbol}?start=&adjusted=false` | `ChartData` | BARS + FILLS |
+| `GET /api/symbols` | `Symbol[]` | SYMBOLS, cached in `app.state.symbols` for an hour |
+| `GET /api/chart/{symbol}?start=&adjusted=false` | `ChartData` | BARS, plus TRANSACTIONS + CLOSES → `ledger.build` for `avg_cost` |
 | `GET /api/signals?days=90&min_ranking=44` | `SignalRow[]` | SIGNALS, `:strategy` / `:ranking_strategy` from `settings.signal_strategy` / `signal_ranking_strategy` |
 
 Key models (`turtleweb/models.py`):
@@ -724,7 +748,7 @@ class Position(BaseModel):
     market_value: float
     cost_basis: float
     unrealized: float
-    unrealized_pct: float
+    unrealized_pct: float | None  # None when cost basis is 0
     realized: float
     first_buy: date
     days_held: int
@@ -754,7 +778,7 @@ class ChartData(BaseModel):
     adjusted: bool
     bars: list[Bar]
     fills: list[ChartFill]  # time, side, quantity, price (raw)
-    avg_cost: float | None  # average cost incl. fees of an open position; None when flat or adjusted
+    avg_cost: float | None  # the open position's, from the ledger; None when flat or adjusted
 
 
 class SignalRow(BaseModel):
@@ -783,15 +807,16 @@ Chart endpoint details:
   is about 6,700 bars, roughly 400 KB of JSON or 70 KB gzipped — also fine if asked for.
 - **`adjusted=false` is the default**, because the page's job is to show your fills against the
   prices you actually paid. With `adjusted=true`, multiply O/H/L/C by `adjusted_close / close`
-  per bar and return `avg_cost = None`: a raw cost line on adjusted candles would be wrong.
+  per bar, divide volume by it (so neither shows the split), and return `avg_cost = None`: a raw
+  cost line on adjusted candles would be wrong.
 - **Fill markers need no price adjustment.** They are drawn `belowBar`/`aboveBar`, positioned by
   time only.
-- **`avg_cost`** is `Σ (price·q + fee + tax) / Σ q` over buys: fees included, so it equals the
-  positions page's `avg_cost`. Under average cost a sell does not change the per-share average.
-  Ignore the edge case of a position closed and reopened; note it in a comment.
+- **`avg_cost`** is the open position's `cost / shares` from the ledger (see the decisions at the
+  top of this step): fees included, split-aware, equal to the positions page's.
 - **Enable gzip** with `app.add_middleware(GZipMiddleware, minimum_size=1024)`.
-- **Set `Cache-Control: max-age=3600`** on `/api/chart` and `/api/symbols`. Data changes once a
-  night.
+- **Set `Cache-Control: max-age=3600`** on `/api/symbols` only: the symbol list changes once a
+  night. `/api/chart` is not cached, because its fills and `avg_cost` change as soon as a
+  statement is imported.
 
 `tests/test_routes.py` runs against the seeded demo database through `TestClient`. It asserts
 response shapes, that `bars[0].time` matches `^\d{4}-\d{2}-\d{2}$`, that `/api/portfolio`
@@ -800,6 +825,14 @@ split symbol's market value has no discontinuity. Do **not** assert the same for
 the totals include fully closed positions, which have no row in `positions`. For signals: `min_ranking=44` includes the seeded 44-point row and `min_ranking=45`
 excludes it; every row has `ranking >= min_ranking`; and the last-day signal comes back with
 `entry_price: null`.
+
+Added while implementing: the split symbol shows post-split `shares` with `market_value ==
+shares · last_close` (true only because the demo has no dividends) and the ledger's `avg_cost`; day-over-day `total_pnl` never moves more than
+5% of the book (2.5% is the demo's largest; a mishandled split would jump ~7%); the raw chart shows
+the 2:1 drop and the adjusted one does not, and adjusted volume keeps dollar volume; the chart is
+gzipped and uncached; the symbol cache reloads once stale; an unknown symbol is a 404;
+out-of-range signal parameters are a 422; a ledger error is a 500 naming the ticker on
+`/api/portfolio`, while the chart still returns, without its cost line.
 
 **Verify:** `/docs` (FastAPI's Swagger UI) lists all six routes with typed schemas, and
 `uv run pytest && uv run mypy` passes.
@@ -961,6 +994,8 @@ a single `<canvas>` set).
 
 - **KPI row** (`KpiTile.vue`): market value, cost basis, unrealized P&L ($ and %), realized P&L,
   total P&L vs benchmark P&L, open positions count, and the as-of date (the last history point).
+  `totals` is `null` before the first fill: show an empty state, not a row of zeros.
+  `unrealized_pct` can be `null` too.
 - **Positions table:** a PrimeVue `DataTable` sorted by `unrealized_pct` descending. The symbol
   cell is a `RouterLink` to `/chart/:symbol`. A `last_date` older than the as-of date renders as
   a warning badge.
