@@ -1,10 +1,11 @@
 """Tests for turtlex/repository/ingest/lightyear.py LightyearRepository."""
 
+from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
 from unittest.mock import MagicMock
 
-from sqlalchemy.dialects import postgresql
+from sqlalchemy.sql.compiler import Compiled
 from sqlalchemy.sql.dml import Insert
 
 from turtlex.model import LightyearTransaction
@@ -68,25 +69,24 @@ def test_insert_transactions_skipped_conflicts_are_not_counted() -> None:
     assert repo.insert_transactions([_transaction("OR-AAA"), _transaction("OR-BBB")]) == 1
 
 
-def test_insert_transactions_uses_on_conflict_do_nothing_with_returning() -> None:
+def test_insert_transactions_uses_on_conflict_do_nothing_with_returning(compile_statement: Callable[[MagicMock], Compiled]) -> None:
     engine, conn = _make_engine_mock(1)
     repo = LightyearRepository(engine)
     repo.insert_transactions([_transaction()])
 
-    statement: Insert = conn.execute.call_args.args[0]
-    compiled = str(statement.compile(dialect=postgresql.dialect()))
+    compiled = str(compile_statement(conn))
     assert "ON CONFLICT (reference) DO NOTHING" in compiled
     assert "RETURNING turtle.lightyear_transaction.reference" in compiled
 
 
-def test_insert_transactions_payload_omits_db_owned_timestamps() -> None:
+def test_insert_transactions_payload_omits_db_owned_timestamps(compile_statement: Callable[[MagicMock], Compiled]) -> None:
     engine, conn = _make_engine_mock(1)
     repo = LightyearRepository(engine)
     repo.insert_transactions([_transaction()])
 
-    statement: Insert = conn.execute.call_args.args[0]
-    compiled = statement.compile(dialect=postgresql.dialect())
-    inserted = {c.name for c in statement.table.columns} & {key.rsplit("_m0", 1)[0] for key in compiled.params}
+    compiled = compile_statement(conn)
+    assert isinstance(compiled.statement, Insert)
+    inserted = {c.name for c in compiled.statement.table.columns} & {key.rsplit("_m0", 1)[0] for key in compiled.params}
     assert "created_at" not in inserted
     assert "modified_at" not in inserted
     assert compiled.params["reference_m0"] == "OR-AAA"

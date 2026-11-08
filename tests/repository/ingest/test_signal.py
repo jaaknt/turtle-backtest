@@ -1,13 +1,12 @@
 """Tests for turtlex/repository/ingest/signal.py SignalRepository."""
 
 import re
+from collections.abc import Callable
 from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
-from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.compiler import Compiled
-from sqlalchemy.sql.dml import Insert
 
 from turtlex.model import Signal
 from turtlex.repository.ingest import SignalRepository
@@ -46,12 +45,6 @@ def _signal(ticker: str = "FA.US", signal_close: float | None = 17.07, next_open
     )
 
 
-def _compiled(conn: MagicMock) -> Compiled:
-    """The insert statement the repository handed to the connection, compiled for PostgreSQL."""
-    statement: Insert = conn.execute.call_args.args[0]
-    return statement.compile(dialect=postgresql.dialect())
-
-
 def test_upsert_signals_empty_list_never_touches_the_engine() -> None:
     engine, _ = _make_engine_mock()
     assert SignalRepository(engine).upsert_signals([], trading_strategy="bk50d_s12_v2.0", ranking_strategy="qullamaggie") == 0
@@ -66,33 +59,33 @@ def test_upsert_signals_returns_the_input_length() -> None:
     )
 
 
-def test_upsert_signals_conflicts_on_the_natural_key_not_the_surrogate() -> None:
+def test_upsert_signals_conflicts_on_the_natural_key_not_the_surrogate(compile_statement: Callable[[MagicMock], Compiled]) -> None:
     engine, conn = _make_engine_mock()
     SignalRepository(engine).upsert_signals([_signal()], trading_strategy="bk50d_s12_v2.0", ranking_strategy="qullamaggie")
 
-    assert "ON CONFLICT (trading_strategy, symbol, signal_date) DO UPDATE" in str(_compiled(conn))
+    assert "ON CONFLICT (trading_strategy, symbol, signal_date) DO UPDATE" in str(compile_statement(conn))
 
 
-def test_upsert_signals_updates_every_mutable_column() -> None:
+def test_upsert_signals_updates_every_mutable_column(compile_statement: Callable[[MagicMock], Compiled]) -> None:
     """Omitting ranking_strategy leaves the row naming the wrong scheme; omitting parameters
     freezes next_open out of the payload forever. Both pass every other assertion here.
     parameters is merged rather than assigned -- see the dedicated test below."""
     engine, conn = _make_engine_mock()
     SignalRepository(engine).upsert_signals([_signal()], trading_strategy="bk50d_s12_v2.0", ranking_strategy="qullamaggie")
 
-    update_clause = str(_compiled(conn)).split("DO UPDATE SET", 1)[1]
+    update_clause = str(compile_statement(conn)).split("DO UPDATE SET", 1)[1]
     for column in ("ranking_strategy", "ranking", "signal_close"):
         assert f"{column} = excluded.{column}" in update_clause
     assert "parameters = " in update_clause
 
 
-def test_upsert_signals_stores_each_signals_own_values() -> None:
+def test_upsert_signals_stores_each_signals_own_values(compile_statement: Callable[[MagicMock], Compiled]) -> None:
     """Every row-level value, across two rows -- the column mapping and the per-row loop at once."""
     engine, conn = _make_engine_mock()
     second = Signal(ticker="RNG.US", date=date(2026, 6, 2), ranking=44, signal_close=9.5, next_open=None, indicators={"adr_pct": 0.09})
     SignalRepository(engine).upsert_signals([_signal(), second], trading_strategy="bk50d_s12_v2.0", ranking_strategy="qullamaggie")
 
-    params = _compiled(conn).params
+    params = compile_statement(conn).params
     assert params["symbol_m0"] == "FA.US"
     assert params["signal_date_m0"] == SIGNAL_DATE
     assert params["ranking_m0"] == 75
@@ -106,14 +99,14 @@ def test_upsert_signals_stores_each_signals_own_values() -> None:
     assert params["parameters_m1"] == {"adr_pct": 0.09}
 
 
-def test_upsert_signals_carries_next_open_over_but_nothing_else() -> None:
+def test_upsert_signals_carries_next_open_over_but_nothing_else(compile_statement: Callable[[MagicMock], Compiled]) -> None:
     """A narrower --end-date drops next_open from the payload; a plain assignment would then delete
     a value an earlier wider run had backfilled. A blanket `existing || incoming` would fix that but
     also strand every indicator the current run stopped reporting, so only next_open is carried."""
     engine, conn = _make_engine_mock()
     SignalRepository(engine).upsert_signals([_signal()], trading_strategy="bk50d_s12_v2.0", ranking_strategy="qullamaggie")
 
-    update_clause = str(_compiled(conn)).split("DO UPDATE SET", 1)[1]
+    update_clause = str(compile_statement(conn)).split("DO UPDATE SET", 1)[1]
     # incoming first: it stays authoritative for every key it carries, so a retired one is dropped
     assert "parameters = jsonb_strip_nulls(excluded.parameters || jsonb_build_object(" in update_clause
     # ... except next_open, which falls back to the stored value
@@ -123,22 +116,22 @@ def test_upsert_signals_carries_next_open_over_but_nothing_else() -> None:
     assert "jsonb_strip_nulls(turtle.signal.parameters ||" not in update_clause
 
 
-def test_upsert_signals_payload_omits_db_owned_columns() -> None:
+def test_upsert_signals_payload_omits_db_owned_columns(compile_statement: Callable[[MagicMock], Compiled]) -> None:
     engine, conn = _make_engine_mock()
     SignalRepository(engine).upsert_signals([_signal()], trading_strategy="bk50d_s12_v2.0", ranking_strategy="qullamaggie")
 
     # only the VALUES binds, which SQLAlchemy suffixes `_m<row>`; the ON CONFLICT expression
     # contributes its own params (jsonb_build_object_1, parameters_1) that are not insert columns
-    inserted = {m.group(1) for m in (re.fullmatch(r"(.+)_m\d+", key) for key in _compiled(conn).params) if m}
+    inserted = {m.group(1) for m in (re.fullmatch(r"(.+)_m\d+", key) for key in compile_statement(conn).params) if m}
     assert inserted == {"trading_strategy", "ranking_strategy", "symbol", "signal_date", "ranking", "signal_close", "parameters"}
     assert not inserted & {"id", "created_at", "modified_at"}
 
 
-def test_upsert_signals_labels_come_from_the_arguments() -> None:
+def test_upsert_signals_labels_come_from_the_arguments(compile_statement: Callable[[MagicMock], Compiled]) -> None:
     engine, conn = _make_engine_mock()
     SignalRepository(engine).upsert_signals([_signal()], trading_strategy="bk50d_s16_v2.0", ranking_strategy="momentum")
 
-    params = _compiled(conn).params
+    params = compile_statement(conn).params
     assert params["trading_strategy_m0"] == "bk50d_s16_v2.0"
     assert params["ranking_strategy_m0"] == "momentum"
 

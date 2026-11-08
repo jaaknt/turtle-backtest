@@ -1,10 +1,9 @@
 """Tests for turtlex/repository/ingest/job_run.py JobRunRepository."""
 
+from collections.abc import Callable
 from unittest.mock import MagicMock
 
-from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.compiler import Compiled
-from sqlalchemy.sql.dml import Insert
 
 from turtlex.repository.ingest import JobRunRepository
 
@@ -22,11 +21,6 @@ def _make_engine_mock(returned_id: int = 7) -> tuple[MagicMock, MagicMock]:
     return mock_engine, mock_conn
 
 
-def _compiled(conn: MagicMock) -> Compiled:
-    statement: Insert = conn.execute.call_args.args[0]
-    return statement.compile(dialect=postgresql.dialect())
-
-
 class TestStartRun:
     def test_returns_the_generated_id(self) -> None:
         engine, _ = _make_engine_mock(returned_id=42)
@@ -34,21 +28,21 @@ class TestStartRun:
 
         assert repo.start_run("signal-runner", {"cli": {}}, "1.0.0+abc1234", "host") == 42
 
-    def test_insert_returns_the_id_column(self) -> None:
+    def test_insert_returns_the_id_column(self, compile_statement: Callable[[MagicMock], Compiled]) -> None:
         engine, conn = _make_engine_mock()
         repo = JobRunRepository(engine)
 
         repo.start_run("signal-runner", {"cli": {}}, "1.0.0+abc1234", "host")
 
-        assert "RETURNING turtle.job_runs.id" in str(_compiled(conn))
+        assert "RETURNING turtle.job_runs.id" in str(compile_statement(conn))
 
-    def test_payload_omits_db_owned_columns(self) -> None:
+    def test_payload_omits_db_owned_columns(self, compile_statement: Callable[[MagicMock], Compiled]) -> None:
         engine, conn = _make_engine_mock()
         repo = JobRunRepository(engine)
 
         repo.start_run("signal-runner", {"cli": {}}, "1.0.0+abc1234", "host")
 
-        params = _compiled(conn).params
+        params = compile_statement(conn).params
         # duration is generated and id is GENERATED ALWAYS AS IDENTITY: supplying either is an error
         assert "duration" not in params
         assert "id" not in params
@@ -59,44 +53,44 @@ class TestStartRun:
         # assertion here and then fail every INSERT in production, swallowed as a warning
         assert params["parameters"] == {"cli": {}}
 
-    def test_status_and_start_at_come_from_column_defaults(self) -> None:
+    def test_status_and_start_at_come_from_column_defaults(self, compile_statement: Callable[[MagicMock], Compiled]) -> None:
         engine, conn = _make_engine_mock()
         repo = JobRunRepository(engine)
 
         repo.start_run("signal-runner", {"cli": {}}, "1.0.0+abc1234", "host")
 
-        params = _compiled(conn).params
+        params = compile_statement(conn).params
         assert "status" not in params
         assert "start_at" not in params
 
 
 class TestFinishRun:
-    def test_targets_the_run_by_id(self) -> None:
+    def test_targets_the_run_by_id(self, compile_statement: Callable[[MagicMock], Compiled]) -> None:
         engine, conn = _make_engine_mock()
         repo = JobRunRepository(engine)
 
         repo.finish_run(42, "success", 0, None, {"cli": {}})
 
-        compiled = _compiled(conn)
+        compiled = compile_statement(conn)
         assert "WHERE turtle.job_runs.id = " in str(compiled)
         assert 42 in compiled.params.values()
 
-    def test_rewrites_parameters_so_late_sections_land(self) -> None:
+    def test_rewrites_parameters_so_late_sections_land(self, compile_statement: Callable[[MagicMock], Compiled]) -> None:
         engine, conn = _make_engine_mock()
         repo = JobRunRepository(engine)
         parameters = {"cli": {"trading_strategy": "qullamaggie"}, "strategy": {"sma_thresh": 0.12}}
 
         repo.finish_run(42, "success", 0, None, parameters)
 
-        assert _compiled(conn).params["parameters"] == parameters
+        assert compile_statement(conn).params["parameters"] == parameters
 
-    def test_sets_end_at_server_side_and_never_duration(self) -> None:
+    def test_sets_end_at_server_side_and_never_duration(self, compile_statement: Callable[[MagicMock], Compiled]) -> None:
         engine, conn = _make_engine_mock()
         repo = JobRunRepository(engine)
 
         repo.finish_run(42, "failed", 1, "boom", {"cli": {}})
 
-        compiled = _compiled(conn)
+        compiled = compile_statement(conn)
         # end_at comes from the server clock, so it cannot drift from the generated duration
         assert "CURRENT_TIMESTAMP" in str(compiled)
         assert "duration" not in compiled.params

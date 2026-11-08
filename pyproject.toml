@@ -85,7 +85,6 @@ disallow_any_generics = false
 warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool", "possibly-undefined", "deprecated"]
 files = ["turtlex", "scripts", "tests"]
-untyped_calls_exclude = ["sqlalchemy"]  # dialect constructors are unannotated; tests build postgresql.dialect()
 
 [dependency-groups]
 dev = [
