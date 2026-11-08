@@ -3,6 +3,8 @@
 from unittest.mock import MagicMock
 
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.sql.compiler import Compiled
+from sqlalchemy.sql.dml import Insert
 
 from turtlex.repository.ingest import JobRunRepository
 
@@ -20,8 +22,9 @@ def _make_engine_mock(returned_id: int = 7) -> tuple[MagicMock, MagicMock]:
     return mock_engine, mock_conn
 
 
-def _compiled(conn: MagicMock) -> postgresql.dialect:
-    return conn.execute.call_args.args[0].compile(dialect=postgresql.dialect())
+def _compiled(conn: MagicMock) -> Compiled:
+    statement: Insert = conn.execute.call_args.args[0]
+    return statement.compile(dialect=postgresql.dialect())
 
 
 class TestStartRun:

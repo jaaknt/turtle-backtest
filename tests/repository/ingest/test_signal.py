@@ -6,7 +6,8 @@ from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.sql.compiler import SQLCompiler
+from sqlalchemy.sql.compiler import Compiled
+from sqlalchemy.sql.dml import Insert
 
 from turtlex.model import Signal
 from turtlex.repository.ingest import SignalRepository
@@ -45,10 +46,10 @@ def _signal(ticker: str = "FA.US", signal_close: float | None = 17.07, next_open
     )
 
 
-def _compiled(conn: MagicMock) -> SQLCompiler:
+def _compiled(conn: MagicMock) -> Compiled:
     """The insert statement the repository handed to the connection, compiled for PostgreSQL."""
-    compiled: SQLCompiler = conn.execute.call_args.args[0].compile(dialect=postgresql.dialect())
-    return compiled
+    statement: Insert = conn.execute.call_args.args[0]
+    return statement.compile(dialect=postgresql.dialect())
 
 
 def test_upsert_signals_empty_list_never_touches_the_engine() -> None:

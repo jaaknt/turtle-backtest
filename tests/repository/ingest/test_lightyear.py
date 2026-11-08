@@ -5,6 +5,7 @@ from decimal import Decimal
 from unittest.mock import MagicMock
 
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.sql.dml import Insert
 
 from turtlex.model import LightyearTransaction
 from turtlex.repository.ingest import LightyearRepository
@@ -72,7 +73,8 @@ def test_insert_transactions_uses_on_conflict_do_nothing_with_returning() -> Non
     repo = LightyearRepository(engine)
     repo.insert_transactions([_transaction()])
 
-    compiled = str(conn.execute.call_args.args[0].compile(dialect=postgresql.dialect()))
+    statement: Insert = conn.execute.call_args.args[0]
+    compiled = str(statement.compile(dialect=postgresql.dialect()))
     assert "ON CONFLICT (reference) DO NOTHING" in compiled
     assert "RETURNING turtle.lightyear_transaction.reference" in compiled
 
@@ -82,8 +84,9 @@ def test_insert_transactions_payload_omits_db_owned_timestamps() -> None:
     repo = LightyearRepository(engine)
     repo.insert_transactions([_transaction()])
 
-    compiled = conn.execute.call_args.args[0].compile(dialect=postgresql.dialect())
-    inserted = {c.name for c in compiled.statement.table.columns} & {key.rsplit("_m0", 1)[0] for key in compiled.params}
+    statement: Insert = conn.execute.call_args.args[0]
+    compiled = statement.compile(dialect=postgresql.dialect())
+    inserted = {c.name for c in statement.table.columns} & {key.rsplit("_m0", 1)[0] for key in compiled.params}
     assert "created_at" not in inserted
     assert "modified_at" not in inserted
     assert compiled.params["reference_m0"] == "OR-AAA"

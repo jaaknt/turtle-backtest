@@ -24,32 +24,32 @@ def _completed(returncode: int = 0, stdout: str = "abc1234\n") -> subprocess.Com
 
 
 def test_appends_the_short_git_sha(mocker: MockerFixture) -> None:
-    mocker.patch.object(version_module.subprocess, "run", return_value=_completed())
+    mocker.patch.object(subprocess, "run", return_value=_completed())
 
     assert resolve_version() == f"{__version__}+abc1234"
 
 
 def test_falls_back_to_bare_version_when_git_is_missing(mocker: MockerFixture) -> None:
-    mocker.patch.object(version_module.subprocess, "run", side_effect=FileNotFoundError("no git"))
+    mocker.patch.object(subprocess, "run", side_effect=FileNotFoundError("no git"))
 
     assert resolve_version() == __version__
 
 
 def test_falls_back_to_bare_version_when_git_fails(mocker: MockerFixture) -> None:
     # An installed wheel has no .git, so rev-parse exits non-zero
-    mocker.patch.object(version_module.subprocess, "run", return_value=_completed(returncode=128, stdout=""))
+    mocker.patch.object(subprocess, "run", return_value=_completed(returncode=128, stdout=""))
 
     assert resolve_version() == __version__
 
 
 def test_falls_back_to_bare_version_on_timeout(mocker: MockerFixture) -> None:
-    mocker.patch.object(version_module.subprocess, "run", side_effect=subprocess.TimeoutExpired(cmd="git", timeout=5))
+    mocker.patch.object(subprocess, "run", side_effect=subprocess.TimeoutExpired(cmd="git", timeout=5))
 
     assert resolve_version() == __version__
 
 
 def test_runs_git_at_most_once_per_process(mocker: MockerFixture) -> None:
-    run = mocker.patch.object(version_module.subprocess, "run", return_value=_completed())
+    run = mocker.patch.object(subprocess, "run", return_value=_completed())
 
     resolve_version()
     resolve_version()
@@ -59,7 +59,7 @@ def test_runs_git_at_most_once_per_process(mocker: MockerFixture) -> None:
 
 
 def test_resolves_against_the_repo_not_the_cwd(mocker: MockerFixture) -> None:
-    run = mocker.patch.object(version_module.subprocess, "run", return_value=_completed())
+    run = mocker.patch.object(subprocess, "run", return_value=_completed())
 
     resolve_version()
 

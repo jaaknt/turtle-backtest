@@ -5,7 +5,7 @@ import polars as pl
 from turtlex.strategy.ranking.momentum import MomentumRanking
 
 
-def _base_row(**overrides) -> dict:
+def _base_row(**overrides: object) -> dict[str, object]:
     """Return a minimal valid row for MomentumRanking."""
     row = {
         "date": date(2024, 6, 1),
@@ -24,11 +24,11 @@ def _df(rows: list[dict]) -> pl.DataFrame:
     return pl.DataFrame(rows)
 
 
-def _df_with_row(**overrides) -> pl.DataFrame:
+def _df_with_row(**overrides: object) -> pl.DataFrame:
     return _df([_base_row(**overrides)])
 
 
-def _make_df(n: int, close: float = 50.0, ema_200: float = 48.0, **overrides) -> pl.DataFrame:
+def _make_df(n: int, close: float = 50.0, ema_200: float = 48.0, **overrides: object) -> pl.DataFrame:
     """Build an n-row DataFrame with sequential dates."""
     rows = [
         _base_row(

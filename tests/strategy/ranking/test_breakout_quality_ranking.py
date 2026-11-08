@@ -5,7 +5,7 @@ import polars as pl
 from turtlex.strategy.ranking.breakout_quality import BreakoutQualityRanking
 
 
-def _base_row(**overrides) -> dict:
+def _base_row(**overrides: object) -> dict[str, object]:
     """Return a minimal valid row for BreakoutQualityRanking."""
     row = {
         "date": datetime(2024, 6, 1),
@@ -27,7 +27,7 @@ def _base_row(**overrides) -> dict:
     return row
 
 
-def _df_with_row(**overrides) -> pl.DataFrame:
+def _df_with_row(**overrides: object) -> pl.DataFrame:
     return pl.DataFrame([_base_row(**overrides)])
 
 

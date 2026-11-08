@@ -43,7 +43,7 @@ def _legacy_service_sortino(ann_returns_pct: list[float]) -> float:
 
 def _legacy_service_ann_mean(returns_pct: list[float], holding_days: int) -> float:
     """turtlex/service/backtest_service.py:121-124 — annualize each trade, then average."""
-    ann = [min(((1.0 + r / 100.0) ** (365.0 / holding_days) - 1.0) * 100.0, 9999.0) for r in returns_pct]
+    ann = [min((float((1.0 + r / 100.0) ** (365.0 / holding_days)) - 1.0) * 100.0, 9999.0) for r in returns_pct]
     return sum(ann) / len(ann)
 
 

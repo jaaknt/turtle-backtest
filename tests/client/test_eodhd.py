@@ -24,7 +24,7 @@ def _ticker_record(code: str, name: str | None) -> dict:
 @pytest.mark.anyio
 async def test_get_tickers_skips_invalid_records() -> None:
     client = _make_client()
-    client._get = AsyncMock(  # type: ignore[method-assign]
+    client._get = AsyncMock(
         return_value=[
             _ticker_record("AAPL", "Apple Inc"),
             _ticker_record("BAD", None),  # null Name — must be skipped, not raise
@@ -38,6 +38,6 @@ async def test_get_tickers_skips_invalid_records() -> None:
 @pytest.mark.anyio
 async def test_get_tickers_non_list_response_raises() -> None:
     client = _make_client()
-    client._get = AsyncMock(return_value={"error": "unexpected"})  # type: ignore[method-assign]
+    client._get = AsyncMock(return_value={"error": "unexpected"})
     with pytest.raises(TypeError):
         await client.get_tickers_for_exchange("US")

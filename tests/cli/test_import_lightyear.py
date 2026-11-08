@@ -2,6 +2,7 @@
 
 import logging
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from pytest_mock import MockerFixture
@@ -26,7 +27,7 @@ class TestArgumentParser:
 
 
 class TestMain:
-    def _patch_wiring(self, mocker: MockerFixture, summary: ImportSummary | Exception) -> MockerFixture:
+    def _patch_wiring(self, mocker: MockerFixture, summary: ImportSummary | Exception) -> MagicMock:
         settings_cls = mocker.patch("turtlex.cli.import_lightyear.Settings")
         # Without this settings.job_runs.enabled is a truthy MagicMock, so every test
         # would take the enabled branch and shell out to git via resolve_version()

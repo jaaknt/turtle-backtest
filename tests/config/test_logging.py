@@ -69,6 +69,7 @@ class TestApiTokenFilter:
     def test_non_string_arg_without_token_preserved(self) -> None:
         record = _make_record("HTTP Request: %s %s %d", ("GET", "https://example.com", 200))
         self.f.filter(record)
+        assert isinstance(record.args, tuple)
         assert record.args[2] == 200
 
     def test_filter_always_returns_true(self) -> None:

@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import polars as pl
 import pytest
+from sqlalchemy.sql.elements import ClauseElement
 
 from turtlex.common.enums import TimeFrameUnit
 from turtlex.repository.query.daily_bars import LOAD_BATCH_ROWS, UNIVERSE_BARS_SCHEMA, DailyBarsQueryRepository
@@ -56,9 +57,9 @@ def test_get_bars_pl_returns_empty_dataframe_when_no_data(mock_engine: MagicMock
 
 def test_get_bars_pl_passes_correct_date_range(mock_engine: MagicMock) -> None:
     """Verify the SQL statement filters on the expected date boundaries."""
-    captured: list[object] = []
+    captured: list[ClauseElement] = []
 
-    def capture(query: object, connection: object, **kwargs: object) -> pl.DataFrame:
+    def capture(query: ClauseElement, connection: object, **kwargs: object) -> pl.DataFrame:
         captured.append(query)
         return pl.DataFrame()
 
