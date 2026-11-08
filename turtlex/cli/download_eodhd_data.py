@@ -37,8 +37,7 @@ async def download(
     logger.info(f"Dataset to download: {data}")
     if ticker_limit is not None:
         logger.info(f"Running in TEST MODE - limiting to {ticker_limit} tickers")
-    if start_date or end_date:
-        logger.info(f"Custom date range: {start_date or 'default'} to {end_date or 'default'}")
+    logger.info(f"Date range: {start_date} to {end_date}")
 
     eodhd_service = None
     try:

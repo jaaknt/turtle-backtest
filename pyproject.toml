@@ -40,8 +40,15 @@ build-backend = "hatchling.build"
 packages = ["turtlex"]
 
 [tool.pytest.ini_options]
-filterwarnings = ["ignore::DeprecationWarning:websockets.legacy.*"]
-addopts = ["-m", "not bruno"]
+testpaths = ["tests"]
+addopts = ["-m", "not bruno", "-ra"]  # -ra lists every skip and xfail with its reason
+strict = true  # pytest 9: strict config, markers, xfail and parametrize ids
+# A new deprecation in polars, SQLAlchemy or httpx fails the run; tolerate one with an explicit
+# ignore below it (later entries win).
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:websockets.legacy.*",
+]
 markers = [
     "bruno: runs the Bruno CLI against the real EODHD API (requires bru + EODHD_API_KEY); excluded by default, run with `-m bruno`",
 ]
@@ -57,6 +64,8 @@ lint.select = [
     "B",  # flake8-bugbear
     "C4", # flake8-comprehensions
     "UP", # pyupgrade
+    "RUF043", # pytest.raises(match=) with unescaped regex metacharacters
+    "PT011",  # pytest.raises(ValueError) without match=
 ]
 exclude = [
     "db/migrations",
@@ -70,9 +79,11 @@ indent-style = "space"
 
 [tool.mypy]
 python_version = "3.14"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
+strict = true
+# strict minus this one flag: it only asks for dict[str, Any] over bare dict (225 sites)
+disallow_any_generics = false
+warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool", "possibly-undefined", "deprecated"]
 files = ["turtlex", "scripts"]
 
 [dependency-groups]

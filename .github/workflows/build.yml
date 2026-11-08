@@ -23,7 +23,7 @@ jobs:
         run: uv sync --extra lint
 
       - name: Run ruff linter
-        run: uv run ruff check turtlex/ scripts/
+        run: uv run ruff check turtlex/ scripts/ tests/
 
       # docs/ and the root *.md are included because ruff formats Python inside markdown fenced
       # blocks, and a snippet drifting from the code it documents is exactly what that catches.
@@ -31,7 +31,7 @@ jobs:
       # without editing this file. The linter above stays narrow: `ruff check` does not read
       # markdown, so those paths would match no files there.
       - name: Run ruff formatter check
-        run: uv run ruff format --check turtlex/ scripts/ docs/ *.md
+        run: uv run ruff format --check turtlex/ scripts/ tests/ docs/ *.md
 
       - name: Run markdown linter
         uses: DavidAnson/markdownlint-cli2-action@v24
@@ -43,7 +43,7 @@ jobs:
             .claude/skills/**/*.md
 
       - name: Run mypy for static type checking
-        run: uv run mypy turtlex/ scripts/
+        run: uv run mypy  # no paths: [tool.mypy] files in pyproject.toml decides the scope
 
       - name: Run tests
         run: uv run pytest

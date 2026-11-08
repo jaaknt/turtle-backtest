@@ -5,8 +5,9 @@ description: Commit work to main and push it — runs the full CI-parity gate fi
 
 # Commit and Push to main
 
-The `.githooks/pre-commit` hook is check-only: `ruff check` and `mypy` over `turtlex/ scripts/`,
-and `ruff format --check` over `turtlex/ scripts/ docs/ *.md` — the formatter reads Python inside
+The `.githooks/pre-commit` hook is check-only: `ruff check` over `turtlex/ scripts/ tests/`, `mypy`
+over whatever `[tool.mypy] files` lists, and `ruff format --check` over
+`turtlex/ scripts/ tests/ docs/ *.md` — the formatter reads Python inside
 markdown fenced blocks, so a doc snippet can fail it where the linter sees nothing. It aborts the
 commit rather than rewriting anything, and is active only where
 `git config core.hooksPath .githooks` has been run. CI (`.github/workflows/build.yml`, on push to
@@ -16,8 +17,8 @@ that passes it will not break the build.
 1. **Run the gate**, in CI's order, so the first failure is the one CI would report:
 
    ```bash
-   uv run ruff check turtlex/ scripts/
-   uv run ruff format turtlex/ scripts/ docs/ *.md   # write mode — fix formatting here, not in the hook
+   uv run ruff check turtlex/ scripts/ tests/
+   uv run ruff format turtlex/ scripts/ tests/ docs/ *.md  # write mode — fix formatting here, not in the hook
    npx markdownlint-cli2                             # the hook does NOT run this — needed only if a tracked .md changed
    uv run mypy                                       # no arguments, per CLAUDE.md
    uv run pytest                                     # nor this

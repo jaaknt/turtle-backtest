@@ -8,7 +8,7 @@ import matplotlib
 import numpy as np
 import pandas as pd
 import polars as pl
-import quantstats as qs  # type: ignore[import-untyped]
+import quantstats as qs
 
 from turtlex.backtest.metrics import metrics_from_future_trades
 from turtlex.model import PortfolioState
@@ -82,7 +82,7 @@ class PortfolioAnalytics:
                     warnings.filterwarnings("ignore", message=".*Mean of empty slice.*")
                     warnings.filterwarnings("ignore", message=".*Dataset has 0 variance.*")
 
-                    qs.reports.html(
+                    qs.reports.html(  # type: ignore[no-untyped-call]  # quantstats ships py.typed but leaves html unannotated
                         portfolio_returns,
                         benchmark=benchmark_returns if not benchmark_returns.empty else None,
                         output=output_file,

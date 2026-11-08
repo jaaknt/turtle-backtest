@@ -64,7 +64,7 @@ def test_factory_defaults_trading_params_when_not_overridden() -> None:
 
 
 def test_trading_param_unknown_for_the_selected_strategy_raises_value_error() -> None:
-    with pytest.raises(ValueError, match="Unknown parameter 'sma_thresh' for trading strategy 'darvas_box'.*Available"):
+    with pytest.raises(ValueError, match=r"Unknown parameter 'sma_thresh' for trading strategy 'darvas_box'.*Available"):
         get_trading_strategy("darvas_box", MagicMock(), MagicMock(), [("sma_thresh", "0.2")])
 
 
@@ -85,7 +85,7 @@ def test_trading_strategy_name_is_case_insensitive() -> None:
 
 
 def test_unknown_trading_strategy_raises_value_error() -> None:
-    with pytest.raises(ValueError, match="Unknown trading strategy 'nope'.*Available"):
+    with pytest.raises(ValueError, match=r"Unknown trading strategy 'nope'.*Available"):
         get_trading_strategy("nope", MagicMock(), MagicMock())
 
 
@@ -106,7 +106,7 @@ def test_factory_creates_exit_strategy(name: str, expected_class: type[ExitStrat
 
 
 def test_unknown_exit_strategy_raises_value_error() -> None:
-    with pytest.raises(ValueError, match="Unknown exit strategy 'nope'.*Available"):
+    with pytest.raises(ValueError, match=r"Unknown exit strategy 'nope'.*Available"):
         get_exit_strategy("nope", MagicMock())
 
 
@@ -125,7 +125,7 @@ def test_factory_creates_ranking_strategy(name: str, expected_class: type[Rankin
 
 
 def test_unknown_ranking_strategy_raises_value_error() -> None:
-    with pytest.raises(ValueError, match="Unknown ranking strategy 'nope'.*Available"):
+    with pytest.raises(ValueError, match=r"Unknown ranking strategy 'nope'.*Available"):
         get_ranking_strategy("nope")
 
 

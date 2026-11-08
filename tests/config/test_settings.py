@@ -107,7 +107,7 @@ class TestSettingsFromToml:
         mocker.patch("turtlex.config.settings.load_dotenv")  # prevent .env file from restoring vars
         for var in ("DB_APP_PASSWORD", "EODHD_API_KEY"):
             monkeypatch.delenv(var, raising=False)
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError, match="DB_APP_PASSWORD") as exc_info:
             Settings.from_toml()
         message = str(exc_info.value)
         assert "DB_APP_PASSWORD" in message
