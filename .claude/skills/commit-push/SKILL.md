@@ -5,77 +5,62 @@ description: Commit work to main and push it — runs the full CI-parity gate fi
 
 # Commit and Push to main
 
-The `.githooks/pre-commit` hook is check-only: `ruff check` over `turtlex/ scripts/ tests/`, `mypy`
-over whatever `[tool.mypy] files` lists, and `ruff format --check` over
-`turtlex/ scripts/ tests/ docs/ *.md` — the formatter reads Python inside
-markdown fenced blocks, so a doc snippet can fail it where the linter sees nothing. It aborts the
-commit rather than rewriting anything, and is active only where
-`git config core.hooksPath .githooks` has been run. CI (`.github/workflows/build.yml`, on push to
-`main`) additionally runs markdownlint and `pytest` — the gate below covers those, so a commit
-that passes it will not break the build.
+1. **Check the branch.** Work is committed straight to `main`. If `git branch --show-current` is
+   not `main`, stop and ask.
 
-1. **Run the gate**, in CI's order, so the first failure is the one CI would report:
+2. **Run the gate.** It covers every step of CI (`.github/workflows/build.yml`), so a commit that
+   passes it will not break the build:
 
    ```bash
-   uv run ruff check turtlex/ scripts/ tests/
-   uv run ruff format turtlex/ scripts/ tests/ docs/ *.md  # write mode — fix formatting here, not in the hook
-   npx markdownlint-cli2                             # the hook does NOT run this — needed only if a tracked .md changed
-   uv run mypy                                       # no arguments, per CLAUDE.md
-   uv run pytest                                     # nor this
+   uv run ruff format turtlex/ scripts/ tests/ docs/ *.md  # write mode: fix formatting here, the hook only checks
+   bash .githooks/pre-commit                               # ruff check, ruff format --check, mypy
+   npx markdownlint-cli2
+   uv run pytest
    ```
 
-   Any failure stops here — report it and fix it. Never reach for `git commit --no-verify`.
+   `ruff format` also reads Python in markdown fenced blocks, so a doc-only change can fail it. Any
+   failure stops here: report it and fix it. Never use `git commit --no-verify`.
 
-2. **Stage deliberately**: `git status --porcelain` first, then stage. Prefer naming the paths you
-   changed; `git add -A` is fine only once you have read that list and every entry belongs to the
-   change. Anything else — work in progress the user started, an unrelated edit — gets
-   `git restore --staged <path>` and a mention in your summary, never a silent ride along.
+3. **Stage deliberately.** Read `git status --porcelain`, then name the paths that belong to the
+   change (`git add -A` only when every entry does). Leave anything else unstaged and mention it in
+   the summary. `.gitignore` excludes `data/lightyear/` (personal financial records) and `.secrets/`
+   for a reason: if anything sensitive is staged, or the diff is larger than the user expects, stop
+   and say so. Then read `git diff --cached`, immediately before writing the message, so it
+   describes what is actually staged; `--stat` alone can't tell you what the lines say.
 
-   `.gitignore` excludes `data/lightyear/` (personal financial records) and `.secrets/` for a
-   reason. If anything sensitive is staged, or the diff is larger than the user expects, say so
-   rather than committing it silently.
-
-3. **Read the staged diff**: `git diff --cached`, immediately before writing the message — not
-   earlier in the session. The message is a claim about what the diff contains, and the tree can
-   change between an earlier read and the commit. Line counts from `--stat` cannot tell you what
-   the lines say; use them only to orient yourself in a large diff.
-
-4. **Check the branch**: trunk-based development means committing straight to `main` (CLAUDE.md
-   §Git). If `git branch --show-current` is not `main`, stop and ask — do not assume.
-
-5. **Commit** with a heredoc so the body survives intact:
+4. **Commit** with a heredoc, in the history's style (`git log -5`): a short imperative subject,
+   then a prose body saying why, not what the diff already shows.
 
    ```bash
    git commit -F - <<'EOF'
    Short imperative subject
 
-   Body explaining why the change was made, not what the diff already shows.
+   Body explaining why the change was made.
 
    Co-Authored-By: <the attribution line Claude Code currently supplies>
    EOF
    ```
 
-   Copy the trailer from the session's current attribution instructions rather than from this
-   template — the model name in it changes between releases.
+   Copy the trailer from the session's current attribution instructions, not from this template.
 
-6. **Push**: `git push origin main`, and note the SHA range from the push output.
+5. **Push**: `git push origin main`, and note the SHA range from the push output.
 
-7. **Confirm CI passed**: the push is not done until the `Build` workflow is green on the pushed
-   head. The run takes a few seconds to register, so wait for it to appear before watching it:
+6. **Confirm CI passed** on the pushed commit. Watch it in the background (`run_in_background`);
+   the run takes a few seconds to register, and the wait gives up after three minutes:
 
    ```bash
+   gh auth status >/dev/null || { echo "gh not authenticated (GH_TOKEN unset?): CI not verified"; exit 1; }
    sha=$(git rev-parse HEAD)
-   until run=$(gh run list --workflow build.yml --commit "$sha" --json databaseId \
-       --jq '.[0].databaseId') && [ -n "$run" ]; do sleep 5; done
-   gh run watch "$run" --exit-status
+   for _ in $(seq 36); do
+     run=$(gh run list --workflow build.yml --commit "$sha" --json databaseId,url \
+       --jq '.[0] | select(.) | "\(.databaseId) \(.url)"') && [ -n "$run" ] && break
+     sleep 5
+   done
+   [ -n "$run" ] || { echo "no Build run registered for $sha"; exit 1; }
+   echo "$run"; gh run watch "${run%% *}" --exit-status
    ```
 
-   Run this in the background (`run_in_background`), since a build takes minutes. When it exits,
-   report the outcome with the run URL (`gh run view "$run" --json url --jq .url`). On failure,
-   show the failing step's log (`gh run view "$run" --log-failed`) and diagnose it. A gate that
-   passed locally but fails in CI usually means environment drift, such as an unpinned tool
-   version or a test that depends on local data. Don't stop at "CI failed". `CodeQL` also runs
-   on push, but it is slow and not part of the build gate, so don't wait for it.
-
-   If `gh` returns 401, `GH_TOKEN` is probably unset. Say that CI was not verified rather than
-   skipping the step without a word.
+   Report the outcome with the run URL. On failure, show `gh run view <id> --log-failed` and
+   diagnose it: a gate that passed locally but fails in CI usually means environment drift (an
+   unpinned tool, a test that depends on local data). CodeQL also runs on push; it is slow and not
+   a gate, so don't wait for it.
