@@ -92,5 +92,5 @@ dev = [
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "pytest-mock>=3.17.0",
-    "types-requests>=2.33.0.20261006",
+    "types-requests>=2.33.0.20261030",
 ]
