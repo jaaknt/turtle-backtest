@@ -39,7 +39,7 @@ description: Review staged and unstaged changes before committing, or review a s
 
 ### Project Conventions
 
-Check the diff against CLAUDE.md — in particular the "Package Rules" section (shared dataclasses in `turtlex/model.py`, SQL only in `turtlex/repository/`, strategy registries in `factory.py`, Pydantic only for EODHD responses, research/production parity, shared metrics), the "Design Patterns & Principles" section (configuration, async boundary, naming, docstrings, logging, error handling) and the "Standard Workflow" section (polars for all new code; flag any new pandas import). Do not restate those rules here — CLAUDE.md is the single source of truth.
+Check the diff against CLAUDE.md — in particular the "Architecture" section (shared dataclasses in `turtlex/model.py`, SQL only in `turtlex/repository/`, strategy registries in `factory.py`, Pydantic only for EODHD responses, research/production parity, shared metrics), the "Config and profiles" and "Code conventions" sections (configuration, docstrings, logging, error handling) and the "Rules" section (polars for all new code; flag any new pandas import). Do not restate those rules here — CLAUDE.md is the single source of truth.
 
 ### Tests
 

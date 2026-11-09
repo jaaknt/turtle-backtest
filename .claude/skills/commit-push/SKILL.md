@@ -41,7 +41,7 @@ that passes it will not break the build.
    the lines say; use them only to orient yourself in a large diff.
 
 4. **Check the branch**: trunk-based development means committing straight to `main` (CLAUDE.md
-   §Git Workflow). If `git branch --show-current` is not `main`, stop and ask — do not assume.
+   §Git). If `git branch --show-current` is not `main`, stop and ask — do not assume.
 
 5. **Commit** with a heredoc so the body survives intact:
 

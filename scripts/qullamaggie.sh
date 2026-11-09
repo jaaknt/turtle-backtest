@@ -139,7 +139,7 @@ shift $((OPTIND - 1))
 if ! command -v systemd-run >/dev/null 2>&1; then
   echo "systemd-run not found — refusing to run uncapped." >&2
   echo "These studies load millions of rows; an uncapped OOM takes down the whole WSL distro," >&2
-  echo "not just the script. See CLAUDE.md, 'Running Research Studies'." >&2
+  echo "not just the script. See CLAUDE.md, 'Commands'." >&2
   exit 1
 fi
 
