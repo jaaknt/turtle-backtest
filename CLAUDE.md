@@ -57,8 +57,7 @@ alongside s12, never instead of it. Definition: `docs/research/qullamaggie-backt
 - **`turtlex/strategy/factory.py`** registries (`TRADING_STRATEGIES`, `EXIT_STRATEGIES`,
   `RANKING_STRATEGIES`) are the name → class mapping; CLIs derive argparse `choices` from them,
   never a hardcoded list. Implementations live in `turtlex/strategy/{trading,exit,ranking}/`
-  behind the ABC in each `base.py` ([docs/strategy.md](docs/strategy.md)). New strategy: the
-  `add-trading-strategy` skill.
+  behind the ABC in each `base.py` ([docs/strategy.md](docs/strategy.md)).
 - **`turtlex/research/qullamaggie.py`** is the bulk mirror of `QullamaggieStrategy`; keep both.
   `tests/research/test_qullamaggie_parity.py` keeps their signals and filter constants identical.
 - **`turtlex/backtest/metrics.py`** is the single source of trade/daily metrics
