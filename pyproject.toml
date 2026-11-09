@@ -17,12 +17,12 @@ dependencies = [
     "numpy>=2.5.4,<3",               # used by analytics + research scripts
     "setuptools>=84.2.1",
     "quantstats>=0.0.86",          # Portfolio analytics for quantitative analysis
-    "pydantic>=2.14.1",
-    "polars>=2.0.0",
+    "pydantic>=2.14.2",
+    "polars>=2.1.0",
 ]
 
 [project.optional-dependencies]
-lint = ["ruff>=0.17.2", "mypy>=2.4.0"]
+lint = ["ruff>=0.17.3", "mypy>=2.4.1"]
 
 [project.scripts]
 signal-runner = "turtlex.cli.signal_runner:main"
@@ -88,8 +88,8 @@ files = ["turtlex", "scripts", "tests"]
 
 [dependency-groups]
 dev = [
-    "pandas-stubs>=3.0.5.260914,<4",  # must match pandas major version
-    "pytest>=9.1.1",
+    "pandas-stubs>=3.1.0.261029,<4",  # must match pandas major version
+    "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
     "pytest-mock>=3.17.0",
     "types-requests>=2.33.0.20261030",
