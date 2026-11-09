@@ -4,20 +4,35 @@ on:
   push:
     branches:
       - main
+  pull_request: # Dependabot's update PRs; everything else is committed straight to main
 
 permissions:
   contents: read
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Actions are pinned to commit SHAs (Dependabot moves them with their version comments).
+# setup-uv publishes no floating major tag since v8, so a SHA is the only stable pin there.
+
+env:
+  # uv.lock out of step with pyproject.toml fails the build instead of being re-resolved.
+  UV_LOCKED: "1"
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15 # GitHub's default is 6 hours; a hung step should fail fast
 
     steps:
       - name: Check out the code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
 
       - name: Install dependencies
         run: uv sync --extra lint
@@ -34,13 +49,8 @@ jobs:
         run: uv run ruff format --check turtlex/ scripts/ tests/ docs/ *.md
 
       - name: Run markdown linter
-        uses: DavidAnson/markdownlint-cli2-action@v24
-        with:
-          globs: |
-            README.md
-            CLAUDE.md
-            docs/**/*.md
-            .claude/skills/**/*.md
+        # Files and rules come from .markdownlint-cli2.jsonc.
+        uses: DavidAnson/markdownlint-cli2-action@696eb3f2509270d7b882d2aa68347bc676e7af34 # v25.0.0
 
       - name: Run mypy for static type checking
         run: uv run mypy  # no paths: [tool.mypy] files in pyproject.toml decides the scope
