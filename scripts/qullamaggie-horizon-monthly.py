@@ -48,7 +48,6 @@ from turtlex.common.report import config_table, run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.research import qullamaggie as qm
-from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
 
@@ -57,11 +56,10 @@ EVAL_END = date(2025, 12, 31)
 
 STRATEGY_LABEL = "bk50d_s12_v2.0"
 SMA_THRESH = 0.12
-MIN_RANKING = 44  # QullamaggieRanking gate, matching the portfolio-runner default
 # Gates reported side by side, loosest first after the live one. The live gate leads; the rest
 # are progressively stricter cuts, included to show whether the ranking's edge keeps scaling
 # with selectivity or flattens out — and at what point the signal count stops filling a book.
-GATES: list[int] = [MIN_RANKING, 60, 70, 80]
+GATES: list[int] = [qm.MIN_RANKING, 60, 70, 80]
 # A Mean% cell below this many signals prints `·` rather than a number — the same floor the
 # cohort studies use (`if len(rets) < 5: return None`). At the tighter gates a thin year can
 # fall to one or two names, where a mean is that name's story and reads as a finding. The row's
@@ -69,7 +67,6 @@ GATES: list[int] = [MIN_RANKING, 60, 70, 80]
 MIN_CELL_N = 5
 
 MAX_MONTH = 18
-MIN_HISTORY = 300
 
 # Signals are generated in 3-year slices. A single 2013-2026 load of the qualified universe is
 # wider than the relax sweep, which already peaks at ~3.5 GB — over the 4 GB cap that keeps an
@@ -108,23 +105,6 @@ def add_months(d: date, months: int) -> date:
     year = d.year + total // 12
     month = total % 12 + 1
     return date(year, month, min(d.day, calendar.monthrange(year, month)[1]))
-
-
-# ── Ranking ──────────────────────────────────────────────────────────────────
-
-_ranker = QullamaggieRanking()
-
-
-def compute_ranking(row: dict) -> int:
-    """Score one signal 0-100 with the production QullamaggieRanking.
-
-    `raw_close` is mapped onto the `close` column the ranking reads: QullamaggieStrategy
-    keeps `close` unadjusted and the price bands are dollar-denominated.
-    """
-    row_df = pl.DataFrame(
-        [{"date": row["date"], "close": row["raw_close"], "adr_pct": row["adr_pct"], "pct_vs_sma50": row["pct_vs_sma50"]}]
-    )
-    return _ranker.ranking(row_df, row["date"])
 
 
 # ── Marginal monthly returns ──────────────────────────────────────────────────
@@ -323,7 +303,7 @@ def build_tables(records: list[dict], signal_rows: list[dict]) -> list[str]:
 
     lines: list[str] = []
     for gate in GATES:
-        note = "  (the live configuration)" if gate == MIN_RANKING else "  (a stricter cut)"
+        note = "  (the live configuration)" if gate == qm.MIN_RANKING else "  (a stricter cut)"
         lines += block(f"R>={gate} — {STRATEGY_LABEL}, QullamaggieRanking >= {gate}{note}", gate)
         lines += ["", ""]
     lines += block(f"UNGATED — {STRATEGY_LABEL}, every signal the filters emit  (no ranking gate)", 0)
@@ -376,7 +356,7 @@ def build_summary(records: list[dict], signal_rows: list[dict]) -> str:
             per_year[r["year"]] = per_year.get(r["year"], 0) + 1
         thin = ", ".join(f"{y}: {c}" for y, c in sorted(per_year.items(), key=lambda kv: kv[1])[:2])
 
-        note = " (live)" if floor == MIN_RANKING else ""
+        note = " (live)" if floor == qm.MIN_RANKING else ""
         lines.append(
             f"| {label}{note} | {len(sigs)} | {100.0 * len(sigs) / total:.0f}% | {len(by_month[MAX_MONTH])} | "
             f"{sum(early) / len(early):+.2f}% | {sum(late) / len(late):+.2f}% | {rebuy:+.1f}% | "
@@ -489,8 +469,6 @@ def main() -> None:
                 "empty rather than failing. Is ACTIVE_PROFILE=hetzner-db set? The local Docker mirror "
                 "only holds ~5 years."
             )
-        valid_syms = bars.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"]
-        bars = bars.filter(pl.col("symbol").is_in(valid_syms.to_list()))
         bull = qm.load_spy_regime(repo, chunk_start, load_end)
 
         # Project down to the columns resolve_entries and run_trades read before building the
@@ -504,11 +482,10 @@ def main() -> None:
         del ind
         # Score every signal and carry the score as a column rather than filtering on it, so every
         # gate's table comes from one generation and the blocks differ only by the threshold.
-        rankings = [compute_ranking(r) for r in sig.iter_rows(named=True)]
-        sig = sig.with_columns(pl.Series("ranking", rankings, dtype=pl.Int64))
+        sig = qm.add_ranking(sig)
         sig = qm.resolve_entries(sig, slim)
-        n_live = int((sig["ranking"] >= MIN_RANKING).sum())
-        print(f"  {len(sig)} signals with an entry bar, {n_live} at R>={MIN_RANKING}", flush=True)
+        n_live = int((sig["ranking"] >= qm.MIN_RANKING).sum())
+        print(f"  {len(sig)} signals with an entry bar, {n_live} at R>={qm.MIN_RANKING}", flush=True)
 
         signal_rows += [
             {"year": yr, "ranking": rk} for yr, rk in zip(sig["date"].dt.year().to_list(), sig["ranking"].to_list(), strict=True)

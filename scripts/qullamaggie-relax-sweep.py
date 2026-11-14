@@ -50,7 +50,6 @@ from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.repository.query.ticker import TickerQueryRepository
 from turtlex.research import qullamaggie as qm
-from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2015, 1, 1)
@@ -64,7 +63,6 @@ ROC_CAP = 1.00
 RSI_CAP = 70.0
 ADR_CHANGE_CAP = 0.90
 MIN_NEG = 10
-MIN_RANKING = 44  # QullamaggieRanking gate, matching the portfolio-runner default
 
 # Loosest universe any variant asks for; loaded once, then narrowed per variant.
 LOOSEST_MCAP = 1_000_000_000
@@ -134,23 +132,6 @@ def load_loosest_bars(bars_history: DailyBarsQueryRepository) -> pl.DataFrame:
     return qm.prepare_bars(df.rename({"close": "raw_close"}))
 
 
-# ── Ranking ──────────────────────────────────────────────────────────────────
-
-_ranker = QullamaggieRanking()
-
-
-def compute_ranking(row: dict) -> int:
-    """Score one signal 0-100 with the production QullamaggieRanking.
-
-    `raw_close` is mapped onto the `close` column the ranking reads: QullamaggieStrategy
-    keeps `close` unadjusted and the price bands are dollar-denominated.
-    """
-    row_df = pl.DataFrame(
-        [{"date": row["date"], "close": row["raw_close"], "adr_pct": row["adr_pct"], "pct_vs_sma50": row["pct_vs_sma50"]}]
-    )
-    return _ranker.ranking(row_df, row["date"])
-
-
 def get_signals(df: pl.DataFrame, bull_dates: set[date], allowed_syms: set[str], params: dict) -> pl.DataFrame:
     cands = (
         df.filter(
@@ -190,9 +171,11 @@ def get_signals(df: pl.DataFrame, bull_dates: set[date], allowed_syms: set[str],
         prev = last_trigger.get(sym)
         if prev is None or (d - prev).days > cooldown:
             last_trigger[sym] = d
-            if d >= EVAL_START and compute_ranking(row) >= MIN_RANKING:
+            if d >= EVAL_START:
                 rows_out.append(row)
-    return pl.DataFrame(rows_out) if rows_out else cands.clear()
+    if not rows_out:
+        return cands.clear()
+    return qm.add_ranking(pl.DataFrame(rows_out)).filter(pl.col("ranking") >= qm.MIN_RANKING).drop("ranking")
 
 
 def run_trades(signals: pl.DataFrame, sym_dates: dict[str, np.ndarray], sym_closes: dict[str, np.ndarray]) -> list[dict]:
@@ -390,7 +373,7 @@ def main() -> None:
             "ADR_change<90%, SPY>200d SMA, close>$5&<$250, avg_vol>=100K, cooldown 30d, "
             "mcap>=1.5B excl Comm/RE |\n"
         )
-        fh.write(f"| Ranking gate | QullamaggieRanking >= {MIN_RANKING}, applied to every variant including baseline |\n")
+        fh.write(f"| Ranking gate | QullamaggieRanking >= {qm.MIN_RANKING}, applied to every variant including baseline |\n")
         fh.write("| Signal layer | turtlex/research/qullamaggie.py (parity-tested against QullamaggieStrategy) |\n")
         fh.write(
             "| Universe note | companies with a NULL sector are excluded from every variant, matching the "

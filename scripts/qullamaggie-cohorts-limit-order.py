@@ -3,9 +3,9 @@
 Limit-order fill sensitivity test for the 366d-hold cohorts of qullamaggie-backtest-v4.
 
 Cohorts: bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (all 366d hold, MIN_RANKING >= 44).
-Bars, indicators, the SPY regime and entry resolution come from turtlex.research.qullamaggie,
-which is parity-tested against QullamaggieStrategy; the filter chain and cooldown are local
-copies of it (RSI<70, ADR mean-of-ratios>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x,
+Bars, indicators, the SPY regime, the filter chain, the cooldown and entry resolution all come
+from turtlex.research.qullamaggie, which is parity-tested against QullamaggieStrategy
+(RSI<70, ADR mean-of-ratios>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x,
 no tight_range, SPY>200d SMA, close>$5&<$250, avg_vol>=100K).
 open/close/high/low are split/dividend-adjusted; the $5-$250 band stays on the raw close.
 
@@ -38,8 +38,8 @@ from turtlex.backtest.metrics import compute_trade_metrics
 from turtlex.common.report import config_table, run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
+from turtlex.research import cohorts
 from turtlex.research import qullamaggie as qm
-from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2015, 1, 1)
@@ -48,20 +48,9 @@ HOLD_CAL = 366
 HOLD_MAX_CAL = 366
 LIMIT_WINDOW_CAL = 30  # limit order stays resting this many calendar days after the signal
 
-MIN_AVG_VOL = 100_000
-MIN_PRICE = 5.0
-MAX_PRICE = 250.0
-MIN_HISTORY = 300
-COOLDOWN = 30
-VOL_SURGE_MAX = 2.0
-ROC_CAP = 1.00
-RSI_CAP = 70.0
-ADR_MIN = 0.03
-ADR_CHANGE_CAP = 0.90
 MIN_NEG = 10
 
 LIMIT_PCTS = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05]
-MIN_RANKING = 44  # QullamaggieRanking gate, matching the portfolio-runner default
 SMA_THRESHS = [(0.20, "bk50d_s20_v2.0"), (0.16, "bk50d_s16_v2.0"), (0.12, "bk50d_s12_v2.0")]
 
 CONFIG_ROWS: list[tuple[str, str]] = [
@@ -83,77 +72,16 @@ CONFIG_ROWS: list[tuple[str, str]] = [
         "EOD — buy at signal-day close (pre-v2.0, retained for continuity)",
     ),
     ("Fixed filters", "RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x (no tight_range)"),
-    ("Ranking gate", f"QullamaggieRanking >= {MIN_RANKING}"),
+    ("Ranking gate", f"QullamaggieRanking >= {qm.MIN_RANKING}"),
     ("Market regime", "SPY close > 200d SMA"),
-    ("Price range", f"> ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f}"),
-    ("Min avg vol (20d)", f">= {MIN_AVG_VOL // 1000}K"),
-    ("Cooldown", f"{COOLDOWN} calendar days"),
+    ("Price range", f"> ${qm.MIN_PRICE:.0f} and < ${qm.MAX_PRICE:.0f}"),
+    ("Min avg vol (20d)", f">= {qm.MIN_AVG_VOL // 1000}K"),
+    ("Cooldown", f"{qm.COOLDOWN_DAYS} calendar days"),
     ("Universe", "US common stocks, market_cap >= 1.5B, excl. Comm/RE"),
     ("Sortino", f"mean / RMS(min(r,0)) over all N x sqrt(365/hold), min **{MIN_NEG}** losers (turtlex/backtest/metrics.py)"),
 ]
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-cohorts-limit-order.md"
-
-
-# ── Ranking ──────────────────────────────────────────────────────────────────
-
-_ranker = QullamaggieRanking()
-
-
-def compute_ranking(row: dict) -> int:
-    """Score one signal 0-100 with the production QullamaggieRanking.
-
-    `raw_close` is mapped onto the `close` column the ranking reads: QullamaggieStrategy
-    keeps `close` unadjusted and the price bands are dollar-denominated.
-    """
-    row_df = pl.DataFrame(
-        [{"date": row["date"], "close": row["raw_close"], "adr_pct": row["adr_pct"], "pct_vs_sma50": row["pct_vs_sma50"]}]
-    )
-    return _ranker.ranking(row_df, row["date"])
-
-
-# ── Signal generation ────────────────────────────────────────────────────────
-
-
-def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
-    cands = (
-        df.filter(
-            (pl.col("date") <= EVAL_END)
-            & pl.col("sma50").is_not_null()
-            & pl.col("max_c_50d").is_not_null()
-            & pl.col("rsi14").is_not_null()
-            & pl.col("roc_252d").is_not_null()
-            & pl.col("adr_pct_change").is_not_null()
-            & (pl.col("rsi14") < RSI_CAP)
-            & (pl.col("raw_close") > MIN_PRICE)
-            & (pl.col("raw_close") < MAX_PRICE)
-            & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
-            & (pl.col("adr_pct") >= ADR_MIN)
-            & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
-            & (pl.col("adj_close") > pl.col("max_c_50d"))
-            & (pl.col("pct_vs_sma50") >= sma_t)
-            & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
-            & (pl.col("roc_252d") < ROC_CAP)
-            & pl.col("date").is_in(bull_dates)
-        )
-        .select(["symbol", "date", "raw_close", "adj_close", "adr_pct", "pct_vs_sma50"])
-        .sort(["symbol", "date"])
-    )
-    if cands.is_empty():
-        return cands
-    rows_out: list[dict] = []
-    last_trigger: dict[str, date] = {}
-    # Cooldown runs from the warmup window rather than EVAL_START, so a trigger just before
-    # the window suppresses an early in-window signal — the ordering qm.get_signals uses.
-    # Only accepted triggers on or after EVAL_START are emitted.
-    for row in cands.iter_rows(named=True):
-        sym, d = row["symbol"], row["date"]
-        prev = last_trigger.get(sym)
-        if prev is None or (d - prev).days > COOLDOWN:
-            last_trigger[sym] = d
-            if d >= EVAL_START and compute_ranking(row) >= MIN_RANKING:
-                rows_out.append(row)
-    return pl.DataFrame(rows_out) if rows_out else cands.clear()
 
 
 # ── Trade runners ──────────────────────────────────────────────────────────────
@@ -363,17 +291,7 @@ def main() -> None:
     print("Loading SPY regime …", flush=True)
     bull_dates = qm.load_spy_regime(bars_history, EVAL_START, EVAL_END)
 
-    print("Loading bars …", flush=True)
-    # Bars run past EVAL_END: a 366d hold needs forward data beyond the last signal date.
-    df = qm.load_bars(bars_history, EVAL_START, date.today())
-    valid_syms = df.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"]
-    df = df.filter(pl.col("symbol").is_in(valid_syms.to_list()))
-
-    print("Computing indicators …", flush=True)
-    # Project down to the columns qm.resolve_entries reads before building the indicator
-    # frame, so the full-width bar frame is released rather than held alongside it.
-    bars = df.select("symbol", "date", "adj_open")
-    df = qm.add_indicators(df)
+    df, bars = cohorts.load_universe(bars_history, EVAL_START)
 
     sym_dates: dict[str, np.ndarray] = {}
     sym_closes: dict[str, np.ndarray] = {}
@@ -388,7 +306,8 @@ def main() -> None:
     calendar_sections: list[str] = []
     for sma_t, label in SMA_THRESHS:
         print(f"Generating signals for {label} …", flush=True)
-        signals = get_signals(df, bull_dates, sma_t)
+        signals = qm.add_ranking(qm.get_signals(df, bull_dates, EVAL_START, sma_t, extra=[pl.col("date") <= EVAL_END]))
+        signals = signals.filter(pl.col("ranking") >= qm.MIN_RANKING).select("symbol", "date")
         entered = qm.resolve_entries(signals, bars)
         n_sig = len(signals)
         print(f"  {n_sig} gated signals, {len(entered)} with an entry bar", flush=True)

@@ -28,27 +28,12 @@ from turtlex.backtest.metrics import compute_trade_metrics
 from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
+from turtlex.research import cohorts
 from turtlex.research import qullamaggie as qm
-from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
-_EPOCH = date(1970, 1, 1)
 EVAL_START = date(2007, 1, 1)
 EVAL_END = date(2026, 6, 26)
-HOLD_CAL = 366
-HOLD_MAX_CAL = 366
-MIN_AVG_VOL = 100_000
-MIN_PRICE = 5.0
-MAX_PRICE = 250.0
-MIN_HISTORY = 300
-COOLDOWN = 30
-VOL_SURGE_MAX = 2.0
-ROC_CAP = 1.00
-RSI_CAP = 70.0
-ADR_MIN = 0.03
-ADR_CHANGE_CAP = 0.90
 MIN_NEG = 3
-
-MIN_RANKING = 44  # QullamaggieRanking gate, matching the portfolio-runner default
 
 STRATEGIES = [
     ("bk50d_s20_v2.0", 0.20),
@@ -81,94 +66,6 @@ def load_benchmark_yearly_returns(engine: sa.Engine, symbol: str) -> dict[int, f
     for d, c in rows:
         by_year.setdefault(d.year, []).append(float(c))
     return {y: (v[-1] / v[0] - 1.0) * 100.0 for y, v in by_year.items() if len(v) > 1}
-
-
-# ── Ranking ──────────────────────────────────────────────────────────────────
-
-_ranker = QullamaggieRanking()
-
-
-def compute_ranking(row: dict) -> int:
-    """Score one signal 0-100 with the production QullamaggieRanking.
-
-    `raw_close` is mapped onto the `close` column the ranking reads: QullamaggieStrategy
-    keeps `close` unadjusted and the price bands are dollar-denominated.
-    """
-    row_df = pl.DataFrame(
-        [{"date": row["date"], "close": row["raw_close"], "adr_pct": row["adr_pct"], "pct_vs_sma50": row["pct_vs_sma50"]}]
-    )
-    return _ranker.ranking(row_df, row["date"])
-
-
-# ── Signal generation ──────────────────────────────────────────────────────────
-
-
-def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
-    cands = (
-        df.filter(
-            (pl.col("date") <= EVAL_END)
-            & pl.col("sma50").is_not_null()
-            & pl.col("max_c_50d").is_not_null()
-            & pl.col("rsi14").is_not_null()
-            & pl.col("roc_252d").is_not_null()
-            & pl.col("adr_pct_change").is_not_null()
-            & (pl.col("rsi14") < RSI_CAP)
-            & (pl.col("raw_close") > MIN_PRICE)
-            & (pl.col("raw_close") < MAX_PRICE)
-            & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
-            & (pl.col("adr_pct") >= ADR_MIN)
-            & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
-            & (pl.col("adj_close") > pl.col("max_c_50d"))
-            & (pl.col("pct_vs_sma50") >= sma_t)
-            & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
-            & (pl.col("roc_252d") < ROC_CAP)
-            & pl.col("date").is_in(bull_dates)
-        )
-        .select(["symbol", "date", "raw_close", "adj_close", "adr_pct", "pct_vs_sma50"])
-        .sort(["symbol", "date"])
-    )
-    if cands.is_empty():
-        return cands
-    rows_out: list[dict] = []
-    last_trigger: dict[str, date] = {}
-    # Cooldown runs from the warmup window rather than EVAL_START, so a trigger just before
-    # the window suppresses an early in-window signal — the ordering qm.get_signals uses.
-    # Only accepted triggers on or after EVAL_START are emitted.
-    for row in cands.iter_rows(named=True):
-        sym, d = row["symbol"], row["date"]
-        prev = last_trigger.get(sym)
-        if prev is None or (d - prev).days > COOLDOWN:
-            last_trigger[sym] = d
-            if d >= EVAL_START and compute_ranking(row) >= MIN_RANKING:
-                rows_out.append(row)
-    return pl.DataFrame(rows_out) if rows_out else cands.clear()
-
-
-# ── Trade runner ──────────────────────────────────────────────────────────────
-
-
-def run_trades(
-    signals: pl.DataFrame,
-    sym_dates: dict[str, np.ndarray],
-    sym_closes: dict[str, np.ndarray],
-) -> list[dict]:
-    records: list[dict] = []
-    for row in signals.iter_rows(named=True):
-        sym = row["symbol"]
-        if sym not in sym_dates:
-            continue
-        dates = sym_dates[sym]
-        closes = sym_closes[sym]
-        entry_int = (row["entry_date"] - _EPOCH).days
-        if dates[-1] < entry_int + HOLD_MAX_CAL:
-            continue
-        idx_exit = int(np.searchsorted(dates, entry_int + HOLD_CAL))
-        if idx_exit >= len(dates):
-            continue
-        entry_px = float(row["entry_price"])
-        ret = float((closes[idx_exit] - entry_px) / entry_px)
-        records.append({"year": row["date"].year, "month": row["date"].month, "ret": ret})
-    return records
 
 
 # ── Output ────────────────────────────────────────────────────────────────────
@@ -217,7 +114,7 @@ def build_yearly_stats_table(
         return f"{v:>+7.1f}" if not np.isnan(v) else f"{'—':>7}"
 
     def fmt_row(a: np.ndarray, qqq_pct: float, spy_pct: float) -> str:
-        m = compute_trade_metrics(a * 100, HOLD_CAL, min_losers=MIN_NEG)
+        m = compute_trade_metrics(a * 100, cohorts.HOLD_CAL, min_losers=MIN_NEG)
         if m is None:  # unreachable: the years come from the trades themselves
             return f"{0:>5} {'—':>6} {'—':>7} {fmt_pct(qqq_pct)} {fmt_pct(spy_pct)} {'—':>7} {'n/a':>8} {'—':>8}"
         sr_str = f"{m.sortino:>8.3f}" if not np.isnan(m.sortino) else f"{'n/a':>8}"
@@ -257,32 +154,15 @@ def main() -> None:
     qqq_yearly = load_benchmark_yearly_returns(settings.engine, "QQQ.US")
     spy_yearly = load_benchmark_yearly_returns(settings.engine, "SPY.US")
 
-    print("Loading bars …", flush=True)
-    # Bars run past EVAL_END: a 366d hold needs forward data beyond the last signal date.
-    df = qm.load_bars(bars_history, EVAL_START, date.today())
-    valid_syms = df.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"]
-    df = df.filter(pl.col("symbol").is_in(valid_syms.to_list()))
-
-    print("Computing indicators …", flush=True)
-    # Project down to the columns qm.resolve_entries reads before building the indicator
-    # frame, so the full-width bar frame is released rather than held alongside it.
-    bars = df.select("symbol", "date", "adj_open")
-    df = qm.add_indicators(df)
-
-    sym_dates: dict[str, np.ndarray] = {}
-    sym_closes: dict[str, np.ndarray] = {}
-    for (sym,), grp in df.sort(["symbol", "date"]).group_by(["symbol"], maintain_order=False):
-        g = grp.sort("date")
-        sym_dates[sym] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int32)
-        sym_closes[sym] = g["adj_close"].cast(pl.Float64).to_numpy(allow_copy=True)
+    df, bars = cohorts.load_universe(bars_history, EVAL_START)
 
     fixed_hdr = (
-        f"Hold: {HOLD_CAL}d | Period: {EVAL_START} – {EVAL_END}\n"
-        f"Fixed: roc_12m<{int(ROC_CAP * 100)}%, "
-        f"vol_surge<{VOL_SURGE_MAX}x (no lower bound), RSI<{int(RSI_CAP)}, ADR>={ADR_MIN * 100:.1f}%, "
-        f"ADR_change<{int(ADR_CHANGE_CAP * 100)}%, "
-        f"SPY>200d SMA, close>${MIN_PRICE:.0f}&<${MAX_PRICE:.0f}, avg_vol>={MIN_AVG_VOL // 1000}K, "
-        f"QullamaggieRanking>={MIN_RANKING}\n"
+        f"Hold: {cohorts.HOLD_CAL}d | Period: {EVAL_START} – {EVAL_END}\n"
+        f"Fixed: roc_12m<{int(qm.ROC_CAP * 100)}%, "
+        f"vol_surge<{qm.VOL_SURGE_MAX}x (no lower bound), RSI<{int(qm.RSI_CAP)}, ADR>={qm.ADR_MIN * 100:.1f}%, "
+        f"ADR_change<{int(qm.ADR_CHANGE_CAP * 100)}%, "
+        f"SPY>200d SMA, close>${qm.MIN_PRICE:.0f}&<${qm.MAX_PRICE:.0f}, avg_vol>={qm.MIN_AVG_VOL // 1000}K, "
+        f"QullamaggieRanking>={qm.MIN_RANKING}\n"
     )
     print("\n" + fixed_hdr)
 
@@ -290,9 +170,11 @@ def main() -> None:
 
     for strat_label, sma_t in STRATEGIES:
         print(f"Generating signals for {strat_label} …", flush=True)
-        signals = qm.resolve_entries(get_signals(df, bull_dates, sma_t), bars)
-        print(f"  {len(signals)} signals", flush=True)
-        records = run_trades(signals, sym_dates, sym_closes)
+        trades = cohorts.cohort_trades(df, bars, bull_dates, sma_t, start=EVAL_START, end=EVAL_END)
+        print(f"  {trades.height} trades", flush=True)
+        records = [
+            {"year": d.year, "month": d.month, "ret": r} for d, r in zip(trades["date"].to_list(), trades["ret"].to_list(), strict=True)
+        ]
 
         section = [f"### {strat_label}", ""]
         section += build_monthly_table(records)

@@ -60,6 +60,7 @@ import polars as pl
 from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
+from turtlex.research import cohorts
 from turtlex.research import qullamaggie as qm
 from turtlex.research import ranking_lab as rl
 from turtlex.research.portfolio_replay import Market, run_sim, top_k
@@ -123,54 +124,6 @@ def _load_spy_closes(repo: DailyBarsQueryRepository, start: date, end: date) -> 
     return spy.sort("date").select("date", pl.col("adjusted_close").alias("adj_close"))
 
 
-def _forward_returns(signals: pl.DataFrame, bars: pl.DataFrame) -> pl.DataFrame:
-    """Attach each signal's fixed 366-calendar-day return, entered at its adjusted open.
-
-    Mirrors `forward_returns` in turtlex/research/cohorts.py exactly — entry at
-    `entry_price` (the next day's adjusted open), exit at the adjusted close of the first bar
-    at or after entry + 366 calendar days — so the lab's decile tables are comparable with the
-    committed cohort results rather than being a second, subtly different convention.
-
-    Signals whose symbol has no bar that far forward are dropped, as they are there.
-
-    Args:
-        signals: Signal frame from `qm.resolve_entries`
-        bars: Adjusted bars covering the signal window and its forward pad
-
-    Returns:
-        The signals with a `ret` column, unfillable ones removed.
-    """
-    if signals.is_empty():
-        return signals.with_columns(pl.Series("ret", [], dtype=pl.Float64))
-
-    sym_dates: dict[str, np.ndarray] = {}
-    sym_closes: dict[str, np.ndarray] = {}
-    for (sym,), grp in bars.group_by(["symbol"], maintain_order=False):
-        g = grp.sort("date")
-        sym_dates[str(sym)] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int64)
-        sym_closes[str(sym)] = g["adj_close"].cast(pl.Float64).to_numpy(allow_copy=True)
-
-    keep: list[bool] = []
-    rets: list[float] = []
-    for sym, entry_date, entry_px in zip(
-        signals["symbol"].to_list(), signals["entry_date"].to_list(), signals["entry_price"].to_list(), strict=True
-    ):
-        dates, closes = sym_dates.get(str(sym)), sym_closes.get(str(sym))
-        entry_int = (entry_date - _EPOCH).days
-        if dates is None or closes is None or dates[-1] < entry_int + rl.HOLD_CAL:
-            keep.append(False)
-            rets.append(float("nan"))
-            continue
-        idx_exit = int(np.searchsorted(dates, entry_int + rl.HOLD_CAL))
-        if idx_exit >= len(dates):
-            keep.append(False)
-            rets.append(float("nan"))
-            continue
-        keep.append(True)
-        rets.append(float((closes[idx_exit] - float(entry_px)) / float(entry_px)))
-    return signals.with_columns(pl.Series("ret", rets)).filter(pl.Series(keep))
-
-
 def build_cache() -> None:
     """Rebuild .cache/ranking-lab/ from the database.
 
@@ -211,7 +164,7 @@ def build_cache() -> None:
         for name, thresh in rl.CONFIGS:
             sig = qm.resolve_entries(qm.get_signals(ind, bull, chunk_start, sma_thresh=thresh), bars)
             sig = sig.filter((pl.col("date") >= chunk_start) & (pl.col("date") <= chunk_end))
-            sig = _forward_returns(sig, bars)
+            sig = cohorts.forward_returns(sig, bars)
             print(f"  {name}: {len(sig)} signals with a 366d exit", flush=True)
             if not sig.is_empty():
                 per_config[name].append(sig)

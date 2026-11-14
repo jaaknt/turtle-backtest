@@ -71,7 +71,7 @@ Nothing under `turtlex/strategy/ranking/`, no `MIN_RANKING` constant, and no exi
 - Per chunk: `qm.load_bars` → `qm.add_indicators` → `add_lab_features` (new, below) →
   `qm.get_signals(sma_thresh=…)` for 0.12/0.16/0.20 → `qm.resolve_entries`.
 - Computes each signal's fixed **366-calendar-day** forward return on `adj_close` from the
-  entry bar, mirroring `forward_returns` in `turtlex/research/cohorts.py` — entry at the
+  entry bar, using `forward_returns` from `turtlex/research/cohorts.py` — entry at the
   next day's adjusted open, exit at the adjusted close 366 days on — plus a
   `ret_demeaned` column (entry-year mean subtracted) — the year-demeaning that the 2026-07-29
   scan used and that the loop's rank metric needs.

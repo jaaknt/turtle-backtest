@@ -51,7 +51,6 @@ from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.research import qullamaggie as qm
-from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
 
@@ -60,7 +59,6 @@ EVAL_END = date(2026, 6, 26)
 INIT_EQUITY = 30_000.0
 POS_FRACTION = 0.03
 SMA_THRESH = 0.12  # s12
-MIN_RANKING = 44  # QullamaggieRanking entry gate, matching the portfolio-runner default
 HOLD_CAL = 366
 
 # Baseline from qullamaggie-portfolio-sim.py, s12 / R>=44 / 3% / 366d over this study's window
@@ -69,12 +67,13 @@ HOLD_CAL = 366
 # a validity check before any sweep is believed. Refresh all four together — a partial update
 # makes the reconciliation table lie.
 #
-# These are gate-dependent, so MIN_RANKING and this block move together. When the gate went
+# These are gate-dependent, so qm.MIN_RANKING and this block move together. When the gate went
 # 40 -> 44 on 2026-08-07 these four were left on the R>=40 row for one commit, and the 2026-08-09
 # sweep reconciled 2.80pp out. Note what that does and does not break: the per-variant pass/fail
 # column is scored against *this harness's own* baseline, so those verdicts stayed correct — what
 # a blown reconciliation invalidates is the claim that the harness reproduces portfolio-sim at
 # all. If it reappears, check this block against portfolio-v4.md before rereading the sweep.
+REF_MIN_RANKING = 44  # the gate the four numbers below were run at
 REF_CAGR_PCT = 50.88
 REF_SORTINO = 2.129
 REF_MAXDD_PCT = -28.01
@@ -439,27 +438,11 @@ def build_signals(
         count with no entry bar inside the window).
     """
     sig = qm.resolve_entries(qm.get_signals(ind, bull_dates, start, sma_thresh=sma_thresh), bars)
-    ranker = QullamaggieRanking()
+    sig = qm.add_ranking(sig)
     signals_by_entry: dict[int, list[Signal]] = {}
     n_below_rank = n_no_cal = 0
     for row in sig.iter_rows(named=True):
-        score = ranker.ranking(
-            pl.DataFrame(
-                [
-                    {
-                        "date": row["date"],
-                        "close": row["raw_close"],
-                        "adr_pct": row["adr_pct"],
-                        "adr_pct_change": row["adr_pct_change"],
-                        "pct_vs_sma50": row["pct_vs_sma50"],
-                        "roc_252d": row["roc_252d"],
-                        "rsi14": row["rsi14"],
-                    }
-                ]
-            ),
-            row["date"],
-        )
-        if score < MIN_RANKING:
+        if row["ranking"] < qm.MIN_RANKING:
             n_below_rank += 1
             continue
         entry_dint = (row["entry_date"] - _EPOCH).days
@@ -467,7 +450,7 @@ def build_signals(
             n_no_cal += 1
             continue
         signals_by_entry.setdefault(entry_dint, []).append(
-            Signal(symbol=row["symbol"], entry_dint=entry_dint, entry_price=float(row["entry_price"]), ranking=score)
+            Signal(symbol=row["symbol"], entry_dint=entry_dint, entry_price=float(row["entry_price"]), ranking=row["ranking"])
         )
     return signals_by_entry, n_below_rank, n_no_cal
 
@@ -648,6 +631,11 @@ def load_window(bars_history: DailyBarsQueryRepository, start: date, end: date) 
 
 
 def main() -> None:
+    if qm.MIN_RANKING != REF_MIN_RANKING:
+        raise ValueError(
+            f"qm.MIN_RANKING is {qm.MIN_RANKING} but the REF_* baseline was run at R>={REF_MIN_RANKING}; "
+            "refresh the baseline block from portfolio-v4.md before running the sweep"
+        )
     settings = Settings.from_toml()
     bars_history = DailyBarsQueryRepository(engine=settings.engine)
 
@@ -655,7 +643,7 @@ def main() -> None:
     market, ind, bars, bull_dates = load_window(bars_history, EVAL_START, EVAL_END)
     signals_by_entry, n_below_rank, n_no_cal = build_signals(ind, bars, bull_dates, EVAL_START, SMA_THRESH, market)
     n_signals = sum(len(v) for v in signals_by_entry.values())
-    print(f"  {n_signals} signals ({n_below_rank} below ranking {MIN_RANKING}, {n_no_cal} with no entry bar)", flush=True)
+    print(f"  {n_signals} signals ({n_below_rank} below ranking {qm.MIN_RANKING}, {n_no_cal} with no entry bar)", flush=True)
 
     lines: list[str] = []
 
@@ -694,7 +682,7 @@ def main() -> None:
     out("")
     out(
         f"Config: `bk50d_s12_v2.0` | {EVAL_START} – {EVAL_END} | initial ${INIT_EQUITY:,.0f} | "
-        f"sizing {POS_FRACTION:.0%} of portfolio value | ranking >= {MIN_RANKING} | "
+        f"sizing {POS_FRACTION:.0%} of portfolio value | ranking >= {qm.MIN_RANKING} | "
         f"time-cap backstop {HOLD_CAL}d"
     )
     out("")

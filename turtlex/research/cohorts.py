@@ -145,8 +145,9 @@ def forward_returns(signals: pl.DataFrame, df: pl.DataFrame) -> pl.DataFrame:
         The signals that complete the hold, in their input order, with `ret` (a fraction) added.
     """
     target = signals.with_row_index("_row").with_columns((pl.col("entry_date") + pl.duration(days=HOLD_CAL)).alias("_exit_target"))
-    closes = df.filter(pl.col("symbol").is_in(target["symbol"].unique().implode())).select(
-        "symbol", pl.col("date").alias("_exit_date"), pl.col("adj_close").cast(pl.Float64).alias("_exit_price")
+    # Project before filtering, so the filter copies three columns rather than the whole indicator frame.
+    closes = df.select("symbol", pl.col("date").alias("_exit_date"), pl.col("adj_close").cast(pl.Float64).alias("_exit_price")).filter(
+        pl.col("symbol").is_in(target["symbol"].unique().implode())
     )
     last = closes.group_by("symbol").agg(pl.col("_exit_date").max().alias("_last_date"))
     target = target.join(last, on="symbol").filter(pl.col("_last_date") >= pl.col("_exit_target"))

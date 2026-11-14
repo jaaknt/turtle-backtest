@@ -9,11 +9,11 @@ the first trading day whose low <= limit price within Y calendar days of the sig
 day (Y in {30, 60, 90}), else expires unfilled. Reports Fill% plus median/mean
 trading days from signal to fill (filled orders only) per X x Y cell.
 
-Bars, indicators and the SPY regime come from turtlex.research.qullamaggie, which is
-parity-tested against QullamaggieStrategy; the filter chain and cooldown are local copies
-of it (RSI<70, ADR mean-of-ratios >=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x,
+Bars, indicators, the SPY regime, the filter chain and the cooldown all come from
+turtlex.research.qullamaggie, which is parity-tested against QullamaggieStrategy
+(RSI<70, ADR mean-of-ratios >=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x,
 SPY>200d SMA, close>$5&<$250, avg_vol>=100K, no tight_range, cooldown 30d,
-mcap>=1.5B excl Comm/RE), plus a QullamaggieRanking >= MIN_RANKING gate. open/close/high/low
+mcap>=1.5B excl Comm/RE), plus a QullamaggieRanking >= qm.MIN_RANKING gate. open/close/high/low
 are split/dividend-adjusted; the fill test uses adjusted prices — same convention as
 scripts/qullamaggie-cohorts-limit-order.py's run_trades_limit.
 
@@ -32,92 +32,18 @@ from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.research import qullamaggie as qm
-from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2010, 6, 1)
 EVAL_END = date.today()
 
-MIN_AVG_VOL = 100_000
-MIN_PRICE = 5.0
-MAX_PRICE = 250.0
-MIN_HISTORY = 300
-COOLDOWN = 30
-VOL_SURGE_MAX = 2.0
-ROC_CAP = 1.00
-RSI_CAP = 70.0
-ADR_MIN = 0.03
-ADR_CHANGE_CAP = 0.90
-
 SMA_T = 0.12
 LABEL = "bk50d_s12_v2.0"
 
 LIMIT_PCTS = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05]
-MIN_RANKING = 44  # QullamaggieRanking gate, matching the portfolio-runner default
 WINDOWS_CAL = [30, 60, 90]  # limit order stays resting this many calendar days after the signal
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-limit-fill-rate.md"
-
-
-# ── Ranking ──────────────────────────────────────────────────────────────────
-
-_ranker = QullamaggieRanking()
-
-
-def compute_ranking(row: dict) -> int:
-    """Score one signal 0-100 with the production QullamaggieRanking.
-
-    `raw_close` is mapped onto the `close` column the ranking reads: QullamaggieStrategy
-    keeps `close` unadjusted and the price bands are dollar-denominated.
-    """
-    row_df = pl.DataFrame(
-        [{"date": row["date"], "close": row["raw_close"], "adr_pct": row["adr_pct"], "pct_vs_sma50": row["pct_vs_sma50"]}]
-    )
-    return _ranker.ranking(row_df, row["date"])
-
-
-# ── Signal generation ─
-
-
-def get_signals(df: pl.DataFrame, bull_dates: set[date], sma_t: float) -> pl.DataFrame:
-    cands = (
-        df.filter(
-            (pl.col("date") <= EVAL_END)
-            & pl.col("sma50").is_not_null()
-            & pl.col("max_c_50d").is_not_null()
-            & pl.col("rsi14").is_not_null()
-            & pl.col("roc_252d").is_not_null()
-            & pl.col("adr_pct_change").is_not_null()
-            & (pl.col("rsi14") < RSI_CAP)
-            & (pl.col("raw_close") > MIN_PRICE)
-            & (pl.col("raw_close") < MAX_PRICE)
-            & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
-            & (pl.col("adr_pct") >= ADR_MIN)
-            & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
-            & (pl.col("adj_close") > pl.col("max_c_50d"))
-            & (pl.col("pct_vs_sma50") >= sma_t)
-            & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
-            & (pl.col("roc_252d") < ROC_CAP)
-            & pl.col("date").is_in(bull_dates)
-        )
-        .select(["symbol", "date", "raw_close", "adj_close", "adr_pct", "pct_vs_sma50"])
-        .sort(["symbol", "date"])
-    )
-    if cands.is_empty():
-        return cands
-    rows_out: list[dict] = []
-    last_trigger: dict[str, date] = {}
-    # Cooldown runs from the warmup window rather than EVAL_START, so a trigger just before
-    # the window suppresses an early in-window signal — the ordering qm.get_signals uses.
-    # Only accepted triggers on or after EVAL_START are emitted.
-    for row in cands.iter_rows(named=True):
-        sym, d = row["symbol"], row["date"]
-        prev = last_trigger.get(sym)
-        if prev is None or (d - prev).days > COOLDOWN:
-            last_trigger[sym] = d
-            if d >= EVAL_START and compute_ranking(row) >= MIN_RANKING:
-                rows_out.append(row)
-    return pl.DataFrame(rows_out) if rows_out else cands.clear()
 
 
 # ── Fill analysis ──────────────────────────────────────────────────────────────
@@ -220,8 +146,6 @@ def main() -> None:
 
     print("Loading bars …", flush=True)
     df = qm.load_bars(bars_history, EVAL_START, EVAL_END)
-    valid_syms = df.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"]
-    df = df.filter(pl.col("symbol").is_in(valid_syms.to_list()))
 
     print("Computing indicators …", flush=True)
     df = qm.add_indicators(df)
@@ -236,8 +160,9 @@ def main() -> None:
         sym_lows[sym] = g["adj_low"].cast(pl.Float64).to_numpy(allow_copy=True)
 
     print(f"Generating signals for {LABEL} …", flush=True)
-    signals = get_signals(df, bull_dates, SMA_T)
-    print(f"  {len(signals)} signals at ranking >= {MIN_RANKING}", flush=True)
+    signals = qm.add_ranking(qm.get_signals(df, bull_dates, EVAL_START, SMA_T))
+    signals = signals.filter(pl.col("ranking") >= qm.MIN_RANKING).select("symbol", "date")
+    print(f"  {len(signals)} signals at ranking >= {qm.MIN_RANKING}", flush=True)
 
     print("Running fill analysis …", flush=True)
     n_attempted, n_full_window, fills = run_fill_analysis(signals, sym_dates, sym_closes, sym_lows)
@@ -270,11 +195,11 @@ def main() -> None:
         )
         fh.write("| Fixed filters | RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x, no tight_range |\n")
         fh.write("| Market regime | SPY close > 200d SMA |\n")
-        fh.write(f"| Price range | > ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f} |\n")
-        fh.write(f"| Min avg vol (20d) | >= {MIN_AVG_VOL // 1000}K |\n")
-        fh.write(f"| Cooldown | {COOLDOWN} calendar days |\n")
+        fh.write(f"| Price range | > ${qm.MIN_PRICE:.0f} and < ${qm.MAX_PRICE:.0f} |\n")
+        fh.write(f"| Min avg vol (20d) | >= {qm.MIN_AVG_VOL // 1000}K |\n")
+        fh.write(f"| Cooldown | {qm.COOLDOWN_DAYS} calendar days |\n")
         fh.write("| Universe | US common stocks, market_cap >= 1.5B, excl. Comm/RE |\n")
-        fh.write(f"| Ranking gate | QullamaggieRanking >= {MIN_RANKING} |\n\n")
+        fh.write(f"| Ranking gate | QullamaggieRanking >= {qm.MIN_RANKING} |\n\n")
         fh.write("## Results\n\n")
         fh.write(f"{summary}\n\n")
         fh.write(
