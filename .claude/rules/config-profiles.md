@@ -22,12 +22,11 @@ runs on that box, and its only effect is switching job-run logging on. Dev machi
 `ACTIVE_PROFILE=hetzner-db` points a dev machine at the VPS Postgres over Tailscale as `app_user`,
 for studies needing history deeper than the local 5-year mirror. That is the same role the CLIs use
 locally, so `DB_APP_PASSWORD` is already the right secret and the call site needs no password
-mapping — `ACTIVE_PROFILE=hetzner-db uv run …`. ⚠ **The profile is not read-only.** It connected as
-the SELECT-only `claude` role until 2026-08-29; under `app_user` anything run through it can write to
-the VPS's `turtle` schema, so a `--persist` run or a stray write now reaches production instead of
-failing. The studies only read, but nothing enforces that — check the `Database connection:` banner
-every run logs at INFO. After a VPS reboot Postgres binds before the Tailscale address exists, so
-connections time out until `systemctl restart postgresql` runs there.
+mapping — `ACTIVE_PROFILE=hetzner-db uv run …`. ⚠ **The profile is not read-only.** Under `app_user`
+anything run through it can write to the VPS's `turtle` schema, so a `--persist` run or a stray
+write reaches production. The studies only read, but nothing enforces that — check the
+`Database connection:` banner every run logs at INFO. After a VPS reboot Postgres binds before the
+Tailscale address exists, so connections time out until `systemctl restart postgresql` runs there.
 
 Every database parameter comes from `config/settings.toml` and its profile overlay — there is no
 environment variable that changes hosts. `ACTIVE_PROFILE` selects which overlay applies; the only
