@@ -60,6 +60,8 @@ alongside s12, never instead of it. Definition: `docs/research/qullamaggie-backt
   behind the ABC in each `base.py` ([docs/strategy.md](docs/strategy.md)).
 - **`turtlex/research/qullamaggie.py`** is the bulk mirror of `QullamaggieStrategy`; keep both.
   `tests/research/test_qullamaggie_parity.py` keeps their signals and filter constants identical.
+  The `scripts/qullamaggie-cohorts-*.py` studies run on `turtlex/research/cohorts.py`: a new one
+  is a `CohortSpec` that drops filters by name (`qm.get_signals(drop=…)`), not a copied script.
 - **`turtlex/backtest/metrics.py`** is the single source of trade/daily metrics
   (`compute_trade_metrics`, `compute_daily_sortino`). Don't recompute Sortino, CVaR or profit factor
   in a study; `tests/scripts/test_metric_conventions.py` enforces it. The two Sortino regimes:

@@ -126,7 +126,7 @@ def _load_spy_closes(repo: DailyBarsQueryRepository, start: date, end: date) -> 
 def _forward_returns(signals: pl.DataFrame, bars: pl.DataFrame) -> pl.DataFrame:
     """Attach each signal's fixed 366-calendar-day return, entered at its adjusted open.
 
-    Mirrors `run_trades` in scripts/qullamaggie-cohorts-ranking.py exactly — entry at
+    Mirrors `forward_returns` in turtlex/research/cohorts.py exactly — entry at
     `entry_price` (the next day's adjusted open), exit at the adjusted close of the first bar
     at or after entry + 366 calendar days — so the lab's decile tables are comparable with the
     committed cohort results rather than being a second, subtly different convention.

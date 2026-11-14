@@ -26,11 +26,13 @@ _SORTINO_MENTION = re.compile(r"sortino", re.IGNORECASE)
 _CANONICAL_IMPORTS = ("compute_trade_metrics", "compute_daily_sortino")
 
 # A study may reach the canonical helpers indirectly, through a research module that imports
-# them itself — qullamaggie-ranking-lab.py gets every Sortino it prints from ranking_lab's
-# decile tables and portfolio_replay's equity-curve metric, and importing the helper directly
+# them itself — the cohort studies get every table from cohorts, and qullamaggie-ranking-lab.py
+# gets every Sortino it prints from ranking_lab's decile tables and portfolio_replay's
+# equity-curve metric, and importing the helper directly
 # just to satisfy a grep would be an unused import. Delegating to one of these counts, and
 # `test_delegates_are_themselves_canonical` holds them to the same rule they stand in for.
 _CANONICAL_DELEGATES = {
+    "turtlex.research.cohorts": REPO_ROOT / "turtlex" / "research" / "cohorts.py",
     "turtlex.research.ranking_lab": REPO_ROOT / "turtlex" / "research" / "ranking_lab.py",
     "turtlex.research.portfolio_replay": REPO_ROOT / "turtlex" / "research" / "portfolio_replay.py",
 }
@@ -39,6 +41,11 @@ _CANONICAL_DELEGATES = {
 # cannot see this: qullamaggie-exit-sweep.py imported `compute_trade_metrics` for its trade
 # metrics while keeping a losers-only `sortino_of` for its daily series, and passed for it.
 _RMS_IDIOM = re.compile(r"np\.sqrt\(\s*np\.mean\(")
+
+
+def _imports_delegate(source: str, module: str) -> bool:
+    """Whether `source` imports `module` — an import, never a mere mention of its name."""
+    return re.search(rf"(from|import)\s+[\w.]*{re.escape(module.rsplit('.', 1)[1])}\b", source) is not None
 
 
 def _scripts(name_glob: str = "*.py") -> list[Path]:
@@ -53,7 +60,7 @@ def test_sortino_comes_from_the_shared_helpers(path: Path) -> None:
         return
     # An import, never a mention: `mod.rsplit(".")[-1] in source` would let a study that merely
     # names ranking_lab in a comment claim delegation while hand-rolling its own Sortino.
-    delegates = [mod for mod in _CANONICAL_DELEGATES if re.search(rf"(from|import)\s+[\w.]*{re.escape(mod.rsplit('.', 1)[1])}\b", source)]
+    delegates = [mod for mod in _CANONICAL_DELEGATES if _imports_delegate(source, mod)]
     assert any(name in source for name in _CANONICAL_IMPORTS) or delegates, (
         f"{path.name} reports a Sortino without importing any of {_CANONICAL_IMPORTS} "
         f"or delegating to one of {sorted(_CANONICAL_DELEGATES)}. "
@@ -88,5 +95,8 @@ def test_no_private_downside_deviation(path: Path) -> None:
 
 @pytest.mark.parametrize("path", _scripts("qullamaggie-cohorts-*.py"), ids=lambda p: p.name)
 def test_cohort_studies_use_canonical_metrics(path: Path) -> None:
-    """Every cohort study computes its trade metrics via the shared helper."""
-    assert "compute_trade_metrics" in path.read_text(encoding="utf-8"), f"{path.name} must compute metrics via compute_trade_metrics."
+    """Every cohort study computes its trade metrics via the shared helper, or via turtlex.research.cohorts."""
+    source = path.read_text(encoding="utf-8")
+    assert "compute_trade_metrics" in source or _imports_delegate(source, "turtlex.research.cohorts"), (
+        f"{path.name} must compute metrics via compute_trade_metrics or the shared turtlex.research.cohorts pipeline."
+    )

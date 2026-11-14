@@ -13,11 +13,13 @@ price band stays on the raw close, because adjusting it would leak knowledge of 
 had not happened yet as of the signal date.
 """
 
+from collections.abc import Collection, Sequence
 from datetime import date, timedelta
 
 import polars as pl
 
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
+from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
 
 # Filter thresholds — must stay in lockstep with QullamaggieStrategy's class attributes.
 SMA_THRESH = 0.12
@@ -44,6 +46,11 @@ EXCLUDED_SECTORS = ("Communication Services", "Real Estate")
 # Entry timing — a signal is entered on the next trading bar; if none appears within this
 # many calendar days the signal is dropped. Mirrors SignalProcessor.calculate_entry_data.
 ENTRY_SEARCH_DAYS = 7
+
+# QullamaggieRanking gate — matches the portfolio-runner --min-signal-ranking default.
+MIN_RANKING = 44
+
+_RANKER = QullamaggieRanking()
 
 
 def load_spy_regime(bars_history: DailyBarsQueryRepository, start_date: date, end_date: date) -> set[date]:
@@ -181,11 +188,40 @@ def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
     return df.drop(["_c1", "_v1", "_rp1", "_diff", "_gain", "_loss", "_avg_gain", "_avg_loss", "_adr10", "_adr50", "_c_252d"])
 
 
+def entry_filters(bull_dates: set[date], sma_thresh: float) -> dict[str, pl.Expr]:
+    """The breakout entry filters by name, so a study can drop the one it measures.
+
+    Mirrors `QullamaggieStrategy`'s filter chain. The not-null guards on the indicators the
+    chain reads are not in here: they apply whichever filters are dropped.
+
+    Args:
+        bull_dates: Dates passing the SPY regime gate, from `load_spy_regime`
+        sma_thresh: Minimum fraction the adjusted close must sit above the 50-day SMA
+
+    Returns:
+        Filter name -> boolean expression over an `add_indicators` frame.
+    """
+    return {
+        "rsi": pl.col("rsi14") < RSI_CAP,
+        "price": (pl.col("raw_close") > MIN_PRICE) & (pl.col("raw_close") < MAX_PRICE),
+        "avg_vol": pl.col("avg_vol_20") >= MIN_AVG_VOL,
+        "adr_min": pl.col("adr_pct") >= ADR_MIN,
+        "adr_change": pl.col("adr_pct_change") < ADR_CHANGE_CAP,
+        "breakout": pl.col("adj_close") > pl.col("max_c_50d"),
+        "sma_dist": pl.col("pct_vs_sma50") >= sma_thresh,
+        "vol_surge": pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"),
+        "roc": pl.col("roc_252d") < ROC_CAP,
+        "regime": pl.col("date").is_in(sorted(bull_dates)),
+    }
+
+
 def get_signals(
     df: pl.DataFrame,
     bull_dates: set[date],
     start_date: date,
     sma_thresh: float = SMA_THRESH,
+    drop: Collection[str] = (),
+    extra: Sequence[pl.Expr] = (),
 ) -> pl.DataFrame:
     """Apply the breakout filters and the per-symbol cooldown.
 
@@ -198,11 +234,22 @@ def get_signals(
         bull_dates: Dates passing the SPY regime gate, from `load_spy_regime`
         start_date: Earliest date a signal may be emitted for
         sma_thresh: Minimum fraction the adjusted close must sit above the 50-day SMA
+        drop: Names from `entry_filters` to leave out — for cohort studies that measure
+            the filtered variable across its whole range. Empty for the production chain.
+        extra: Further conditions every candidate must meet, applied ahead of the cooldown
+            like the filters themselves (a window end, a not-null guard on a cohort column)
 
     Returns:
         Frame of surviving signals sorted by (date, symbol), carrying the indicator
         columns for downstream reporting.
+
+    Raises:
+        ValueError: If `drop` names a filter that does not exist.
     """
+    filters = entry_filters(bull_dates, sma_thresh)
+    unknown = set(drop) - filters.keys()
+    if unknown:
+        raise ValueError(f"Unknown entry filter(s) {sorted(unknown)}; expected names from {sorted(filters)}")
     if df.is_empty():
         return df
     candidates = df.filter(
@@ -210,18 +257,9 @@ def get_signals(
         & pl.col("max_c_50d").is_not_null()
         & pl.col("rsi14").is_not_null()
         & pl.col("roc_252d").is_not_null()
-        & pl.col("adr_pct_change").is_not_null()
-        & (pl.col("rsi14") < RSI_CAP)
-        & (pl.col("raw_close") > MIN_PRICE)
-        & (pl.col("raw_close") < MAX_PRICE)
-        & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
-        & (pl.col("adr_pct") >= ADR_MIN)
-        & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
-        & (pl.col("adj_close") > pl.col("max_c_50d"))
-        & (pl.col("pct_vs_sma50") >= sma_thresh)
-        & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
-        & (pl.col("roc_252d") < ROC_CAP)
-        & pl.col("date").is_in(sorted(bull_dates))
+        & pl.col("adr_pct_change").is_not_null(),
+        *(expr for name, expr in filters.items() if name not in drop),
+        *extra,
     ).sort(["symbol", "date"])
     if candidates.is_empty():
         return candidates
@@ -272,3 +310,20 @@ def resolve_entries(signals: pl.DataFrame, bars: pl.DataFrame) -> pl.DataFrame:
         & (pl.col("entry_price") > 0)
         & (pl.col("entry_date") <= pl.col("date") + pl.duration(days=ENTRY_SEARCH_DAYS))
     ).sort(["date", "symbol"])
+
+
+def add_ranking(signals: pl.DataFrame) -> pl.DataFrame:
+    """Score each signal with the production `QullamaggieRanking`.
+
+    `raw_close` is mapped onto the `close` column the ranking reads: `QullamaggieStrategy`
+    keeps `close` unadjusted and the price bands are dollar-denominated.
+
+    Args:
+        signals: Signal frame from `get_signals`, carrying raw_close, adr_pct and pct_vs_sma50
+
+    Returns:
+        The signals with an Int64 `ranking` column (0-100) added.
+    """
+    columns = signals.select("date", pl.col("raw_close").alias("close"), "adr_pct", "pct_vs_sma50")
+    scores = [_RANKER.ranking(pl.DataFrame([row]), row["date"]) for row in columns.iter_rows(named=True)]
+    return signals.with_columns(pl.Series("ranking", scores, dtype=pl.Int64))

@@ -28,27 +28,11 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-from turtlex.backtest.metrics import compute_trade_metrics
-from turtlex.common.report import config_table, run_timestamp
+from turtlex.common.report import config_table
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
+from turtlex.research import cohorts
 from turtlex.research import qullamaggie as qm
-from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
-
-_EPOCH = date(1970, 1, 1)
-HOLD_CAL = 366
-HOLD_MAX_CAL = 366
-MIN_AVG_VOL = 100_000
-MIN_PRICE = 5.0
-MAX_PRICE = 250.0
-MIN_HISTORY = 300
-COOLDOWN = 30
-VOL_SURGE_MAX = 2.0
-ROC_CAP = 1.00
-RSI_CAP = 70.0
-ADR_MIN = 0.03
-ADR_CHANGE_CAP = 0.90
-MIN_NEG = 5
 
 # Both windows straddle a bear market, which is the only condition under which a regime filter
 # can pay for itself. Each is loaded separately — a single span would pull 20 years of the
@@ -65,36 +49,34 @@ SPY_WARMUP_DAYS = 900
 SMA_LOOKBACKS: list[int | None] = [150, 200, 250, 300, 350, None]
 PRODUCTION_LOOKBACK = 200
 
-MIN_RANKING = 44  # QullamaggieRanking gate, matching the portfolio-runner default
+CONFIG_ROWS = cohorts.config_rows(
+    {
+        "Period": None,
+        "Periods": "**" + ", ".join(f"{s} – {e}" for s, e in PERIODS) + "** — each straddles a bear market",
+        "Cohort variable": "**the regime lookback N in `spy_close > mean(spy_close[-(N+1):-1])`**",
+        "Filter under study": (
+            "**SPY > 200d SMA — swept over N = "
+            + "/".join(str(lb) for lb in SMA_LOOKBACKS if lb is not None)
+            + " and switched off entirely; `SMA200 *` is the production setting and `regime off` the "
+            "dropped-filter reference**"
+        ),
+        "Rows overlap": "**variant sweep, not a partition — rows do not sum to `regime off`**",
+        "Market regime": None,
+        "Cooldown": f"{qm.COOLDOWN_DAYS} calendar days, applied after the regime gate as in production",
+    }
+)
 
-STRATEGIES = [
-    ("bk50d_s20_v2.0", 0.20),
-    ("bk50d_s16_v2.0", 0.16),
-    ("bk50d_s12_v2.0", 0.12),
-]
-
-CONFIG_ROWS: list[tuple[str, str]] = [
-    ("Periods", "**" + ", ".join(f"{s} – {e}" for s, e in PERIODS) + "** — each straddles a bear market"),
-    ("Hold", f"{HOLD_CAL}d (calendar)"),
-    ("Cohorts", "bk50d_s20_v2.0, bk50d_s16_v2.0, bk50d_s12_v2.0 (366d)"),
-    ("Cohort variable", "**the regime lookback N in `spy_close > mean(spy_close[-(N+1):-1])`**"),
-    ("Entry", "next trading day's split/dividend-adjusted open"),
-    (
-        "Filter under study",
-        "**SPY > 200d SMA — swept over N = "
-        + "/".join(str(lb) for lb in SMA_LOOKBACKS if lb is not None)
-        + " and switched off entirely; `SMA200 *` is the production setting and `regime off` the "
-        "dropped-filter reference**",
-    ),
-    ("Rows overlap", "**variant sweep, not a partition — rows do not sum to `regime off`**"),
-    ("Fixed filters", "RSI<70, ADR>=3.0%, ADR_change<90%, roc_12m<100%, vol_surge<2.0x (no tight_range)"),
-    ("Ranking gate", f"QullamaggieRanking >= {MIN_RANKING}"),
-    ("Price range", f"> ${MIN_PRICE:.0f} and < ${MAX_PRICE:.0f}"),
-    ("Min avg vol (20d)", f">= {MIN_AVG_VOL // 1000}K"),
-    ("Cooldown", f"{COOLDOWN} calendar days, applied after the regime gate as in production"),
-    ("Universe", "US common stocks, market_cap >= 1.5B, excl. Comm/RE"),
-    ("Sortino", f"mean / RMS(min(r,0)) over all N x sqrt(365/hold), min {MIN_NEG} losers (turtlex/backtest/metrics.py)"),
-]
+RESULTS_INTRO = (
+    "Each row is the **whole** signal population under that regime setting, so the rows overlap and do "
+    "not sum to `regime off` — a signal clearing SMA150 usually clears SMA350 too. `SMA200 *` is the "
+    "production setting; `regime off` applies no market filter at all. The gate runs before the 30-day "
+    "cooldown, as in production, so a different lookback also changes which triggers win the cooldown "
+    "slot — the row counts are not a pure subset relationship either.\n\n"
+    "Both windows deliberately straddle a bear market, since that is the only condition under which a "
+    "regime filter can pay for itself: 2006-2010 covers the 2008 crash, 2018-2023 covers 2018 Q4, the "
+    "2020 Covid crash and 2022. They are **not** comparable with the other cohort studies, which all "
+    "run 2015-2026.\n\n"
+)
 
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-cohorts-spy-sma.md"
 
@@ -116,130 +98,6 @@ def regime_dates(spy: pl.DataFrame, lookback: int | None) -> set[date] | None:
         return None
     warm = spy.with_columns(pl.col("close").shift(1).rolling_mean(lookback, min_samples=lookback).alias("_sma"))
     return set(warm.filter(pl.col("close") > pl.col("_sma"))["date"].to_list())
-
-
-# ── Ranking ──────────────────────────────────────────────────────────────────
-
-_ranker = QullamaggieRanking()
-
-
-def compute_ranking(row: dict) -> int:
-    """Score one signal 0-100 with the production QullamaggieRanking.
-
-    `raw_close` is mapped onto the `close` column the ranking reads: QullamaggieStrategy
-    keeps `close` unadjusted and the price bands are dollar-denominated.
-    """
-    row_df = pl.DataFrame(
-        [{"date": row["date"], "close": row["raw_close"], "adr_pct": row["adr_pct"], "pct_vs_sma50": row["pct_vs_sma50"]}]
-    )
-    return _ranker.ranking(row_df, row["date"])
-
-
-# ── Signal generation (regime gate is the swept dimension) ───────────────────
-
-
-def get_signals(
-    df: pl.DataFrame,
-    bull_dates: set[date] | None,
-    sma_t: float,
-    eval_start: date,
-    eval_end: date,
-) -> pl.DataFrame:
-    cond = (
-        (pl.col("date") <= eval_end)
-        & pl.col("sma50").is_not_null()
-        & pl.col("max_c_50d").is_not_null()
-        & pl.col("rsi14").is_not_null()
-        & pl.col("roc_252d").is_not_null()
-        & pl.col("adr_pct_change").is_not_null()
-        & (pl.col("rsi14") < RSI_CAP)
-        & (pl.col("raw_close") > MIN_PRICE)
-        & (pl.col("raw_close") < MAX_PRICE)
-        & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
-        & (pl.col("adr_pct") >= ADR_MIN)
-        & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
-        & (pl.col("adj_close") > pl.col("max_c_50d"))
-        & (pl.col("pct_vs_sma50") >= sma_t)
-        & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
-        & (pl.col("roc_252d") < ROC_CAP)
-    )
-    if bull_dates is not None:
-        cond = cond & pl.col("date").is_in(bull_dates)
-    cands = df.filter(cond).select(["symbol", "date", "raw_close", "adj_close", "adr_pct", "pct_vs_sma50"]).sort(["symbol", "date"])
-    if cands.is_empty():
-        return cands
-    rows_out: list[dict] = []
-    last_trigger: dict[str, date] = {}
-    # Cooldown runs from the warmup window rather than eval_start, so a trigger just before
-    # the window suppresses an early in-window signal — the ordering qm.get_signals uses.
-    # Only accepted triggers on or after eval_start are emitted.
-    for row in cands.iter_rows(named=True):
-        sym, d = row["symbol"], row["date"]
-        prev = last_trigger.get(sym)
-        if prev is None or (d - prev).days > COOLDOWN:
-            last_trigger[sym] = d
-            if d >= eval_start and compute_ranking(row) >= MIN_RANKING:
-                rows_out.append(row)
-    return pl.DataFrame(rows_out) if rows_out else cands.clear()
-
-
-# ── Trade runner ──────────────────────────────────────────────────────────────
-
-
-def run_trades(
-    signals: pl.DataFrame,
-    sym_dates: dict[str, np.ndarray],
-    sym_closes: dict[str, np.ndarray],
-) -> list[float]:
-    rets: list[float] = []
-    for row in signals.iter_rows(named=True):
-        sym = row["symbol"]
-        if sym not in sym_dates:
-            continue
-        dates = sym_dates[sym]
-        closes = sym_closes[sym]
-        entry_int = (row["entry_date"] - _EPOCH).days
-        if dates[-1] < entry_int + HOLD_MAX_CAL:
-            continue
-        idx_exit = int(np.searchsorted(dates, entry_int + HOLD_CAL))
-        if idx_exit >= len(dates):
-            continue
-        entry_px = float(row["entry_price"])
-        rets.append(float((closes[idx_exit] - entry_px) / entry_px))
-    return rets
-
-
-# ── Metrics ───────────────────────────────────────────────────────────────────
-
-
-def compute_metrics(rets: np.ndarray) -> dict | None:
-    if len(rets) < 5:
-        return None
-    m = compute_trade_metrics(rets * 100, HOLD_CAL, min_losers=MIN_NEG)
-    if m is None:
-        return None
-    return {
-        "n": m.n,
-        "med": m.median_pct,
-        "mean": m.mean_pct,
-        "win": m.win_pct,
-        "sr": m.sortino,
-        "pf": m.profit_factor,
-        "cvar": m.cvar95_pct,
-    }
-
-
-# ── Output ────────────────────────────────────────────────────────────────────
-
-_COL_HDR = f"{'Regime':<12}  {'N':>5}  {'Med%':>7}  {'Mean%':>7}  {'Win%':>6}  {'Sortino':>8}  {'PF':>6}  {'CVaR95%':>8}"
-_COL_SEP = "─" * len(_COL_HDR)
-
-
-def fmt_cohort_row(label: str, m: dict) -> str:
-    sr_str = f"{m['sr']:>8.3f}" if not (isinstance(m["sr"], float) and np.isnan(m["sr"])) else "     n/a"
-    return (
-        f"{label:<12}  {m['n']:>5}  {m['med']:>+7.2f}  {m['mean']:>+7.2f}  {m['win']:>6.1f}  {sr_str}  {m['pf']:>6.2f}  {m['cvar']:>+8.2f}"
-    )
 
 
 def regime_label(lookback: int | None) -> str:
@@ -277,40 +135,28 @@ def run_window(bars_history: DailyBarsQueryRepository, eval_start: date, eval_en
         n_days = "all" if d is None else str(len({x for x in d if eval_start <= x <= eval_end}))
         print(f"  {regime_label(lb):<12} qualifying days in window: {n_days}", flush=True)
 
-    print("Loading bars …", flush=True)
     # Forward bars past eval_end so a signal on the last day can still reach its 366d exit.
-    df = qm.load_bars(bars_history, eval_start, eval_end + timedelta(days=HOLD_MAX_CAL + 30))
-    valid_syms = df.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"]
-    df = df.filter(pl.col("symbol").is_in(valid_syms.to_list()))
-
-    print("Computing indicators …", flush=True)
-    bars = df.select("symbol", "date", "adj_open")
-    df = qm.add_indicators(df)
-
-    sym_dates: dict[str, np.ndarray] = {}
-    sym_closes: dict[str, np.ndarray] = {}
-    for (sym,), grp in df.sort(["symbol", "date"]).group_by(["symbol"], maintain_order=False):
-        g = grp.sort("date")
-        sym_dates[sym] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int32)
-        sym_closes[sym] = g["adj_close"].cast(pl.Float64).to_numpy(allow_copy=True)
+    df, bars = cohorts.load_universe(bars_history, eval_start, end=eval_end + timedelta(days=cohorts.HOLD_CAL + 30))
 
     lines: list[str] = []
-    for strat_label, sma_t in STRATEGIES:
-        print(f"  {strat_label} …", flush=True)
-        lines += [f"### {label} — {strat_label}", "", _COL_HDR, _COL_SEP]
+    for arm in cohorts.STANDARD_ARMS:
+        print(f"  {arm.label} …", flush=True)
+        groups: list[tuple[str, np.ndarray]] = []
         for lb in SMA_LOOKBACKS:
-            signals = qm.resolve_entries(get_signals(df, regimes[lb], sma_t, eval_start, eval_end), bars)
-            rets = np.array(run_trades(signals, sym_dates, sym_closes))
-            m = compute_metrics(rets)
-            row_label = regime_label(lb)
-            if m:
-                lines.append(fmt_cohort_row(row_label, m))
-            else:
-                lines.append(f"{row_label:<12}  {len(rets):>5}  {'—':>7}  {'—':>7}  {'—':>6}  {'—':>8}  {'—':>6}  {'—':>8}")
-            print(f"    {row_label:<12} {len(rets)} trades", flush=True)
-        lines.append("")
-        for line in lines[-(len(SMA_LOOKBACKS) + 5) :]:
-            print(line)
+            trades = cohorts.cohort_trades(
+                df,
+                bars,
+                regimes[lb] or set(),
+                arm.sma_thresh,
+                drop=("regime",) if lb is None else (),
+                start=eval_start,
+                end=eval_end,
+            )
+            groups.append((regime_label(lb), cohorts.returns(trades)))
+            print(f"    {regime_label(lb):<12} {trades.height} trades", flush=True)
+        table = cohorts.render_table(f"{label} — {arm.label}", groups, [], label_width=12, label_header="Regime")
+        lines.extend(table)
+        print("\n".join(table))
     return lines
 
 
@@ -324,34 +170,11 @@ def main() -> None:
     config = config_table(CONFIG_ROWS)
     print("\n" + config)
 
-    all_lines: list[str] = []
+    lines: list[str] = []
     for eval_start, eval_end in PERIODS:
-        all_lines += run_window(bars_history, eval_start, eval_end)
+        lines += run_window(bars_history, eval_start, eval_end)
 
-    output = "\n".join(all_lines)
-
-    RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with RESULT_PATH.open("w") as fh:
-        fh.write("# Qullamaggie SPY Regime (market SMA) Cohort Analysis\n\n")
-        fh.write(f"Run date: {run_timestamp()}\n\n")
-        fh.write("## Configuration\n\n")
-        fh.write(config)
-        fh.write("\n## Results\n\n")
-        fh.write(
-            "Each row is the **whole** signal population under that regime setting, so the rows overlap and do "
-            "not sum to `regime off` — a signal clearing SMA150 usually clears SMA350 too. `SMA200 *` is the "
-            "production setting; `regime off` applies no market filter at all. The gate runs before the 30-day "
-            "cooldown, as in production, so a different lookback also changes which triggers win the cooldown "
-            "slot — the row counts are not a pure subset relationship either.\n\n"
-            "Both windows deliberately straddle a bear market, since that is the only condition under which a "
-            "regime filter can pay for itself: 2006-2010 covers the 2008 crash, 2018-2023 covers 2018 Q4, the "
-            "2020 Covid crash and 2022. They are **not** comparable with the other cohort studies, which all "
-            "run 2015-2026.\n\n"
-        )
-        fh.write("```text\n")
-        fh.write(output)
-        fh.write("\n```\n")
-    print(f"\nResults saved to {RESULT_PATH}", flush=True)
+    cohorts.write_result(RESULT_PATH, "Qullamaggie SPY Regime (market SMA) Cohort Analysis", config, lines, results_intro=RESULTS_INTRO)
 
 
 if __name__ == "__main__":
