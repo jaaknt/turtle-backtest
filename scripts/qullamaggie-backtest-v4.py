@@ -20,15 +20,17 @@ from turtlex.research.cohorts.forward_returns.
 """
 
 import argparse
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import TypeGuard
 
 import numpy as np
 import polars as pl
 
-from turtlex.backtest.metrics import compute_trade_metrics
+from turtlex.backtest.metrics import TradeMetrics, compute_trade_metrics
 from turtlex.common.cli import iso_date_type
-from turtlex.common.report import REPORT_TIMEZONE, run_timestamp
+from turtlex.common.report import REPORT_TIMEZONE, config_table, run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.research import cohorts
@@ -46,6 +48,7 @@ DATA_END = date(2026, 6, 30)
 MIN_TRADES = 30
 MIN_NEG = 10
 MIN_RANKINGS = [qm.MIN_RANKING]  # QullamaggieRanking gates to sweep; qm.MIN_RANKING is the portfolio-runner default
+GATES_STR = ", ".join(str(r) for r in MIN_RANKINGS)  # the gate sweep, as the result doc prints it
 ALGO_VERSION = "2.0"  # version encoded in the bk50d_sX_vN labels — an identity, not a filter value
 
 SMA_THRESHS = [0.12, 0.16, 0.20]
@@ -61,23 +64,54 @@ _N_W = 3
 RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-backtest-v4.md"
 
 
+@dataclass(frozen=True)
+class Window:
+    """The evaluation window, from the CLI."""
+
+    start: date
+    end: date
+
+    @property
+    def months(self) -> int:
+        """Whole calendar months from start to end, the base of the signal frequency."""
+        return (self.end.year - self.start.year) * 12 + (self.end.month - self.start.month)
+
+
 # ── Metrics ───────────────────────────────────────────────────────────────────
 
 
-def compute_metrics(records: list[dict]) -> dict | None:
+def has_positive_sortino(m: TradeMetrics | None) -> TypeGuard[TradeMetrics]:
+    """Whether the trade metrics exist and carry a finite, positive Sortino.
+
+    Args:
+        m: Trade metrics, or None when there were too few trades or losers
+
+    Returns:
+        True if `m` can be reported.
+    """
+    return m is not None and not np.isnan(m.sortino) and m.sortino > 0
+
+
+def compute_metrics(records: list[dict], window: Window) -> dict | None:
     """Study-level metrics: the shared trade metrics plus this study's own signal frequency.
 
     `mean` carries the **annualized** mean return — with a single 366d hold it differs from the
     raw mean only by the 365/366 factor, but reporting one annualized figure keeps the column
     comparable with studies run at other holding periods.
+
+    Args:
+        records: Trade records carrying `ret`
+        window: The evaluation window, for the per-month frequency
+
+    Returns:
+        The metrics dict, or None below MIN_TRADES trades or without a positive Sortino.
     """
     if len(records) < MIN_TRADES:
         return None
     a = np.array([r["ret"] for r in records])
     m = compute_trade_metrics(a * 100, qm.HOLD_CAL, min_losers=MIN_NEG)
-    if m is None or np.isnan(m.sortino) or m.sortino <= 0:
+    if not has_positive_sortino(m):
         return None
-    months = (EVAL_END.year - EVAL_START.year) * 12 + (EVAL_END.month - EVAL_START.month)
     return {
         "n": m.n,
         "win": m.win_pct,
@@ -86,7 +120,7 @@ def compute_metrics(records: list[dict]) -> dict | None:
         "pf": m.profit_factor,
         "sr": m.sortino,
         "cvar": m.cvar95_pct,
-        "freq": len(a) / max(months, 1),
+        "freq": len(a) / max(window.months, 1),
     }
 
 
@@ -187,25 +221,31 @@ def build_monthly_grid(records: list[dict]) -> str:
         entry = r["entry_date"]
         by_ym.setdefault((entry.year, entry.month), []).append(r["ret"])
 
-    empty = f"{'·':>{_MEAN_W}}{'':{_N_W + 1}}"  # dot sits under the mean column
     hdr = f"{'Year':>5} | " + " ".join(f"{mo:>{_MEAN_W}}{'':{_N_W + 1}}" for mo in MONTHS) + f" | {'Mean%':>7} {'N':>5}"
     lines = [hdr, "-" * len(hdr)]
     if not by_ym:
         return "\n".join([*lines, "(no trades)"])
 
-    for year in sorted({y for y, _m in by_ym}):
-        cells: list[str] = []
-        year_rets: list[float] = []
-        for month_idx in range(1, 13):
-            vals = by_ym.get((year, month_idx))
-            if vals:
-                cells.append(f"{np.mean(vals) * 100:>+{_MEAN_W}.1f}|{len(vals):<{_N_W}}")
-                year_rets.extend(vals)
-            else:
-                cells.append(empty)
-        year_mean = float(np.mean(year_rets)) * 100 if year_rets else float("nan")
-        lines.append(f"{year:>5} | " + " ".join(cells) + f" | {year_mean:>+6.1f}% {len(year_rets):>5}")
+    lines.extend(_grid_row(year, by_ym) for year in sorted({y for y, _m in by_ym}))
     return "\n".join(lines)
+
+
+def _grid_row(year: int, by_ym: dict[tuple[int, int], list[float]]) -> str:
+    """One year of the monthly grid: a `Mean%|N` cell per month, then the year's own aggregate.
+
+    Args:
+        year: Entry year
+        by_ym: Trade returns keyed by (entry year, entry month)
+
+    Returns:
+        The grid row.
+    """
+    empty = f"{'·':>{_MEAN_W}}{'':{_N_W + 1}}"  # dot sits under the mean column
+    month_vals = [by_ym.get((year, month_idx)) for month_idx in range(1, 13)]
+    cells = [f"{np.mean(vals) * 100:>+{_MEAN_W}.1f}|{len(vals):<{_N_W}}" if vals else empty for vals in month_vals]
+    year_rets = [v for vals in month_vals if vals for v in vals]
+    year_mean = float(np.mean(year_rets)) * 100 if year_rets else float("nan")
+    return f"{year:>5} | " + " ".join(cells) + f" | {year_mean:>+6.1f}% {len(year_rets):>5}"
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -224,153 +264,230 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> None:
-    global EVAL_START, EVAL_END, RESULT_PATH
+@dataclass(frozen=True)
+class Reference:
+    """The reference algorithm's cell, which also gets the monthly grid and the history row."""
 
+    label: str
+    records: list[dict]
+    metrics: dict
+
+
+@dataclass
+class Sweep:
+    """The sweep's output: the ranking rows, plus the reference cell when it has enough trades."""
+
+    results: list[tuple[str, str, dict]] = field(default_factory=list)
+    reference: Reference | None = None
+
+
+def algo_label(sma_t: float) -> str:
+    """The `bk50d_sX_vN` name of the algorithm at SMA threshold `sma_t`."""
+    return f"bk50d_s{round(sma_t * 100)}_v{ALGO_VERSION}"
+
+
+def add_gated_rows(sweep: Sweep, trades: pl.DataFrame, sma_t: float, window: Window) -> None:
+    """Append one algorithm's gated rows, and capture the reference cell for the grid and history row.
+
+    Args:
+        sweep: Accumulates the rows
+        trades: The algorithm's ungated trades, carrying `ranking`
+        sma_t: The algorithm's SMA threshold
+        window: The evaluation window
+    """
+    lbl = algo_label(sma_t)
+    for min_rank in MIN_RANKINGS:
+        records_gated = trades.filter(pl.col("ranking") >= min_rank).select("entry_date", "ret").to_dicts()
+        m_gated = compute_metrics(records_gated, window)
+        if m_gated is None:
+            continue
+        sweep.results.append((lbl, f"R>={min_rank}", m_gated))
+        if sma_t == MONTHLY_GRID_SMA_THRESH and min_rank == MIN_RANKINGS[0]:
+            sweep.reference = Reference(f"{lbl} R>={min_rank}", records_gated, m_gated)
+
+
+def run_sweep(df: pl.DataFrame, bars: pl.DataFrame, bull_dates: set[date], window: Window) -> Sweep:
+    """Every SMA threshold, ungated and at each ranking gate.
+
+    Spec Step 6 fixes the output order: algorithms from the widest SMA threshold down
+    (s20, s16, s12), and within each the ungated row before the gated one.
+
+    Args:
+        df: Indicator frame, from `cohorts.load_universe`
+        bars: Adjusted bars, for the forward returns
+        bull_dates: Dates passing the SPY regime gate
+        window: The evaluation window
+
+    Returns:
+        The sweep's rows, grid records and history metrics.
+    """
+    sweep = Sweep()
+    for sma_t in sorted(SMA_THRESHS, reverse=True):
+        lbl = algo_label(sma_t)
+        print(f"  {lbl} …", flush=True)
+        trades = cohorts.cohort_trades(df, bars, bull_dates, sma_t, gated=False, start=window.start, end=window.end)
+        trades = trades.sort("symbol", "date")
+        m = compute_metrics(trades.select("entry_date", "ret").to_dicts(), window)
+        if m is not None:
+            sweep.results.append((lbl, "ungated", m))
+        add_gated_rows(sweep, trades, sma_t, window)
+    return sweep
+
+
+def config_rows(window: Window) -> list[tuple[str, str]]:
+    """The result doc's configuration table rows.
+
+    Args:
+        window: The evaluation window
+
+    Returns:
+        `(parameter, value)` pairs for `turtlex.common.report.config_table`.
+    """
+    sma_vals = ", ".join(f"{int(v * 100)}%" for v in SMA_THRESHS)
+    return [
+        ("Algorithm version", f"{ALGO_VERSION} (encoded as `_v{ALGO_VERSION}` in the names below)"),
+        ("Breakout", "50d high"),
+        ("Entry", f"next trading day's adjusted open (within {qm.ENTRY_SEARCH_DAYS} cal days of the signal)"),
+        ("Exit", "close of the first bar at or after entry + hold"),
+        ("SMA thresh sweep", sma_vals),
+        ("Tight range", "disabled (commented out)"),
+        ("Hold sweep", f"{qm.HOLD_CAL}d (calendar); entries without {qm.HOLD_CAL}d of forward data are skipped"),
+        ("Ranking", "QullamaggieRanking (ADR 40 / SMA50 35 / price 25)"),
+        ("Ranking gate sweep", f"ungated, ≥ {GATES_STR}"),
+        ("vol_dry_up", "disabled (commented out)"),
+        ("vol_surge", f"volume/avg_vol_50 < {qm.VOL_SURGE_MAX}× (no lower bound)"),
+        ("roc_12m_cap", f"12m ROC < {int(qm.ROC_CAP * 100)}%"),
+        ("RSI", f"RSI(14) < {int(qm.RSI_CAP)}"),
+        ("ADR", f"mean((high-low)/low, last 20d, shift-1) ≥ {qm.ADR_MIN * 100:.1f}%"),
+        ("ADR change", f"ADR%(10d) / ADR%(50d) < {int(qm.ADR_CHANGE_CAP * 100)}%"),
+        ("SMA alignment", "disabled (commented out)"),
+        ("Market regime", "SPY close > 200d SMA"),
+        ("Price range", f"> ${qm.MIN_PRICE:.0f} and < ${qm.MAX_PRICE:.0f}"),
+        ("Min avg vol (20d)", f"≥ {qm.MIN_AVG_VOL // 1000}K"),
+        ("Min history", f"≥ {qm.MIN_BARS} trading days"),
+        ("Cooldown", f"{qm.COOLDOWN_DAYS} calendar days"),
+        ("Eval period", f"{window.start} – {window.end}"),
+        ("Burn-in (indicators only)", f"{window.start - timedelta(days=qm.WARMUP_DAYS)} – {window.start}"),
+        ("Universe", "US common stocks, market_cap ≥ 1.5B, excl. Comm/RE"),
+        ("Sortino", f"mean / RMS(min(r,0)) over all N × sqrt(365/hold), min {MIN_NEG} losers (turtlex/backtest/metrics.py)"),
+    ]
+
+
+def ideas() -> list[str]:
+    """The `### Ideas to improve` bullets."""
+    return [
+        "source point-in-time market cap (or shares outstanding × price at entry) instead of a static snapshot",
+        "source a delisted-ticker history if available to address survivorship",
+        "add a slippage/commission assumption on top of the next-day-open fill",
+        f"widen the gate sweep past {max(MIN_RANKINGS)} to find where the score stops separating outcomes",
+        "report the ranking's own decile spread within a fixed X so the gate's effect can be read independently of the SMA threshold",
+        "account for trade overlap (e.g. block-bootstrap or effective-sample-size adjustment) when judging Sortino confidence",
+        "re-run all three windows (2010-2015, 2016-2020, 2021-present) before accepting any parameter change — "
+        "a change that only improves the window it was chosen on is fitted to that window",
+        f"pick the ranking gate per SMA threshold rather than one R≥{MIN_RANKINGS[0]} across s12/s16/s20; the same "
+        "score rejects a very different share of each, so it is not the same filter at each",
+        "report per-year Sortino again — the Yrs+/Consistent columns were dropped from the table, so a "
+        "combination that only works in one year is no longer visible at a glance",
+    ]
+
+
+def render_markdown(window: Window, rankings: str, monthly_label: str, monthly_grid: str) -> str:
+    """The result doc.
+
+    Args:
+        window: The evaluation window
+        rankings: The rendered ranking table
+        monthly_label: The reference algorithm's label, heading its grid
+        monthly_grid: The rendered monthly grid, or "" when there is none
+
+    Returns:
+        The markdown document.
+    """
+    parts = [
+        "# Qullamaggie Backtest v4 — Results\n\n",
+        f"Run date: {run_timestamp()}\n\n",
+        "## Configuration\n\n",
+        config_table(config_rows(window)) + "\n",
+        "## Rankings\n\n",
+        "Each algorithm appears twice on adjacent rows, distinguished by the `Gate` column: "
+        "`ungated` takes every signal that meets the entering condition, "
+        f"`R>={GATES_STR}` takes a trade only if its `QullamaggieRanking` score "
+        "(`turtlex/strategy/ranking/qullamaggie.py`) clears the gate. "
+        "The two rows come from the same signals, held and exited identically, so the difference "
+        "isolates the gate — the drop in `N` between them is how selective it is. The score uses "
+        "the same shift-1 indicators the entry filter used (`adr_pct`, `pct_vs_sma50`) plus the raw "
+        "signal-date close, so it adds no look-ahead. Rows are ordered by SMA threshold "
+        "(s20, s16, s12), ungated before gated.\n\n```text\n",
+        rankings,
+        "\n```\n\n",
+    ]
+    if monthly_grid:
+        parts += [
+            f"## Monthly Mean% / N — {monthly_label}\n\n",
+            "Each cell is `Mean%|N` for the trades **entered** in that calendar month, held the "
+            "full 366 days; `·` marks a month with no entries. The right-hand pair is the year's "
+            "own aggregate across all its months, not the mean of the cells. Only this one "
+            "combination is shown — it is the reference algorithm, and a grid per combination "
+            "would be six tables.\n\n```text\n",
+            monthly_grid,
+            "\n```\n\n",
+        ]
+    parts += ["## Findings & Caveats\n\n", "### Ideas to improve\n\n", *(f"- {idea}\n" for idea in ideas())]
+    return "".join(parts)
+
+
+def print_history_row(ref: Reference | None, window: Window) -> None:
+    """Print the reference algorithm's copy-pasteable history row, when it has one.
+
+    Printed, never written: the log lives in the methodology doc, which this script must not
+    touch. The eval window is called out because that log tracks the 2021-2025 baseline only,
+    so a row from one of the historical windows must not be pasted into it.
+
+    Args:
+        ref: The reference cell, or None when it had too few trades
+        window: The evaluation window
+    """
+    if ref is None:
+        return
+    print(
+        f"\n=== History row — {ref.label}, eval {window.start} – {window.end} ===\n"
+        "Paste into docs/research/qullamaggie-backtest-v4.md → History of changes "
+        "(baseline window only), then replace <what changed>.\n"
+        f"{build_history_row(ref.metrics)}"
+    )
+
+
+def main() -> None:
     args = parse_args()
-    EVAL_START, EVAL_END, RESULT_PATH = args.start_date, args.end_date, args.output
-    if EVAL_END <= EVAL_START:
-        raise ValueError(f"--end-date {EVAL_END} must be after --start-date {EVAL_START}")
+    window = Window(args.start_date, args.end_date)
+    if window.end <= window.start:
+        raise ValueError(f"--end-date {window.end} must be after --start-date {window.start}")
 
     settings = Settings.from_toml()
     bars_history = DailyBarsQueryRepository(engine=settings.engine)
-    data_start = EVAL_START - timedelta(days=qm.WARMUP_DAYS)
-    # Forward bars only as far as the last entry could need (EVAL_END + hold + entry search),
-    # and never past DATA_END — so a 2010-2015 run loads ~7 years, not ~18.
-    data_end = min(DATA_END, EVAL_END + timedelta(days=qm.HOLD_CAL + qm.ENTRY_SEARCH_DAYS))
-    print(f"Eval {EVAL_START} – {EVAL_END}  |  bars {data_start} – {data_end}", flush=True)
+    data_start = window.start - timedelta(days=qm.WARMUP_DAYS)
+    # Forward bars only as far as the last entry could need (the window end + hold + entry
+    # search), and never past DATA_END — so a 2010-2015 run loads ~7 years, not ~18.
+    data_end = min(DATA_END, window.end + timedelta(days=qm.HOLD_CAL + qm.ENTRY_SEARCH_DAYS))
+    print(f"Eval {window.start} – {window.end}  |  bars {data_start} – {data_end}", flush=True)
 
     print("Loading SPY regime …", flush=True)
-    bull_dates = qm.load_spy_regime(bars_history, EVAL_START, data_end)
+    bull_dates = qm.load_spy_regime(bars_history, window.start, data_end)
+    df, bars = cohorts.load_universe(bars_history, window.start, end=data_end)
+    sweep = run_sweep(df, bars, bull_dates, window)
+    del df, bars  # nothing below reads the bars; free them before rendering
 
-    df, bars = cohorts.load_universe(bars_history, EVAL_START, end=data_end)
-
-    # Spec Step 6 fixes the output order: algorithms from the widest SMA threshold down
-    # (s20, s16, s12), and within each the ungated row before the gated one.
-    results: list[tuple[str, str, dict]] = []
-    monthly_label = ""
-    monthly_records: list[dict] = []
-    history_metrics: dict | None = None
-
-    for sma_t in sorted(SMA_THRESHS, reverse=True):
-        lbl = f"bk50d_s{round(sma_t * 100)}_v{ALGO_VERSION}"
-        print(f"  {lbl} …", flush=True)
-        trades = cohorts.cohort_trades(df, bars, bull_dates, sma_t, gated=False, start=EVAL_START, end=EVAL_END)
-        trades = trades.sort("symbol", "date")
-        m = compute_metrics(trades.select("entry_date", "ret").to_dicts())
-        if m is not None:
-            results.append((lbl, "ungated", m))
-        for min_rank in MIN_RANKINGS:
-            gated = trades.filter(pl.col("ranking") >= min_rank)
-            if gated.is_empty():
-                continue
-            records_gated = gated.select("entry_date", "ret").to_dicts()
-            m_gated = compute_metrics(records_gated)
-            if m_gated is not None:
-                results.append((lbl, f"R>={min_rank}", m_gated))
-                if sma_t == MONTHLY_GRID_SMA_THRESH and min_rank == MIN_RANKINGS[0]:
-                    monthly_label, monthly_records = f"{lbl} R>={min_rank}", records_gated
-                    history_metrics = m_gated
-
-    # ── Print tables ───────────────────────────────────────────────────────────
-
-    gates_str = ", ".join(str(r) for r in MIN_RANKINGS)
-    output = build_rankings(results)
-    print("\n" + output)
-
-    monthly_grid = build_monthly_grid(monthly_records) if monthly_records else ""
+    rankings = build_rankings(sweep.results)
+    print("\n" + rankings)
+    ref = sweep.reference
+    monthly_label, monthly_grid = (ref.label, build_monthly_grid(ref.records)) if ref is not None else ("", "")
     if monthly_grid:
         print(f"\n=== {monthly_label} — Monthly Mean% / N ===\n{monthly_grid}")
+    print_history_row(ref, window)
 
-    # Printed, never written: the log lives in the methodology doc, which this script must not
-    # touch. The eval window is called out because that log tracks the 2021-2025 baseline only,
-    # so a row from one of the historical windows must not be pasted into it.
-    if history_metrics is not None:
-        print(
-            f"\n=== History row — {monthly_label}, eval {EVAL_START} – {EVAL_END} ===\n"
-            "Paste into docs/research/qullamaggie-backtest-v4.md → History of changes "
-            "(baseline window only), then replace <what changed>.\n"
-            f"{build_history_row(history_metrics)}"
-        )
-
-    # ── Write markdown result ──────────────────────────────────────────────────
-    RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with RESULT_PATH.open("w") as fh:
-        fh.write("# Qullamaggie Backtest v4 — Results\n\n")
-        fh.write(f"Run date: {run_timestamp()}\n\n")
-        sma_vals = ", ".join(f"{int(v * 100)}%" for v in SMA_THRESHS)
-        fh.write("## Configuration\n\n")
-        fh.write("| Parameter | Value |\n|---|---|\n")
-        fh.write(f"| Algorithm version | {ALGO_VERSION} (encoded as `_v{ALGO_VERSION}` in the names below) |\n")
-        fh.write("| Breakout | 50d high |\n")
-        fh.write(f"| Entry | next trading day's adjusted open (within {qm.ENTRY_SEARCH_DAYS} cal days of the signal) |\n")
-        fh.write("| Exit | close of the first bar at or after entry + hold |\n")
-        fh.write(f"| SMA thresh sweep | {sma_vals} |\n")
-        fh.write("| Tight range | disabled (commented out) |\n")
-        fh.write(f"| Hold sweep | {qm.HOLD_CAL}d (calendar); entries without {qm.HOLD_CAL}d of forward data are skipped |\n")
-        fh.write("| Ranking | QullamaggieRanking (ADR 40 / SMA50 35 / price 25) |\n")
-        fh.write(f"| Ranking gate sweep | ungated, ≥ {gates_str} |\n")
-        fh.write("| vol_dry_up | disabled (commented out) |\n")
-        fh.write(f"| vol_surge | volume/avg_vol_50 < {qm.VOL_SURGE_MAX}× (no lower bound) |\n")
-        fh.write(f"| roc_12m_cap | 12m ROC < {int(qm.ROC_CAP * 100)}% |\n")
-        fh.write(f"| RSI | RSI(14) < {int(qm.RSI_CAP)} |\n")
-        fh.write(f"| ADR | mean((high-low)/low, last 20d, shift-1) ≥ {qm.ADR_MIN * 100:.1f}% |\n")
-        fh.write(f"| ADR change | ADR%(10d) / ADR%(50d) < {int(qm.ADR_CHANGE_CAP * 100)}% |\n")
-        fh.write("| SMA alignment | disabled (commented out) |\n")
-        fh.write("| Market regime | SPY close > 200d SMA |\n")
-        fh.write(f"| Price range | > ${qm.MIN_PRICE:.0f} and < ${qm.MAX_PRICE:.0f} |\n")
-        fh.write(f"| Min avg vol (20d) | ≥ {qm.MIN_AVG_VOL // 1000}K |\n")
-        fh.write(f"| Min history | ≥ {qm.MIN_BARS} trading days |\n")
-        fh.write(f"| Cooldown | {qm.COOLDOWN_DAYS} calendar days |\n")
-        fh.write(f"| Eval period | {EVAL_START} – {EVAL_END} |\n")
-        fh.write(f"| Burn-in (indicators only) | {EVAL_START - timedelta(days=qm.WARMUP_DAYS)} – {EVAL_START} |\n")
-        fh.write("| Universe | US common stocks, market_cap ≥ 1.5B, excl. Comm/RE |\n")
-        fh.write(f"| Sortino | mean / RMS(min(r,0)) over all N × sqrt(365/hold), min {MIN_NEG} losers (turtlex/backtest/metrics.py) |\n\n")
-        fh.write("## Rankings\n\n")
-        fh.write(
-            "Each algorithm appears twice on adjacent rows, distinguished by the `Gate` column: "
-            "`ungated` takes every signal that meets the entering condition, "
-            f"`R>={gates_str}` takes a trade only if its `QullamaggieRanking` score "
-            "(`turtlex/strategy/ranking/qullamaggie.py`) clears the gate. "
-            "The two rows come from the same signals, held and exited identically, so the difference "
-            "isolates the gate — the drop in `N` between them is how selective it is. The score uses "
-            "the same shift-1 indicators the entry filter used (`adr_pct`, `pct_vs_sma50`) plus the raw "
-            "signal-date close, so it adds no look-ahead. Rows are ordered by SMA threshold "
-            "(s20, s16, s12), ungated before gated.\n\n```text\n"
-        )
-        fh.write(output)
-        fh.write("\n```\n\n")
-        if monthly_grid:
-            fh.write(f"## Monthly Mean% / N — {monthly_label}\n\n")
-            fh.write(
-                "Each cell is `Mean%|N` for the trades **entered** in that calendar month, held the "
-                "full 366 days; `·` marks a month with no entries. The right-hand pair is the year's "
-                "own aggregate across all its months, not the mean of the cells. Only this one "
-                "combination is shown — it is the reference algorithm, and a grid per combination "
-                "would be six tables.\n\n```text\n"
-            )
-            fh.write(monthly_grid)
-            fh.write("\n```\n\n")
-
-        fh.write("## Findings & Caveats\n\n")
-        fh.write("### Ideas to improve\n\n")
-        ideas = [
-            "source point-in-time market cap (or shares outstanding × price at entry) instead of a static snapshot",
-            "source a delisted-ticker history if available to address survivorship",
-            "add a slippage/commission assumption on top of the next-day-open fill",
-            f"widen the gate sweep past {max(MIN_RANKINGS)} to find where the score stops separating outcomes",
-            "report the ranking's own decile spread within a fixed X so the gate's effect can be read independently of the SMA threshold",
-            "account for trade overlap (e.g. block-bootstrap or effective-sample-size adjustment) when judging Sortino confidence",
-            "re-run all three windows (2010-2015, 2016-2020, 2021-present) before accepting any parameter change — "
-            "a change that only improves the window it was chosen on is fitted to that window",
-            f"pick the ranking gate per SMA threshold rather than one R≥{MIN_RANKINGS[0]} across s12/s16/s20; the same "
-            "score rejects a very different share of each, so it is not the same filter at each",
-            "report per-year Sortino again — the Yrs+/Consistent columns were dropped from the table, so a "
-            "combination that only works in one year is no longer visible at a glance",
-        ]
-        for idea in ideas:
-            fh.write(f"- {idea}\n")
-    print(f"\nResults saved to {RESULT_PATH}", flush=True)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(render_markdown(window, rankings, monthly_label, monthly_grid))
+    print(f"\nResults saved to {args.output}", flush=True)
 
 
 if __name__ == "__main__":

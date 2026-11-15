@@ -126,7 +126,7 @@ baseline (366d only)          307,819  +53.22   -31.15   1.709    2.210    188  
 
 ## Controls
 
-The four exit modes already coded but unreachable in `qullamaggie-portfolio-sim.py:run_sim` (`stop30`, `trail25`, `sma200x5`, `dead120` — its `EXIT_MODES = ["time"]` never selects them), at that script's own constants.
+The four exit modes `qullamaggie-portfolio-sim.py` carried but never selected (`stop30`, `trail25`, `sma200x5`, `dead120`), at the constants it used for them. They were removed from it on 2026-11-15 and are measured only here.
 
 ```text
 variant                        Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip      

@@ -39,6 +39,7 @@ _CANONICAL_DELEGATES = {
     "turtlex.research.cohorts": REPO_ROOT / "turtlex" / "research" / "cohorts.py",
     "turtlex.research.ranking_lab": REPO_ROOT / "turtlex" / "research" / "ranking_lab.py",
     "turtlex.research.portfolio_replay": REPO_ROOT / "turtlex" / "research" / "portfolio_replay.py",
+    "turtlex.research.portfolio_sim": REPO_ROOT / "turtlex" / "research" / "portfolio_sim.py",
 }
 
 # The RMS-of-a-squared-series idiom every private Sortino was built on. An import-only rule

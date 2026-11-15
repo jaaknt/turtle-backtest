@@ -23,8 +23,12 @@ Rules:
     value (cash + open positions marked to market).
   - If available cash < the target, skip the trade (no liquidity).
   - Exit at the close of the first trading day >= entry + qm.HOLD_CAL calendar days
-    (open positions at period end are marked to market, not force-closed).
+    (open positions at period end are marked to market, not force-closed). Other exits are
+    measured by scripts/qullamaggie-exit-sweep.py.
   - Fractional shares, no commission/slippage.
+
+The simulator itself is turtlex.research.portfolio_sim; this script runs the sweep and writes the
+report.
 
 SPY/QQQ buy & hold benchmarks ($INIT_EQUITY lump-sum, first close to last close of the period)
 are reported alongside the main sweep. Each taken trade of every config is also scored
@@ -40,43 +44,38 @@ Sortino, signals taken/skipped, average uninvested capital.
 """
 
 import argparse
+from collections import Counter
+from dataclasses import dataclass, field
 from datetime import date, timedelta
+from itertools import product
 from pathlib import Path
 
 import numpy as np
 import polars as pl
 
-from turtlex.backtest.metrics import compute_daily_cagr, compute_daily_sortino
 from turtlex.common.cli import iso_date_type
 from turtlex.common.report import config_table, run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.research import qullamaggie as qm
+from turtlex.research.portfolio_sim import SimMarket, SimParams, equity_curve_metrics, gate_signals, resolve_signals, run_sim, year_metrics
 
-_EPOCH = date(1970, 1, 1)
 EVAL_START = date(2021, 1, 1)
 EVAL_END = date(2026, 6, 26)
 INIT_EQUITY = 30_000.0
 POS_FRACTIONS = [0.03, 0.04, 0.05]  # position-size sweep
 DECILE_POS_FRACTION = 0.04  # representative size used for the ranking-decile mini-simulations
 N_DECILES = 10
-BELOW_DAYS = 5  # consecutive days below 200d SMA to trigger the trend exit
-DEAD_CAL = 120  # dead-money exit: calendar days after entry at which the gain is tested
-DEAD_MIN_RET = 0.05  # ... and the gain it must have made by then to stay open
-STOP_DD = 0.30  # fixed stop: close <= (1-STOP_DD) * entry price
-TRAIL_DD = 0.25  # trailing stop: close <= (1-TRAIL_DD) * peak-since-entry
 RANK_FUNDING = True  # when cash is scarce, fund competing signals by QullamaggieRanking (desc)
 
-# Only "time" is exercised. sma200x5, dead120, stop30 and trail25 are implemented in run_sim
-# but dormant: prompts.md lists them under "Deferred/considered ideas". The sma200x5 and
-# dead120 measurements that led to that deferral are recorded in the Findings sections.
-EXIT_MODES = ["time"]
 STRICT_RANKING = 55  # tighter comparison gate, reported alongside qm.MIN_RANKING and ungated
 # Every ranking treatment, strictest first: the size sweep reports them in this order and the
 # decile section walks the gated ones in the same order. A floor of 0 keeps every signal.
 GATES: list[tuple[str, int]] = [(f"R>={STRICT_RANKING}", STRICT_RANKING), (f"R>={qm.MIN_RANKING}", qm.MIN_RANKING), ("ungated", 0)]
+GATED_LABELS = [label for label, floor in GATES if floor > 0]  # the gates the decile section decomposes
 # run_sim result fields only the yearly/monthly focus rows read; dropped from every other result
 HEAVY_RESULT_KEYS = ("eom", "entries", "skips", "dates", "eq", "cash", "trades")
+FOCUS_NAME = f"s12 R>={qm.MIN_RANKING}"  # the reference algorithm, always in the yearly/monthly sections
 
 CONFIGS = [
     ("s20", 0.20),
@@ -84,13 +83,27 @@ CONFIGS = [
     ("s12", 0.12),
 ]
 
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-def config_rows() -> list[tuple[str, str]]:
+RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-portfolio-v4.md"
+
+# (algorithm label, position fraction, run_sim result)
+Result = tuple[str, float, dict]
+
+
+@dataclass(frozen=True)
+class Window:
+    """The evaluation window, from the CLI."""
+
+    start: date
+    end: date
+
+
+def config_rows(window: Window) -> list[tuple[str, str]]:
     """Build the run's configuration table rows.
 
-    A function rather than a module-level constant because `main` rebinds EVAL_START/EVAL_END
-    from the CLI window — a constant evaluated at import time would stamp every window's
-    result doc with the default 2021-2026 period.
+    Args:
+        window: The evaluation window
 
     Returns:
         `(parameter, value)` pairs for `turtlex.common.report.config_table`.
@@ -99,7 +112,7 @@ def config_rows() -> list[tuple[str, str]]:
     # `%abv_SMA50` threshold each config is named for, so it stays on the section headings
     # rather than being repeated here. Same `| Parameter | Value |` shape as the cohort studies.
     return [
-        ("Period", f"{EVAL_START} – {EVAL_END}"),
+        ("Period", f"{window.start} – {window.end}"),
         ("Hold", f"{qm.HOLD_CAL}d (calendar)"),
         ("Algorithms", ", ".join(f"bk50d_{n}_v2.0 (%abv_SMA50>{t * 100:.0f}%)" for n, t in CONFIGS)),
         ("Entry", "next trading day's split/dividend-adjusted open"),
@@ -124,84 +137,24 @@ def config_rows() -> list[tuple[str, str]]:
     ]
 
 
-MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-
-def year_metrics(r: dict) -> list[dict]:
-    """Re-derive the sweep metrics on each complete calendar year of one simulation.
-
-    Every figure is computed from that year's own daily slice rather than sliced out of the
-    whole-period result: the year's return is its closing equity over the previous year's close
-    (the opening equity for the first year), MaxDD is the deepest peak-to-trough *within* the
-    year, and Sortino runs on the year's daily returns only. Calmar therefore pairs a one-year
-    return with a one-year drawdown, which is not the whole-period Calmar restricted to a year.
-
-    Trades are attributed to the year they were entered, so `taken` and `skip` sum across years
-    to the whole-period counts.
+def buy_and_hold(bars_history: DailyBarsQueryRepository, symbol: str, window: Window) -> dict:
+    """Buy-and-hold benchmark: $INIT_EQUITY at the first close on/after the window start, held to
+    the last close on/before its end (raw close, no dividend reinvestment, matching how
+    qm.load_spy_regime computes SPY's regime filter).
 
     Args:
-        r: a `run_sim` result carrying the `dates`/`eq`/`cash` daily series
+        bars_history: Repository for bar reads
+        symbol: Benchmark symbol, in database convention
+        window: The evaluation window
 
     Returns:
-        One dict per year with year, final, ret, max_dd, calmar, sortino, taken, skipped, uninv.
+        dict with final, cagr, max_dd, calmar and sortino.
     """
-    dates, eq, cash = r["dates"], r["eq"], r["cash"]
-    taken_by_year: dict[int, int] = {}
-    for d in r["entries"]:
-        taken_by_year[d.year] = taken_by_year.get(d.year, 0) + 1
-    skips_by_year: dict[int, int] = {}
-    for d in r["skips"]:
-        skips_by_year[d.year] = skips_by_year.get(d.year, 0) + 1
-
-    out_rows: list[dict] = []
-    prev_close = float(eq[0])
-    for year in sorted({d.year for d in dates}):
-        idx = [i for i, d in enumerate(dates) if d.year == year]
-        year_eq = eq[idx]
-        ret = float(year_eq[-1]) / prev_close - 1.0
-        max_dd = float((year_eq / np.maximum.accumulate(year_eq) - 1.0).min())
-        daily = year_eq[1:] / year_eq[:-1] - 1.0
-        out_rows.append(
-            {
-                "year": year,
-                "final": float(year_eq[-1]),
-                "ret": ret,
-                "max_dd": max_dd,
-                "calmar": ret / abs(max_dd) if max_dd < 0 else float("inf"),
-                "sortino": compute_daily_sortino(daily) if daily.size else float("nan"),
-                "taken": taken_by_year.get(year, 0),
-                "skipped": skips_by_year.get(year, 0),
-                "uninv": float(np.mean(cash[idx] / year_eq) * 100),
-            }
-        )
-        prev_close = float(year_eq[-1])
-    return out_rows
-
-
-RESULT_PATH = Path(__file__).parent.parent / "docs" / "research" / "result-qullamaggie-portfolio-v4.md"
-
-
-def buy_and_hold(bars_history: DailyBarsQueryRepository, symbol: str) -> dict:
-    """Buy-and-hold benchmark: $INIT_EQUITY at the first close on/after EVAL_START, held to
-    the last close on/before EVAL_END (raw close, no dividend reinvestment, matching how
-    qm.load_spy_regime computes SPY's regime filter)."""
-    bars = bars_history.get_bars_pl(symbol, EVAL_START, EVAL_END)
+    bars = bars_history.get_bars_pl(symbol, window.start, window.end)
     if bars.is_empty():
-        raise ValueError(f"no {symbol} bars in {EVAL_START} – {EVAL_END}; the buy-and-hold benchmark cannot be computed")
+        raise ValueError(f"no {symbol} bars in {window.start} – {window.end}; the buy-and-hold benchmark cannot be computed")
     closes = bars["close"].cast(pl.Float64).to_numpy()
-    eq = INIT_EQUITY * (closes / closes[0])
-    daily_ret = eq[1:] / eq[:-1] - 1.0
-    max_dd = float((eq / np.maximum.accumulate(eq) - 1.0).min())
-    cagr = compute_daily_cagr(daily_ret)
-    calmar = cagr / abs(max_dd) if max_dd < 0 else float("inf")
-    sortino = compute_daily_sortino(daily_ret)
-    return {
-        "final": float(eq[-1]),
-        "cagr": cagr,
-        "max_dd": max_dd,
-        "calmar": calmar,
-        "sortino": sortino,
-    }
+    return equity_curve_metrics(INIT_EQUITY * (closes / closes[0]))
 
 
 def parse_args() -> argparse.Namespace:
@@ -217,473 +170,222 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> None:
-    global EVAL_START, EVAL_END, RESULT_PATH
+class Report:
+    """The markdown report, echoed to stdout line by line as it is written."""
 
-    args = parse_args()
-    if args.start_date >= args.end_date:
-        raise ValueError(f"--start-date {args.start_date} must be before --end-date {args.end_date}")
-    # Rebound as module globals because the window is read at a dozen points across this
-    # script; threading it through every one of them would be a far larger change.
-    EVAL_START, EVAL_END, RESULT_PATH = args.start_date, args.end_date, args.output
+    def __init__(self) -> None:
+        self.lines: list[str] = []
 
-    data_start = EVAL_START - timedelta(days=qm.WARMUP_DAYS)
-    settings = Settings.from_toml()
-    bars_history = DailyBarsQueryRepository(engine=settings.engine)
-    print(f"Eval {EVAL_START} – {EVAL_END}  |  bars {data_start} – {EVAL_END}", flush=True)
-    print("Loading SPY …", flush=True)
-    # SPY's own bars are the master trading calendar run_sim walks; the regime comes from qm.
-    cal = qm.load_trading_days(bars_history, EVAL_START, EVAL_END)
-    bull_dates = qm.load_spy_regime(bars_history, EVAL_START, EVAL_END)
-    # Bars end at EVAL_END: this simulation never requires an exit bar to exist, it marks
-    # positions still open on the last day to market. Bounding the load also puts the
-    # qm.MIN_BARS count on the window actually being simulated, so a symbol that listed late
-    # in it no longer qualifies on bars it had not printed yet.
-    print("Loading bars …", flush=True)
-    df = qm.load_bars(bars_history, EVAL_START, EVAL_END)
-    print("Computing indicators …", flush=True)
-    # sma200 is this study's own: the trend exit reads it, the entry chain does not.
-    df = qm.add_indicators(df).with_columns(pl.col("adj_close").shift(1).rolling_mean(200, min_samples=200).over("symbol").alias("sma200"))
+    def out(self, s: str = "") -> None:
+        """Append one line, and print it.
 
-    # per-symbol arrays for mark-to-market / entry / exit
-    sym_dates: dict[str, np.ndarray] = {}
-    sym_closes: dict[str, np.ndarray] = {}
-    sym_opens: dict[str, np.ndarray] = {}
-    sym_sma200: dict[str, np.ndarray] = {}
-    # add_indicators leaves the frame sorted by (symbol, date); each group is re-sorted below anyway.
-    for (sym,), grp in df.select("symbol", "date", "adj_close", "adj_open", "sma200").group_by(["symbol"], maintain_order=False):
-        g = grp.sort("date")
-        sym_dates[sym] = np.array([(d - _EPOCH).days for d in g["date"].to_list()], dtype=np.int64)
-        sym_closes[sym] = g["adj_close"].cast(pl.Float64).to_numpy(allow_copy=True)
-        sym_opens[sym] = g["adj_open"].cast(pl.Float64).to_numpy(allow_copy=True)
-        sym_sma200[sym] = g["sma200"].cast(pl.Float64).to_numpy(allow_copy=True)
-
-    def _idx_on(sym: str, dint: int) -> int:
-        d = sym_dates.get(sym)
-        if d is None:
-            return -1
-        return int(np.searchsorted(d, dint, side="right")) - 1
-
-    def price_on(sym: str, dint: int) -> float | None:
-        idx = _idx_on(sym, dint)
-        return float(sym_closes[sym][idx]) if idx >= 0 else None
-
-    def next_open(sym: str, dint: int) -> tuple[int, float] | None:
-        """First tradeable bar strictly after `dint`, as (date_int, adjusted open).
-
-        Mirrors SignalProcessor.calculate_entry_data: the search skips bars with a
-        non-positive open and gives up after qm.ENTRY_SEARCH_DAYS calendar days, and the open
-        is already scaled by that bar's own adjustment factor in qm.prepare_bars.
+        Args:
+            s: The line
         """
-        dates = sym_dates.get(sym)
-        if dates is None:
-            return None
-        idx = int(np.searchsorted(dates, dint, side="right"))
-        opens = sym_opens[sym]
-        while idx < len(dates) and dates[idx] <= dint + qm.ENTRY_SEARCH_DAYS:
-            if opens[idx] > 0 and not np.isnan(opens[idx]):
-                return int(dates[idx]), float(opens[idx])
-            idx += 1
-        return None
-
-    def below_sma200(sym: str, dint: int) -> bool:
-        idx = _idx_on(sym, dint)
-        if idx < 0:
-            return False
-        sma = sym_sma200[sym][idx]
-        return bool(not np.isnan(sma) and sym_closes[sym][idx] < sma)
-
-    cal_int = [(d - _EPOCH).days for d in cal]
-    cal_set = set(cal_int)  # entries must land on a day run_sim actually visits
-
-    lines: list[str] = []
-
-    def out(s: str = "") -> None:
         print(s)
-        lines.append(s)
+        self.lines.append(s)
 
-    def table(hdr: str, rows: list[str]) -> None:
+    def table(self, hdr: str, rows: list[str]) -> None:
         """Emit a fixed-width table as a fenced ```text block, blank-line-padded on both
         sides so it can't be misread as a setext heading by markdownlint/GitHub."""
-        out("")
-        out("```text")
-        out(hdr)
-        out("-" * len(hdr))
+        self.out("")
+        self.out("```text")
+        self.out(hdr)
+        self.out("-" * len(hdr))
         for row in rows:
-            out(row)
-        out("```")
+            self.out(row)
+        self.out("```")
 
-    def run_sim(signals_by_day: dict[int, list[dict]], exit_mode: str, pos_fraction: float, hold_cal: int = qm.HOLD_CAL) -> dict:
-        cash = INIT_EQUITY
-        positions: list[dict] = []
-        equity_curve: list[tuple[date, float]] = []
-        cash_curve: list[float] = []
-        entry_dates: list[date] = []
-        skip_dates: list[date] = []
-        trades: list[dict] = []
-        n_taken = n_skipped = n_exit_rule = 0
+    def write(self, path: Path) -> None:
+        """Save the report to `path`.
 
-        for d, dint in zip(cal, cal_int, strict=False):
-            still_open = []
-            for p in positions:
-                px = price_on(p["sym"], dint)
-                if dint >= p["exit_int"]:  # time cap (always)
-                    if px is not None:
-                        cash += p["shares"] * px
-                        trades.append(
-                            {
-                                "entry_date": p["entry_date"],
-                                "sig_date": p["sig_date"],
-                                "symbol": p["sym"],
-                                "ret": px / p["entry_px"] - 1.0,
-                                "ranking": p["ranking"],
-                            }
-                        )
-                    continue
-                rule_hit = False
-                if px is not None:
-                    if exit_mode == "stop30":
-                        rule_hit = px <= (1 - STOP_DD) * p["entry_px"]
-                    elif exit_mode == "sma200x5":
-                        p["below_cnt"] = p["below_cnt"] + 1 if below_sma200(p["sym"], dint) else 0
-                        rule_hit = p["below_cnt"] >= BELOW_DAYS
-                    elif exit_mode == "dead120":
-                        # Tested once the position is DEAD_CAL calendar days old, and every day
-                        # after: a trade that recovers past the threshold later simply stops
-                        # qualifying, so this is "not working yet", not a one-shot check.
-                        rule_hit = dint - p["entry_dint"] >= DEAD_CAL and px / p["entry_px"] - 1.0 < DEAD_MIN_RET
-                    elif exit_mode == "trail25":
-                        p["peak"] = max(p["peak"], px)
-                        rule_hit = px <= (1 - TRAIL_DD) * p["peak"]
-                if rule_hit:
-                    cash += p["shares"] * px
-                    n_exit_rule += 1
-                    trades.append(
-                        {
-                            "entry_date": p["entry_date"],
-                            "sig_date": p["sig_date"],
-                            "symbol": p["sym"],
-                            "ret": px / p["entry_px"] - 1.0,
-                            "ranking": p["ranking"],
-                        }
-                    )
-                else:
-                    still_open.append(p)
-            positions = still_open
+        Args:
+            path: Markdown output path
+        """
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("\n".join(self.lines) + "\n")
+        print(f"\nSaved to {path}", flush=True)
 
-            mtm = cash + sum(p["shares"] * (price_on(p["sym"], dint) or 0.0) for p in positions)
 
-            day_sigs = signals_by_day.get(dint, [])
-            if RANK_FUNDING:
-                day_sigs = sorted(day_sigs, key=lambda s: s["ranking"], reverse=True)
-            for s in day_sigs:
-                target = pos_fraction * mtm
-                entry_px = s["entry_px"]  # next trading day's adjusted open, resolved once in main()
-                if cash + 1e-9 < target:
-                    n_skipped += 1
-                    skip_dates.append(d)
-                    continue
-                cash -= target
-                positions.append(
-                    {
-                        "sym": s["symbol"],
-                        "shares": target / entry_px,
-                        "entry_px": entry_px,
-                        "entry_date": d,
-                        "entry_dint": dint,
-                        "sig_date": s["date"],
-                        "exit_int": dint + hold_cal,
-                        "below_cnt": 0,
-                        "peak": entry_px,
-                        "ranking": s["ranking"],
-                    }
-                )
-                n_taken += 1
-                entry_dates.append(d)
+@dataclass
+class Study:
+    """What every section of one run shares: the report, the window's market and the sweep's results."""
 
-            equity = cash + sum(p["shares"] * (price_on(p["sym"], dint) or 0.0) for p in positions)
-            equity_curve.append((d, equity))
-            cash_curve.append(cash)
+    rep: Report
+    market: SimMarket
+    results: list[Result] = field(default_factory=list)
 
-        for p in positions:  # still open at period end -- mark-to-market, not force-closed
-            px = price_on(p["sym"], cal_int[-1])
-            if px is not None:
-                trades.append(
-                    {
-                        "entry_date": p["entry_date"],
-                        "sig_date": p["sig_date"],
-                        "symbol": p["sym"],
-                        "ret": px / p["entry_px"] - 1.0,
-                        "ranking": p["ranking"],
-                    }
-                )
 
-        dates = [e[0] for e in equity_curve]
-        eq = np.array([e[1] for e in equity_curve])
-        cash_arr = np.array(cash_curve)
-        avg_uninv_pct = float(np.mean(cash_arr / eq) * 100)
-        avg_uninv_usd = float(np.mean(cash_arr))
-        daily_ret = eq[1:] / eq[:-1] - 1.0
-        max_dd = float((eq / np.maximum.accumulate(eq) - 1.0).min())
-        cagr = compute_daily_cagr(daily_ret)
-        calmar = cagr / abs(max_dd) if max_dd < 0 else float("inf")
-        sortino = compute_daily_sortino(daily_ret)
+def simulate(market: SimMarket, signals_by_day: dict[int, list[dict]], pos_fraction: float) -> dict:
+    """`run_sim` at this study's starting equity and funding order.
 
-        eq_df = pl.DataFrame({"date": pl.Series(dates, dtype=pl.Date), "eq": eq}).with_columns(
-            [
-                pl.col("date").dt.year().alias("year"),
-                pl.col("date").dt.month().alias("month"),
-            ]
-        )
-        eom = eq_df.group_by(["year", "month"]).agg(pl.col("eq").last().alias("eom")).sort(["year", "month"])
-        eom = eom.with_columns((pl.col("eom") / pl.col("eom").shift(1) - 1.0).alias("ret"))
-        eom = eom.with_columns(
-            pl.when(pl.col("ret").is_null()).then(pl.col("eom") / INIT_EQUITY - 1.0).otherwise(pl.col("ret")).alias("ret")
-        )
-        return {
-            "final": float(eq[-1]),
-            "cagr": cagr,
-            "max_dd": max_dd,
-            "calmar": calmar,
-            "sortino": sortino,
-            "taken": n_taken,
-            "skipped": n_skipped,
-            "exit_rule": n_exit_rule,
-            "avg_uninv_pct": avg_uninv_pct,
-            "avg_uninv_usd": avg_uninv_usd,
-            "eom": eom,
-            "entries": entry_dates,
-            "skips": skip_dates,
-            # Daily series kept so the per-year table can re-derive its metrics on a
-            # calendar-year slice rather than approximating them from monthly aggregates.
-            "dates": dates,
-            "eq": eq,
-            "cash": cash_arr,
-            "trades": trades,
-        }
+    Args:
+        market: The window's prices and calendar
+        signals_by_day: Signals keyed by the date-int they are funded on
+        pos_fraction: Fraction of the portfolio's value per position
 
-    def monthly_grid(eom: pl.DataFrame, entries: list[date]) -> None:
-        entry_counts: dict[tuple[int, int], int] = {}
-        for ed in entries:
-            key = (ed.year, ed.month)
-            entry_counts[key] = entry_counts.get(key, 0) + 1
+    Returns:
+        The `run_sim` result.
+    """
+    return run_sim(market, signals_by_day, SimParams(pos_fraction, INIT_EQUITY, rank_funding=RANK_FUNDING))
 
-        header = f"{'Year':>5} | " + " ".join(f"{m:>9}" for m in MONTHS) + f" | {'Year%':>7} {'Txns':>5}"
-        rows: list[str] = []
-        for yr in sorted(eom["year"].unique().to_list()):
-            parts, comp = [], 1.0
-            year_txns = 0
-            for mo in range(1, 13):
-                r = eom.filter((pl.col("year") == yr) & (pl.col("month") == mo))["ret"].to_list()
-                cnt = entry_counts.get((yr, mo), 0)
-                year_txns += cnt
-                if r:
-                    cell = f"{r[0] * 100:+.1f}|{cnt}"
-                    comp *= 1 + r[0]
-                else:
-                    cell = "·"
-                parts.append(f"{cell:>9}")
-            rows.append(f"{yr:>5} | " + " ".join(parts) + f" | {(comp - 1) * 100:>+7.1f} {year_txns:>5}")
-        table(header, rows)
 
-    def ranking_decile_table(name: str, signals_by_day: dict[int, list[dict]], pos_fraction: float) -> None:
-        """Score every taken trade with QullamaggieRanking, split into N_DECILES equal-count
-        buckets (D1=lowest ranking .. D10=highest), and re-simulate each decile's own signal
-        subset in isolation (same sizing) to report that decile's standalone portfolio metrics."""
-        base = run_sim(signals_by_day, "time", pos_fraction)
-        trades = sorted(base["trades"], key=lambda t: t["ranking"])
-        n = len(trades)
-        edges = np.linspace(0, n, N_DECILES + 1).astype(int)
+def write_preamble(rep: Report, bars_history: DailyBarsQueryRepository, window: Window) -> None:
+    """The title, the configuration table and the buy-and-hold benchmarks.
 
-        hdr = f"{'Decile':<8} {'Ranking':>9} {'N':>5} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} {'Sortino':>8}"
-        rows: list[str] = []
-        for d in range(N_DECILES):
-            subset = trades[edges[d] : edges[d + 1]]
-            if not subset:
-                continue
-            keys = {(t["symbol"], t["sig_date"]) for t in subset}
-            sub_by_day: dict[int, list[dict]] = {}
-            for dint, sigs in signals_by_day.items():
-                kept = [s for s in sigs if (s["symbol"], s["date"]) in keys]
-                if kept:
-                    sub_by_day[dint] = kept
-            res = run_sim(sub_by_day, "time", pos_fraction)
-            rankings = [t["ranking"] for t in subset]
-            rows.append(
-                f"D{d + 1:<7} {min(rankings):>3}-{max(rankings):<5} {len(subset):>5} {res['cagr'] * 100:>+7.2f} "
-                f"{res['max_dd'] * 100:>8.2f} {res['calmar']:>7.3f} {res['sortino']:>8.3f}"
-            )
-        out(f"Trades scored: {n}  |  size: {pos_fraction:.0%}")
-        table(hdr, rows)
+    Args:
+        rep: The report
+        bars_history: Repository for the benchmarks' bars
+        window: The evaluation window
+    """
+    rep.out("# Portfolio Simulation — size sweep + ranking deciles")
+    rep.out("")
+    rep.out(f"Run date: {run_timestamp()}")
+    rep.out("")
+    rep.out("## Configuration")
+    rep.out("")
+    for line in config_table(config_rows(window)).rstrip("\n").split("\n"):
+        rep.out(line)
 
-    out("# Portfolio Simulation — size sweep + ranking deciles")
-    out("")
-    out(f"Run date: {run_timestamp()}")
-    out("")
-    out("## Configuration")
-    out("")
-    for line in config_table(config_rows()).rstrip("\n").split("\n"):
-        out(line)
-
-    out("")
-    out("## Buy & Hold Benchmarks")
-    out("")
-    out(f"${INIT_EQUITY:,.0f} bought on the first trading day of the period, sold on the last.")
+    rep.out("")
+    rep.out("## Buy & Hold Benchmarks")
+    rep.out("")
+    rep.out(f"${INIT_EQUITY:,.0f} bought on the first trading day of the period, sold on the last.")
     bh_hdr = f"{'symbol':<6} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} {'Sortino':>8}"
     bh_rows: list[str] = []
     for sym in ["SPY.US", "QQQ.US"]:
-        bh = buy_and_hold(bars_history, sym)
+        bh = buy_and_hold(bars_history, sym, window)
         bh_rows.append(
             f"{sym[:-3]:<6} {bh['final']:>11,.0f} {bh['cagr'] * 100:>+7.2f} {bh['max_dd'] * 100:>8.2f} "
             f"{bh['calmar']:>7.3f} {bh['sortino']:>8.3f}"
         )
-    table(bh_hdr, bh_rows)
+    rep.table(bh_hdr, bh_rows)
 
-    # collect all baseline (366d) results first, then rank for monthly grids
-    all_results: list[tuple[str, float, dict]] = []  # (name, pos_fraction, result)
-    # Gated signal sets keyed by (config, gate label), for the decile section
-    signals_by_day_by_gate: dict[tuple[str, str], dict[int, list[dict]]] = {}
+
+def prune_results(all_results: list[Result]) -> None:
+    """Drop the daily series from results that cannot reach the yearly/monthly focus set.
+
+    That set is the reference algorithm at every sizing plus the two best others by Final$,
+    so any other result past the current top two never needs its series. Pruning as the
+    sweep goes keeps peak memory near the focus set rather than all 27 results.
+
+    Args:
+        all_results: Every result so far, pruned in place
+    """
+    others = sorted((x for x in all_results if x[0] != FOCUS_NAME), key=lambda x: x[2]["final"], reverse=True)
+    for _name, _pf, res in others[2:]:
+        for key in HEAVY_RESULT_KEYS:
+            res.pop(key, None)
+
+
+def write_config_sweep(study: Study, sig: pl.DataFrame, config: tuple[str, float]) -> dict[str, dict[int, list[dict]]]:
+    """One config's size sweep: every sizing under every ranking treatment, on adjacent rows.
+
+    Args:
+        study: The run; this config's results are appended to `study.results` (and it is pruned)
+        sig: The config's signals, from `qm.get_signals`
+        config: Config name (s20/s16/s12) and its `%abv_SMA50` threshold
+
+    Returns:
+        The gated signal sets keyed by gate label, for the decile section; the ungated set is
+        left out.
+    """
+    name, sma_t = config
+    rep, market = study.rep, study.market
+    rep.out("")
+    rep.out(f"## {name}  (bk50d_{name}_v2.0 / {qm.HOLD_CAL}d)")
+    rep.out("")
+    rep.out(f"`%abv_SMA50 > {sma_t * 100:.0f}%` — every other filter is in the Configuration table above.")
+    # Same signals, sized the same way, reported under every ranking treatment on adjacent
+    # rows of one table. Reading across is the only way to see what a gate is worth in
+    # *portfolio* terms — a gated run alone cannot show whether the signals it removed
+    # would have compounded better.
+    resolved = resolve_signals(market, sig)
+    gate_runs = [(gate_label, *gate_signals(resolved, gate)) for gate_label, gate in GATES]
+
+    rep.out("")
+    # Built from each run's own label, so reordering or adding a gate can never pair a label
+    # with another gate's counts.
+    drops = "; ".join(
+        f"`{label}` drops {n_below} signals ({n_no_fill} with no fillable next-day open)" for label, _sigs, n_below, n_no_fill in gate_runs
+    )
+    rep.out(
+        f"**Ranking gate:** {drops}. Each sizing is listed strictest gate first, so the rows read "
+        "across — a gated run alone cannot show whether the signals it removed would have "
+        "compounded better."
+    )
     hdr = (
         f"{'size':<6} {'gate':<8} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} "
         f"{'Sortino':>8} {'taken':>6} {'skip':>6} {'Uninv%':>7}"
     )
-
-    def resolve(sig: pl.DataFrame) -> list[dict]:
-        """Score every signal once and attach its fill: the next trading day's adjusted open.
-
-        Done once per config, not per gate or inside run_sim: the gates, the size sweep and the
-        decile re-simulations all replay the same signals, and run_sim never mutates them, so
-        every gated view can share these dicts.
-
-        Args:
-            sig: Signal frame for one config, from `qm.get_signals`
-
-        Returns:
-            One dict per signal carrying `ranking`, plus `entry_dint`/`entry_px` — both None when
-            no fillable next-day open falls inside the evaluation calendar.
-        """
-        resolved: list[dict] = []
-        for r in qm.add_ranking(sig).iter_rows(named=True):
-            fill = next_open(r["symbol"], (r["date"] - _EPOCH).days)
-            r["entry_dint"], r["entry_px"] = fill if fill is not None and fill[0] in cal_set else (None, None)
-            resolved.append(r)
-        return resolved
-
-    def gate_signals(resolved: list[dict], min_ranking: int) -> tuple[dict[int, list[dict]], int, int]:
-        """Apply one ranking floor to resolved signals, keyed by the day each is funded.
-
-        Signals are keyed by their *entry* day (the next trading day), so run_sim funds a
-        position on the day it is actually filled.
-
-        Args:
-            resolved: Output of `resolve` for one config
-            min_ranking: QullamaggieRanking floor; 0 keeps every signal, which is how the
-                ungated rows of each config's report are produced
-
-        Returns:
-            (signals keyed by entry date-int, dropped by the ranking gate, unfilled among the
-            signals the gate kept).
-        """
-        by_day: dict[int, list[dict]] = {}
-        n_rank = n_unfilled = 0
-        for r in resolved:
-            if r["ranking"] < min_ranking:
-                n_rank += 1
-            elif r["entry_dint"] is None:
-                n_unfilled += 1
-            else:
-                by_day.setdefault(r["entry_dint"], []).append(r)
-        return by_day, n_rank, n_unfilled
-
-    focus_name = f"s12 R>={qm.MIN_RANKING}"
-
-    def prune_results() -> None:
-        """Drop the daily series from results that cannot reach the yearly/monthly focus set.
-
-        That set is the reference algorithm at every sizing plus the two best others by Final$,
-        so any other result past the current top two never needs its series. Pruning as the
-        sweep goes keeps peak memory near the focus set rather than all 27 results.
-        """
-        others = sorted((x for x in all_results if x[0] != focus_name), key=lambda x: x[2]["final"], reverse=True)
-        for _name, _pf, res in others[2:]:
-            for key in HEAVY_RESULT_KEYS:
-                res.pop(key, None)
-
-    for name, sma_t in CONFIGS:
-        print(f"Simulating {name} …", flush=True)
-        # Bars end at EVAL_END, so no window-end bound is needed; only the columns ranking reads are kept.
-        sig = qm.get_signals(df, bull_dates, EVAL_START, sma_t).select("symbol", "date", "raw_close", "adr_pct", "pct_vs_sma50")
-        out("")
-        out(f"## {name}  (bk50d_{name}_v2.0 / {qm.HOLD_CAL}d)")
-        out("")
-        out(f"`%abv_SMA50 > {sma_t * 100:.0f}%` — every other filter is in the Configuration table above.")
-        # Same signals, sized the same way, reported under every ranking treatment on adjacent
-        # rows of one table. Reading across is the only way to see what a gate is worth in
-        # *portfolio* terms — a gated run alone cannot show whether the signals it removed
-        # would have compounded better.
-        resolved = resolve(sig)
-        gate_runs: list[tuple[str, dict[int, list[dict]], int, int]] = []
-        for gate_label, gate in GATES:
-            signals_by_day, n_below_rank, n_no_fill = gate_signals(resolved, gate)
-            if gate > 0:
-                signals_by_day_by_gate[(name, gate_label)] = signals_by_day
-            gate_runs.append((gate_label, signals_by_day, n_below_rank, n_no_fill))
-
-        out("")
-        # Built from each run's own label, so reordering or adding a gate can never pair a label
-        # with another gate's counts.
-        drops = "; ".join(
-            f"`{label}` drops {n_below} signals ({n_no_fill} with no fillable next-day open)"
-            for label, _signals_by_day, n_below, n_no_fill in gate_runs
-        )
-        out(
-            f"**Ranking gate:** {drops}. Each sizing is listed strictest gate first, so the rows read "
-            "across — a gated run alone cannot show whether the signals it removed would have "
-            "compounded better."
-        )
-        rows: list[str] = []
-        for pf in POS_FRACTIONS:
-            for gate_label, signals_by_day, _n_below, _n_no_fill in gate_runs:
-                r = run_sim(signals_by_day, "time", pf)
-                all_results.append((f"{name} {gate_label}", pf, r))
-                prune_results()
-                rows.append(
-                    f"{pf:<6.0%} {gate_label:<8} {r['final']:>11,.0f} {r['cagr'] * 100:>+7.2f} "
-                    f"{r['max_dd'] * 100:>8.2f} {r['calmar']:>7.3f} {r['sortino']:>8.3f} "
-                    f"{r['taken']:>6} {r['skipped']:>6} {r['avg_uninv_pct']:>6.1f}%"
-                )
-        table(hdr, rows)
-    ranked_final = sorted(all_results, key=lambda x: x[2]["final"], reverse=True)
-    ranked_sortino = sorted(all_results, key=lambda x: x[2]["sortino"], reverse=True)
-
-    def leaderboard(title: str, ranked: list[tuple[str, float, dict]]) -> None:
-        """Top 5 of `ranked`, already sorted by whichever metric the title names."""
-        lb_hdr = (
-            f"{'#':>2}  {'algo':<18} {'size':>5} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} "
-            f"{'Calmar':>7} {'Sortino':>8} {'taken':>6} {'skip':>6} {'Uninv%':>7}"
-        )
-        lb_rows = [
-            f"{i:>2}  {name:<18} {pf:>5.0%} {r['final']:>11,.0f} {r['cagr'] * 100:>+7.2f} "
+    rows: list[str] = []
+    for pf, (gate_label, signals_by_day, _n_below, _n_no_fill) in product(POS_FRACTIONS, gate_runs):
+        r = simulate(market, signals_by_day, pf)
+        study.results.append((f"{name} {gate_label}", pf, r))
+        prune_results(study.results)
+        rows.append(
+            f"{pf:<6.0%} {gate_label:<8} {r['final']:>11,.0f} {r['cagr'] * 100:>+7.2f} "
             f"{r['max_dd'] * 100:>8.2f} {r['calmar']:>7.3f} {r['sortino']:>8.3f} "
             f"{r['taken']:>6} {r['skipped']:>6} {r['avg_uninv_pct']:>6.1f}%"
-            for i, (name, pf, r) in enumerate(ranked[:5], 1)
-        ]
-        out("")
-        out(f"## {title}")
-        table(lb_hdr, lb_rows)
+        )
+    rep.table(hdr, rows)
+    return {gate_label: signals_by_day for gate_label, signals_by_day, _n_below, _n_no_fill in gate_runs if gate_label in GATED_LABELS}
 
-    leaderboard("Top 5 by Final$", ranked_final)
-    leaderboard("Top 5 by Sortino", ranked_sortino)
 
-    # The per-year and monthly sections cover a fixed set: the reference algorithm at every
-    # sizing, plus the two best by Final$ (skipped if already present, so the set can be short).
-    focus: list[tuple[str, float, dict]] = [r for r in all_results if r[0] == focus_name]
-    focus += [r for r in ranked_final if r not in focus][:2]
+def write_leaderboard(rep: Report, title: str, ranked: list[Result]) -> None:
+    """Top 5 of `ranked`, already sorted by whichever metric the title names.
 
-    out("")
-    out("## Yearly results")
-    out("")
-    out(
+    Args:
+        rep: The report
+        title: Section heading
+        ranked: Every result, best first
+    """
+    lb_hdr = (
+        f"{'#':>2}  {'algo':<18} {'size':>5} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} "
+        f"{'Calmar':>7} {'Sortino':>8} {'taken':>6} {'skip':>6} {'Uninv%':>7}"
+    )
+    lb_rows = [
+        f"{i:>2}  {name:<18} {pf:>5.0%} {r['final']:>11,.0f} {r['cagr'] * 100:>+7.2f} "
+        f"{r['max_dd'] * 100:>8.2f} {r['calmar']:>7.3f} {r['sortino']:>8.3f} "
+        f"{r['taken']:>6} {r['skipped']:>6} {r['avg_uninv_pct']:>6.1f}%"
+        for i, (name, pf, r) in enumerate(ranked[:5], 1)
+    ]
+    rep.out("")
+    rep.out(f"## {title}")
+    rep.table(lb_hdr, lb_rows)
+
+
+def year_rows(name: str, pf: float, r: dict) -> list[str]:
+    """One result's yearly table rows; the algorithm label is printed on the first only.
+
+    Args:
+        name: Algorithm label
+        pf: Position fraction
+        r: The `run_sim` result
+
+    Returns:
+        One row per calendar year.
+    """
+    label = f"{name} {pf:.0%}"
+    return [
+        f"{label if i == 0 else '':<18} {y['year']:>5} {y['final']:>11,.0f} {y['ret'] * 100:>+7.2f} "
+        f"{y['max_dd'] * 100:>8.2f} {y['calmar']:>7.3f} {y['sortino']:>8.3f} "
+        f"{y['taken']:>6} {y['skipped']:>6} {y['uninv']:>6.1f}%"
+        for i, y in enumerate(year_metrics(r))
+    ]
+
+
+def write_yearly(rep: Report, focus: list[Result]) -> None:
+    """The per-year table for the focus set.
+
+    Args:
+        rep: The report
+        focus: The results the yearly and monthly sections cover
+    """
+    rep.out("")
+    rep.out("## Yearly results")
+    rep.out("")
+    rep.out(
         "Portfolio value at each year end against the previous year end — `Final$` is the equity on "
         "the last trading day of that year, `CAGR%` its year-over-year return. `MaxDD%`, `Calmar`, "
         "`Sortino` and `Uninv%` are re-derived on that calendar year's daily slice, and `taken`/`skip` "
@@ -693,28 +395,109 @@ def main() -> None:
         f"{'algo':<18} {'year':>5} {'Final$':>11} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} "
         f"{'Sortino':>8} {'taken':>6} {'skip':>6} {'Uninv%':>7}"
     )
-    yr_rows: list[str] = []
-    for name, pf, r in focus:
-        label = f"{name} {pf:.0%}"
-        for i, y in enumerate(year_metrics(r)):
-            yr_rows.append(
-                f"{label if i == 0 else '':<18} {y['year']:>5} {y['final']:>11,.0f} {y['ret'] * 100:>+7.2f} "
-                f"{y['max_dd'] * 100:>8.2f} {y['calmar']:>7.3f} {y['sortino']:>8.3f} "
-                f"{y['taken']:>6} {y['skipped']:>6} {y['uninv']:>6.1f}%"
-            )
-    table(yr_hdr, yr_rows)
+    rep.table(yr_hdr, [row for name, pf, r in focus for row in year_rows(name, pf, r)])
 
-    out("")
-    out(f"## Monthly returns/transactions — s12 R>={qm.MIN_RANKING} at each sizing, plus the top 2 by Final$")
-    for name, pf, r in focus:
-        out("")
-        out(f"### {name} — size {pf:.0%}  (Final ${r['final']:,.0f})")
-        monthly_grid(r["eom"], r["entries"])
 
-    out("")
-    out("## Ranking Deciles (QullamaggieRanking)")
-    out("")
-    out(
+def month_row(yr: int, rets: dict[tuple[int, int], float], entry_counts: Counter[tuple[int, int]]) -> str:
+    """One year of the monthly grid: each month's return and entry count, then the year's.
+
+    Args:
+        yr: The year
+        rets: Monthly returns keyed by (year, month); a month without equity is missing
+        entry_counts: Entries keyed by (year, month)
+
+    Returns:
+        The grid row.
+    """
+    parts: list[str] = []
+    comp = 1.0
+    year_txns = 0
+    for mo in range(1, 13):
+        key = (yr, mo)
+        year_txns += entry_counts[key]
+        cell = "·"
+        if key in rets:
+            cell = f"{rets[key] * 100:+.1f}|{entry_counts[key]}"
+            comp *= 1 + rets[key]
+        parts.append(f"{cell:>9}")
+    return f"{yr:>5} | " + " ".join(parts) + f" | {(comp - 1) * 100:>+7.1f} {year_txns:>5}"
+
+
+def monthly_grid(rep: Report, eom: pl.DataFrame, entries: list[date]) -> None:
+    """The year x month grid of returns and entry counts for one result.
+
+    Args:
+        rep: The report
+        eom: Month-end returns (the result's `eom`)
+        entries: The date of every funded signal
+    """
+    entry_counts = Counter((ed.year, ed.month) for ed in entries)
+    rets = {(y, m): ret for y, m, ret in eom.select("year", "month", "ret").iter_rows()}
+    header = f"{'Year':>5} | " + " ".join(f"{m:>9}" for m in MONTHS) + f" | {'Year%':>7} {'Txns':>5}"
+    rep.table(header, [month_row(yr, rets, entry_counts) for yr in sorted(eom["year"].unique().to_list())])
+
+
+def write_monthly(rep: Report, focus: list[Result]) -> None:
+    """The monthly grids for the focus set.
+
+    Args:
+        rep: The report
+        focus: The results the yearly and monthly sections cover
+    """
+    rep.out("")
+    rep.out(f"## Monthly returns/transactions — s12 R>={qm.MIN_RANKING} at each sizing, plus the top 2 by Final$")
+    for name, pf, r in focus:
+        rep.out("")
+        rep.out(f"### {name} — size {pf:.0%}  (Final ${r['final']:,.0f})")
+        monthly_grid(rep, r["eom"], r["entries"])
+
+
+def ranking_decile_table(study: Study, signals_by_day: dict[int, list[dict]], pos_fraction: float) -> None:
+    """Score every taken trade with QullamaggieRanking, split into N_DECILES equal-count
+    buckets (D1=lowest ranking .. D10=highest), and re-simulate each decile's own signal
+    subset in isolation (same sizing) to report that decile's standalone portfolio metrics.
+
+    Args:
+        study: The run
+        signals_by_day: One gated signal set
+        pos_fraction: Position size for every re-simulation
+    """
+    rep, market = study.rep, study.market
+    base = simulate(market, signals_by_day, pos_fraction)
+    trades = sorted(base["trades"], key=lambda t: t["ranking"])
+    n = len(trades)
+    edges = np.linspace(0, n, N_DECILES + 1).astype(int)
+    subsets = [(d, subset) for d in range(N_DECILES) if (subset := trades[edges[d] : edges[d + 1]])]
+
+    hdr = f"{'Decile':<8} {'Ranking':>9} {'N':>5} {'CAGR%':>7} {'MaxDD%':>8} {'Calmar':>7} {'Sortino':>8}"
+    rows: list[str] = []
+    for d, subset in subsets:
+        keys = {(t["symbol"], t["sig_date"]) for t in subset}
+        sub_by_day = {
+            dint: kept for dint, sigs in signals_by_day.items() if (kept := [s for s in sigs if (s["symbol"], s["date"]) in keys])
+        }
+        res = simulate(market, sub_by_day, pos_fraction)
+        rankings = [t["ranking"] for t in subset]
+        rows.append(
+            f"D{d + 1:<7} {min(rankings):>3}-{max(rankings):<5} {len(subset):>5} {res['cagr'] * 100:>+7.2f} "
+            f"{res['max_dd'] * 100:>8.2f} {res['calmar']:>7.3f} {res['sortino']:>8.3f}"
+        )
+    rep.out(f"Trades scored: {n}  |  size: {pos_fraction:.0%}")
+    rep.table(hdr, rows)
+
+
+def write_deciles(study: Study, gated: dict[tuple[str, str], dict[int, list[dict]]]) -> None:
+    """The ranking-decile section: every config under every gate, strictest gate first.
+
+    Args:
+        study: The run
+        gated: Gated signal sets keyed by (config name, gate label)
+    """
+    rep = study.rep
+    rep.out("")
+    rep.out("## Ranking Deciles (QullamaggieRanking)")
+    rep.out("")
+    rep.out(
         f"Every taken trade of every config (at {DECILE_POS_FRACTION:.0%} sizing, the middle of the "
         f"{'/'.join(f'{f:.0%}' for f in POS_FRACTIONS)} sweep) is scored 0-100 with "
         "turtlex/strategy/ranking/qullamaggie.py at entry, split into "
@@ -726,19 +509,75 @@ def main() -> None:
         "the deciles split the trades that gate's own run took, so each table "
         "spans only that gate..100 and reads against the matching size-sweep row."
     )
-    for name, _ in CONFIGS:
-        for gate_label, gate in GATES:
-            if gate == 0:
-                continue
-            print(f"Scoring ranking deciles for {name} {gate_label} …", flush=True)
-            out("")
-            out(f"### {name} {gate_label}  (bk50d_{name}_v2.0)")
-            out("")
-            ranking_decile_table(name, signals_by_day_by_gate[(name, gate_label)], DECILE_POS_FRACTION)
+    for (name, _), gate_label in product(CONFIGS, GATED_LABELS):
+        print(f"Scoring ranking deciles for {name} {gate_label} …", flush=True)
+        rep.out("")
+        rep.out(f"### {name} {gate_label}  (bk50d_{name}_v2.0)")
+        rep.out("")
+        ranking_decile_table(study, gated[(name, gate_label)], DECILE_POS_FRACTION)
 
-    RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    RESULT_PATH.write_text("\n".join(lines) + "\n")
-    print(f"\nSaved to {RESULT_PATH}", flush=True)
+
+def load_window(bars_history: DailyBarsQueryRepository, window: Window) -> tuple[SimMarket, pl.DataFrame, set[date]]:
+    """Load the window's calendar, SPY regime, bars and entry indicators.
+
+    Args:
+        bars_history: Repository for bar reads
+        window: The evaluation window
+
+    Returns:
+        (the simulation market, the indicator frame signals are drawn from, SPY's bull dates).
+    """
+    data_start = window.start - timedelta(days=qm.WARMUP_DAYS)
+    print(f"Eval {window.start} – {window.end}  |  bars {data_start} – {window.end}", flush=True)
+    print("Loading SPY …", flush=True)
+    # SPY's own bars are the master trading calendar run_sim walks; the regime comes from qm.
+    cal = qm.load_trading_days(bars_history, window.start, window.end)
+    bull_dates = qm.load_spy_regime(bars_history, window.start, window.end)
+    # Bars end at the window end: this simulation never requires an exit bar to exist, it marks
+    # positions still open on the last day to market. Bounding the load also puts the
+    # qm.MIN_BARS count on the window actually being simulated, so a symbol that listed late
+    # in it no longer qualifies on bars it had not printed yet.
+    print("Loading bars …", flush=True)
+    df = qm.load_bars(bars_history, window.start, window.end)
+    print("Computing indicators …", flush=True)
+    ind = qm.add_indicators(df)
+    return SimMarket.from_bars(ind, cal), ind, bull_dates
+
+
+def main() -> None:
+    args = parse_args()
+    if args.start_date >= args.end_date:
+        raise ValueError(f"--start-date {args.start_date} must be before --end-date {args.end_date}")
+    window = Window(args.start_date, args.end_date)
+    settings = Settings.from_toml()
+    bars_history = DailyBarsQueryRepository(engine=settings.engine)
+    market, ind, bull_dates = load_window(bars_history, window)
+
+    study = Study(Report(), market)
+    write_preamble(study.rep, bars_history, window)
+
+    # Gated signal sets keyed by (config, gate label), for the decile section
+    gated: dict[tuple[str, str], dict[int, list[dict]]] = {}
+    for name, sma_t in CONFIGS:
+        print(f"Simulating {name} …", flush=True)
+        # Bars end at the window end, so no window-end bound is needed; only the columns ranking reads are kept.
+        sig = qm.get_signals(ind, bull_dates, window.start, sma_t).select("symbol", "date", "raw_close", "adr_pct", "pct_vs_sma50")
+        config_gated = write_config_sweep(study, sig, (name, sma_t))
+        gated.update({(name, gate_label): sigs for gate_label, sigs in config_gated.items()})
+    del ind  # SimMarket holds its own arrays; free the ~7M-row frame before the decile re-simulations
+
+    ranked_final = sorted(study.results, key=lambda x: x[2]["final"], reverse=True)
+    write_leaderboard(study.rep, "Top 5 by Final$", ranked_final)
+    write_leaderboard(study.rep, "Top 5 by Sortino", sorted(study.results, key=lambda x: x[2]["sortino"], reverse=True))
+
+    # The per-year and monthly sections cover a fixed set: the reference algorithm at every
+    # sizing, plus the two best by Final$ (skipped if already present, so the set can be short).
+    focus: list[Result] = [r for r in study.results if r[0] == FOCUS_NAME]
+    focus += [r for r in ranked_final if r not in focus][:2]
+    write_yearly(study.rep, focus)
+    write_monthly(study.rep, focus)
+    write_deciles(study, gated)
+    study.rep.write(args.output)
 
 
 if __name__ == "__main__":
