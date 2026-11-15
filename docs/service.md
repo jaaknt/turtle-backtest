@@ -133,7 +133,7 @@ The `PortfolioService` is the most sophisticated backtesting engine that simulat
 - **Dynamic Position Management**: Opens and closes positions based on signal generation and exit strategies
 - **Risk Management**: Position sizing as a configurable fraction of portfolio value
 - **Capital Management**: Tracks available cash and prevents over-allocation
-- **Performance Analytics**: Comprehensive tearsheet generation with detailed metrics
+- **Performance Analytics**: Printed trade summary and equity-curve metrics against a benchmark
 - **Signal Ranking**: Only considers high-quality signals above minimum ranking threshold
 - **Realistic Trading**: Accounts for position overlap, cash constraints, and holding periods
 
@@ -153,12 +153,12 @@ The `PortfolioService` is the most sophisticated backtesting engine that simulat
 
 - **PortfolioManager**: Handles position tracking, cash management, and daily snapshots
 - **PortfolioSignalSelector**: Filters and ranks signals for entry consideration
-- **PortfolioAnalytics**: Generates comprehensive performance reports and tearsheets
+- **PortfolioAnalytics**: Prints the trade summary and the equity curve's metrics (CAGR, Sharpe, Sortino, drawdowns, yearly returns) beside the benchmark's
 - **SignalProcessor**: Calculates complete trade lifecycle including exits. Entry is the next trading bar's open, priced on the split/dividend-adjusted basis (`open × adjusted_close / close`); `BuyAndHoldExitStrategy` exits on `adjusted_close`, so both legs share a price basis and a split mid-trade does not distort the return.
 
 **Primary Methods:**
 
-- `run_backtest(start_date, end_date, universe, output_file)` - Execute complete portfolio backtest
+- `run_backtest(start_date, end_date, universe)` - Execute complete portfolio backtest
 
 **Daily Trading Process:**
 
@@ -175,7 +175,6 @@ The `PortfolioService` is the most sophisticated backtesting engine that simulat
 - Trade-by-trade analysis with entry/exit details
 - Risk metrics and drawdown analysis
 - Benchmark comparisons against market indices
-- HTML tearsheet generation with comprehensive visualizations
 - Position sizing effectiveness analysis
 
 **Usage:**
@@ -193,8 +192,8 @@ portfolio_service = PortfolioService(
     trading_strategy=strategy,
     exit_strategy=exit_strategy,
     bars_history=bars_history,
-    start_date=datetime(2024, 1, 1),
-    end_date=datetime(2024, 6, 30),
+    start_date=date(2024, 1, 1),
+    end_date=date(2024, 6, 30),
     initial_capital=50000.0,
     position_size_pct=0.05,
     min_signal_ranking=75,
@@ -202,9 +201,7 @@ portfolio_service = PortfolioService(
 
 # Run comprehensive backtest
 symbol_universe = ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN"]  # Or larger universe
-portfolio_service.run_backtest(
-    start_date=datetime(2024, 1, 1), end_date=datetime(2024, 6, 30), universe=symbol_universe, output_file="portfolio_tearsheet.html"
-)
+portfolio_service.run_backtest(start_date=date(2024, 1, 1), end_date=date(2024, 6, 30), universe=symbol_universe)
 ```
 
 **Advantages over Simple Backtesting:**
@@ -266,7 +263,7 @@ Choose the appropriate service based on your analysis needs:
 - Simulating actual trading with capital constraints
 - Managing multiple positions simultaneously
 - Testing position sizing and risk management
-- Generating professional tearsheets for strategy presentation
+- Comparing the equity curve's risk and return against a benchmark
 - Understanding real-world trading limitations and cash flow
 
 ## Typical Workflow
@@ -313,5 +310,5 @@ results = backtest_service.run(start_date, end_date, symbol_list)
 ```python
 # Realistic portfolio simulation with capital management
 portfolio_service = PortfolioService(strategy, exit_strategy, bars_history, ...)
-portfolio_service.run_backtest(start_date, end_date, universe, "tearsheet.html")
+portfolio_service.run_backtest(start_date, end_date, universe)
 ```

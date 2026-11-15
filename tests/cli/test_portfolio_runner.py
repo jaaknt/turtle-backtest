@@ -110,7 +110,7 @@ class TestMain:
         assert main() == 1
 
     def test_main_forwards_the_benchmark_ticker_to_the_service(self, mocker: MockerFixture) -> None:
-        """The flag was previously parsed and dropped, leaving the tearsheet benchmark unconfigurable."""
+        """The flag was previously parsed and dropped, leaving the benchmark unconfigurable."""
         service = self._patch_wiring(mocker)
         mocker.patch("sys.argv", ["portfolio-runner", *DATE_ARGS, "--benchmark-ticker", "SPY.US"])
 

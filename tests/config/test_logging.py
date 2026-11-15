@@ -140,7 +140,7 @@ class TestSetupLogging:
 
         assert logging.getLogger("httpx").level == logging.WARNING
         assert logging.getLogger("sqlalchemy.engine").level == logging.WARNING
-        assert logging.getLogger("matplotlib").level == logging.INFO
+        assert logging.getLogger("urllib3").level == logging.INFO
 
 
 class TestLastErrorCapture:

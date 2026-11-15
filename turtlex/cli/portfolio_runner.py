@@ -17,8 +17,7 @@ Examples:
     uv run portfolio-runner \
         --start-date 2024-01-01 --end-date 2024-12-31 \
         --trading-strategy mars --exit-strategy profit_loss \
-        --initial-capital 50000 --min-signal-ranking 80 \
-        --output-file results.html --verbose
+        --initial-capital 50000 --min-signal-ranking 80 --verbose
 
     # Test specific tickers
     uv run portfolio-runner \
@@ -112,21 +111,14 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--benchmark-ticker",
         type=str,
         default=DEFAULT_BENCHMARK_TICKER,
-        help=f"Symbol the tearsheet compares the portfolio against; quantstats takes exactly one (default: {DEFAULT_BENCHMARK_TICKER})",
-    )
-
-    # Output
-    parser.add_argument(
-        "--output-file",
-        type=str,
-        help="Optional HTML tearsheet filename (saved in reports/ folder)",
+        help=f"Symbol the portfolio's equity curve is compared against (default: {DEFAULT_BENCHMARK_TICKER})",
     )
 
     return parser
 
 
-# Note: Results display and export now handled by PortfolioAnalytics.generate_results()
-# which prints performance summary and generates HTML tearsheet reports
+# Note: Results display is handled by PortfolioAnalytics.generate_results(),
+# which prints the trade summary and the equity-curve metrics
 
 
 def main() -> int:
@@ -181,13 +173,12 @@ def main() -> int:
             universe = trading_strategy.get_universe(TickerQueryRepository(settings.engine), limit=args.max_tickers)
             logger.info(f"Using {len(universe)} tickers from strategy universe")
 
-        # Run the backtest (now prints results and generates tearsheet automatically)
+        # Run the backtest (prints the results when done)
         logger.info(f"Running portfolio backtest from {args.start_date} to {args.end_date}")
         portfolio_service.run_backtest(
             start_date=args.start_date,
             end_date=args.end_date,
             universe=universe,
-            output_file=args.output_file,  # HTML tearsheet output file
         )
 
         logger.info("Portfolio backtest completed successfully")

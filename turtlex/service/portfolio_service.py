@@ -56,7 +56,7 @@ class PortfolioService:
             min_signal_ranking: Minimum signal ranking to consider
             time_frame_unit: Time frame for analysis (DAY, WEEK, etc.)
             max_holding_period: Maximum calendar days a position may stay open
-            benchmark_ticker: Symbol the tearsheet compares the portfolio against
+            benchmark_ticker: Symbol the portfolio's equity curve is compared against
             exit_strategy_kwargs: Overrides forwarded to `exit_strategy.initialize()`; omitted
                 parameters keep that strategy's own defaults
         """
@@ -101,16 +101,14 @@ class PortfolioService:
         start_date: date,
         end_date: date,
         universe: list[str],
-        output_file: str | None = None,
     ) -> None:
         """
-        Execute complete portfolio backtest with printed results and tearsheet.
+        Execute complete portfolio backtest with printed results.
 
         Args:
             start_date: Backtest start date
             end_date: Backtest end date
             universe: List of stock tickers to consider
-            output_file: Optional file path for HTML tearsheet output
         """
         logger.info(f"Starting portfolio backtest: {start_date} to {end_date} ({len(universe)} stocks)")
 
@@ -123,7 +121,7 @@ class PortfolioService:
             current_date += timedelta(days=1)
 
         # Generate final results and display
-        self._generate_results(output_file=output_file)
+        self._generate_results()
         # for trade in sorted(self.portfolio_manager.state.future_trades, key=lambda trade: trade.exit.date, reverse=True):
         #     print(
         #       f"Entry: {trade.entry.date.date()} @ ${trade.entry.price:.2f} Exit: {trade.exit.date.date()} "
@@ -274,16 +272,12 @@ class PortfolioService:
                 logger.debug(f"Error updating price for {position.ticker}, date: {current_date} : {e}")
                 continue
 
-    def _generate_results(
-        self,
-        output_file: str | None = None,
-    ) -> None:
+    def _generate_results(self) -> None:
         self.analytics.generate_results(
             self.portfolio_manager.state,
             self.start_date,
             self.end_date,
             self.bars_history,
-            output_file=output_file,
             benchmark_ticker=self.benchmark_ticker,
         )
 

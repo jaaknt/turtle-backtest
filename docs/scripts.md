@@ -17,7 +17,7 @@ Until 2026-08-01 most studies divided instead by the RMS of the losers only — 
 
 `tests/scripts/test_metric_conventions.py` enforces this: a study that reports a Sortino must import one of the two helpers, and must not also hand-roll an RMS itself. The second rule exists because an import-only check let `exit-sweep` keep a private losers-only daily Sortino alongside the imported trade helper.
 
-For a daily series, `quantstats.stats.sortino` uses the same all-N denominator and agrees with `compute_daily_sortino` by construction; the helper exists because quantstats needs a pandas Series with a datetime index, and pandas is confined to `turtlex/portfolio/analytics.py`.
+For a daily series, `quantstats.stats.sortino` uses the same all-N denominator and agrees with `compute_daily_sortino` by construction. quantstats itself is not a dependency: `compute_daily_metrics` reproduces its daily figures (CAGR, Sharpe, Sortino, Calmar, drawdowns, period returns), and `tests/backtest/test_metrics.py` holds them to quantstats' own numbers through a committed oracle file.
 
 ## download-eodhd-data
 
@@ -261,7 +261,7 @@ The `portfolio-runner` console script provides sophisticated portfolio-level bac
 - **Realistic Portfolio Simulation**: Daily trading simulation with capital constraints and position overlap management
 - **Multi-Strategy Support**: Configurable trading, exit, and ranking strategies
 - **Risk Management**: Position sizing as a configurable fraction of portfolio value
-- **Performance Analytics**: Comprehensive tearsheet generation with HTML reports
+- **Performance Analytics**: Printed trade summary and equity-curve metrics (CAGR, Sharpe, Sortino, drawdowns, yearly returns)
 - **Flexible Universe**: Support for specific tickers or full symbol database
 - **Benchmark Analysis**: Automatic comparison against SPY, QQQ, or custom benchmarks
 - **Signal Quality Control**: Ranking threshold filtering for high-quality entries only
@@ -301,8 +301,7 @@ uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31
 uv run portfolio-runner \
     --start-date 2024-01-01 --end-date 2024-12-31 \
     --trading-strategy mars --exit-strategy profit_loss \
-    --initial-capital 50000 --min-signal-ranking 80 \
-    --output-file mars_strategy_results.html --verbose
+    --initial-capital 50000 --min-signal-ranking 80 --verbose
 
 # Test specific ticker universe
 uv run portfolio-runner \
@@ -315,8 +314,7 @@ uv run portfolio-runner \
 uv run portfolio-runner \
     --start-date 2024-01-01 --end-date 2024-12-31 \
     --min-signal-ranking 85 --max-tickers 500 \
-    --benchmark-ticker SPY.US \
-    --output-file high_quality_signals.html
+    --benchmark-ticker SPY.US
 ```
 
 **Required Options:**
@@ -342,11 +340,10 @@ uv run portfolio-runner \
 
 - `--max-tickers` - Maximum number of tickers from database (default: 10000)
 - `--tickers` - Specific ticker symbols to test (space-separated list)
-- `--benchmark-ticker` - Symbol the tearsheet compares the portfolio against, in database convention with the `.US` suffix; quantstats takes exactly one (default: `QQQ.US`)
+- `--benchmark-ticker` - Symbol the portfolio's equity curve is compared against, in database convention with the `.US` suffix; its bars also set the trading calendar (default: `QQQ.US`)
 
 **Output and Analysis:**
 
-- `--output-file` - HTML tearsheet filename (saved in reports/ folder)
 - `--verbose` - Enable detailed logging output
 
 **Portfolio Management Process:**
@@ -365,7 +362,6 @@ uv run portfolio-runner \
 - **Trade Analysis**: Individual trade performance with entry/exit details
 - **Risk Metrics**: Drawdown analysis and risk-adjusted returns
 - **Benchmark Comparison**: Performance vs. market indices
-- **HTML Tearsheets**: Professional-quality performance reports with charts
 - **Position Management**: Analysis of position sizing and capital utilization
 
 **Advantages over Simple Backtesting:**
@@ -383,26 +379,26 @@ uv run portfolio-runner \
 
 ```bash
 # Test different trading strategies with same exit logic
-uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --trading-strategy darvas_box --output-file darvas_results.html
-uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --trading-strategy mars --output-file mars_results.html
-uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --trading-strategy momentum --output-file momentum_results.html
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --trading-strategy darvas_box
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --trading-strategy mars
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --trading-strategy momentum
 ```
 
 **Exit Strategy Analysis:**
 
 ```bash
 # Compare exit strategies with same trading approach
-uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --exit-strategy buy_and_hold --output-file bah_exits.html
-uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --exit-strategy atr --output-file atr_exits.html
-uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --exit-strategy ema --output-file ema_exits.html
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --exit-strategy buy_and_hold
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --exit-strategy atr
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --exit-strategy ema
 ```
 
 **Risk Management Testing:**
 
 ```bash
 # Test different position sizing and signal quality thresholds
-uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --min-signal-ranking 60 --position-size-pct 0.02 --output-file conservative.html
-uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --min-signal-ranking 90 --position-size-pct 0.08 --output-file aggressive.html
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --min-signal-ranking 60 --position-size-pct 0.02
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-12-31 --min-signal-ranking 90 --position-size-pct 0.08
 ```
 
 ## snapshot-company

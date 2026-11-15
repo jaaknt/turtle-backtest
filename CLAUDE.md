@@ -13,8 +13,8 @@ Mars, Momentum), exit and ranking strategies, portfolio simulation, and research
   weren't asked to touch; mention unrelated dead code rather than deleting it, but remove orphans
   your own change creates. Never drop docstrings or comments while refactoring.
 - **Propose a plan before large refactors** (scope boundaries especially) and wait for confirmation.
-- **Polars for all new code.** Pandas stays only in `turtlex/portfolio/analytics.py` (and via
-  `quantstats`); flag any new pandas import in review.
+- **Polars for all new code.** Pandas and quantstats are not dependencies; flag any import of
+  either in review.
 - **Verify.** Turn a task into a check (a failing test, a passing run) and loop until it holds.
   After non-trivial changes run pytest and mypy before proposing a commit.
 

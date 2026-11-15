@@ -4,21 +4,18 @@ Two sampling regimes live here, and they must not be mixed:
 
 - `compute_trade_metrics` takes round-trip trades — irregularly spaced, annualized by the
   mean holding period.
-- `compute_daily_sortino` takes a daily equity-curve return series — regularly sampled,
-  annualized by `sqrt(252)`.
+- `compute_daily_sortino` and `compute_daily_metrics` take a daily equity-curve return
+  series — regularly sampled, annualized by 252 periods a year.
 
-Per-trade returns must never be fed to quantstats: it assumes a regularly sampled series at
-`periods_per_year=252`, so on a trade series its calendar-aware metrics (Sharpe, Sortino,
-CAGR, Calmar) come back silently wrong by orders of magnitude. That is why the trade-level
-half of this module exists instead of a library call.
+The daily half follows quantstats' conventions (risk-free rate 0, 252 periods a year, sample
+standard deviation, years = number of returns / 252), so its figures read like a quantstats
+tearsheet; `tests/backtest/test_metrics.py` holds them to quantstats' own numbers on a fixed
+series (`quantstats_oracle.json`) without quantstats being installed. The same functions live in
+turtle-web's `api/turtleweb/analytics.py`, checked against the same oracle.
 
-A daily series *is* quantstats' native input, and `qs.stats.sortino` uses the same all-N
-downside denominator this module does, so `compute_daily_sortino` agrees with it by
-construction. It exists anyway because quantstats requires a pandas Series with a datetime
-index, and pandas is confined to `turtlex/portfolio/analytics.py` — the numpy research
-scripts would otherwise each grow their own conversion. `analytics.py` remains the quantstats
-boundary and the place equity-curve *reporting* belongs; this is one number for callers that
-already hold a numpy array.
+Per-trade returns must never go through the daily functions: they assume a regularly sampled
+series, so on a trade series the calendar-aware metrics (Sharpe, Sortino, CAGR, Calmar) come
+back silently wrong by orders of magnitude. That is why the trade-level half exists.
 
 Canonical conventions for the whole repo, resolving the variants that grew across
 `turtlex/service/backtest_service.py` and the `scripts/` studies:
@@ -31,13 +28,17 @@ Canonical conventions for the whole repo, resolving the variants that grew acros
 - `ann_mean_pct` compounds the mean return over the mean holding period, so short trades
   cannot dominate the average the way per-trade annualization does.
 
-All returns are in percent (e.g. 12.5 for +12.5%), matching `FutureTrade.realized_pct` and
-every table this repo prints.
+Trade returns are in percent (e.g. 12.5 for +12.5%), matching `FutureTrade.realized_pct` and
+every table this repo prints; daily returns are fractions (0.01 for +1%).
 """
 
 import math
-from collections.abc import Sequence
+import operator
+import statistics
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import date
+from itertools import accumulate, groupby
 
 import numpy as np
 import numpy.typing as npt
@@ -45,6 +46,11 @@ import numpy.typing as npt
 from turtlex.model import FutureTrade
 
 FloatSeq = Sequence[float] | npt.NDArray[np.floating]
+
+PERIODS_PER_YEAR = 252
+# A drawdown shallower than this is float noise: a recovery to the exact old peak can compute as
+# peak * (1 - 2e-16), which would otherwise keep the drawdown open. quantstats compares with 0.
+_DD_NOISE = 1e-12
 
 
 @dataclass(frozen=True)
@@ -122,7 +128,7 @@ def compute_trade_metrics(
     )
 
 
-def compute_daily_sortino(daily_returns: FloatSeq, *, periods_per_year: int = 252) -> float:
+def compute_daily_sortino(daily_returns: FloatSeq, *, periods_per_year: int = PERIODS_PER_YEAR) -> float:
     """
     Compute the annualized Sortino ratio of a daily equity-curve return series.
 
@@ -183,3 +189,193 @@ def _annualize(mean_pct: float, mean_hold: float) -> float:
         return (math.pow(growth, 365.0 / mean_hold) - 1.0) * 100.0
     except OverflowError:  # a large mean return over a very short mean hold
         return float("inf")
+
+
+@dataclass(frozen=True)
+class DailyReturns:
+    """One simple return per trading day, as fractions (0.01 for +1%)."""
+
+    dates: list[date]
+    values: list[float]
+
+
+@dataclass(frozen=True)
+class DailyMetrics:
+    """Equity-curve metrics of one daily return series, as quantstats computes them.
+
+    Fractions throughout (0.05 for +5%). A ratio over a zero denominator is None.
+    """
+
+    cumulative_return: float
+    cagr: float
+    volatility: float | None  # None with fewer than 2 returns
+    sharpe: float | None  # None with fewer than 2 returns, or none of them different
+    sortino: float | None  # None without a down day
+    calmar: float | None  # None without a drawdown
+    max_drawdown: float  # <= 0
+    longest_drawdown_days: int  # calendar days, as quantstats counts them; 0 without a drawdown
+    best_day: float
+    worst_day: float
+    last_day: float  # the last trading day's return
+    best_month: float
+    worst_month: float
+    win_rate_days: float | None  # of non-zero days; None when every day is 0
+    win_rate_months: float | None
+    beta: float | None  # vs the benchmark passed in; None without one
+    correlation: float | None
+
+
+@dataclass(frozen=True)
+class PeriodReturn:
+    """A calendar month's or year's compounded return."""
+
+    year: int
+    month: int | None  # None for a yearly return
+    value: float
+    partial: bool  # the series' first or last period, so it may not cover the whole of it
+
+
+@dataclass(frozen=True)
+class DrawdownPeriod:
+    """One stretch under water, with quantstats' dates: end is the last day under water."""
+
+    start: date
+    valley: date
+    end: date
+    depth: float  # <= 0
+    days: int  # calendar days from start to end, both included
+    ongoing: bool  # still under water on the last day
+
+
+def _compound(values: Sequence[float]) -> float:
+    return math.prod(1.0 + v for v in values) - 1.0
+
+
+def underwater(r: DailyReturns) -> list[float]:
+    """
+    Compute the drawdown from the running peak at the end of each day.
+
+    The growth index starts at 1 before the first return, as quantstats' phantom baseline does,
+    so a loss on day one is a drawdown. Drawdowns shallower than float noise are reported as 0.
+
+    Args:
+        r: Daily returns
+
+    Returns:
+        index / running peak - 1 per day, each <= 0
+    """
+    growth = list(accumulate((1.0 + v for v in r.values), operator.mul))
+    peaks = accumulate(growth, max, initial=1.0)
+    next(peaks)  # the phantom baseline itself
+    return [dd if (dd := i / peak - 1.0) < -_DD_NOISE else 0.0 for i, peak in zip(growth, peaks, strict=True)]
+
+
+def drawdown_periods(r: DailyReturns) -> list[DrawdownPeriod]:
+    """
+    List every stretch the series spends under water.
+
+    Args:
+        r: Daily returns
+
+    Returns:
+        The drawdown periods, deepest first
+    """
+    periods = []
+    for under, group in groupby(zip(r.dates, underwater(r), strict=True), key=lambda d: d[1] < 0):
+        if under:
+            run = list(group)
+            (start, _), (end, _) = run[0], run[-1]
+            valley, depth = min(run, key=lambda d: d[1])
+            periods.append(DrawdownPeriod(start, valley, end, depth, (end - start).days + 1, ongoing=end == r.dates[-1]))
+    return sorted(periods, key=lambda p: p.depth)
+
+
+def _period_returns(r: DailyReturns, key: Callable[[date], tuple[int, int | None]]) -> list[PeriodReturn]:
+    groups = [
+        (y, m, _compound([v for _, v in days])) for (y, m), days in groupby(zip(r.dates, r.values, strict=True), key=lambda d: key(d[0]))
+    ]
+    last = len(groups) - 1
+    return [PeriodReturn(year, month, value, partial=i in (0, last)) for i, (year, month, value) in enumerate(groups)]
+
+
+def monthly_returns(r: DailyReturns) -> list[PeriodReturn]:
+    """
+    Compound the daily returns into calendar months.
+
+    Args:
+        r: Daily returns, in date order
+
+    Returns:
+        One return per month; the first and the last month are flagged partial
+    """
+    return _period_returns(r, lambda d: (d.year, d.month))
+
+
+def yearly_returns(r: DailyReturns) -> list[PeriodReturn]:
+    """
+    Compound the daily returns into calendar years.
+
+    Args:
+        r: Daily returns, in date order
+
+    Returns:
+        One return per year; the first and the last year are flagged partial
+    """
+    return _period_returns(r, lambda d: (d.year, None))
+
+
+def _win_rate(values: Sequence[float]) -> float | None:
+    non_zero = [v for v in values if v != 0]
+    return sum(v > 0 for v in non_zero) / len(non_zero) if non_zero else None
+
+
+def compute_daily_metrics(r: DailyReturns, benchmark: DailyReturns | None = None) -> DailyMetrics:
+    """
+    Compute every equity-curve metric of one daily return series, as quantstats does.
+
+    Args:
+        r: Daily returns, in date order; must not be empty
+        benchmark: Optional benchmark returns on the same dates, for beta and correlation
+
+    Returns:
+        DailyMetrics for the series
+
+    Raises:
+        ValueError: If `r` is empty, or `benchmark` is on other dates
+    """
+    values = r.values
+    if not values:
+        raise ValueError("daily metrics need at least one return")
+    if benchmark is not None and benchmark.dates != r.dates:
+        raise ValueError("the benchmark's returns must be on the same dates as the series'")
+    n = len(values)
+    total = _compound(values)
+    cagr = (1.0 + total) ** (PERIODS_PER_YEAR / n) - 1.0  # quantstats: years = number of returns / 252
+    stdev = statistics.stdev(values) if n > 1 else None
+    sortino = compute_daily_sortino(values)
+    drawdowns = drawdown_periods(r)
+    max_dd = min((p.depth for p in drawdowns), default=0.0)
+    months = [m.value for m in monthly_returns(r)]
+    beta = correlation = None
+    if benchmark is not None and n > 1 and (var_b := statistics.variance(benchmark.values)) > 0:
+        beta = statistics.covariance(values, benchmark.values) / var_b
+        correlation = statistics.correlation(values, benchmark.values) if stdev else None
+    return DailyMetrics(
+        cumulative_return=total,
+        cagr=cagr,
+        volatility=stdev * math.sqrt(PERIODS_PER_YEAR) if stdev is not None else None,
+        sharpe=statistics.fmean(values) / stdev * math.sqrt(PERIODS_PER_YEAR) if stdev else None,
+        sortino=None if math.isnan(sortino) else sortino,
+        calmar=cagr / abs(max_dd) if max_dd < 0 else None,
+        max_drawdown=max_dd,
+        longest_drawdown_days=max((p.days for p in drawdowns), default=0),
+        best_day=max(values),
+        worst_day=min(values),
+        last_day=values[-1],
+        best_month=max(months),
+        worst_month=min(months),
+        win_rate_days=_win_rate(values),
+        win_rate_months=_win_rate(months),
+        beta=beta,
+        correlation=correlation,
+    )

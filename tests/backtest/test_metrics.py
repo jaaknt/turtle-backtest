@@ -6,7 +6,10 @@ research table is explainable by a tested ratio rather than a mystery.
 """
 
 import ast
+import json
 import math
+import statistics
+from dataclasses import fields, replace
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -14,7 +17,20 @@ import numpy as np
 import pytest
 
 from turtlex.backtest import metrics as metrics_module
-from turtlex.backtest.metrics import compute_daily_sortino, compute_trade_metrics, metrics_from_future_trades
+from turtlex.backtest.metrics import (
+    DailyMetrics,
+    DailyReturns,
+    DrawdownPeriod,
+    PeriodReturn,
+    compute_daily_metrics,
+    compute_daily_sortino,
+    compute_trade_metrics,
+    drawdown_periods,
+    metrics_from_future_trades,
+    monthly_returns,
+    underwater,
+    yearly_returns,
+)
 from turtlex.model import FutureTrade, Signal, Trade
 
 
@@ -279,7 +295,7 @@ class TestDailySortino:
 
 class TestImportContainment:
     def test_module_imports_neither_pandas_nor_quantstats(self) -> None:
-        """Per CLAUDE.md pandas stays in portfolio/analytics.py, and trades never enter quantstats."""
+        """The daily metrics reproduce quantstats without it; neither it nor pandas is a dependency."""
         tree = ast.parse(Path(metrics_module.__file__).read_text())
         roots = {
             (node.module or "").split(".")[0] if isinstance(node, ast.ImportFrom) else alias.name.split(".")[0]
@@ -290,3 +306,143 @@ class TestImportContainment:
 
         assert "pandas" not in roots
         assert "quantstats" not in roots
+
+
+def day(i: int) -> date:
+    return date(2026, 1, 1) + timedelta(days=i)
+
+
+def daily(*values: float) -> DailyReturns:
+    """Consecutive days from day(0)."""
+    return DailyReturns([day(i) for i in range(len(values))], list(values))
+
+
+def rounded[T: DrawdownPeriod | PeriodReturn](records: list[T], field: str) -> list[T]:
+    """The records with one float field rounded to 9 places, so they compare with ==."""
+    return [replace(x, **{field: round(getattr(x, field), 9)}) for x in records]
+
+
+class TestComputeDailyMetrics:
+    def test_a_constant_return_compounds_and_has_no_risk(self) -> None:
+        m = compute_daily_metrics(daily(0.01, 0.01, 0.01))
+        assert m.cumulative_return == pytest.approx(1.01**3 - 1)
+        assert m.cagr == pytest.approx(1.01**252 - 1)  # years = 3 returns / 252
+        assert m.volatility == pytest.approx(0)
+        assert (m.sharpe, m.sortino, m.calmar) == (None, None, None)
+        assert (m.max_drawdown, m.longest_drawdown_days) == (0, 0)
+        assert m.win_rate_days == 1
+
+    def test_a_single_loss_sets_the_drawdown_and_the_downside(self) -> None:
+        r = daily(0.10, -0.20, 0.05)
+        m = compute_daily_metrics(r)
+        assert m.max_drawdown == pytest.approx(-0.20)
+        assert m.sortino == pytest.approx((-0.05 / 3) / math.sqrt(0.04 / 3) * math.sqrt(252))
+        assert m.sharpe == pytest.approx((-0.05 / 3) / statistics.stdev([0.10, -0.20, 0.05]) * math.sqrt(252))
+        assert m.calmar == pytest.approx(m.cagr / 0.20)
+        assert (m.best_day, m.worst_day, m.last_day) == (0.10, -0.20, 0.05)
+        assert m.win_rate_days == pytest.approx(2 / 3)
+        assert underwater(r) == pytest.approx([0, -0.20, 1.1 * 0.8 * 1.05 / 1.1 - 1])
+        assert rounded(drawdown_periods(r), "depth") == [DrawdownPeriod(day(1), day(1), day(2), -0.20, 2, ongoing=True)]
+
+    def test_sortino_is_compute_daily_sortino(self) -> None:
+        """One Sortino definition per regime: the metrics table must not grow its own."""
+        values = [0.02, -0.01, 0.005, -0.03, 0.01]
+        assert compute_daily_metrics(daily(*values)).sortino == compute_daily_sortino(values)
+
+    def test_a_recovery_to_the_exact_previous_peak_closes_the_drawdown(self) -> None:
+        r = daily(0.25, -0.20, 0.25, 0.01)  # 1.25 -> 1.0 -> 1.25: back at the peak on day 2
+        assert underwater(r)[2] == 0
+        assert rounded(drawdown_periods(r), "depth") == [DrawdownPeriod(day(1), day(1), day(1), -0.20, 1, ongoing=False)]
+        assert compute_daily_metrics(r).longest_drawdown_days == 1
+
+    def test_a_recovery_short_of_the_peak_by_float_noise_closes_the_drawdown(self) -> None:
+        # 1.1 -> 1.023 -> back to 1.1, which computes as 1.1 * (1 - 2e-16)
+        r = daily(0.10, -0.07, 1.1 / (1.1 * 0.93) - 1, 0.01)
+        assert underwater(r)[2] == 0
+        assert [(p.start, p.end) for p in drawdown_periods(r)] == [(day(1), day(1))]
+
+    def test_a_loss_on_day_one_is_a_drawdown(self) -> None:
+        # the index starts at 1 before the first return, as quantstats' phantom baseline does
+        r = daily(-0.10, 0.20)
+        assert compute_daily_metrics(r).max_drawdown == pytest.approx(-0.10)
+        assert drawdown_periods(r)[0].start == day(0)
+
+    def test_drawdown_periods_are_all_there_deepest_first(self) -> None:
+        r = daily(-0.05, 0.10, -0.20, 0.30, -0.10, 0.20)
+        assert [round(p.depth, 6) for p in drawdown_periods(r)] == [-0.20, -0.10, -0.05]
+
+    def test_monthly_and_yearly_returns_compound_and_flag_the_ends_as_partial(self) -> None:
+        dates = [date(2026, 1, 30), date(2026, 2, 2), date(2026, 2, 3), date(2026, 3, 2)]
+        r = DailyReturns(dates, [0.10, 0.10, -0.10, 0.05])
+        assert rounded(monthly_returns(r), "value") == [
+            PeriodReturn(2026, 1, 0.10, partial=True),
+            PeriodReturn(2026, 2, round(1.1 * 0.9 - 1, 9), partial=False),
+            PeriodReturn(2026, 3, 0.05, partial=True),
+        ]
+        assert rounded(yearly_returns(r), "value") == [PeriodReturn(2026, None, round(1.1 * 1.1 * 0.9 * 1.05 - 1, 9), partial=True)]
+        m = compute_daily_metrics(r)
+        assert (m.best_month, m.worst_month) == pytest.approx((0.10, 1.1 * 0.9 - 1))
+        assert m.win_rate_months == pytest.approx(2 / 3)
+
+    def test_beta_and_correlation_against_a_benchmark(self) -> None:
+        bench = daily(0.01, -0.02, 0.03, 0.00)
+        m = compute_daily_metrics(daily(0.02, -0.04, 0.06, 0.00), bench)  # twice the benchmark every day
+        assert (m.beta, m.correlation) == pytest.approx((2.0, 1.0))
+        assert compute_daily_metrics(daily(0.01, 0.02)).beta is None  # no benchmark
+        assert compute_daily_metrics(daily(0.01, 0.02), daily(0.01, 0.01)).beta is None  # a flat benchmark has no variance
+
+    def test_one_return_has_no_volatility_and_no_returns_raise(self) -> None:
+        m = compute_daily_metrics(daily(0.05))
+        assert (m.volatility, m.sharpe) == (None, None)
+        with pytest.raises(ValueError, match="at least one return"):
+            compute_daily_metrics(daily())
+
+    def test_a_series_of_zero_days_has_no_win_rate(self) -> None:
+        assert compute_daily_metrics(daily(0.0, 0.0)).win_rate_days is None
+
+    def test_a_benchmark_on_other_dates_is_rejected(self) -> None:
+        with pytest.raises(ValueError, match="same dates"):
+            compute_daily_metrics(daily(0.01, 0.02), daily(0.01))
+
+
+class TestQuantstatsOracle:
+    """The daily metrics against quantstats' own figures on a fixed synthetic series.
+
+    quantstats_oracle.json is a copy of turtle-web's api/tests/analytics_oracle.json, written by
+    its api/scripts/make_analytics_oracle.py (quantstats 0.0.86); copy it again when that is
+    regenerated, so both repos stay held to the same numbers.
+    """
+
+    ORACLE = json.loads(Path(__file__).with_name("quantstats_oracle.json").read_text())
+    DATES = [date.fromisoformat(d) for d in ORACLE["dates"]]
+    SERIES = DailyReturns(DATES, ORACLE["returns"])
+
+    @staticmethod
+    def close(expected: float) -> object:
+        return pytest.approx(expected, rel=1e-9, abs=1e-12)
+
+    @pytest.mark.parametrize("name", [f.name for f in fields(DailyMetrics)])
+    def test_metric_matches_quantstats(self, name: str) -> None:
+        m = compute_daily_metrics(self.SERIES, DailyReturns(self.DATES, self.ORACLE["benchmark"]))
+        assert getattr(m, name) == self.close(self.ORACLE["metrics"][name])
+
+    def test_monthly_returns_match_quantstats(self) -> None:
+        expected = [(y, m, self.close(v)) for y, m, v in self.ORACLE["monthly"]]
+        assert [(p.year, p.month, p.value) for p in monthly_returns(self.SERIES)] == expected
+
+    def test_yearly_returns_match_quantstats(self) -> None:
+        assert [(p.year, p.value) for p in yearly_returns(self.SERIES)] == [(y, self.close(v)) for y, v in self.ORACLE["yearly"]]
+
+    def test_drawdown_periods_match_quantstats(self) -> None:
+        ours = sorted(drawdown_periods(self.SERIES), key=lambda p: p.start)
+        expected = [
+            (
+                date.fromisoformat(d["start"]),
+                date.fromisoformat(d["valley"]),
+                date.fromisoformat(d["end"]),
+                d["days"],
+                self.close(d["depth"]),
+            )
+            for d in self.ORACLE["drawdowns"]
+        ]
+        assert [(p.start, p.valley, p.end, p.days, p.depth) for p in ours] == expected

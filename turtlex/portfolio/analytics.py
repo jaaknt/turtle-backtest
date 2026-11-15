@@ -1,24 +1,14 @@
-"""Portfolio performance analytics using quantstats library."""
+"""Portfolio performance analytics: the trade summary and the equity curve's metrics against a benchmark."""
 
 import logging
 import math
-from datetime import date, datetime
+from collections.abc import Callable
+from datetime import date
+from itertools import pairwise
 
-import matplotlib
-import numpy as np
-import pandas as pd
-import polars as pl
-import quantstats as qs
-
-from turtlex.backtest.metrics import metrics_from_future_trades
+from turtlex.backtest.metrics import DailyMetrics, DailyReturns, compute_daily_metrics, metrics_from_future_trades, yearly_returns
 from turtlex.model import PortfolioState
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
-
-# Configure matplotlib to use available fonts instead of Arial
-matplotlib.rcParams["font.family"] = ["DejaVu Sans", "Ubuntu", "sans-serif"]
-# Remove Arial from sans-serif font list to prevent warnings
-matplotlib.rcParams["font.sans-serif"] = ["DejaVu Sans", "Ubuntu", "Bitstream Vera Sans", "Computer Modern Sans Serif", "sans-serif"]
-
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +16,42 @@ logger = logging.getLogger(__name__)
 DEFAULT_BENCHMARK_TICKER = "QQQ.US"
 
 
+def _pct(v: float | None) -> str:
+    return f"{v * 100:+.2f}%" if v is not None else "n/a"
+
+
+def _share(v: float | None) -> str:
+    return f"{v * 100:.2f}%" if v is not None else "n/a"
+
+
+def _ratio(v: float | None) -> str:
+    return f"{v:.2f}" if v is not None else "n/a"
+
+
+# One row per printed metric: label and how to render it from DailyMetrics
+_METRIC_ROWS: list[tuple[str, Callable[[DailyMetrics], str]]] = [
+    ("Cumulative return", lambda m: _pct(m.cumulative_return)),
+    ("CAGR", lambda m: _pct(m.cagr)),
+    ("Volatility (ann.)", lambda m: _share(m.volatility)),
+    ("Sharpe", lambda m: _ratio(m.sharpe)),
+    ("Sortino", lambda m: _ratio(m.sortino)),
+    ("Calmar", lambda m: _ratio(m.calmar)),
+    ("Max drawdown", lambda m: _pct(m.max_drawdown)),
+    ("Longest drawdown", lambda m: f"{m.longest_drawdown_days}d"),
+    ("Best day", lambda m: _pct(m.best_day)),
+    ("Worst day", lambda m: _pct(m.worst_day)),
+    ("Best month", lambda m: _pct(m.best_month)),
+    ("Worst month", lambda m: _pct(m.worst_month)),
+    ("Win rate (days)", lambda m: _share(m.win_rate_days)),
+    ("Win rate (months)", lambda m: _share(m.win_rate_months)),
+]
+
+
 class PortfolioAnalytics:
     """
-    Portfolio performance analytics using quantstats library.
+    Portfolio performance analytics: prints the closed trades' summary and the daily equity
+    curve's metrics beside a benchmark's, using the quantstats conventions of
+    `turtlex.backtest.metrics`.
     """
 
     def generate_results(
@@ -37,69 +60,35 @@ class PortfolioAnalytics:
         start_date: date,
         end_date: date,
         ohlcv_repo: DailyBarsQueryRepository,
-        output_file: str | None = None,
         benchmark_ticker: str = DEFAULT_BENCHMARK_TICKER,
     ) -> None:
-        """Generate portfolio analysis with printed metrics and tearsheet report.
+        """Print the trade summary and the equity-curve metrics.
 
         Args:
             portfolio_state: Portfolio state holding the daily snapshots and trades
             start_date: Backtest start date, used for the benchmark window
             end_date: Backtest end date, used for the benchmark window
             ohlcv_repo: Repository the benchmark bars are read from
-            output_file: Optional HTML tearsheet path; defaults to a timestamped file in reports/
-            benchmark_ticker: Symbol the tearsheet compares against, in database convention
+            benchmark_ticker: Symbol the portfolio is compared against, in database convention
                 (with the `.US` suffix)
         """
         logger.info("Generating portfolio performance results")
 
-        # Trades are summarized independently of the snapshots the tearsheet needs
+        # Trades are summarized independently of the snapshots the equity curve needs
         self.print_trade_summary(portfolio_state)
 
-        if not portfolio_state.daily_snapshots:
-            logger.warning("No portfolio data available")
+        if len(portfolio_state.daily_snapshots) < 2:
+            logger.warning("Fewer than 2 daily snapshots: no equity curve to analyze")
             return
 
-        # Generate unique filename if output_file is None
-        if output_file is None:
-            timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-            output_file = f"reports/portfolio_report_{timestamp}.html"
-
-        daily_returns = self._extract_daily_series(portfolio_state)
-        portfolio_returns = self._prepare_returns_for_quantstats(daily_returns)
-
-        benchmark_returns = self._calculate_benchmark_returns(start_date, end_date, ohlcv_repo, benchmark_ticker)
-
-        # Generate tearsheet report if we have returns data
-        if not portfolio_returns.empty:
-            try:
-                # Suppress specific warnings during quantstats processing
-                import warnings
-
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", message=".*No non-zero returns.*")
-                    warnings.filterwarnings("ignore", message=".*invalid value encountered.*")
-                    warnings.filterwarnings("ignore", message=".*Mean of empty slice.*")
-                    warnings.filterwarnings("ignore", message=".*Dataset has 0 variance.*")
-
-                    qs.reports.html(  # type: ignore[no-untyped-call]  # quantstats ships py.typed but leaves html unannotated
-                        portfolio_returns,
-                        benchmark=benchmark_returns if not benchmark_returns.empty else None,
-                        output=output_file,
-                        title="Portfolio Performance Report",
-                    )
-                    logger.info(f"Tearsheet report saved to {output_file}")
-            except Exception as e:
-                logger.error(f"Failed to generate tearsheet report: {e}")
-                logger.info("Continuing without tearsheet generation")
-        else:
-            logger.warning("No returns data available for tearsheet report")
+        portfolio, benchmark = self._daily_returns(portfolio_state, start_date, end_date, ohlcv_repo, benchmark_ticker)
+        self.print_equity_metrics(portfolio, benchmark, benchmark_ticker)
 
     def print_trade_summary(self, portfolio_state: PortfolioState) -> None:
         """
         Print aggregate metrics for the portfolio's round-trip trades.
 
-        The tearsheet describes the equity curve; this describes the trades that produced it.
+        The equity metrics describe the curve; this describes the trades that produced it.
         Columns match the backtest runner's bucket table so the two reports are comparable.
 
         Args:
@@ -121,79 +110,81 @@ class PortfolioAnalytics:
             f"{metrics.win_pct:>5.1f}%  {pf_str}  {sortino_str}  {metrics.cvar95_pct:>+7.2f}%"
         )
 
-    def _extract_daily_series(self, portfolio_state: PortfolioState) -> pd.Series:
-        """Calculate daily returns from portfolio snapshots."""
-        if not portfolio_state.daily_snapshots or len(portfolio_state.daily_snapshots) < 2:
-            return pd.Series(dtype=float)
+    def print_equity_metrics(self, portfolio: DailyReturns, benchmark: DailyReturns | None, benchmark_ticker: str) -> None:
+        """
+        Print the equity curve's metrics and yearly returns, beside the benchmark's when given.
 
-        dates = []
-        returns = []
+        Args:
+            portfolio: The portfolio's daily returns; must not be empty
+            benchmark: The benchmark's daily returns on the same dates, or None to print the
+                portfolio alone
+            benchmark_ticker: Benchmark symbol, for the column header
+        """
+        port_m = compute_daily_metrics(portfolio, benchmark)
+        columns = [("Portfolio", port_m)]
+        years = [yearly_returns(portfolio)]
+        if benchmark is not None:
+            columns.append((benchmark_ticker, compute_daily_metrics(benchmark)))
+            years.append(yearly_returns(benchmark))
 
-        for i in range(1, len(portfolio_state.daily_snapshots)):
-            prev_snapshot = portfolio_state.daily_snapshots[i - 1]
-            curr_snapshot = portfolio_state.daily_snapshots[i]
+        print(f"\nEquity Curve ({portfolio.dates[0]} to {portfolio.dates[-1]}, {len(portfolio.values)} trading days):")
+        header = f"{'Metric':<18}" + "".join(f"  {name:>10}" for name, _ in columns)
+        print(header)
+        print("─" * len(header))
+        for label, render in _METRIC_ROWS:
+            print(f"{label:<18}" + "".join(f"  {render(m):>10}" for _, m in columns))
+        if benchmark is not None:
+            print(f"{'Beta':<18}  {_ratio(port_m.beta):>10}")
+            print(f"{'Correlation':<18}  {_ratio(port_m.correlation):>10}")
 
-            prev_value = prev_snapshot.total_value
-            curr_value = curr_snapshot.total_value
+        print("\nYearly Returns (* partial year):")
+        print(f"{'Year':<18}" + "".join(f"  {name:>10}" for name, _ in columns))
+        for row in zip(*years, strict=True):
+            label = f"{row[0].year}{'*' if row[0].partial else ''}"
+            print(f"{label:<18}" + "".join(f"  {_pct(y.value):>10}" for y in row))
 
-            if prev_value > 0:
-                daily_return = (curr_value - prev_value) / prev_value
-                dates.append(curr_snapshot.date)
-                returns.append(daily_return)
+    def _daily_returns(
+        self,
+        portfolio_state: PortfolioState,
+        start_date: date,
+        end_date: date,
+        ohlcv_repo: DailyBarsQueryRepository,
+        benchmark_ticker: str,
+    ) -> tuple[DailyReturns, DailyReturns | None]:
+        """
+        Build the portfolio's and the benchmark's daily returns on a shared trading calendar.
 
-        return pd.Series(returns, index=dates, name="daily_returns")
+        The backtest snapshots every weekday, holidays included; the benchmark's bars are the
+        trading calendar, so a holiday's flat snapshot does not count as a trading day. Without
+        benchmark bars, every snapshot day is used and the benchmark is None.
 
-    def _prepare_returns_for_quantstats(self, daily_returns: pd.Series) -> pd.Series:
-        """Prepare returns for quantstats (decimal format)."""
-        returns = daily_returns / 100.0 if daily_returns.abs().mean() > 1.0 else daily_returns
-        if not isinstance(returns.index, pd.DatetimeIndex):
-            returns.index = pd.to_datetime(returns.index)
+        Args:
+            portfolio_state: Portfolio state holding at least 2 daily snapshots
+            start_date: Benchmark window start
+            end_date: Benchmark window end
+            ohlcv_repo: Repository the benchmark bars are read from
+            benchmark_ticker: Benchmark symbol, in database convention
 
-        # Clean and validate returns data
-        returns = returns.dropna().replace([np.inf, -np.inf], 0)
+        Returns:
+            The portfolio's returns and the benchmark's on the same dates (or None)
+        """
+        values = {s.date: s.total_value for s in portfolio_state.daily_snapshots}
+        bars = ohlcv_repo.get_bars_pl(benchmark_ticker, start_date, end_date)
+        closes: dict[date, float] = {}
+        if not bars.is_empty():
+            # A null or non-positive close has no return to take; that day leaves the calendar
+            pairs = zip(bars["date"].to_list(), bars["adjusted_close"].to_list(), strict=True)
+            closes = {d: c for d, c in pairs if d in values and c is not None and c > 0}
 
-        # Check if we have sufficient data for meaningful analysis
-        if len(returns) < 2:
-            logger.warning("Insufficient return data for analysis (less than 2 data points)")
-            return pd.Series(dtype=float)
-
-        # Check for zero variance (all returns are the same)
-        if returns.std() == 0:
-            logger.warning("Returns have zero variance - portfolio performance is flat")
-            # Add minimal noise to prevent division by zero in quantstats
-            returns = returns + np.random.normal(0, 1e-8, len(returns))
-
-        return returns
-
-    def _calculate_benchmark_returns(
-        self, start_date: date, end_date: date, ohlcv_repo: DailyBarsQueryRepository, benchmark_ticker: str
-    ) -> pd.Series:
-        """Calculate benchmark returns for comparison."""
-        try:
-            benchmark_df = ohlcv_repo.get_bars_pl(benchmark_ticker, start_date, end_date)
-
-            if benchmark_df.is_empty() or benchmark_df.height < 2:
-                logger.warning(f"Insufficient {benchmark_ticker} data for benchmark calculation")
-                return pd.Series(dtype=float)
-
-            # Calculate daily returns in polars; replace +/-inf with 0 and drop initial null
-            benchmark_returns_df = (
-                benchmark_df.sort("date")
-                .with_columns(pl.col("adjusted_close").pct_change().alias("returns"))
-                .with_columns(pl.when(pl.col("returns").is_infinite()).then(pl.lit(0.0)).otherwise(pl.col("returns")).alias("returns"))
-                .drop_nulls("returns")
+        if len(closes) < 2:
+            logger.warning(
+                f"Insufficient {benchmark_ticker} bars: reporting the portfolio alone, on every snapshot day "
+                "(holidays count as flat trading days, so annualized figures are not comparable to a benchmarked run)"
             )
-
-            # Convert to pandas Series with DatetimeIndex for quantstats
-            benchmark_returns = pd.Series(
-                benchmark_returns_df["returns"].to_list(),
-                index=pd.DatetimeIndex(benchmark_returns_df["date"].to_list()),
-                name=f"{benchmark_ticker}_returns",
-            )
-
-            logger.info(f"Calculated {benchmark_ticker} benchmark returns for {len(benchmark_returns)} trading days")
-            return benchmark_returns
-
-        except Exception as e:
-            logger.warning(f"Failed to calculate {benchmark_ticker} benchmark returns: {e}")
-            return pd.Series(dtype=float)
+            calendar = sorted(values)
+            bench = None
+        else:
+            calendar = sorted(closes)
+            bench = DailyReturns(calendar[1:], [closes[b] / closes[a] - 1.0 for a, b in pairwise(calendar)])
+        portfolio = DailyReturns(calendar[1:], [values[b] / values[a] - 1.0 for a, b in pairwise(calendar)])
+        return portfolio, bench

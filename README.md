@@ -10,7 +10,7 @@ Python library to backtest different trading strategies with US stocks
 - Ranking strategies: Momentum, Volume Momentum, Breakout Quality
 - Single-ticker backtesting with benchmark comparison
 - Portfolio-level backtesting with capital constraints and position sizing
-- HTML tearsheet generation with performance analytics
+- Equity-curve analytics (CAGR, Sharpe, Sortino, drawdowns) against a benchmark
 
 ## Installation
 

@@ -23,7 +23,7 @@ turtle-backtest runs locally today. This guide covers moving it to a Hetzner VPS
 | **CX32** | **4 vCPU, 8GB RAM, 80GB SSD** | **~8.35** | **Recommended** |
 | CAX21 (ARM) | 2 vCPU, 4GB RAM, 40GB SSD | ~4.35 | Cheaper ARM; psycopg binary wheels may need rebuilding |
 
-**Recommended: CX32** — pandas portfolio backtests are memory-heavy; 4GB RAM is tight.
+**Recommended: CX32** — research studies load millions of daily bars; 4GB RAM is tight.
 
 ### 2. PostgreSQL Deployment
 
@@ -360,7 +360,7 @@ systemctl --user enable --now turtle-backup.timer
 uv run signal-runner --start-date 2024-01-01 --end-date 2024-01-02
 
 # 2. Confirm portfolio backtest runs end-to-end
-uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-01-31 --output-file /tmp/test.html
+uv run portfolio-runner --start-date 2024-01-01 --end-date 2024-01-31
 
 # 3. Check timers are registered
 systemctl --user list-timers eodhd-download-daily.timer eodhd-download-weekly.timer snapshot_company.timer

@@ -13,10 +13,8 @@ dependencies = [
     "psycopg[binary,pool]>=3.3.6",
     "sqlalchemy[asyncio]>=2.1.6",
     "alembic>=1.20.1",
-    "pandas>=3.1.0,<4",              # quantstats/analytics; must match pandas-stubs major
-    "numpy>=2.5.4,<3",               # used by analytics + research scripts
+    "numpy>=2.5.4,<3",               # used by metrics + research scripts
     "setuptools>=84.2.1",
-    "quantstats>=0.0.86",          # Portfolio analytics for quantitative analysis
     "pydantic>=2.14.2",
     "polars>=2.1.0",
 ]
@@ -88,7 +86,6 @@ files = ["turtlex", "scripts", "tests"]
 
 [dependency-groups]
 dev = [
-    "pandas-stubs>=3.1.0.261029,<4",  # must match pandas major version
     "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
     "pytest-mock>=3.17.0",
