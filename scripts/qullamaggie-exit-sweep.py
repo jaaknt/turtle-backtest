@@ -6,7 +6,8 @@ scripts/qullamaggie-portfolio-sim.py has exactly one exit: a 366-calendar-day ti
 study asks whether a smarter exit raises portfolio CAGR% and Sortino on that one configuration,
 holding entries, sizing and universe fixed.
 
-Two observations from docs/research/result-qullamaggie-portfolio-v4.md motivate the ideas:
+Two observations from docs/research/result-qullamaggie-portfolio-v4.md motivated the ideas (figures
+from the July 2026 run the study was designed on):
 
   - The worst months contain zero entries. Entries are gated on SPY > 200d SMA, so through
     Apr-Dec 2022 and Jun-Dec 2023 the strategy refused to open the exposure it was still
@@ -33,9 +34,10 @@ Outputs: full metric surface per idea (not just the winning cell), finalist trad
 exit attribution, per-year decomposition, a block-bootstrap win rate against the baseline, and
 a robustness matrix re-running the sweep's winner across s20/s16/s12 and three disjoint periods.
 
-That last section is the one that matters most: the sweep's winner clears every single-window
-guard and still fails 7 of the 9 matrix cells, passing only in 2021-2026. Read the matrix before
-acting on the sweep.
+That last section is the one that matters most. In the July 2026 run, `<+5% after 90 bars` cleared
+every single-window guard and still failed 7 of the 9 matrix cells; on the 2026-11-15 data no
+variant clears the single-window bar at all, and the same rule passes 1 of 9. Read the matrix
+before acting on the sweep.
 """
 
 import math
@@ -63,9 +65,16 @@ HOLD_CAL = 366
 
 # Baseline from qullamaggie-portfolio-sim.py, s12 / R>=44 / 3% / 366d over this study's window
 # (2021-01-01 – 2026-06-26) — the `3%  R>=44` row of the s12 section in
-# docs/research/result-qullamaggie-portfolio-v4.md (2026-11-15 run). Reproduced by this harness as
+# docs/research/result-qullamaggie-portfolio-v4.md (REF_RUN_DATE run). Reproduced by this harness as
 # a validity check before any sweep is believed. Refresh all four together — a partial update
 # makes the reconciliation table lie.
+#
+# The two simulators agree to the dollar on the same day's data, but hetzner's data does not hold
+# still: on 2026-11-15 the same portfolio-sim code moved this row from +51.52% to +52.98% CAGR
+# within hours. So a miss here is read as drift first: re-run portfolio-sim on the same data
+# (`--output` to a scratch file, so the committed docs are untouched) and compare with that.
+# Until 2026-11-15 this harness funded same-day signals in arrival order rather than best-ranked
+# first, which alone put it ~1.5pp off portfolio-sim.
 #
 # These are gate-dependent, so qm.MIN_RANKING and this block move together. When the gate went
 # 40 -> 44 on 2026-08-07 these four were left on the R>=40 row for one commit, and the 2026-08-09
@@ -74,10 +83,11 @@ HOLD_CAL = 366
 # a blown reconciliation invalidates is the claim that the harness reproduces portfolio-sim at
 # all. If it reappears, check this block against portfolio-v4.md before rereading the sweep.
 REF_MIN_RANKING = 44  # the gate the four numbers below were run at
-REF_CAGR_PCT = 51.52
-REF_SORTINO = 2.153
-REF_MAXDD_PCT = -29.53
-REF_FINAL = 292_095.0
+REF_RUN_DATE = date(2026, 11, 15)  # the day portfolio-sim produced them; the data they reflect
+REF_CAGR_PCT = 52.98
+REF_SORTINO = 2.210
+REF_MAXDD_PCT = -31.15
+REF_FINAL = 307_819.0
 RECONCILE_TOL_PP = 1.0  # max acceptable CAGR divergence, in percentage points
 
 MAXDD_GUARD_PP = 5.0  # a variant may not worsen baseline MaxDD by more than this
@@ -210,8 +220,9 @@ CONTROLS = [
     ExitRule(name="dead120 — <+5% after 120 cal days", dead_cal_days=120, dead_min_ret=0.05),
 ]
 
-# Robustness matrix: the sweep's winning rule re-run across every entry threshold and three
-# disjoint periods. The rule's parameters were chosen on s12 / 2021-2026, so the other eight
+# Robustness matrix: the July 2026 sweep's winning rule re-run across every entry threshold and
+# three disjoint periods. It is fixed rather than re-picked each run, so the matrix stays
+# comparable across re-runs. Its parameters were chosen on s12 / 2021-2026, so the other eight
 # cells are out-of-sample for them.
 WINNER = ExitRule(name="<+5% after 90 bars", dead_days=90, dead_min_ret=0.05)
 VALIDATION_CONFIGS = [("s20", 0.20), ("s16", 0.16), ("s12", 0.12)]
@@ -452,6 +463,11 @@ def build_signals(
         signals_by_entry.setdefault(entry_dint, []).append(
             Signal(symbol=row["symbol"], entry_dint=entry_dint, entry_price=float(row["entry_price"]), ranking=row["ranking"])
         )
+    # Same-day signals compete for cash, so the funding order decides which trades exist.
+    # portfolio-sim funds the best-ranked first (its RANK_FUNDING); match it, or the baseline
+    # cannot reconcile. The sort is stable, so ties keep arrival order as they do there.
+    for day_signals in signals_by_entry.values():
+        day_signals.sort(key=lambda s: s.ranking, reverse=True)
     return signals_by_entry, n_below_rank, n_no_cal
 
 
@@ -695,21 +711,30 @@ def main() -> None:
     out("## Baseline reconciliation")
     out("")
     out(
-        "Signals here come from `turtlex.research.qullamaggie`, whose cooldown chain runs through "
-        "the warmup window, while `qullamaggie-portfolio-sim.py` starts its chain at the evaluation "
-        "start. A small divergence is expected; a large one would invalidate every comparison below."
+        "Signals here and in `qullamaggie-portfolio-sim.py` both come from `turtlex.research.qullamaggie`, "
+        "and both fund same-day signals best-ranked first, so on the same day's data the two baselines "
+        "should agree. A divergence means either the harness no longer reproduces portfolio-sim, which "
+        "would invalidate every comparison below, or the data has moved since the REF_* run: re-run "
+        "portfolio-sim on the same data before reading it as the former."
     )
     rec_hdr = f"{'source':<26} {'Final$':>10} {'CAGR%':>7} {'MaxDD%':>8} {'Sortino':>8}"
     table(
         rec_hdr,
         [
-            f"{'portfolio-sim (committed)':<26} {REF_FINAL:>10,.0f} {REF_CAGR_PCT:>+7.2f} {REF_MAXDD_PCT:>8.2f} {REF_SORTINO:>8.3f}",
+            f"{f'portfolio-sim ({REF_RUN_DATE})':<26} {REF_FINAL:>10,.0f} {REF_CAGR_PCT:>+7.2f} {REF_MAXDD_PCT:>8.2f} {REF_SORTINO:>8.3f}",
             f"{'this harness':<26} {base.final:>10,.0f} {base.cagr * 100:>+7.2f} {base.max_dd * 100:>8.2f} {base.sortino:>8.3f}",
         ],
     )
     drift = abs(base.cagr * 100 - REF_CAGR_PCT)
     out("")
-    out(f"CAGR divergence: {drift:.2f}pp ({'within' if drift <= RECONCILE_TOL_PP else 'ABOVE'} the {RECONCILE_TOL_PP:.1f}pp tolerance).")
+    if drift <= RECONCILE_TOL_PP:
+        out(f"CAGR divergence: {drift:.2f}pp (within the {RECONCILE_TOL_PP:.1f}pp tolerance).")
+    else:
+        out(
+            f"CAGR divergence: {drift:.2f}pp, ABOVE the {RECONCILE_TOL_PP:.1f}pp tolerance. The REF_* row is from "
+            f"{REF_RUN_DATE}; if the data has been refreshed since, re-run portfolio-sim on the same data before "
+            "treating this as a harness fault."
+        )
     out("")
     out(f"Pass bar: CAGR > {base.cagr * 100:+.2f}%, Sortino > {base.sortino:.3f}, MaxDD > {dd_floor * 100:.2f}%.")
 
