@@ -13,16 +13,16 @@ dependencies = [
     "psycopg[binary,pool]>=3.3.6",
     "sqlalchemy[asyncio]>=2.1.6",
     "alembic>=1.20.1",
-    "pandas>=3.1.0,<4",              # quantstats/analytics; must match pandas-stubs major
+    "pandas>=3.1.1,<4",              # quantstats/analytics; must match pandas-stubs major
     "numpy>=2.5.4,<3",               # used by analytics + research scripts
     "setuptools>=84.2.1",
     "quantstats>=0.0.86",          # Portfolio analytics for quantitative analysis
-    "pydantic>=2.14.2",
+    "pydantic>=2.14.3",
     "polars>=2.1.0",
 ]
 
 [project.optional-dependencies]
-lint = ["ruff>=0.17.3", "mypy>=2.4.1"]
+lint = ["ruff>=0.17.4", "mypy>=2.4.1"]
 
 [project.scripts]
 signal-runner = "turtlex.cli.signal_runner:main"
