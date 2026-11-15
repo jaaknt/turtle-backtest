@@ -77,6 +77,30 @@ def load_spy_regime(bars_history: DailyBarsQueryRepository, start_date: date, en
     return set(spy.filter(pl.col("close") > pl.col("sma200"))["date"].to_list())
 
 
+def load_trading_days(bars_history: DailyBarsQueryRepository, start_date: date, end_date: date) -> list[date]:
+    """Load the trading calendar: the dates SPY has a bar on in the window.
+
+    The universe's own bar dates are not a calendar: a few symbols carry bars on market holidays
+    (Thanksgiving, July 4, Juneteenth), and each such date would enter an equity curve as a flat
+    trading day, lengthening the years `compute_daily_cagr` counts.
+
+    Args:
+        bars_history: Repository for accessing historical bar data
+        start_date: First date of the window
+        end_date: Last date of the window
+
+    Returns:
+        SPY's bar dates in the window, in date order.
+
+    Raises:
+        ValueError: If SPY has no bars in the window.
+    """
+    spy = bars_history.get_bars_pl(MARKET_TICKER, start_date, end_date)
+    if spy.is_empty():
+        raise ValueError(f"no {MARKET_TICKER} bars in {start_date} – {end_date}; there is no trading calendar")
+    return sorted(spy["date"].to_list())
+
+
 def load_bars(bars_history: DailyBarsQueryRepository, start_date: date, end_date: date) -> pl.DataFrame:
     """Load adjusted daily bars for the whole qualified universe in one query.
 

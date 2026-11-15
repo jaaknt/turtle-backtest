@@ -4,8 +4,9 @@ Two sampling regimes live here, and they must not be mixed:
 
 - `compute_trade_metrics` takes round-trip trades — irregularly spaced, annualized by the
   mean holding period.
-- `compute_daily_sortino` and `compute_daily_metrics` take a daily equity-curve return
-  series — regularly sampled, annualized by 252 periods a year.
+- `compute_daily_cagr`, `compute_daily_sortino` and `compute_daily_metrics` take a daily
+  equity-curve return series — regularly sampled, annualized by 252 periods a year. Every
+  equity-curve CAGR in the repo, research replays included, comes from `compute_daily_cagr`.
 
 The daily half follows quantstats' conventions (risk-free rate 0, 252 periods a year, sample
 standard deviation, years = number of returns / 252), so its figures read like a quantstats
@@ -126,6 +127,31 @@ def compute_trade_metrics(
         cvar95_pct=float(np.sort(arr)[:k].mean()),
         mean_trade_mdd_pct=dd_mean,
     )
+
+
+def compute_daily_cagr(daily_returns: FloatSeq, *, periods_per_year: int = PERIODS_PER_YEAR) -> float:
+    """
+    Compute the compound annual growth rate of a daily equity-curve return series.
+
+    Years are counted as the number of returns over `periods_per_year` (quantstats' convention),
+    not as calendar days over 365, so every equity-curve CAGR in the repo, from the portfolio
+    report to the research replays, is on one time base. For an equity curve `eq`, pass
+    `eq[1:] / eq[:-1] - 1`: the growth then compounds to `eq[-1] / eq[0]`.
+
+    Args:
+        daily_returns: Daily simple returns as fractions (0.01 for +1%), one per trading day
+        periods_per_year: Trading periods per year; 252 for daily bars
+
+    Returns:
+        CAGR as a fraction; -1.0 when the curve is wiped out, `nan` for an empty series
+    """
+    arr = np.asarray(daily_returns, dtype=float)
+    if arr.size == 0:
+        return float("nan")
+    growth = float(np.prod(1.0 + arr))
+    if growth <= 0:
+        return -1.0
+    return float(growth ** (periods_per_year / arr.size) - 1.0)
 
 
 def compute_daily_sortino(daily_returns: FloatSeq, *, periods_per_year: int = PERIODS_PER_YEAR) -> float:
@@ -350,7 +376,7 @@ def compute_daily_metrics(r: DailyReturns, benchmark: DailyReturns | None = None
         raise ValueError("the benchmark's returns must be on the same dates as the series'")
     n = len(values)
     total = _compound(values)
-    cagr = (1.0 + total) ** (PERIODS_PER_YEAR / n) - 1.0  # quantstats: years = number of returns / 252
+    cagr = compute_daily_cagr(values)
     stdev = statistics.stdev(values) if n > 1 else None
     sortino = compute_daily_sortino(values)
     drawdowns = drawdown_periods(r)

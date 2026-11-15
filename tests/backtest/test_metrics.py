@@ -22,6 +22,7 @@ from turtlex.backtest.metrics import (
     DailyReturns,
     DrawdownPeriod,
     PeriodReturn,
+    compute_daily_cagr,
     compute_daily_metrics,
     compute_daily_sortino,
     compute_trade_metrics,
@@ -320,6 +321,26 @@ def daily(*values: float) -> DailyReturns:
 def rounded[T: DrawdownPeriod | PeriodReturn](records: list[T], field: str) -> list[T]:
     """The records with one float field rounded to 9 places, so they compare with ==."""
     return [replace(x, **{field: round(getattr(x, field), 9)}) for x in records]
+
+
+class TestComputeDailyCagr:
+    def test_a_252_return_series_annualizes_to_its_own_growth(self) -> None:
+        """Years = returns / 252, so one trading year's CAGR is its total return, whatever its calendar span."""
+        eq = np.cumprod(np.r_[100.0, np.full(252, 1.001)])
+        assert compute_daily_cagr(eq[1:] / eq[:-1] - 1.0) == pytest.approx(eq[-1] / eq[0] - 1.0)
+
+    def test_half_a_year_compounds_to_a_full_one(self) -> None:
+        assert compute_daily_cagr([0.001] * 126) == pytest.approx(1.001**252 - 1.0)
+
+    def test_a_wiped_out_curve_is_minus_one(self) -> None:
+        assert compute_daily_cagr([0.1, -1.0, 0.2]) == -1.0
+
+    def test_an_empty_series_has_no_cagr(self) -> None:
+        assert math.isnan(compute_daily_cagr([]))
+
+    def test_the_metrics_table_uses_it(self) -> None:
+        values = [0.01, -0.02, 0.015]
+        assert compute_daily_metrics(daily(*values)).cagr == compute_daily_cagr(values)
 
 
 class TestComputeDailyMetrics:

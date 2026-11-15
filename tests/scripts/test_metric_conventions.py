@@ -10,6 +10,10 @@ the losers-only denominator cancels out.
 Every study now computes its Sortino through `turtlex.backtest.metrics`: trade series via
 `compute_trade_metrics`, daily equity-curve series via `compute_daily_sortino`.
 
+Equity-curve CAGR has the same single source, `compute_daily_cagr` (years = returns / 252):
+the replays and portfolio studies each computed `(end / start) ** (365 / calendar_days)`, a
+second time base that made their CAGR incomparable with the portfolio report's.
+
 These tests do not re-derive the metrics; `tests/backtest/test_metrics.py` covers the maths.
 They exist so the *next* study cannot reintroduce a private copy unnoticed.
 """
@@ -99,4 +103,20 @@ def test_cohort_studies_use_canonical_metrics(path: Path) -> None:
     source = path.read_text(encoding="utf-8")
     assert "compute_trade_metrics" in source or _imports_delegate(source, "turtlex.research.cohorts"), (
         f"{path.name} must compute metrics via compute_trade_metrics or the shared turtlex.research.cohorts pipeline."
+    )
+
+
+# A calendar-day annualization of an equity curve: `** (365.0 / n_days)`. Per-trade annualization
+# over a holding period (FutureTrade, compute_trade_metrics) is a different measure and lives
+# outside the files checked here.
+_CALENDAR_CAGR = re.compile(r"\*\*\s*\(\s*365(\.0)?\s*/")
+_RESEARCH_DIR = REPO_ROOT / "turtlex" / "research"
+
+
+@pytest.mark.parametrize("path", _scripts() + sorted(_RESEARCH_DIR.glob("*.py")), ids=lambda p: p.name)
+def test_no_calendar_day_cagr(path: Path) -> None:
+    """Equity-curve CAGR comes from compute_daily_cagr, on the 252-trading-day base."""
+    assert not _CALENDAR_CAGR.search(path.read_text(encoding="utf-8")), (
+        f"{path.name} annualizes over 365 calendar days. Use turtlex.backtest.metrics.compute_daily_cagr, "
+        "so its CAGR is on the same 252-trading-day base as every other equity curve."
     )

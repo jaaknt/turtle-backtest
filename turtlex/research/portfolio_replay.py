@@ -25,7 +25,7 @@ from datetime import date, timedelta
 import numpy as np
 import polars as pl
 
-from turtlex.backtest.metrics import compute_daily_sortino
+from turtlex.backtest.metrics import compute_daily_cagr, compute_daily_sortino
 from turtlex.research import qullamaggie as qm
 
 _EPOCH = date(1970, 1, 1)
@@ -106,13 +106,12 @@ def run_sim(
 
     Raises:
         ValueError: When `calendar` holds fewer than two days. A caller slicing a sub-period the
-            cached data barely covers would otherwise get a numpy reduction error — or, for a
-            single day, a ZeroDivisionError — several frames deeper.
+            cached data barely covers would otherwise get a numpy reduction error (empty) or a
+            silent nan CAGR (a single day, which has no daily return to compound).
     """
     if len(calendar) < 2:
         raise ValueError(
-            f"run_sim needs at least two trading days to measure a return, got {len(calendar)}; "
-            "a one-day calendar divides by a zero-day span"
+            f"run_sim needs at least two trading days to measure a return, got {len(calendar)}; a one-day calendar has no daily return"
         )
 
     by_day: dict[int, list[dict]] = {}
@@ -155,8 +154,7 @@ def run_sim(
     eq = np.array(equity)
     daily_ret = eq[1:] / eq[:-1] - 1.0
     max_dd = float((eq / np.maximum.accumulate(eq) - 1.0).min())
-    n_days = (calendar[-1] - calendar[0]).days
-    cagr = float((eq[-1] / eq[0]) ** (365.0 / n_days) - 1.0)
+    cagr = compute_daily_cagr(daily_ret)
     return {
         "cagr": cagr * 100,
         "max_dd": max_dd * 100,

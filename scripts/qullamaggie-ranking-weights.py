@@ -29,10 +29,9 @@ parity-tested in tests/research/test_qullamaggie_parity.py). The portfolio repla
 scripts/qullamaggie-portfolio-sim.py: next trading day's adjusted open, position = POS_FRACTION
 of portfolio value, skip when cash is short, 366d calendar time exit, still-open positions
 marked to market at period end. Two deliberate differences from that script: the MIN_RANKING
-gate is not applied up front (sweeping it is the point here), and the master calendar is the
-union of universe bar dates rather than SPY's trading days. Both shift CAGR by a few tenths of
-a point equally for every scheme, so cross-scheme comparisons hold -- but these numbers are not
-directly comparable with result-qullamaggie-portfolio-v4.md.
+gate is not applied up front (sweeping it is the point here). That shifts CAGR equally for every
+scheme, so cross-scheme comparisons hold -- but these numbers are not directly comparable with
+result-qullamaggie-portfolio-v4.md. The master calendar is SPY's trading days, as there.
 """
 
 import statistics
@@ -42,7 +41,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-from turtlex.backtest.metrics import compute_daily_sortino
+from turtlex.backtest.metrics import compute_daily_cagr, compute_daily_sortino
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
 from turtlex.research import qullamaggie as qm
@@ -194,8 +193,7 @@ def run_sim(market: Market, calendar: list[date], signals: list[dict], score_key
     eq = np.array(equity)
     daily_ret = eq[1:] / eq[:-1] - 1.0
     max_dd = float((eq / np.maximum.accumulate(eq) - 1.0).min())
-    n_days = (calendar[-1] - calendar[0]).days
-    cagr = float((eq[-1] / eq[0]) ** (365.0 / n_days) - 1.0)
+    cagr = compute_daily_cagr(daily_ret)
     sortino = compute_daily_sortino(daily_ret)
     return {"cagr": cagr * 100, "max_dd": max_dd * 100, "sortino": sortino, "taken": n_taken}
 
@@ -225,7 +223,7 @@ def main() -> None:
     bull = qm.load_spy_regime(repo, EVAL_START, EVAL_END)
     ind = qm.add_indicators(bars)
 
-    calendar = sorted({d for d in bars["date"].to_list() if EVAL_START <= d <= EVAL_END})
+    calendar = qm.load_trading_days(repo, EVAL_START, EVAL_END)
     market = Market(bars.filter((pl.col("date") >= EVAL_START) & (pl.col("date") <= EVAL_END)))
     cal_set = {(d - _EPOCH).days for d in calendar}
 
@@ -279,7 +277,7 @@ def main() -> None:
         for row in sig.iter_rows(named=True):
             r = dict(row)
             entry_dint = (r["entry_date"] - _EPOCH).days
-            if entry_dint not in cal_set:  # entry falls past EVAL_END
+            if entry_dint not in cal_set:  # entry falls past EVAL_END, or on a holiday bar SPY does not have
                 n_no_entry_bar += 1
                 continue
             r["entry_dint"] = entry_dint

@@ -13,6 +13,13 @@ The protocol, the acceptance rule and the loop are defined in
 reading a verdict here: none of these numbers mean anything without the matched-selectivity and
 random-null controls the protocol imposes.
 
+**CAGR convention change (2026-11-15).** Every row recorded before 2026-11-15 scored its portfolio
+confirm with the replay's old calendar-day CAGR, `(end / start) ** (365 / calendar_days) - 1`. The
+replay now uses `compute_daily_cagr` (years = trading-day returns / 252), the base every equity curve
+in the repo shares. Those rows were not re-run: they stay as the record of what was decided, and
+their verdicts compare each candidate with a baseline measured on the same, older base. A new row's
+CAGR is on the 252-day base, so do not difference it against an older row's.
+
 **Current baseline:** `c000-production` — the shipped `QullamaggieRanking` 40/35/25 bands.
 
 Measured on the 2026-08-20 cache (bars 2010-2026 from the VPS; 5389 s12 signals cached, 5150 of

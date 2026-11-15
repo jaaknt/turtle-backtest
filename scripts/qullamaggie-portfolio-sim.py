@@ -46,7 +46,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-from turtlex.backtest.metrics import compute_daily_sortino
+from turtlex.backtest.metrics import compute_daily_cagr, compute_daily_sortino
 from turtlex.common.cli import iso_date_type
 from turtlex.common.report import config_table, run_timestamp
 from turtlex.config.settings import Settings
@@ -188,13 +188,11 @@ def buy_and_hold(bars_history: DailyBarsQueryRepository, symbol: str) -> dict:
     bars = bars_history.get_bars_pl(symbol, EVAL_START, EVAL_END)
     if bars.is_empty():
         raise ValueError(f"no {symbol} bars in {EVAL_START} – {EVAL_END}; the buy-and-hold benchmark cannot be computed")
-    dates = bars["date"].to_list()
     closes = bars["close"].cast(pl.Float64).to_numpy()
     eq = INIT_EQUITY * (closes / closes[0])
     daily_ret = eq[1:] / eq[:-1] - 1.0
     max_dd = float((eq / np.maximum.accumulate(eq) - 1.0).min())
-    n_days = (dates[-1] - dates[0]).days
-    cagr = (eq[-1] / eq[0]) ** (365.0 / n_days) - 1.0
+    cagr = compute_daily_cagr(daily_ret)
     calmar = cagr / abs(max_dd) if max_dd < 0 else float("inf")
     sortino = compute_daily_sortino(daily_ret)
     return {
@@ -235,9 +233,7 @@ def main() -> None:
     print(f"Eval {EVAL_START} – {EVAL_END}  |  bars {data_start} – {EVAL_END}", flush=True)
     print("Loading SPY …", flush=True)
     # SPY's own bars are the master trading calendar run_sim walks; the regime comes from qm.
-    spy = bars_history.get_bars_pl(qm.MARKET_TICKER, EVAL_START, EVAL_END)
-    if spy.is_empty():
-        raise ValueError(f"no SPY bars on or after {EVAL_START}; the requested window has no data")
+    cal = qm.load_trading_days(bars_history, EVAL_START, EVAL_END)
     bull_dates = qm.load_spy_regime(bars_history, EVAL_START, EVAL_END)
     # Bars end at EVAL_END: this simulation never requires an exit bar to exist, it marks
     # positions still open on the last day to market. Bounding the load also puts the
@@ -297,8 +293,6 @@ def main() -> None:
         sma = sym_sma200[sym][idx]
         return bool(not np.isnan(sma) and sym_closes[sym][idx] < sma)
 
-    # master trading calendar = SPY days within period
-    cal = spy["date"].to_list()  # fetched over exactly [EVAL_START, EVAL_END]
     cal_int = [(d - _EPOCH).days for d in cal]
     cal_set = set(cal_int)  # entries must land on a day run_sim actually visits
 
@@ -431,8 +425,7 @@ def main() -> None:
         avg_uninv_usd = float(np.mean(cash_arr))
         daily_ret = eq[1:] / eq[:-1] - 1.0
         max_dd = float((eq / np.maximum.accumulate(eq) - 1.0).min())
-        n_days = (dates[-1] - dates[0]).days
-        cagr = (eq[-1] / eq[0]) ** (365.0 / n_days) - 1.0
+        cagr = compute_daily_cagr(daily_ret)
         calmar = cagr / abs(max_dd) if max_dd < 0 else float("inf")
         sortino = compute_daily_sortino(daily_ret)
 

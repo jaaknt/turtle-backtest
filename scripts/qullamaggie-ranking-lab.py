@@ -142,7 +142,9 @@ def build_cache() -> None:
 
     per_config: dict[str, list[pl.DataFrame]] = {name: [] for name, _ in rl.CONFIGS}
     price_parts: list[pl.DataFrame] = []
-    calendar: set[date] = set()
+    # SPY's trading days, not the union of universe bar dates: a few symbols carry bars on market
+    # holidays, which the replay would walk as flat trading days and count as years in its CAGR.
+    calendar = qm.load_trading_days(repo, rl.EVAL_START, rl.EVAL_END)
 
     for chunk_start, chunk_end in _chunks():
         load_end = min(chunk_end + timedelta(days=FORWARD_PAD_DAYS), rl.CACHE_END)
@@ -169,7 +171,6 @@ def build_cache() -> None:
                 per_config[name].append(sig)
                 chunk_symbols.update(str(s) for s in sig["symbol"].to_list())
 
-        calendar.update(d for d in bars["date"].to_list() if rl.EVAL_START <= d <= rl.EVAL_END)
         if chunk_symbols:
             price_parts.append(
                 bars.filter(pl.col("symbol").is_in(sorted(chunk_symbols)) & (pl.col("date") >= chunk_start)).select(
@@ -192,7 +193,7 @@ def build_cache() -> None:
 
     prices = pl.concat(price_parts, how="vertical_relaxed").unique(subset=["symbol", "date"]).sort(["symbol", "date"])
     prices.write_parquet(CACHE_DIR / "prices.parquet")
-    pl.DataFrame({"date": sorted(calendar)}).write_parquet(CACHE_DIR / "calendar.parquet")
+    pl.DataFrame({"date": calendar}).write_parquet(CACHE_DIR / "calendar.parquet")
     print(f"prices: {len(prices)} rows, calendar: {len(calendar)} days -> {CACHE_DIR}", flush=True)
 
 
@@ -630,7 +631,7 @@ def cmd_holdout(baseline_path: Path, gates: list[int]) -> None:
     ind = rl.add_lab_features(qm.add_indicators(bars), _load_spy_closes(repo, rl.HOLDOUT_START, HOLDOUT_END))
     bull = qm.load_spy_regime(repo, rl.HOLDOUT_START, HOLDOUT_END)
 
-    calendar = sorted({d for d in bars["date"].to_list() if rl.HOLDOUT_START <= d <= HOLDOUT_END})
+    calendar = qm.load_trading_days(repo, rl.HOLDOUT_START, HOLDOUT_END)
     market = Market(bars.filter(pl.col("date") >= rl.HOLDOUT_START).select("symbol", "date", "adj_close"))
     cal_set = {(d - _EPOCH).days for d in calendar}
     rng = np.random.default_rng(SEED)

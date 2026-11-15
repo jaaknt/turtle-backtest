@@ -48,7 +48,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-from turtlex.backtest.metrics import compute_daily_sortino, compute_trade_metrics
+from turtlex.backtest.metrics import compute_daily_cagr, compute_daily_sortino, compute_trade_metrics
 from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
 from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
@@ -70,7 +70,9 @@ SMA_THRESH = 0.12  # s12
 #
 # The two simulators agree to the dollar on the same day's data, but hetzner's data does not hold
 # still: on 2026-11-15 the same portfolio-sim code moved this row from +51.52% to +52.98% CAGR
-# within hours. So a miss here is read as drift first: re-run portfolio-sim on the same data
+# within hours (both figures on the old 365-calendar-day CAGR base; the same 307,819 row reads
+# +53.22% on the 252-trading-day base every equity curve has used since). So a miss here is read
+# as drift first: re-run portfolio-sim on the same data
 # (`--output` to a scratch file, so the committed docs are untouched) and compare with that.
 # Until 2026-11-15 this harness funded same-day signals in arrival order rather than best-ranked
 # first, which alone put it ~1.5pp off portfolio-sim.
@@ -83,7 +85,7 @@ SMA_THRESH = 0.12  # s12
 # all. If it reappears, check this block against portfolio-v4.md before rereading the sweep.
 REF_MIN_RANKING = 44  # the gate the four numbers below were run at
 REF_RUN_DATE = date(2026, 11, 15)  # the day portfolio-sim produced them; the data they reflect
-REF_CAGR_PCT = 52.98
+REF_CAGR_PCT = 53.22  # compute_daily_cagr: years = trading-day returns / 252
 REF_SORTINO = 2.210
 REF_MAXDD_PCT = -31.15
 REF_FINAL = 307_819.0
@@ -306,12 +308,6 @@ def add_exit_indicators(bars: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def cagr_of(daily_ret: np.ndarray) -> float:
-    """Annualised compound growth of a daily return series, for bootstrap resamples."""
-    growth = float(np.prod(1.0 + daily_ret))
-    return growth ** (252.0 / len(daily_ret)) - 1.0 if growth > 0 else -1.0
-
-
 def bootstrap_win_rate(base_ret: np.ndarray, var_ret: np.ndarray) -> tuple[float, float]:
     """Fraction of block-bootstrap resamples in which the variant beats the baseline.
 
@@ -337,7 +333,7 @@ def bootstrap_win_rate(base_ret: np.ndarray, var_ret: np.ndarray) -> tuple[float
         starts = rng.integers(0, n, size=n_blocks)
         idx = ((starts[:, None] + offsets[None, :]).ravel()[:n]) % n
         base_sample, var_sample = base_ret[idx], var_ret[idx]
-        if cagr_of(var_sample) > cagr_of(base_sample):
+        if compute_daily_cagr(var_sample) > compute_daily_cagr(base_sample):
             wins_cagr += 1
         base_s, var_s = compute_daily_sortino(base_sample), compute_daily_sortino(var_sample)
         if math.isfinite(base_s) and math.isfinite(var_s) and var_s > base_s:
@@ -375,14 +371,13 @@ class MarketData:
         return float(self.sym_close[symbol][i]) if i >= 0 else 0.0
 
 
-def build_market(bars: pl.DataFrame, bull_dates: set[date], start: date, end: date) -> MarketData:
+def build_market(bars: pl.DataFrame, bull_dates: set[date], cal: list[date]) -> MarketData:
     """Unpack an adjusted bar frame into the per-symbol arrays the daily loop indexes into.
 
     Args:
         bars: Adjusted bar frame carrying the exit indicators from `add_exit_indicators`
         bull_dates: Dates on which SPY closed above its 200d SMA
-        start: First day of the evaluation window
-        end: Last day of the evaluation window
+        cal: The window's trading days, from `qm.load_trading_days`
 
     Returns:
         MarketData for the window.
@@ -403,8 +398,8 @@ def build_market(bars: pl.DataFrame, bull_dates: set[date], start: date, end: da
             "sma200": g["ma_sma200"].cast(pl.Float64).to_numpy(allow_copy=True),
         }
 
-    # Master trading calendar: every date on which some qualified symbol traded.
-    cal = [d for d in bars["date"].unique().sort().to_list() if start <= d <= end]
+    # Master trading calendar = SPY days, as in portfolio-sim: the union of universe bar dates
+    # would add the market holidays a few symbols carry bars on, as flat trading days.
     cal_int = [(d - _EPOCH).days for d in cal]
 
     # Consecutive trading days on which SPY has closed below its 200d SMA, as of each cal day.
@@ -607,8 +602,7 @@ def run_sim(market: MarketData, signals_by_entry: dict[int, list[Signal]], rule:
     cash_arr = np.array(cash_curve)
     daily_ret = eq[1:] / eq[:-1] - 1.0
     max_dd = float((eq / np.maximum.accumulate(eq) - 1.0).min())
-    n_days = (market.cal[-1] - market.cal[0]).days
-    cagr = float((eq[-1] / eq[0]) ** (365.0 / n_days) - 1.0)
+    cagr = compute_daily_cagr(daily_ret)
     return SimResult(
         rule=rule,
         final=float(eq[-1]),
@@ -639,10 +633,11 @@ def load_window(bars_history: DailyBarsQueryRepository, start: date, end: date) 
     """
     print(f"  loading {start} – {end} …", flush=True)
     bull_dates = qm.load_spy_regime(bars_history, start, end)
+    cal = qm.load_trading_days(bars_history, start, end)
     bars = qm.load_bars(bars_history, start, end)
     ind = qm.add_indicators(bars)
     bars = add_exit_indicators(bars)
-    return build_market(bars, bull_dates, start, end), ind, bars, bull_dates
+    return build_market(bars, bull_dates, cal), ind, bars, bull_dates
 
 
 def main() -> None:

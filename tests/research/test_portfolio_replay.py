@@ -52,7 +52,7 @@ def test_run_sim_rejects_a_calendar_too_short_to_measure(market: Market, calenda
     """A sub-period the cached data barely covers fails here, not inside numpy.
 
     The single-day case matters as much as the empty one: it clears an "is it empty" guard and
-    then divides by a zero-day span, which is the deeper failure the guard exists to prevent.
+    has no daily return, so it would report a nan CAGR instead of failing.
     """
     with pytest.raises(ValueError, match="at least two trading days"):
         run_sim(market, calendar, [], "score")
