@@ -19,7 +19,7 @@ Limit sweep: place a resting limit buy at signal_day_close * (1 - X%) for X% in 
              good for 30 calendar days from the signal day. It fills on the first trading day within
              that window whose low <= limit price (entry price = limit price); if no day in the
              window touches the limit, the order expires unfilled. Hold 366 calendar days from the
-             fill day (same HOLD_MAX_CAL forward-data requirement as the backtest).
+             fill day (same qm.HOLD_CAL forward-data requirement as the backtest).
 
 Also reports monthly seasonality (Mean%/N by entry year x month) for the EOD baseline of each cohort.
 
@@ -44,8 +44,6 @@ from turtlex.research import qullamaggie as qm
 _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2015, 1, 1)
 EVAL_END = date(2026, 6, 26)
-HOLD_CAL = 366
-HOLD_MAX_CAL = 366
 LIMIT_WINDOW_CAL = 30  # limit order stays resting this many calendar days after the signal
 
 MIN_NEG = 10
@@ -55,8 +53,8 @@ SMA_THRESHS = [(0.20, "bk50d_s20_v2.0"), (0.16, "bk50d_s16_v2.0"), (0.12, "bk50d
 
 CONFIG_ROWS: list[tuple[str, str]] = [
     ("Period", f"{EVAL_START} – {EVAL_END}"),
-    ("Hold", f"{HOLD_CAL}d (calendar)"),
-    ("Cohorts", ", ".join(label for _t, label in SMA_THRESHS) + " (366d)"),
+    ("Hold", f"{qm.HOLD_CAL}d (calendar)"),
+    ("Cohorts", ", ".join(label for _t, label in SMA_THRESHS) + f" ({qm.HOLD_CAL}d)"),
     ("Cohort variable", "**entry convention — next-open vs EOD vs a resting limit order**"),
     ("Entry", "**three conventions reported side by side; see Baselines and Limit sweep below**"),
     ("Filter under study", "none — the entry convention is the variable, so the full production chain applies"),
@@ -104,9 +102,7 @@ def run_trades_eod(
         idx_entry = int(np.searchsorted(dates, entry_int))
         if idx_entry >= len(dates) or dates[idx_entry] != entry_int:
             continue
-        if dates[-1] < entry_int + HOLD_MAX_CAL:
-            continue
-        idx_exit = int(np.searchsorted(dates, entry_int + HOLD_CAL))
+        idx_exit = int(np.searchsorted(dates, entry_int + qm.HOLD_CAL))
         if idx_exit >= len(dates):
             continue
         ret = float(closes[idx_exit] / closes[idx_entry] - 1.0)
@@ -136,9 +132,7 @@ def run_trades_open(
         dates = sym_dates[sym]
         closes = sym_closes[sym]
         entry_int = (row["entry_date"] - _EPOCH).days
-        if dates[-1] < entry_int + HOLD_MAX_CAL:
-            continue
-        idx_exit = int(np.searchsorted(dates, entry_int + HOLD_CAL))
+        idx_exit = int(np.searchsorted(dates, entry_int + qm.HOLD_CAL))
         if idx_exit >= len(dates):
             continue
         ret = float(closes[idx_exit] / float(row["entry_price"]) - 1.0)
@@ -192,9 +186,7 @@ def run_trades_limit(
         n_filled += 1
 
         fill_day_int = int(dates[fill_idx])
-        if dates[-1] < fill_day_int + HOLD_MAX_CAL:
-            continue
-        idx_exit = int(np.searchsorted(dates, fill_day_int + HOLD_CAL))
+        idx_exit = int(np.searchsorted(dates, fill_day_int + qm.HOLD_CAL))
         if idx_exit >= len(dates):
             continue
 
@@ -207,7 +199,7 @@ def run_trades_limit(
 
 
 def compute_metrics(records: list[dict]) -> dict:
-    m = compute_trade_metrics([r["ret"] * 100 for r in records], HOLD_CAL, min_losers=MIN_NEG) if records else None
+    m = compute_trade_metrics([r["ret"] * 100 for r in records], qm.HOLD_CAL, min_losers=MIN_NEG) if records else None
     if m is None:
         return {"n": 0, "win": float("nan"), "mean": float("nan"), "med": float("nan"), "pf": float("nan"), "sr": float("nan")}
     return {
@@ -312,7 +304,7 @@ def main() -> None:
         n_sig = len(signals)
         print(f"  {n_sig} gated signals, {len(entered)} with an entry bar", flush=True)
 
-        lines = [f"### {label} — 366d\n", "```text", _HDR, _SEP]
+        lines = [f"### {label} — {qm.HOLD_CAL}d\n", "```text", _HDR, _SEP]
 
         open_m = compute_metrics(run_trades_open(entered, sym_dates, sym_closes))
         lines.append(fmt_row("next-open (v2.0)", fill_pct_of(open_m, n_sig), open_m))
@@ -339,7 +331,7 @@ def main() -> None:
 
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with RESULT_PATH.open("w") as fh:
-        fh.write("# Qullamaggie Limit-Order Fill Sensitivity — 366d Cohorts\n\n")
+        fh.write(f"# Qullamaggie Limit-Order Fill Sensitivity — {qm.HOLD_CAL}d Cohorts\n\n")
         fh.write(f"Run date: {run_timestamp()}\n\n")
         fh.write("## Configuration\n\n")
         fh.write(config_table(CONFIG_ROWS))
@@ -350,7 +342,7 @@ def main() -> None:
         fh.write("## Monthly Seasonality (EOD baseline)\n\n")
         fh.write(
             "Each cell is `Mean%|N` for trades entered in that calendar month (entry = signal day), using the "
-            "EOD baseline (buy at signal-day close, hold 366 calendar days). `·` = no trades that month. The "
+            f"EOD baseline (buy at signal-day close, hold {qm.HOLD_CAL} calendar days). `·` = no trades that month. The "
             "Mean%/N columns on the right are the year's aggregate across all its months.\n\n"
         )
         for section in calendar_sections:
@@ -362,7 +354,7 @@ def main() -> None:
             f"{LIMIT_WINDOW_CAL} calendar days and fills on the *first* day the low touches the limit price. This "
             "raises fill rates substantially versus a next-day-only rule, but it also means higher-X% fills are "
             "increasingly dominated by trades that took most of the window to retrace that far — those signals "
-            "have effectively already spent part of their 366d hold going nowhere (or down) before the position "
+            f"have effectively already spent part of their {qm.HOLD_CAL}d hold going nowhere (or down) before the position "
             "even opens, which the raw per-trade return doesn't capture (it's measured from the fill day, not the "
             "signal day).\n\n"
         )

@@ -44,8 +44,9 @@ from pathlib import Path
 import numpy as np
 
 from turtlex.common.report import config_table, run_timestamp
+from turtlex.research import qullamaggie as qm
 from turtlex.research import ranking_lab as rl
-from turtlex.research.portfolio_replay import HOLD_CAL, INIT_EQUITY, POS_FRACTION, Market, run_sim
+from turtlex.research.portfolio_replay import INIT_EQUITY, POS_FRACTION, Market, run_sim
 
 _EPOCH = date(1970, 1, 1)
 
@@ -122,7 +123,7 @@ def main() -> None:
     out(
         config_table(
             [
-                ("Algorithm", f"bk50d_{CONFIG}_v2.0, {HOLD_CAL}d calendar hold"),
+                ("Algorithm", f"bk50d_{CONFIG}_v2.0, {qm.HOLD_CAL}d calendar hold"),
                 ("Ranking gate", f"QullamaggieRanking >= {GATE} (held fixed)"),
                 ("Window", f"{WINDOW_START} – {WINDOW_END} (holdout excluded)"),
                 ("Gated signals", str(len(rows))),

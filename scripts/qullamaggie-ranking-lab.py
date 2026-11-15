@@ -76,7 +76,7 @@ LEDGER_END = "<!-- lab:ledger:end -->"
 
 CHUNK_YEARS = 3
 # Each chunk's bars run this far past its last signal date so every signal in the chunk has a
-# bar at entry + 366 to exit against. 400 > HOLD_CAL with room for the next trading day.
+# bar at entry + 366 to exit against. 400 > qm.HOLD_CAL with room for the next trading day.
 FORWARD_PAD_DAYS = 400
 
 # Portfolio confirmation. The calendar stops at the holdout boundary so the loop can never
@@ -90,7 +90,6 @@ PORTFOLIO_SPLIT = date(2020, 1, 1)
 # The one-time holdout run stops here; positions short of their 366-day exit are marked to
 # market on the last bar at or before it.
 HOLDOUT_END = date(2026, 8, 19)
-HOLD_LABEL = rl.HOLD_CAL
 KEEP_PCTS = [35, 25, 15]
 CONFIRM_KEEP_PCT = 25  # the cell the acceptance rule reads
 N_TIE = 10  # tie-break redraws per cell
@@ -639,7 +638,7 @@ def cmd_holdout(baseline_path: Path, gates: list[int]) -> None:
     print(f"\n# Holdout — {spec.id}\n\nRun date: {run_timestamp()}")
     print(
         f"\nEntries {rl.HOLDOUT_START} onward, replayed to {calendar[-1]}. Positions short of "
-        f"{HOLD_LABEL} days are marked to market on the last bar."
+        f"{qm.HOLD_CAL} days are marked to market on the last bar."
     )
 
     for config, sma_t in rl.CONFIGS:

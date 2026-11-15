@@ -47,6 +47,10 @@ EXCLUDED_SECTORS = ("Communication Services", "Real Estate")
 # many calendar days the signal is dropped. Mirrors SignalProcessor.calculate_entry_data.
 ENTRY_SEARCH_DAYS = 7
 
+# Holding period — the baseline bk50d_s12_v2.0 holds every trade this many calendar days and
+# exits at the close of the first bar on or after entry + HOLD_CAL. Every study shares it.
+HOLD_CAL = 366
+
 # QullamaggieRanking gate — matches the portfolio-runner --min-signal-ranking default.
 MIN_RANKING = 44
 

@@ -61,7 +61,6 @@ EVAL_END = date(2026, 6, 26)
 INIT_EQUITY = 30_000.0
 POS_FRACTION = 0.03
 SMA_THRESH = 0.12  # s12
-HOLD_CAL = 366
 
 # Baseline from qullamaggie-portfolio-sim.py, s12 / R>=44 / 3% / 366d over this study's window
 # (2021-01-01 – 2026-06-26) — the `3%  R>=44` row of the s12 section in
@@ -104,7 +103,7 @@ class ExitRule:
     """One composable exit configuration. Unset fields mean that rule is inactive."""
 
     name: str
-    hold_cal: int = HOLD_CAL  # time-cap backstop, always active
+    hold_cal: int = qm.HOLD_CAL  # time-cap backstop, always active
     regime_days: int | None = None  # SPY below its 200d SMA for this many consecutive days
     regime_losers_only: bool = False  # only close positions currently under water
     trail_pct: float | None = None  # trail this far below the running peak close
@@ -699,7 +698,7 @@ def main() -> None:
     out(
         f"Config: `bk50d_s12_v2.0` | {EVAL_START} – {EVAL_END} | initial ${INIT_EQUITY:,.0f} | "
         f"sizing {POS_FRACTION:.0%} of portfolio value | ranking >= {qm.MIN_RANKING} | "
-        f"time-cap backstop {HOLD_CAL}d"
+        f"time-cap backstop {qm.HOLD_CAL}d"
     )
     out("")
     out(

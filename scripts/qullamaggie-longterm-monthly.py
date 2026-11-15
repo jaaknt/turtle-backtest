@@ -114,7 +114,7 @@ def build_yearly_stats_table(
         return f"{v:>+7.1f}" if not np.isnan(v) else f"{'—':>7}"
 
     def fmt_row(a: np.ndarray, qqq_pct: float, spy_pct: float) -> str:
-        m = compute_trade_metrics(a * 100, cohorts.HOLD_CAL, min_losers=MIN_NEG)
+        m = compute_trade_metrics(a * 100, qm.HOLD_CAL, min_losers=MIN_NEG)
         if m is None:  # unreachable: the years come from the trades themselves
             return f"{0:>5} {'—':>6} {'—':>7} {fmt_pct(qqq_pct)} {fmt_pct(spy_pct)} {'—':>7} {'n/a':>8} {'—':>8}"
         sr_str = f"{m.sortino:>8.3f}" if not np.isnan(m.sortino) else f"{'n/a':>8}"
@@ -157,7 +157,7 @@ def main() -> None:
     df, bars = cohorts.load_universe(bars_history, EVAL_START)
 
     fixed_hdr = (
-        f"Hold: {cohorts.HOLD_CAL}d | Period: {EVAL_START} – {EVAL_END}\n"
+        f"Hold: {qm.HOLD_CAL}d | Period: {EVAL_START} – {EVAL_END}\n"
         f"Fixed: roc_12m<{int(qm.ROC_CAP * 100)}%, "
         f"vol_surge<{qm.VOL_SURGE_MAX}x (no lower bound), RSI<{int(qm.RSI_CAP)}, ADR>={qm.ADR_MIN * 100:.1f}%, "
         f"ADR_change<{int(qm.ADR_CHANGE_CAP * 100)}%, "

@@ -22,7 +22,7 @@ Rules:
     SignalProcessor.calculate_entry_data), sizing = {3%,4%,5%} of current portfolio
     value (cash + open positions marked to market).
   - If available cash < the target, skip the trade (no liquidity).
-  - Exit at the close of the first trading day >= entry + HOLD_CAL calendar days
+  - Exit at the close of the first trading day >= entry + qm.HOLD_CAL calendar days
     (open positions at period end are marked to market, not force-closed).
   - Fractional shares, no commission/slippage.
 
@@ -58,7 +58,6 @@ EVAL_START = date(2021, 1, 1)
 EVAL_END = date(2026, 6, 26)
 INIT_EQUITY = 30_000.0
 POS_FRACTIONS = [0.03, 0.04, 0.05]  # position-size sweep
-HOLD_CAL = 366
 DECILE_POS_FRACTION = 0.04  # representative size used for the ranking-decile mini-simulations
 N_DECILES = 10
 BELOW_DAYS = 5  # consecutive days below 200d SMA to trigger the trend exit
@@ -101,7 +100,7 @@ def config_rows() -> list[tuple[str, str]]:
     # rather than being repeated here. Same `| Parameter | Value |` shape as the cohort studies.
     return [
         ("Period", f"{EVAL_START} – {EVAL_END}"),
-        ("Hold", f"{HOLD_CAL}d (calendar)"),
+        ("Hold", f"{qm.HOLD_CAL}d (calendar)"),
         ("Algorithms", ", ".join(f"bk50d_{n}_v2.0 (%abv_SMA50>{t * 100:.0f}%)" for n, t in CONFIGS)),
         ("Entry", "next trading day's split/dividend-adjusted open"),
         ("Initial equity", f"${INIT_EQUITY:,.0f}"),
@@ -320,7 +319,7 @@ def main() -> None:
             out(row)
         out("```")
 
-    def run_sim(signals_by_day: dict[int, list[dict]], exit_mode: str, pos_fraction: float, hold_cal: int = HOLD_CAL) -> dict:
+    def run_sim(signals_by_day: dict[int, list[dict]], exit_mode: str, pos_fraction: float, hold_cal: int = qm.HOLD_CAL) -> dict:
         cash = INIT_EQUITY
         positions: list[dict] = []
         equity_curve: list[tuple[date, float]] = []
@@ -622,7 +621,7 @@ def main() -> None:
         # Bars end at EVAL_END, so no window-end bound is needed; only the columns ranking reads are kept.
         sig = qm.get_signals(df, bull_dates, EVAL_START, sma_t).select("symbol", "date", "raw_close", "adr_pct", "pct_vs_sma50")
         out("")
-        out(f"## {name}  (bk50d_{name}_v2.0 / {HOLD_CAL}d)")
+        out(f"## {name}  (bk50d_{name}_v2.0 / {qm.HOLD_CAL}d)")
         out("")
         out(f"`%abv_SMA50 > {sma_t * 100:.0f}%` — every other filter is in the Configuration table above.")
         # Same signals, sized the same way, reported under every ranking treatment on adjacent

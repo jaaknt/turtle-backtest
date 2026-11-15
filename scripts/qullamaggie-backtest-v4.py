@@ -35,7 +35,7 @@ from turtlex.research import cohorts
 from turtlex.research import qullamaggie as qm
 
 EVAL_START = date(2021, 1, 1)
-# Fixed, not date.today(): a trade needs cohorts.HOLD_CAL days of forward data to reach its exit, so
+# Fixed, not date.today(): a trade needs qm.HOLD_CAL days of forward data to reach its exit, so
 # scanning up to today only generates signals that are then dropped for want of an exit. Bump this
 # as new years complete — or pass --end-date.
 EVAL_END = date(2025, 12, 31)
@@ -74,7 +74,7 @@ def compute_metrics(records: list[dict]) -> dict | None:
     if len(records) < MIN_TRADES:
         return None
     a = np.array([r["ret"] for r in records])
-    m = compute_trade_metrics(a * 100, cohorts.HOLD_CAL, min_losers=MIN_NEG)
+    m = compute_trade_metrics(a * 100, qm.HOLD_CAL, min_losers=MIN_NEG)
     if m is None or np.isnan(m.sortino) or m.sortino <= 0:
         return None
     months = (EVAL_END.year - EVAL_START.year) * 12 + (EVAL_END.month - EVAL_START.month)
@@ -92,7 +92,7 @@ def compute_metrics(records: list[dict]) -> dict | None:
 
 # ── Output ─────────────────────────────────────────────────────────────────────
 
-# The hold is fixed at cohorts.HOLD_CAL, so an Exit column would repeat one value on every row; Mean%
+# The hold is fixed at qm.HOLD_CAL, so an Exit column would repeat one value on every row; Mean%
 # carries the annualized figure directly rather than reporting raw and annualized side by side.
 _HDR = (
     f"{'Entry Signal':<16}  {'Gate':<8}  "
@@ -237,7 +237,7 @@ def main() -> None:
     data_start = EVAL_START - timedelta(days=qm.WARMUP_DAYS)
     # Forward bars only as far as the last entry could need (EVAL_END + hold + entry search),
     # and never past DATA_END — so a 2010-2015 run loads ~7 years, not ~18.
-    data_end = min(DATA_END, EVAL_END + timedelta(days=cohorts.HOLD_CAL + qm.ENTRY_SEARCH_DAYS))
+    data_end = min(DATA_END, EVAL_END + timedelta(days=qm.HOLD_CAL + qm.ENTRY_SEARCH_DAYS))
     print(f"Eval {EVAL_START} – {EVAL_END}  |  bars {data_start} – {data_end}", flush=True)
 
     print("Loading SPY regime …", flush=True)
@@ -307,7 +307,7 @@ def main() -> None:
         fh.write("| Exit | close of the first bar at or after entry + hold |\n")
         fh.write(f"| SMA thresh sweep | {sma_vals} |\n")
         fh.write("| Tight range | disabled (commented out) |\n")
-        fh.write(f"| Hold sweep | {cohorts.HOLD_CAL}d (calendar); entries without {cohorts.HOLD_CAL}d of forward data are skipped |\n")
+        fh.write(f"| Hold sweep | {qm.HOLD_CAL}d (calendar); entries without {qm.HOLD_CAL}d of forward data are skipped |\n")
         fh.write("| Ranking | QullamaggieRanking (ADR 40 / SMA50 35 / price 25) |\n")
         fh.write(f"| Ranking gate sweep | ungated, ≥ {gates_str} |\n")
         fh.write("| vol_dry_up | disabled (commented out) |\n")

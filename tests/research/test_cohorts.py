@@ -103,7 +103,7 @@ class TestCohortTrades:
     def test_ranking_gate_window_end_and_returns(self) -> None:
         signal_day = cohorts.EVAL_END
         entry_day = signal_day + timedelta(days=2)
-        exit_day = entry_day + timedelta(days=cohorts.HOLD_CAL)
+        exit_day = entry_day + timedelta(days=qm.HOLD_CAL)
         candidates = [
             # ADR 9% + 32% above SMA50 + $8 close score 40 + 35 + 25 = 100.
             _candidate("HIGH", signal_day),

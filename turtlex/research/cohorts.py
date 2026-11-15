@@ -1,10 +1,10 @@
 """Shared pipeline for the scripts/qullamaggie-cohorts-*.py studies.
 
 A cohort study drops one production entry filter, raises signals for each algorithm arm,
-holds every entry a fixed 366 calendar days, and tabulates the returns by buckets of the
-variable the dropped filter used to cap. The studies differ only in which filter they drop,
-which variable they bucket and how they label the table; everything else lives here, so a
-study script is its docstring, its configuration table and a `CohortSpec`.
+holds every entry a fixed 366 calendar days (`qm.HOLD_CAL`), and tabulates the returns by
+buckets of the variable the dropped filter used to cap. The studies differ only in which
+filter they drop, which variable they bucket and how they label the table; everything else
+lives here, so a study script is its docstring, its configuration table and a `CohortSpec`.
 
 Signals come from `turtlex.research.qullamaggie`, which is parity-tested against
 `QullamaggieStrategy`, and every metric from `turtlex.backtest.metrics`.
@@ -26,7 +26,6 @@ from turtlex.research import qullamaggie as qm
 
 EVAL_START = date(2015, 1, 1)
 EVAL_END = date(2026, 6, 26)
-HOLD_CAL = 366
 # Below this many losing trades a cohort's Sortino is reported as n/a.
 MIN_LOSERS = 5
 # Below this many trades a cohort row prints dashes instead of metrics.
@@ -106,8 +105,8 @@ def config_rows(rows: dict[str, str | None]) -> list[tuple[str, str]]:
     """
     standard: dict[str, str | None] = {
         "Period": f"{EVAL_START} – {EVAL_END}",
-        "Hold": f"{HOLD_CAL}d (calendar)",
-        "Cohorts": ", ".join(arm.label for arm in STANDARD_ARMS) + f" ({HOLD_CAL}d)",
+        "Hold": f"{qm.HOLD_CAL}d (calendar)",
+        "Cohorts": ", ".join(arm.label for arm in STANDARD_ARMS) + f" ({qm.HOLD_CAL}d)",
         "Cohort variable": None,
         "Entry": "next trading day's split/dividend-adjusted open",
         "Filter under study": None,
@@ -133,7 +132,7 @@ def config_rows(rows: dict[str, str | None]) -> list[tuple[str, str]]:
 def forward_returns(signals: pl.DataFrame, df: pl.DataFrame) -> pl.DataFrame:
     """Attach each entered signal's return over a fixed calendar-day hold.
 
-    The exit is the first bar on or after `entry_date + HOLD_CAL`. A signal whose symbol's
+    The exit is the first bar on or after `entry_date + qm.HOLD_CAL`. A signal whose symbol's
     data ends before that date is dropped rather than exited early, so every return covers
     the full hold.
 
@@ -144,7 +143,7 @@ def forward_returns(signals: pl.DataFrame, df: pl.DataFrame) -> pl.DataFrame:
     Returns:
         The signals that complete the hold, in their input order, with `ret` (a fraction) added.
     """
-    target = signals.with_row_index("_row").with_columns((pl.col("entry_date") + pl.duration(days=HOLD_CAL)).alias("_exit_target"))
+    target = signals.with_row_index("_row").with_columns((pl.col("entry_date") + pl.duration(days=qm.HOLD_CAL)).alias("_exit_target"))
     # Project before filtering, so the filter copies three columns rather than the whole indicator frame.
     closes = df.select("symbol", pl.col("date").alias("_exit_date"), pl.col("adj_close").cast(pl.Float64).alias("_exit_price")).filter(
         pl.col("symbol").is_in(target["symbol"].unique().implode())
@@ -230,7 +229,7 @@ def bucket_groups(trades: pl.DataFrame, column: str | pl.Expr, buckets: Sequence
 def _metrics(rets: np.ndarray) -> TradeMetrics | None:
     if len(rets) < MIN_TRADES:
         return None
-    return compute_trade_metrics(rets * 100, HOLD_CAL, min_losers=MIN_LOSERS)
+    return compute_trade_metrics(rets * 100, qm.HOLD_CAL, min_losers=MIN_LOSERS)
 
 
 def render_table(

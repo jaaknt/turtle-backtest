@@ -136,7 +136,7 @@ def run_window(bars_history: DailyBarsQueryRepository, eval_start: date, eval_en
         print(f"  {regime_label(lb):<12} qualifying days in window: {n_days}", flush=True)
 
     # Forward bars past eval_end so a signal on the last day can still reach its 366d exit.
-    df, bars = cohorts.load_universe(bars_history, eval_start, end=eval_end + timedelta(days=cohorts.HOLD_CAL + 30))
+    df, bars = cohorts.load_universe(bars_history, eval_start, end=eval_end + timedelta(days=qm.HOLD_CAL + 30))
 
     lines: list[str] = []
     for arm in cohorts.STANDARD_ARMS:

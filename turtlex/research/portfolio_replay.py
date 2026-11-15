@@ -26,12 +26,12 @@ import numpy as np
 import polars as pl
 
 from turtlex.backtest.metrics import compute_daily_sortino
+from turtlex.research import qullamaggie as qm
 
 _EPOCH = date(1970, 1, 1)
 
 INIT_EQUITY = 30_000.0
 POS_FRACTION = 0.04
-HOLD_CAL = 366
 
 
 class Market:
@@ -82,7 +82,7 @@ def run_sim(
     *,
     init_equity: float = INIT_EQUITY,
     pos_fraction: float = POS_FRACTION,
-    hold_cal: int = HOLD_CAL,
+    hold_cal: int = qm.HOLD_CAL,
     max_new_per_month: int | None = None,
 ) -> dict:
     """Replay the portfolio over `signals`, funding same-day competitors best-scored first.

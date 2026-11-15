@@ -46,7 +46,7 @@ import numpy as np
 import polars as pl
 
 from turtlex.backtest.metrics import compute_trade_metrics
-from turtlex.research import cohorts
+from turtlex.research import qullamaggie as qm
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,6 @@ TEST_YEARS = 2
 HOLDOUT_START = date(2025, 1, 1)
 
 CONFIGS: list[tuple[str, float]] = [("s12", 0.12), ("s16", 0.16), ("s20", 0.20)]
-HOLD_CAL = cohorts.HOLD_CAL  # the hold cohorts.forward_returns computes the lab's returns over
 N_DECILES = 10
 MIN_LOSERS = 5  # below this a bucket's Sortino is nan and the step is skipped, not counted
 MIN_TRAILING_N = 20  # fewer prior signals in the window than this scores the neutral midpoint
@@ -636,7 +635,7 @@ def compute_deciles(scores: np.ndarray, returns: np.ndarray, rng: np.random.Gene
         idx = order[edges[d] : edges[d + 1]]
         if idx.size == 0:
             continue
-        m = compute_trade_metrics(returns[idx] * 100.0, HOLD_CAL, min_losers=MIN_LOSERS)
+        m = compute_trade_metrics(returns[idx] * 100.0, qm.HOLD_CAL, min_losers=MIN_LOSERS)
         if m is None:
             continue
         out.append(

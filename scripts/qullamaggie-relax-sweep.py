@@ -54,7 +54,6 @@ from turtlex.research import qullamaggie as qm
 _EPOCH = date(1970, 1, 1)
 EVAL_START = date(2015, 1, 1)
 EVAL_END = date(2026, 6, 26)
-HOLD_CAL = 366
 MIN_AVG_VOL = 100_000
 MAX_PRICE = 250.0
 MIN_HISTORY = 300
@@ -190,9 +189,9 @@ def run_trades(signals: pl.DataFrame, sym_dates: dict[str, np.ndarray], sym_clos
         idx_entry = int(np.searchsorted(dates, entry_int))
         if idx_entry >= len(dates) or dates[idx_entry] != entry_int:
             continue
-        if dates[-1] < entry_int + HOLD_CAL:
+        if dates[-1] < entry_int + qm.HOLD_CAL:
             continue
-        idx_exit = int(np.searchsorted(dates, entry_int + HOLD_CAL))
+        idx_exit = int(np.searchsorted(dates, entry_int + qm.HOLD_CAL))
         if idx_exit >= len(dates):
             continue
         entry_px = float(row["entry_price"])
@@ -209,7 +208,7 @@ def compute_metrics(records: list[dict]) -> dict:
     a = np.array([r["ret"] for r in records])
     mdds = np.array([r["mdd"] for r in records])
     months = (EVAL_END.year - EVAL_START.year) * 12 + (EVAL_END.month - EVAL_START.month)
-    m = compute_trade_metrics(a * 100, HOLD_CAL, trade_drawdowns_pct=mdds * 100, min_losers=MIN_NEG)
+    m = compute_trade_metrics(a * 100, qm.HOLD_CAL, trade_drawdowns_pct=mdds * 100, min_losers=MIN_NEG)
     if m is None:  # a variant whose filters admitted nothing
         nan = float("nan")
         return {"n": 0, "freq": 0.0, "win": nan, "mean": nan, "med": nan, "sr": nan, "pf": nan, "mdd": nan}
@@ -366,7 +365,7 @@ def main() -> None:
         fh.write("## Configuration\n\n")
         fh.write("| Parameter | Value |\n|---|---|\n")
         fh.write(f"| Eval period | {EVAL_START} – {EVAL_END} |\n")
-        fh.write(f"| Hold | {HOLD_CAL}d (calendar); entries without {HOLD_CAL}d of forward data skipped |\n")
+        fh.write(f"| Hold | {qm.HOLD_CAL}d (calendar); entries without {qm.HOLD_CAL}d of forward data skipped |\n")
         fh.write(f"| Baseline | {LABEL}: 50d-high breakout, close >20% above SMA50, next-day adjusted-open entry |\n")
         fh.write(
             "| Baseline fixed filters | roc_12m<100%, vol_surge<2.0x, RSI<70, ADR>=3.0%, "
