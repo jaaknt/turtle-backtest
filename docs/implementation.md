@@ -305,7 +305,7 @@ uv run download-eodhd-data --data us_ticker
 uv run download-eodhd-data --data company
 
 # set active group that is needed for stocks history download
-PGPASSWORD=$DB_APP_PASSWORD psql -h localhost -p 5432 -U app_user -d trading -f examples/active_symbol_goup_setup.sql
+PGPASSWORD=$DB_APP_PASSWORD psql -h localhost -p 5432 -U app_user -d trading -f db/sql/active_symbol_goup_setup.sql
 
 uv run download-eodhd-data --data history --start-date 2000-01-03
 ```
