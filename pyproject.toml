@@ -15,12 +15,12 @@ dependencies = [
     "alembic>=1.20.1",
     "numpy>=2.5.4,<3",               # used by metrics + research scripts
     "setuptools>=84.2.1",
-    "pydantic>=2.14.2",
+    "pydantic>=2.14.3",
     "polars>=2.1.0",
 ]
 
 [project.optional-dependencies]
-lint = ["ruff>=0.17.3", "mypy>=2.4.1"]
+lint = ["ruff>=0.17.4", "mypy>=2.4.1"]
 
 [project.scripts]
 signal-runner = "turtlex.cli.signal_runner:main"
