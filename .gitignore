@@ -54,9 +54,6 @@ MANIFEST
 # Backtest reports
 reports/
 
-# Secret files
-.secrets/
-
 # Lightyear statements (personal financial records)
 data/lightyear/
 

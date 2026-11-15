@@ -23,7 +23,7 @@ description: Commit work to main and push it — runs the full CI-parity gate fi
 
 3. **Stage deliberately.** Read `git status --porcelain`, then name the paths that belong to the
    change (`git add -A` only when every entry does). Leave anything else unstaged and mention it in
-   the summary. `.gitignore` excludes `data/lightyear/` (personal financial records) and `.secrets/`
+   the summary. `.gitignore` excludes `data/lightyear/` (personal financial records)
    for a reason: if anything sensitive is staged, or the diff is larger than the user expects, stop
    and say so. Then read `git diff --cached`, immediately before writing the message, so it
    describes what is actually staged; `--stat` alone can't tell you what the lines say.
