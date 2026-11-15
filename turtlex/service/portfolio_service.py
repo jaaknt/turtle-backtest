@@ -2,7 +2,7 @@
 
 import csv
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
 
 from turtlex.backtest.processor import SignalProcessor
@@ -105,20 +105,22 @@ class PortfolioService:
         """
         Execute complete portfolio backtest with printed results.
 
+        Steps through the benchmark's bar dates, so market holidays are not processed as
+        trading days and every daily snapshot is a day the market was open.
+
         Args:
             start_date: Backtest start date
             end_date: Backtest end date
             universe: List of stock tickers to consider
+
+        Raises:
+            ValueError: If the benchmark has no bars in the window, leaving no trading calendar
         """
-        logger.info(f"Starting portfolio backtest: {start_date} to {end_date} ({len(universe)} stocks)")
+        trading_days = self._trading_days(start_date, end_date)
+        logger.info(f"Starting portfolio backtest: {start_date} to {end_date} ({len(trading_days)} trading days, {len(universe)} stocks)")
 
-        current_date = start_date
-
-        while current_date <= end_date:
-            if current_date.weekday() < 5:  # Monday=0, Friday=4 (trading days only)
-                self._process_trading_day(current_date, end_date, universe)
-
-            current_date += timedelta(days=1)
+        for current_date in trading_days:
+            self._process_trading_day(current_date, end_date, universe)
 
         # Generate final results and display
         self._generate_results()
@@ -136,6 +138,31 @@ class PortfolioService:
             (trade.exit.price - trade.entry.price) * trade.position_size for trade in self.portfolio_manager.state.future_trades
         )
         print(f"Trades PL: ${total_value:.2f} current snapshot total value: ${self.portfolio_manager.current_snapshot.total_value:.2f}")
+
+    def _trading_days(self, start_date: date, end_date: date) -> list[date]:
+        """
+        Read the trading calendar: the dates the benchmark has a daily bar on.
+
+        Always daily bars, whatever `time_frame_unit` is: weekly resampling would turn the
+        calendar into one week-start label per week, some of them holidays or before `start_date`.
+
+        Args:
+            start_date: First date of the window
+            end_date: Last date of the window
+
+        Returns:
+            The trading days in the window, in date order
+
+        Raises:
+            ValueError: If the benchmark has no bars in the window
+        """
+        bars = self.bars_history.get_bars_pl(self.benchmark_ticker, start_date, end_date)
+        if bars.is_empty():
+            raise ValueError(
+                f"No {self.benchmark_ticker} bars between {start_date} and {end_date}: "
+                "the benchmark's bars are the backtest's trading calendar"
+            )
+        return sorted(bars["date"].to_list())
 
     def _process_trading_day(self, current_date: date, end_date: date, universe: list[str]) -> None:
         """

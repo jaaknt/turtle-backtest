@@ -160,7 +160,7 @@ The `PortfolioService` is the most sophisticated backtesting engine that simulat
 
 - `run_backtest(start_date, end_date, universe)` - Execute complete portfolio backtest
 
-**Daily Trading Process:**
+**Daily Trading Process** (run once per trading day; the trading days are the benchmark's bar dates, so market holidays are skipped):
 
 1. **Record Daily Snapshot**: Capture portfolio state for the trading day
 2. **Process Exits**: Close positions that have reached their scheduled exit dates

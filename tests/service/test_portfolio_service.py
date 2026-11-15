@@ -1,10 +1,13 @@
-"""Tests for PortfolioService's entry-signal generation."""
+"""Tests for PortfolioService's trading calendar and entry-signal generation."""
 
 import logging
 from datetime import date
+from typing import cast
 from unittest.mock import Mock
 
+import polars as pl
 import pytest
+from pytest_mock import MockerFixture
 
 from turtlex.model import FutureTrade, Signal, Trade
 from turtlex.service.portfolio_service import MIN_CASH_FOR_ENTRY, PortfolioService
@@ -131,3 +134,30 @@ def test_process_signals_does_not_open_a_position_for_a_negative_share_count() -
     assert service.portfolio_manager.state.future_trades == []
     assert service.portfolio_manager.current_snapshot.positions == []
     assert service.portfolio_manager.current_snapshot.cash == cash_before
+
+
+class TestTradingCalendar:
+    def test_run_backtest_steps_through_the_benchmark_bar_dates_only(self, mocker: MockerFixture) -> None:
+        """Holidays (here Jan 15, a Monday with no bar) are not processed as trading days."""
+        service = _make_service({})
+        repo = cast(Mock, service.bars_history)
+        days = [date(2024, 1, 12), date(2024, 1, 16), date(2024, 1, 17)]
+        repo.get_bars_pl.return_value = pl.DataFrame({"date": list(reversed(days))})
+        process = mocker.patch.object(service, "_process_trading_day")
+        mocker.patch.object(service, "_generate_results")
+        mocker.patch.object(service, "_save_trade_to_csv")
+
+        service.run_backtest(date(2024, 1, 12), date(2024, 1, 17), universe=["AAPL.US"])
+
+        repo.get_bars_pl.assert_called_once_with(service.benchmark_ticker, date(2024, 1, 12), date(2024, 1, 17))
+        assert [c.args[0] for c in process.call_args_list] == days
+
+    def test_run_backtest_without_benchmark_bars_raises_before_processing(self, mocker: MockerFixture) -> None:
+        service = _make_service({})
+        cast(Mock, service.bars_history).get_bars_pl.return_value = pl.DataFrame()
+        process = mocker.patch.object(service, "_process_trading_day")
+
+        with pytest.raises(ValueError, match="trading calendar"):
+            service.run_backtest(START, END, universe=["AAPL.US"])
+
+        process.assert_not_called()

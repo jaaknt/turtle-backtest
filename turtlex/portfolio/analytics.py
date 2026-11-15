@@ -154,9 +154,10 @@ class PortfolioAnalytics:
         """
         Build the portfolio's and the benchmark's daily returns on a shared trading calendar.
 
-        The backtest snapshots every weekday, holidays included; the benchmark's bars are the
-        trading calendar, so a holiday's flat snapshot does not count as a trading day. Without
-        benchmark bars, every snapshot day is used and the benchmark is None.
+        PortfolioService steps through the benchmark's bar dates, so its snapshots are already
+        trading days; only snapshot dates with a usable benchmark close are kept, so both series
+        share one calendar. Without benchmark bars the portfolio is returned alone, on every
+        snapshot day, and the benchmark is None.
 
         Args:
             portfolio_state: Portfolio state holding at least 2 daily snapshots
@@ -177,10 +178,7 @@ class PortfolioAnalytics:
             closes = {d: c for d, c in pairs if d in values and c is not None and c > 0}
 
         if len(closes) < 2:
-            logger.warning(
-                f"Insufficient {benchmark_ticker} bars: reporting the portfolio alone, on every snapshot day "
-                "(holidays count as flat trading days, so annualized figures are not comparable to a benchmarked run)"
-            )
+            logger.warning(f"Insufficient {benchmark_ticker} bars: reporting the portfolio alone, on every snapshot day")
             calendar = sorted(values)
             bench = None
         else:
