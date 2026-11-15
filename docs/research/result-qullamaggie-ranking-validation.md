@@ -1,5 +1,9 @@
 # Qullamaggie Ranking — Out-of-Sample Validation
 
+> Frozen record. `scripts/qullamaggie-ranking-validation.py`, which produced this doc, was removed on
+> 2026-11-15; later docs still cite its numbers. Recover the script from git history with
+> `git log --diff-filter=D -- scripts/qullamaggie-ranking-validation.py`.
+
 Run date: 2026-10-24 18:18:18 Tallinn time
 
 Reference config: bk50d_s15_v1.3_roc100 / 366d hold | Period: 2015-01-01 - 2026-06-26 | Split date: 2021-01-01 (train N=1967, held-out N=1415)

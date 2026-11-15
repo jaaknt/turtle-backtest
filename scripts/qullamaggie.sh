@@ -68,7 +68,6 @@ STUDIES=(
   # ── Filter relaxation ──
   "relax-sweep|qullamaggie-relax-sweep.py"
   # ── Ranking ──
-  "ranking-validation|qullamaggie-ranking-validation.py"
   "ranking-weights|qullamaggie-ranking-weights.py"
   # ── Portfolio simulation ──
   "portfolio-sim-2010-2015|qullamaggie-portfolio-sim.py --start-date 2010-01-01 --end-date 2015-12-31 --output $RESULT_DIR/result-qullamaggie-portfolio-v4-2010-2015.md"

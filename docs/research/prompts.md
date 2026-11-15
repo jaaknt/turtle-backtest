@@ -17,7 +17,7 @@ on the 500K floor, which admitted roughly 40% fewer signals.
 **The ranking gate moved 40 -> 44 on 2026-08-09**, after the bands were re-derived on the v2.0
 cohorts; 44 is `portfolio-runner --min-signal-ranking`'s default and the value every `scripts/*.py`
 study now uses, including the four that report it as a reference row rather than applying it. The
-ranking studies (`-ranking-weights`, `-ranking-validation`, `-ranking-lab`) are the exception by
+ranking studies (`-ranking-weights`, `-ranking-lab`) are the exception by
 design: they sweep the gate instead of fixing it. `MIN_RANKING` is scheme-relative — it has to be
 re-picked at matched selectivity whenever `QullamaggieRanking` changes — so a `>= 40` figure quoted
 from an older run is not comparable with a `>= 44` one.
@@ -49,7 +49,7 @@ from an older run is not comparable with a `>= 44` one.
 | [Relaxation brainstorm (s15)](#relaxation-brainstorm-s15) | — | — |
 | [Relaxation sweep (s20)](#relaxation-sweep-s20) | `scripts/qullamaggie-relax-sweep.py` | `result-qullamaggie-relax-sweep.md` |
 | [Ranking algorithm proposal](#ranking-algorithm-proposal) | — | — |
-| [Recalibrate ranking weights + validate](#recalibrate-ranking-weights--validate) | `scripts/qullamaggie-ranking-validation.py` | `result-qullamaggie-ranking-validation.md` |
+| [Recalibrate ranking weights + validate](#recalibrate-ranking-weights--validate) | — (removed 2026-11-15) | `result-qullamaggie-ranking-validation.md` |
 | [Three-feature ranking weights](#three-feature-ranking-weights) | `scripts/qullamaggie-ranking-weights.py` | `result-qullamaggie-ranking-weights.md` |
 | [Ranking improvement loop](#ranking-improvement-loop) | `scripts/qullamaggie-ranking-lab.py` | `result-qullamaggie-ranking-lab.md` |
 | [Portfolio pacing](#portfolio-pacing) | `scripts/qullamaggie-pacing.py` | `result-qullamaggie-pacing.md` |
@@ -563,7 +563,8 @@ sub-floor band the production filter never lets through.
 
 - Recalibrated all six dimensions' point tables using *reachable-only* cohort Sortino spreads (the bucket range a candidate can actually land in given that dimension's own entry filter) and added two new dimensions the ranking previously ignored: ROC252 and RSI(14) within the qualifying pool. New weight split: SMA50=50 (fixed by design), price=13, ADR=12, compression=12, ROC252=10, RSI=3.
 - Built a genuine out-of-sample validation: a train/test split confirms the new scheme separates forward Sortino/Mean% better than the old 4-dimension bands, and a further 5-fold stability check across independent cutoffs (2019-2023) confirms the weight split is robust to being refit on shorter sub-periods (which is noisier and performs worse on average, not better).
-- **Script:** `scripts/qullamaggie-ranking-validation.py` (new)
+- **Script:** `scripts/qullamaggie-ranking-validation.py` (removed 2026-11-15: it validated the six-dimension weighting that
+  `ranking-weights` replaced, and `ranking-lab` now carries the held-out checks; the result doc is kept as a record)
 - **Results:** `docs/research/result-qullamaggie-ranking-validation.md`
 - **References:** `turtlex/strategy/ranking/qullamaggie.py`, `docs/research/result-qullamaggie-cohorts-*.md`, `docs/research/result-qullamaggie-cohorts-ranking.md`
 

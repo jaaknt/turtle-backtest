@@ -2,7 +2,7 @@
 """
 Current-period signal report for bk50d_s12_v2.0.
 
-The reported signal list is gated at QullamaggieRanking >= MIN_RANKING, matching the
+The reported signal list is gated at QullamaggieRanking >= qm.MIN_RANKING, matching the
 portfolio-runner --min-signal-ranking default. Both cohort tables are deliberately computed
 over the *ungated* s12 signals: their job is to show whether ranking and %abv SMA50 separate
 outcomes, which a table containing only scores >= 44 could not do (the [20-30) and [30-40)
@@ -12,10 +12,7 @@ Sector is turtle.company.sector; the signal universe excludes Communication Serv
 Estate, so neither ever appears there — the current-investments table reads the same column but
 over whatever is actually held, so both sectors can show up in it.
 
-Filters match scripts/qullamaggie-backtest-v4.py exactly (RSI<70, ADR mean-of-ratios>=3.0%,
-ADR_change<90%, roc_12m<100%, vol_surge<2.0x, SPY>200d SMA,
-close>$5&<$250, avg_vol>=100K; tight_range and sma_alignment disabled). Two columns are
-informational only, not filtered on: TR% (tight_range) and VOL_DRY
+Two columns are informational only, not filtered on: TR% (tight_range) and VOL_DRY
 (`mean(volume[-11:-1]) / mean(volume[-51:-1])`, both shift-1). VOL_DRY was the `vol_dry_up < 0.90`
 filter until it was retired on 2026-08-01 — see docs/research/result-qullamaggie-cohorts-vol-dry-up.md
 — so values at or above 0.90 now appear where they previously could not.
@@ -23,10 +20,12 @@ Display window: 2026-06-01 - today.
 Candidate window starts earlier so the 30-day cooldown state is correct at the start of the
 display window.
 
-close/high/low are split/dividend-adjusted (scaled by adjusted_close/close) so indicators
-match the backtest's methodology; Entry $/Curr Price/Change % use raw (unadjusted) close,
-the real tradeable price, matching scripts/qullamaggie-backtest-v4.py's MIN_PRICE/MAX_PRICE
-convention.
+Bars, indicators, the SPY regime, the filter chain, the cooldown and the ranking come from
+turtlex.research.qullamaggie (parity-tested against QullamaggieStrategy); TR% and VOL_DRY are
+added on top, since only this report shows them.
+
+Entry $/Curr Price/Change % use the raw (unadjusted) close, the real tradeable price, matching
+the qm.MIN_PRICE/MAX_PRICE convention; indicators run on adjusted prices.
 
 Ranking is the 0-100 QullamaggieRanking score (turtlex/strategy/ranking/qullamaggie.py) on the
 entry date's indicators. Two cohort tables are reported: Change % by %abv SMA50 bucket, and
@@ -35,7 +34,7 @@ Change % by Ranking bucket -- both mark-to-latest-price, not annualized (see coh
 Current investments come from turtle.lightyear_transaction (real Buy/Sell executions imported
 by lightyear-import), netted per ticker and marked to the latest raw close. Their Signal date /
 Ranking are the newest s12 signal in the SIGNAL_LOOKBACK_CAL calendar days strictly before the
-buy, scored *ungated* — unlike the signal table above, a position bought off a sub-MIN_RANKING
+buy, scored *ungated* — unlike the signal table above, a position bought off a sub-qm.MIN_RANKING
 signal shows that score rather than a "--", which here means only that no signal precedes the buy
 inside the window.
 
@@ -57,26 +56,14 @@ import sqlalchemy as sa
 from turtlex.backtest.metrics import compute_trade_metrics
 from turtlex.common.report import run_timestamp
 from turtlex.config.settings import Settings
-from turtlex.strategy.ranking.qullamaggie import QullamaggieRanking
+from turtlex.repository.query.daily_bars import DailyBarsQueryRepository
+from turtlex.research import qullamaggie as qm
 
 DISPLAY_START = date(2026, 6, 1)
 DISPLAY_END = date.today()
-CANDIDATE_START = date(2025, 1, 1)
-BAR_LOAD_START = date(2023, 1, 1)
+CANDIDATE_START = date(2025, 1, 1)  # bars load from qm.WARMUP_DAYS before this
 
-MIN_AVG_VOL = 100_000
-MIN_PRICE = 5.0
-MAX_PRICE = 250.0
-MIN_HISTORY = 300
-COOLDOWN = 30
-VOL_SURGE_MAX = 2.0
-ROC_CAP = 1.00
-RSI_CAP = 70.0
-ADR_MIN = 0.03
-ADR_CHANGE_CAP = 0.90
 SUSPICIOUS_DAY_MOVE = 0.50  # exclude signals with a >50% single-day raw-close move between entry and latest date
-
-MIN_RANKING = 44  # QullamaggieRanking gate on the reported list (portfolio-runner default)
 
 BASE_LABEL = "bk50d_s12_v2.0"
 BASE_SMA_T = 0.12
@@ -156,32 +143,6 @@ def build_cohort_table(
     return "\n".join(lines), means
 
 
-def compute_ranking(ranker: QullamaggieRanking, row: dict) -> int:
-    """Score one indicator row with QullamaggieRanking.
-
-    Args:
-        ranker: Ranking implementation to score with
-        row: Indicator row carrying date, raw_close and the five ranked dimensions
-
-    Returns:
-        int: The 0-100 score for that bar
-    """
-    row_df = pl.DataFrame(
-        [
-            {
-                "date": row["date"],
-                "close": row["raw_close"],
-                "adr_pct": row["adr_pct"],
-                "adr_pct_change": row["adr_pct_change"],
-                "pct_vs_sma50": row["pct_vs_sma50"],
-                "roc_252d": row["roc_252d"],
-                "rsi14": row["rsi14"],
-            }
-        ]
-    )
-    return ranker.ranking(row_df, row["date"])
-
-
 def load_holdings(engine: sa.Engine) -> list[dict]:
     """Open Lightyear positions, marked to each symbol's latest raw close.
 
@@ -240,27 +201,26 @@ def load_holdings(engine: sa.Engine) -> list[dict]:
     ]
 
 
-def holding_signal(signals: pl.DataFrame, ranker: QullamaggieRanking, symbol: str, entry_date: date) -> tuple[date, int] | None:
+def holding_signal(signals: pl.DataFrame, symbol: str, entry_date: date) -> tuple[date, int] | None:
     """The signal a held position was most plausibly bought off, with its ranking.
 
     Only signals strictly before `entry_date` and no more than SIGNAL_LOOKBACK_CAL calendar
     days earlier count, so a stale trigger from months back cannot attach itself to an unrelated
     buy. The window is wider than the 30-day cooldown on purpose — a buy placed weeks after the
     breakout still finds its trigger — which also means two signals can fall inside it rather
-    than the at most one a cooldown-width window allows. The newest wins and MIN_RANKING is
+    than the at most one a cooldown-width window allows. The newest wins and qm.MIN_RANKING is
     deliberately not applied: a position bought off a signal the gate would have dropped shows
     that score, which "--" could not be told apart from having no signal at all.
 
     Args:
-        signals: Ungated s12 signals over the whole candidate window
-        ranker: Ranking implementation to score with
+        signals: Ungated, ranked s12 signals over the whole candidate window
         symbol: Ticker code in "TICKER.US" format
         entry_date: First buy date for the position
 
     Returns:
         tuple[date, int] | None: (signal date, 0-100 score), or None when no signal precedes the
             buy within the lookback window — the symbol may also sit outside the universe
-            `load_bars` selects, in which case it never had signals computed at all
+            `qm.load_bars` selects, in which case it never had signals computed at all
     """
     window = (
         signals.filter(
@@ -274,7 +234,7 @@ def holding_signal(signals: pl.DataFrame, ranker: QullamaggieRanking, symbol: st
     if window.is_empty():
         return None
     row = window.row(0, named=True)
-    return row["date"], compute_ranking(ranker, row)
+    return row["date"], row["ranking"]
 
 
 def format_holdings_table(rows: list[dict]) -> str:
@@ -347,7 +307,7 @@ def load_sectors(engine: sa.Engine) -> dict[str, str]:
         engine: Sync engine used for the read
 
     Returns:
-        dict[str, str]: Ticker code -> sector name. `load_bars` joins turtle.company and filters
+        dict[str, str]: Ticker code -> sector name. `qm.load_bars` joins turtle.company and filters
             on sector, so its symbols are normally all present — but that is a second read on a
             second connection, so a concurrent snapshot-company refresh can drop one. A held
             ticker outside the bars universe may be missing too. Both render as "--".
@@ -357,182 +317,43 @@ def load_sectors(engine: sa.Engine) -> dict[str, str]:
         return {r[0]: r[1] for r in conn.execute(sa.text(sql)).fetchall()}
 
 
-def load_spy_regime(engine: sa.Engine) -> set[date]:
-    sql = """
-        SELECT date::date, close::float8
-        FROM   turtle.daily_bars
-        WHERE  symbol = 'SPY.US' AND date >= :start
-        ORDER  BY date
+def add_report_columns(df: pl.DataFrame) -> pl.DataFrame:
+    """Add the two informational columns only this report shows, on top of `qm.add_indicators`.
+
+    Both read the same shift-1 inputs the entry filters do, so neither adds look-ahead.
+
+    Args:
+        df: Indicator frame from `qm.add_indicators`
+
+    Returns:
+        The frame with tight_range_ratio (10-day close range over its mean) and
+        vol_dry_up_ratio (avg_vol_10 / avg_vol_50) added.
     """
-    with engine.connect() as conn:
-        rows = conn.execute(sa.text(sql), {"start": BAR_LOAD_START}).fetchall()
-    spy = pl.DataFrame(
-        {
-            "date": pl.Series([r[0] for r in rows], dtype=pl.Date),
-            "close": [float(r[1]) for r in rows],
-        }
+    c1 = pl.col("adj_close").shift(1)
+    tr_max = c1.rolling_max(10, min_samples=10).over("symbol")
+    tr_min = c1.rolling_min(10, min_samples=10).over("symbol")
+    tr_mean = c1.rolling_mean(10, min_samples=10).over("symbol")
+    return df.with_columns(
+        ((tr_max - tr_min) / tr_mean).alias("tight_range_ratio"),
+        (pl.col("avg_vol_10") / pl.col("avg_vol_50")).alias("vol_dry_up_ratio"),
     )
-    spy = spy.with_columns(pl.col("close").shift(1).rolling_mean(200, min_samples=200).alias("sma200"))
-    return set(spy.filter(pl.col("close") > pl.col("sma200"))["date"].to_list())
-
-
-def load_bars(engine: sa.Engine) -> pl.DataFrame:
-    sql = """
-        SELECT db.symbol,
-               db.date::date             AS date,
-               db.close::float8          AS raw_close,
-               db.adjusted_close::float8 AS close,
-               db.high::float8           AS high,
-               db.low::float8            AS low,
-               db.volume::int8           AS volume
-        FROM   turtle.daily_bars db
-        JOIN   turtle.ticker  t  ON t.code        = db.symbol
-        JOIN   turtle.company c  ON c.ticker_code = t.code
-        WHERE  t.country = 'USA'
-          AND  t.type    = 'Common Stock'
-          AND  c.market_cap >= 1500000000
-          AND  c.sector NOT IN ('Communication Services', 'Real Estate')
-          AND  db.date >= :start
-          AND  db.close > 0
-          AND  db.adjusted_close > 0
-          AND  db.volume > 0
-        ORDER  BY db.symbol, db.date
-    """
-    with engine.connect() as conn:
-        rows = conn.execute(sa.text(sql), {"start": BAR_LOAD_START}).fetchall()
-    factor = [float(r[3]) / float(r[2]) for r in rows]  # adjusted_close / raw_close
-    return pl.DataFrame(
-        {
-            "symbol": [r[0] for r in rows],
-            "date": pl.Series([r[1] for r in rows], dtype=pl.Date),
-            "raw_close": [float(r[2]) for r in rows],
-            "close": [float(r[3]) for r in rows],
-            "high": [float(r[4]) * f for r, f in zip(rows, factor, strict=True)],
-            "low": [float(r[5]) * f for r, f in zip(rows, factor, strict=True)],
-            "volume": [int(r[6]) for r in rows],
-        }
-    )
-
-
-def add_indicators(df: pl.DataFrame) -> pl.DataFrame:
-    df = df.sort(["symbol", "date"])
-    df = df.with_columns(
-        [
-            pl.col("close").shift(1).over("symbol").alias("_c1"),
-            pl.col("volume").cast(pl.Float64).shift(1).over("symbol").alias("_v1"),
-            ((pl.col("high") - pl.col("low")) / pl.col("low")).shift(1).over("symbol").alias("_rp1"),
-        ]
-    )
-    df = df.with_columns(pl.col("_c1").diff(1).over("symbol").alias("_diff"))
-    df = df.with_columns(
-        [
-            pl.when(pl.col("_diff") > 0).then(pl.col("_diff")).otherwise(0.0).alias("_gain"),
-            pl.when(pl.col("_diff") < 0).then(-pl.col("_diff")).otherwise(0.0).alias("_loss"),
-        ]
-    )
-    df = df.with_columns(
-        [
-            pl.col("_gain").rolling_mean(14, min_samples=14).over("symbol").alias("_avg_gain"),
-            pl.col("_loss").rolling_mean(14, min_samples=14).over("symbol").alias("_avg_loss"),
-        ]
-    )
-    df = df.with_columns((100.0 - 100.0 / (1.0 + pl.col("_avg_gain") / pl.col("_avg_loss"))).alias("rsi14"))
-    df = df.drop(["_diff", "_gain", "_loss", "_avg_gain", "_avg_loss"])
-    df = df.with_columns(
-        [
-            pl.col("_c1").rolling_mean(50, min_samples=50).over("symbol").alias("sma50"),
-            pl.col("_v1").rolling_mean(50, min_samples=50).over("symbol").alias("avg_vol_50"),
-            pl.col("_v1").rolling_mean(20, min_samples=20).over("symbol").alias("avg_vol_20"),
-            pl.col("_v1").rolling_mean(10, min_samples=10).over("symbol").alias("avg_vol_10"),
-            pl.col("_c1").rolling_max(50, min_samples=50).over("symbol").alias("max_c_50d"),
-            pl.col("_c1").rolling_max(10, min_samples=10).over("symbol").alias("_tr_max"),
-            pl.col("_c1").rolling_min(10, min_samples=10).over("symbol").alias("_tr_min"),
-            pl.col("_c1").rolling_mean(10, min_samples=10).over("symbol").alias("_tr_mean"),
-            pl.col("_rp1").rolling_mean(20, min_samples=20).over("symbol").alias("adr_pct"),
-            pl.col("_rp1").rolling_mean(10, min_samples=10).over("symbol").alias("_adr10"),
-            pl.col("_rp1").rolling_mean(50, min_samples=50).over("symbol").alias("_adr50"),
-            pl.col("_c1").shift(251).over("symbol").alias("_c_252d"),
-        ]
-    )
-    df = df.with_columns(
-        [
-            ((pl.col("_tr_max") - pl.col("_tr_min")) / pl.col("_tr_mean")).alias("tight_range_ratio"),
-            ((pl.col("close") / pl.col("sma50")) - 1.0).alias("pct_vs_sma50"),
-            (pl.col("_adr10") / pl.col("_adr50")).alias("adr_pct_change"),
-            (pl.col("avg_vol_10") / pl.col("avg_vol_50")).alias("vol_dry_up_ratio"),
-            (pl.col("close") / pl.col("_c_252d") - 1.0).alias("roc_252d"),
-        ]
-    )
-    return df.drop(["_c1", "_v1", "_rp1", "_tr_max", "_tr_min", "_tr_mean", "_adr10", "_adr50", "_c_252d"])
-
-
-def get_signals(df: pl.DataFrame, bull_dates: set[date]) -> pl.DataFrame:
-    cands = (
-        df.filter(
-            (pl.col("date") >= CANDIDATE_START)
-            & (pl.col("date") <= DISPLAY_END)
-            & pl.col("sma50").is_not_null()
-            & pl.col("max_c_50d").is_not_null()
-            & pl.col("tight_range_ratio").is_not_null()
-            & pl.col("rsi14").is_not_null()
-            & pl.col("roc_252d").is_not_null()
-            & pl.col("adr_pct_change").is_not_null()
-            & (pl.col("rsi14") < RSI_CAP)
-            & (pl.col("raw_close") > MIN_PRICE)
-            & (pl.col("raw_close") < MAX_PRICE)
-            & (pl.col("avg_vol_20") >= MIN_AVG_VOL)
-            & (pl.col("adr_pct") >= ADR_MIN)
-            & (pl.col("adr_pct_change") < ADR_CHANGE_CAP)
-            & (pl.col("close") > pl.col("max_c_50d"))
-            & (pl.col("pct_vs_sma50") >= BASE_SMA_T)
-            & (pl.col("volume").cast(pl.Float64) < VOL_SURGE_MAX * pl.col("avg_vol_50"))
-            & (pl.col("roc_252d") < ROC_CAP)
-            & pl.col("date").is_in(bull_dates)
-        )
-        .select(
-            [
-                "symbol",
-                "date",
-                "raw_close",
-                "pct_vs_sma50",
-                "adr_pct",
-                "adr_pct_change",
-                "vol_dry_up_ratio",
-                "rsi14",
-                "tight_range_ratio",
-                "roc_252d",
-            ]
-        )
-        .sort(["symbol", "date"])
-    )
-    if cands.is_empty():
-        return cands
-    rows_out: list[dict] = []
-    last_trigger: dict[str, date] = {}
-    for row in cands.iter_rows(named=True):
-        sym, d = row["symbol"], row["date"]
-        prev = last_trigger.get(sym)
-        if prev is None or (d - prev).days > COOLDOWN:
-            rows_out.append(row)
-            last_trigger[sym] = d
-    return pl.DataFrame(rows_out) if rows_out else cands.clear()
 
 
 def main() -> None:
     run_start = time.perf_counter()
     settings = Settings.from_toml()
 
+    bars_history = DailyBarsQueryRepository(engine=settings.engine)
+
     print("Loading SPY regime …", flush=True)
-    bull_dates = load_spy_regime(settings.engine)
+    bull_dates = qm.load_spy_regime(bars_history, CANDIDATE_START, DISPLAY_END)
 
     print("Loading bars …", flush=True)
     sectors = load_sectors(settings.engine)
-    df = load_bars(settings.engine)
-    valid_syms = df.group_by("symbol").agg(pl.len().alias("n")).filter(pl.col("n") >= MIN_HISTORY)["symbol"]
-    df = df.filter(pl.col("symbol").is_in(valid_syms.to_list()))
+    df = qm.load_bars(bars_history, CANDIDATE_START, DISPLAY_END)
 
     print("Computing indicators …", flush=True)
-    df = add_indicators(df)
+    df = add_report_columns(qm.add_indicators(df))
 
     latest_date: dict[str, date] = {}
     latest_raw_close: dict[str, float] = {}
@@ -547,17 +368,15 @@ def main() -> None:
         latest_date[sym] = d_list[-1]
         latest_raw_close[sym] = c_list[-1]
 
-    ranker = QullamaggieRanking()
-
     print(f"Generating signals for {BASE_LABEL} …", flush=True)
     # kept over the whole candidate window, not just the display one: a position bought early in
     # the display window was triggered by a signal that precedes it
-    candidate_sig = get_signals(df, bull_dates)
+    candidate_sig = qm.add_ranking(
+        qm.get_signals(df, bull_dates, CANDIDATE_START, BASE_SMA_T)  # bars end at DISPLAY_END
+    )
     base_sig = candidate_sig.filter((pl.col("date") >= DISPLAY_START) & (pl.col("date") <= DISPLAY_END)).sort(["date", "symbol"])
-    rankings = [compute_ranking(ranker, r) for r in base_sig.iter_rows(named=True)]
-    base_sig = base_sig.with_columns(pl.Series("ranking", rankings, dtype=pl.Int64))
-    n_gated = int(base_sig.filter(pl.col("ranking") >= MIN_RANKING).height)
-    print(f"  {len(base_sig)} signals in display window, {n_gated} at ranking >= {MIN_RANKING}", flush=True)
+    n_gated = int(base_sig.filter(pl.col("ranking") >= qm.MIN_RANKING).height)
+    print(f"  {len(base_sig)} signals in display window, {n_gated} at ranking >= {qm.MIN_RANKING}", flush=True)
 
     hdr = (
         f"{'Date':<11}│ {'Symbol':<7}│ {'Sector':<23}│ {'%abv SMA50':>10} │ {'ADR%':>6} │ {'ADR_CHG':>7} │ "
@@ -594,7 +413,7 @@ def main() -> None:
         cohort_mdds[cohort_label(sma_pct, COHORTS)].append(mdd)
         ranking_returns[cohort_label(float(ranking), RANKING_COHORTS)].append(chg)
         ranking_mdds[cohort_label(float(ranking), RANKING_COHORTS)].append(mdd)
-        if ranking < MIN_RANKING:
+        if ranking < qm.MIN_RANKING:
             n_below_gate += 1
             continue
         ld = latest_date.get(sym)
@@ -608,7 +427,7 @@ def main() -> None:
         shown += 1
 
     lines.append(sep)
-    summary = f"{BASE_LABEL} signals at ranking >= {MIN_RANKING}: {shown}  |  Dropped below gate: {n_below_gate}"
+    summary = f"{BASE_LABEL} signals at ranking >= {qm.MIN_RANKING}: {shown}  |  Dropped below gate: {n_below_gate}"
     if excluded_rows:
         summary += f"  |  Excluded as suspicious: {len(excluded_rows)}"
     lines.append(summary)
@@ -640,14 +459,14 @@ def main() -> None:
 
     ranking_output, _ranking_means = build_cohort_table(RANKING_COHORTS, ranking_returns, ranking_mdds)
     print(f"\n=== {BASE_LABEL} — Change % by Ranking cohort (mark-to-latest-price, ungated) ===")
-    print(f"All s12 signals, including those below the ranking >= {MIN_RANKING} gate, so the gate can be judged.")
+    print(f"All s12 signals, including those below the ranking >= {qm.MIN_RANKING} gate, so the gate can be judged.")
     print(ranking_output)
 
     print("Loading current investments …", flush=True)
     holdings = load_holdings(settings.engine)
     for h in holdings:
         h["sector"] = sectors.get(h["symbol"])
-        match = holding_signal(candidate_sig, ranker, h["symbol"], h["entry_date"])
+        match = holding_signal(candidate_sig, h["symbol"], h["entry_date"])
         h["signal_date"], h["ranking"] = match if match is not None else (None, None)
     holdings_output = format_holdings_table(holdings)
     print("\n=== Current investments (turtle.lightyear_transaction, marked to latest raw close) ===")

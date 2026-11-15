@@ -63,7 +63,7 @@ HOLD_CAL = 366
 
 # Baseline from qullamaggie-portfolio-sim.py, s12 / R>=44 / 3% / 366d over this study's window
 # (2021-01-01 – 2026-06-26) — the `3%  R>=44` row of the s12 section in
-# docs/research/result-qullamaggie-portfolio-v4.md (2026-08-09 run). Reproduced by this harness as
+# docs/research/result-qullamaggie-portfolio-v4.md (2026-11-15 run). Reproduced by this harness as
 # a validity check before any sweep is believed. Refresh all four together — a partial update
 # makes the reconciliation table lie.
 #
@@ -74,10 +74,10 @@ HOLD_CAL = 366
 # a blown reconciliation invalidates is the claim that the harness reproduces portfolio-sim at
 # all. If it reappears, check this block against portfolio-v4.md before rereading the sweep.
 REF_MIN_RANKING = 44  # the gate the four numbers below were run at
-REF_CAGR_PCT = 50.88
-REF_SORTINO = 2.129
-REF_MAXDD_PCT = -28.01
-REF_FINAL = 285_404.0
+REF_CAGR_PCT = 51.52
+REF_SORTINO = 2.153
+REF_MAXDD_PCT = -29.53
+REF_FINAL = 292_095.0
 RECONCILE_TOL_PP = 1.0  # max acceptable CAGR divergence, in percentage points
 
 MAXDD_GUARD_PP = 5.0  # a variant may not worsen baseline MaxDD by more than this
