@@ -10,17 +10,17 @@ dependencies = [
     "httpx>=0.28.1",
     "tenacity>=9.2.1",               # retry logic in turtlex/client/eodhd.py
     "python-dotenv>=1.2.4",
-    "psycopg[binary,pool]>=3.3.6",
-    "sqlalchemy[asyncio]>=2.1.6",
+    "psycopg[binary,pool]>=3.3.9",
+    "sqlalchemy[asyncio]>=2.1.8",
     "alembic>=1.20.1",
     "numpy>=2.5.4,<3",               # used by metrics + research scripts
     "setuptools>=84.2.1",
-    "pydantic>=2.14.2",
+    "pydantic>=2.14.3",
     "polars>=2.1.0",
 ]
 
 [project.optional-dependencies]
-lint = ["ruff>=0.17.3", "mypy>=2.4.1"]
+lint = ["ruff>=0.17.5", "mypy>=2.4.1"]
 
 [project.scripts]
 signal-runner = "turtlex.cli.signal_runner:main"
