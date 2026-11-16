@@ -4,7 +4,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from turtlex.repository.tables import daily_bars_table
-from turtlex.schema import DailyBars
+from turtlex.schema import DailyBar
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ class DailyBarsRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def upsert_batch(self, records: list[DailyBars]) -> int:
+    async def upsert_batch(self, records: list[DailyBar]) -> int:
         if not records:
             return 0
 

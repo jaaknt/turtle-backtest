@@ -6,11 +6,11 @@ from unittest.mock import AsyncMock
 import pytest
 
 from turtlex.repository.ingest import DailyBarsRepository
-from turtlex.schema import DailyBars
+from turtlex.schema import DailyBar
 
 
-def _daily_bars(ticker: str = "AAPL.US", bar_date: date = date(2024, 1, 2)) -> DailyBars:
-    return DailyBars(ticker=ticker, date=bar_date, open=100.0, high=105.0, low=99.0, close=103.0, adjusted_close=103.0, volume=1000000)
+def _daily_bar(ticker: str = "AAPL.US", bar_date: date = date(2024, 1, 2)) -> DailyBar:
+    return DailyBar(ticker=ticker, date=bar_date, open=100.0, high=105.0, low=99.0, close=103.0, adjusted_close=103.0, volume=1000000)
 
 
 @pytest.mark.anyio
@@ -25,7 +25,7 @@ async def test_daily_bars_upsert_empty_returns_zero(session: AsyncMock) -> None:
 @pytest.mark.anyio
 async def test_daily_bars_upsert_valid_records(session: AsyncMock) -> None:
     repo = DailyBarsRepository(session)
-    records = [_daily_bars(bar_date=date(2024, 1, 2)), _daily_bars(bar_date=date(2024, 1, 3))]
+    records = [_daily_bar(bar_date=date(2024, 1, 2)), _daily_bar(bar_date=date(2024, 1, 3))]
     count = await repo.upsert_batch(records)
     assert count == 2
     session.execute.assert_called_once()

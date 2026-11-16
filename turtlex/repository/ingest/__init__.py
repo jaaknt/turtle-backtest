@@ -1,7 +1,8 @@
-"""Write repositories for the data-ingest paths.
+"""Repositories for the data-ingest paths' reads and writes.
 
 The EODHD download repositories are async (AsyncSession); the Lightyear statement
-importer and the signal writer are sync (Engine), matching the sync CLIs they run from.
+importer, the signal writer and the job-run recorder are sync (Engine), matching the
+sync CLIs they run from.
 """
 
 from turtlex.repository.ingest.company import CompanyRepository

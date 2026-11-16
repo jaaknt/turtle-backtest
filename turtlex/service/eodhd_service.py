@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from turtlex.client.eodhd import EodhdApiClient
 from turtlex.config.settings import Settings
 from turtlex.repository.ingest import CompanyRepository, DailyBarsRepository, ExchangeRepository, TickerRepository
-from turtlex.schema import Company, DailyBars
+from turtlex.schema import Company, DailyBar
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ class EodhdService:
                     ]
                     batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                    batch_price_records: list[DailyBars] = []
+                    batch_price_records: list[DailyBar] = []
                     for idx, result in enumerate(batch_results):
                         eodhd_ticker = f"{batch[idx].code}"
                         if isinstance(result, Exception):

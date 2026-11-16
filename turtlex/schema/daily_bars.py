@@ -3,7 +3,7 @@ from datetime import date
 from pydantic import BaseModel
 
 
-class DailyBars(BaseModel):
+class DailyBar(BaseModel):
     """Represents one EOD daily bar from EODHD."""
 
     ticker: str

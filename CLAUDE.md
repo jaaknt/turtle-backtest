@@ -47,9 +47,11 @@ alongside s12, never instead of it. Definition: `docs/research/qullamaggie-backt
 ## Architecture
 
 - **`turtlex/model.py`** holds every shared domain dataclass (`Signal`, `Trade`, …). No per-package
-  `models.py`. Pydantic (`turtlex/schema/`) only for EODHD responses that need field aliasing.
-- **`turtlex/repository/`** is the only place SQL lives. `query/`: sync `Engine` reads. `ingest/`:
-  writes, async `AsyncSession` for EODHD downloads, sync `Engine` for the Lightyear importer (a write repository follows its caller's sync/async shape).
+  `models.py`. Pydantic (`turtlex/schema/`) only for EODHD responses (validation and aliasing).
+- **`turtlex/repository/`** is the only place SQL lives. `query/`: sync `Engine` reads for analysis.
+  `ingest/`: the ingest paths' reads and writes, async `AsyncSession` for EODHD downloads, sync
+  `Engine` for the Lightyear importer, signal persist and job runs (an ingest repository follows its
+  caller's sync/async shape).
   `DailyBarsQueryRepository` has two read shapes: `get_bars_pl` (one ticker, the runner) and
   `get_qualified_universe_bars_pl` (whole universe, `turtlex/research/`).
 - **Async only on the download path** (`turtlex/client/eodhd.py`, `turtlex/service/eodhd_service.py`,

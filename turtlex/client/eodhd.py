@@ -13,7 +13,7 @@ from tenacity import (
 )
 
 from turtlex.config.model import AppConfig
-from turtlex.schema import Company, DailyBars, Exchange, Ticker
+from turtlex.schema import Company, DailyBar, Exchange, Ticker
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ class EodhdApiClient:
             logger.warning(f"Skipped {skipped}/{len(response_data)} invalid ticker records from EODHD")
         return tickers
 
-    async def get_eod_historical_data(self, ticker: str, from_date: str, to_date: str) -> list[DailyBars]:
+    async def get_eod_historical_data(self, ticker: str, from_date: str, to_date: str) -> list[DailyBar]:
         """
         Fetches End-of-Day historical price data for a given ticker with exchange suffix (e.g., "AAPL.US").
 
@@ -98,7 +98,7 @@ class EodhdApiClient:
         params = {"from": from_date, "to": to_date, "period": "d", "order": "a"}
         response_data = await self._get(path, params=params)
         if isinstance(response_data, list):
-            return [DailyBars(ticker=ticker, **data) for data in response_data]
+            return [DailyBar(ticker=ticker, **data) for data in response_data]
         raise TypeError("Unexpected response format from EODHD API for historical data")
 
     async def get_us_quote_delayed(self, ticker: str) -> Company:
