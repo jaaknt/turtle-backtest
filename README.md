@@ -19,7 +19,10 @@ Python library to backtest different trading strategies with US stocks
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Install dependencies
-uv sync --extra dev
+uv sync --extra lint
+
+# Enable the check-only pre-commit hook (ruff, ruff format check, mypy), once per clone
+git config core.hooksPath .githooks
 
 # Activate python virtualenv in bash
 source ./.venv/bin/activate
