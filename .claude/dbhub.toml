@@ -11,7 +11,7 @@
 #
 # `lazy = true` on every source: without it one unreachable database (e.g. the VPS after a
 # reboot, before `systemctl restart postgresql`) makes the whole server exit at startup.
-# An unset ${VAR} is left literal by DBHub and surfaces as an auth failure on first query.
+# An unset ${VAR} makes DBHub (>= 1.6.0) reject that source, so export both passwords before launching.
 # Passwords are substituted into the DSN unescaped, so they must not contain @ / : # ? %.
 # sslmode: disable for local (loopback); require for the VPS, which serves TLS, on top of Tailscale.
 #

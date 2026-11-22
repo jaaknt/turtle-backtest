@@ -5,7 +5,7 @@
       "command": "sh",
       "args": [
         "-c",
-        "exec npx -y @bytebase/dbhub@1.5.0 --config \"$CLAUDE_PROJECT_DIR/.claude/dbhub.toml\""
+        "exec npx -y @bytebase/dbhub@2.1.0 --config \"$CLAUDE_PROJECT_DIR/.claude/dbhub.toml\""
       ]
     }
   }
