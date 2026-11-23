@@ -400,7 +400,7 @@ just created.
 Gate before commit:
 
 ```bash
-uv run pytest && uv run mypy && npx markdownlint-cli2
+uv run pytest && uv run mypy && uv run pyright && npx markdownlint-cli2
 ```
 
 On the VPS: `uv run alembic upgrade head` (its Postgres is localhost), then

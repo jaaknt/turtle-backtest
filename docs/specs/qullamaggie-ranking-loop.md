@@ -274,8 +274,8 @@ Steps 2-4 are a large, doc-invalidating cascade. Keeping them out of the loop is
    `c000-production.json` must reproduce `QullamaggieRanking.ranking` scores exactly on every
    cached signal. Plus unit tests for PAVA (output is non-decreasing; already-monotone input is
    unchanged), Spearman against hand-computed values, and each transform's monotonicity.
-2. `uv run pytest` and `uv run mypy` (no args — `files` in `pyproject.toml` covers `turtlex` and
-   `scripts`), per CLAUDE.md §6.
+2. `uv run pytest`, `uv run mypy` and `uv run pyright` (no args — `files` and `include` in
+   `pyproject.toml` cover `turtlex` and `scripts`), per CLAUDE.md §6.
 3. `--build-cache` under the 4G cap; confirm signal counts match the committed docs — s12 should
    raise ~4.5k signals over 2015-2026, matching `result-qullamaggie-cohorts-ranking.md`'s
    `ALL (ungated) 4542`. A mismatch means the cache diverged from `turtlex/research/qullamaggie.py`.

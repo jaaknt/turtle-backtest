@@ -411,7 +411,7 @@ No migration test — the repo has none, and `upgrade`/`downgrade` are checked b
 ```bash
 uv run alembic upgrade head
 uv run alembic downgrade -1 && uv run alembic upgrade head   # trigger + table drop cleanly
-uv run pytest && uv run mypy && uv run ruff check turtlex/ scripts/ && uv run ruff format --check turtlex/ scripts/
+uv run pytest && uv run mypy && uv run pyright && uv run ruff check turtlex/ scripts/ && uv run ruff format --check turtlex/ scripts/
 npx markdownlint-cli2
 ```
 

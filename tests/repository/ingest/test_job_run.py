@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from unittest.mock import MagicMock
 
-from sqlalchemy.sql.compiler import Compiled
+from sqlalchemy.sql.compiler import SQLCompiler
 
 from turtlex.repository.ingest import JobRunRepository
 
@@ -28,7 +28,7 @@ class TestStartRun:
 
         assert repo.start_run("signal-runner", {"cli": {}}, "1.0.0+abc1234", "host") == 42
 
-    def test_insert_returns_the_id_column(self, compile_statement: Callable[[MagicMock], Compiled]) -> None:
+    def test_insert_returns_the_id_column(self, compile_statement: Callable[[MagicMock], SQLCompiler]) -> None:
         engine, conn = _make_engine_mock()
         repo = JobRunRepository(engine)
 
@@ -36,7 +36,7 @@ class TestStartRun:
 
         assert "RETURNING turtle.job_runs.id" in str(compile_statement(conn))
 
-    def test_payload_omits_db_owned_columns(self, compile_statement: Callable[[MagicMock], Compiled]) -> None:
+    def test_payload_omits_db_owned_columns(self, compile_statement: Callable[[MagicMock], SQLCompiler]) -> None:
         engine, conn = _make_engine_mock()
         repo = JobRunRepository(engine)
 
@@ -53,7 +53,7 @@ class TestStartRun:
         # assertion here and then fail every INSERT in production, swallowed as a warning
         assert params["parameters"] == {"cli": {}}
 
-    def test_status_and_start_at_come_from_column_defaults(self, compile_statement: Callable[[MagicMock], Compiled]) -> None:
+    def test_status_and_start_at_come_from_column_defaults(self, compile_statement: Callable[[MagicMock], SQLCompiler]) -> None:
         engine, conn = _make_engine_mock()
         repo = JobRunRepository(engine)
 
@@ -65,7 +65,7 @@ class TestStartRun:
 
 
 class TestFinishRun:
-    def test_targets_the_run_by_id(self, compile_statement: Callable[[MagicMock], Compiled]) -> None:
+    def test_targets_the_run_by_id(self, compile_statement: Callable[[MagicMock], SQLCompiler]) -> None:
         engine, conn = _make_engine_mock()
         repo = JobRunRepository(engine)
 
@@ -75,7 +75,7 @@ class TestFinishRun:
         assert "WHERE turtle.job_runs.id = " in str(compiled)
         assert 42 in compiled.params.values()
 
-    def test_rewrites_parameters_so_late_sections_land(self, compile_statement: Callable[[MagicMock], Compiled]) -> None:
+    def test_rewrites_parameters_so_late_sections_land(self, compile_statement: Callable[[MagicMock], SQLCompiler]) -> None:
         engine, conn = _make_engine_mock()
         repo = JobRunRepository(engine)
         parameters = {"cli": {"trading_strategy": "qullamaggie"}, "strategy": {"sma_thresh": 0.12}}
@@ -84,7 +84,7 @@ class TestFinishRun:
 
         assert compile_statement(conn).params["parameters"] == parameters
 
-    def test_sets_end_at_server_side_and_never_duration(self, compile_statement: Callable[[MagicMock], Compiled]) -> None:
+    def test_sets_end_at_server_side_and_never_duration(self, compile_statement: Callable[[MagicMock], SQLCompiler]) -> None:
         engine, conn = _make_engine_mock()
         repo = JobRunRepository(engine)
 

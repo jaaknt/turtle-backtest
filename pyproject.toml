@@ -20,7 +20,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-lint = ["ruff>=0.17.6", "mypy>=2.4.1"]
+lint = [
+    "ruff>=0.17.6",
+    "mypy>=2.4.1",
+    "pyright[nodejs]>=1.1.414",
+]
 
 [project.scripts]
 signal-runner = "turtlex.cli.signal_runner:main"
@@ -83,6 +87,14 @@ disallow_any_generics = false
 warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool", "possibly-undefined", "deprecated"]
 files = ["turtlex", "scripts", "tests"]
+
+# Pyright alongside mypy: it is what VS Code's Pylance runs, and it infers return types of unannotated
+# library code (SQLAlchemy) where mypy falls back to Any, so each catches errors the other misses.
+# Pylance reads this section too: typeCheckingMode is pyright's CLI default, but Pylance's is "off",
+# so pinning it here makes the editor report what the gate reports.
+[tool.pyright]
+include = ["turtlex", "scripts", "tests"]
+typeCheckingMode = "standard"
 
 [dependency-groups]
 dev = [

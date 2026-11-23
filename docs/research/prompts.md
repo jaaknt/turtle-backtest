@@ -947,7 +947,7 @@ size   gate          Final$   CAGR%   MaxDD%  Calmar  Sortino  taken   skip  Uni
 
 ### Maintenance: lint & tests
 
-Run Ruff + mypy + pytest.
+Run Ruff + mypy + pyright + pytest.
 
 ### Validate and run cohorts
 

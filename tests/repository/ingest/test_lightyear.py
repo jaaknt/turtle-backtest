@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from unittest.mock import MagicMock
 
-from sqlalchemy.sql.compiler import Compiled
+from sqlalchemy.sql.compiler import SQLCompiler
 from sqlalchemy.sql.dml import Insert
 
 from turtlex.model import LightyearTransaction
@@ -69,7 +69,7 @@ def test_insert_transactions_skipped_conflicts_are_not_counted() -> None:
     assert repo.insert_transactions([_transaction("OR-AAA"), _transaction("OR-BBB")]) == 1
 
 
-def test_insert_transactions_uses_on_conflict_do_nothing_with_returning(compile_statement: Callable[[MagicMock], Compiled]) -> None:
+def test_insert_transactions_uses_on_conflict_do_nothing_with_returning(compile_statement: Callable[[MagicMock], SQLCompiler]) -> None:
     engine, conn = _make_engine_mock(1)
     repo = LightyearRepository(engine)
     repo.insert_transactions([_transaction()])
@@ -79,7 +79,7 @@ def test_insert_transactions_uses_on_conflict_do_nothing_with_returning(compile_
     assert "RETURNING turtle.lightyear_transaction.reference" in compiled
 
 
-def test_insert_transactions_payload_omits_db_owned_timestamps(compile_statement: Callable[[MagicMock], Compiled]) -> None:
+def test_insert_transactions_payload_omits_db_owned_timestamps(compile_statement: Callable[[MagicMock], SQLCompiler]) -> None:
     engine, conn = _make_engine_mock(1)
     repo = LightyearRepository(engine)
     repo.insert_transactions([_transaction()])

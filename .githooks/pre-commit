@@ -13,8 +13,9 @@ set -euo pipefail
 # the unformatted index while the formatted version sat unstaged — and CI's
 # `ruff format --check` would then fail on that exact commit.
 #
-# pytest is deliberately absent: too slow to pay on every commit. The commit-push
-# skill runs it as part of the full CI-parity gate.
+# pytest and pyright are deliberately absent: too slow to pay on every commit (pyright
+# rechecks every file with no cache, ~12 s warm). The commit-push skill runs both as part
+# of the full CI-parity gate, and Pylance shows pyright's errors live in VS Code.
 
 cd "$(git rev-parse --show-toplevel)"
 

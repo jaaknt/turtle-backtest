@@ -16,7 +16,7 @@ Mars, Momentum), exit and ranking strategies, portfolio simulation, and research
 - **Polars for all new code.** Pandas and quantstats are not dependencies; flag any import of
   either in review.
 - **Verify.** Turn a task into a check (a failing test, a passing run) and loop until it holds.
-  After non-trivial changes run pytest and mypy before proposing a commit.
+  After non-trivial changes run pytest, mypy and pyright before proposing a commit.
 
 ## Commands
 
@@ -25,7 +25,7 @@ Full CLI reference with every flag: [docs/scripts.md](docs/scripts.md).
 | Task | Command |
 | --- | --- |
 | Install deps | `uv sync --extra lint` |
-| Lint + types | `bash .githooks/pre-commit` (ruff, ruff format check, and `uv run mypy`, which takes no paths) |
+| Lint + types | `bash .githooks/pre-commit` (ruff, ruff format check, `uv run mypy`), then `uv run pyright`, which CI runs but the hook skips as too slow; neither type checker takes paths |
 | Tests | `uv run pytest` |
 | Run a research study | `systemd-run --user --scope -q -p MemoryMax=4G -p MemorySwapMax=0 uv run scripts/<name>.py` |
 | Markdown lint | `npx markdownlint-cli2` (`--fix` to auto-fix) |

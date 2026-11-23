@@ -14,6 +14,7 @@ description: Commit work to main and push it — runs the full CI-parity gate fi
    ```bash
    uv run ruff format turtlex/ scripts/ tests/ docs/ *.md  # write mode: fix formatting here, the hook only checks
    bash .githooks/pre-commit                               # ruff check, ruff format --check, mypy
+   uv run pyright                                          # not in the hook: too slow per commit
    npx markdownlint-cli2
    uv run pytest
    ```

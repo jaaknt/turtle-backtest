@@ -6,7 +6,7 @@ from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
-from sqlalchemy.sql.compiler import Compiled
+from sqlalchemy.sql.compiler import SQLCompiler
 
 from turtlex.model import Signal
 from turtlex.repository.ingest import SignalRepository
@@ -59,14 +59,14 @@ def test_upsert_signals_returns_the_input_length() -> None:
     )
 
 
-def test_upsert_signals_conflicts_on_the_natural_key_not_the_surrogate(compile_statement: Callable[[MagicMock], Compiled]) -> None:
+def test_upsert_signals_conflicts_on_the_natural_key_not_the_surrogate(compile_statement: Callable[[MagicMock], SQLCompiler]) -> None:
     engine, conn = _make_engine_mock()
     SignalRepository(engine).upsert_signals([_signal()], trading_strategy="bk50d_s12_v2.0", ranking_strategy="qullamaggie")
 
     assert "ON CONFLICT (trading_strategy, symbol, signal_date) DO UPDATE" in str(compile_statement(conn))
 
 
-def test_upsert_signals_updates_every_mutable_column(compile_statement: Callable[[MagicMock], Compiled]) -> None:
+def test_upsert_signals_updates_every_mutable_column(compile_statement: Callable[[MagicMock], SQLCompiler]) -> None:
     """Omitting ranking_strategy leaves the row naming the wrong scheme; omitting parameters
     freezes next_open out of the payload forever. Both pass every other assertion here.
     parameters is merged rather than assigned -- see the dedicated test below."""
@@ -79,7 +79,7 @@ def test_upsert_signals_updates_every_mutable_column(compile_statement: Callable
     assert "parameters = " in update_clause
 
 
-def test_upsert_signals_stores_each_signals_own_values(compile_statement: Callable[[MagicMock], Compiled]) -> None:
+def test_upsert_signals_stores_each_signals_own_values(compile_statement: Callable[[MagicMock], SQLCompiler]) -> None:
     """Every row-level value, across two rows -- the column mapping and the per-row loop at once."""
     engine, conn = _make_engine_mock()
     second = Signal(ticker="RNG.US", date=date(2026, 6, 2), ranking=44, signal_close=9.5, next_open=None, indicators={"adr_pct": 0.09})
@@ -99,7 +99,7 @@ def test_upsert_signals_stores_each_signals_own_values(compile_statement: Callab
     assert params["parameters_m1"] == {"adr_pct": 0.09}
 
 
-def test_upsert_signals_carries_next_open_over_but_nothing_else(compile_statement: Callable[[MagicMock], Compiled]) -> None:
+def test_upsert_signals_carries_next_open_over_but_nothing_else(compile_statement: Callable[[MagicMock], SQLCompiler]) -> None:
     """A narrower --end-date drops next_open from the payload; a plain assignment would then delete
     a value an earlier wider run had backfilled. A blanket `existing || incoming` would fix that but
     also strand every indicator the current run stopped reporting, so only next_open is carried."""
@@ -116,7 +116,7 @@ def test_upsert_signals_carries_next_open_over_but_nothing_else(compile_statemen
     assert "jsonb_strip_nulls(turtle.signal.parameters ||" not in update_clause
 
 
-def test_upsert_signals_payload_omits_db_owned_columns(compile_statement: Callable[[MagicMock], Compiled]) -> None:
+def test_upsert_signals_payload_omits_db_owned_columns(compile_statement: Callable[[MagicMock], SQLCompiler]) -> None:
     engine, conn = _make_engine_mock()
     SignalRepository(engine).upsert_signals([_signal()], trading_strategy="bk50d_s12_v2.0", ranking_strategy="qullamaggie")
 
@@ -127,7 +127,7 @@ def test_upsert_signals_payload_omits_db_owned_columns(compile_statement: Callab
     assert not inserted & {"id", "created_at", "modified_at"}
 
 
-def test_upsert_signals_labels_come_from_the_arguments(compile_statement: Callable[[MagicMock], Compiled]) -> None:
+def test_upsert_signals_labels_come_from_the_arguments(compile_statement: Callable[[MagicMock], SQLCompiler]) -> None:
     engine, conn = _make_engine_mock()
     SignalRepository(engine).upsert_signals([_signal()], trading_strategy="bk50d_s16_v2.0", ranking_strategy="momentum")
 

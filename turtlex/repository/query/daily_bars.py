@@ -1,5 +1,6 @@
 import logging
 from datetime import date
+from typing import Any
 
 import polars as pl
 from sqlalchemy import Engine, Select, and_, select
@@ -40,7 +41,7 @@ class DailyBarsQueryRepository:
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
 
-    def _build_stmt(self, ticker: str, start_date: date, end_date: date) -> Select[tuple[object, ...]]:
+    def _build_stmt(self, ticker: str, start_date: date, end_date: date) -> Select[*tuple[Any, ...]]:
         t = daily_bars_table
         return (
             select(t.c.date, t.c.open, t.c.high, t.c.low, t.c.close, t.c.adjusted_close, t.c.volume)

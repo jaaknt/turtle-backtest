@@ -408,6 +408,7 @@ uv run alembic upgrade head && uv run alembic downgrade -1 && uv run alembic upg
 # 2. Unit tests and types
 uv run pytest
 uv run mypy
+uv run pyright
 
 # 3. Seed the watchlist by hand, then confirm it is non-empty
 psql -c "INSERT INTO turtle.ticker_group (code, ticker_code)
