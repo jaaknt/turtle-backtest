@@ -40,7 +40,6 @@ def _make_strategy(pl_df: pl.DataFrame, min_bars: int = 100) -> MarsStrategy:
     return MarsStrategy(
         bars_history=mock_repo,
         ranking_strategy=mock_ranking,
-        time_frame_unit=TimeFrameUnit.WEEK,
         warmup_period=100,
         min_bars=min_bars,
     )
@@ -139,8 +138,13 @@ def test_is_buy_signal_ema_not_stacked() -> None:
 
 def test_is_buy_signal_macd_null() -> None:
     strategy = _make_strategy(_build_ohlcv())
-    row = {**_good_row(), "macd": None}
-    assert strategy.is_buy_signal("TEST", row) is False
+    assert strategy.is_buy_signal("TEST", {**_good_row(), "macd": None}) is False
+    assert strategy.is_buy_signal("TEST", {**_good_row(), "macd_signal": None}) is False
+
+
+def test_default_time_frame_unit_is_week() -> None:
+    strategy = _make_strategy(_build_ohlcv())
+    assert strategy.time_frame_unit == TimeFrameUnit.WEEK
 
 
 def test_is_buy_signal_consolidation_too_wide() -> None:

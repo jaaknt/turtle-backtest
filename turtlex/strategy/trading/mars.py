@@ -13,19 +13,32 @@ from .base import TradingStrategy
 
 logger = logging.getLogger(__name__)
 
+_REQUIRED_INDICATORS = (
+    "max_close_10",
+    "max_box_4",
+    "min_box_4",
+    "consolidation_change",
+    "hard_stoploss",
+    "ema_10",
+    "ema_20",
+    "macd",
+    "macd_signal",
+)
+
 
 # Mars Strategy (@marsrides)
 # https://docs.google.com/document/d/1BZgaYWFOnsOFMFWRt0jJgNVeLicEMB-ccf9kUwtIxYI/edit?tab=t.0
 class MarsStrategy(TradingStrategy):
+    TIME_FRAME_UNIT = TimeFrameUnit.WEEK
+
     def __init__(
         self,
         bars_history: DailyBarsQueryRepository,
         ranking_strategy: RankingStrategy,
-        time_frame_unit: TimeFrameUnit = TimeFrameUnit.WEEK,
         warmup_period: int = 720,  # 2 years for daily EMA200 + weekly data
         min_bars: int = 240,
     ):
-        super().__init__(bars_history, ranking_strategy, time_frame_unit, warmup_period, min_bars)
+        super().__init__(bars_history, ranking_strategy, self.TIME_FRAME_UNIT, warmup_period, min_bars)
 
     def calculate_indicators_pl(self) -> None:
         """Calculate technical indicators using the polars DataFrame (self.pl_df).
@@ -64,6 +77,28 @@ class MarsStrategy(TradingStrategy):
             (pl.col("volume") / pl.col("volume").shift(1).rolling_mean(4)).alias("volume_change"),
         )
 
+    @staticmethod
+    def _has_missing_indicators(row: dict[str, Any]) -> bool:
+        """Return True if any indicator required for a buy decision is missing."""
+        return any(row[col] is None for col in _REQUIRED_INDICATORS)
+
+    @staticmethod
+    def _buy_rejection_reason(row: dict[str, Any]) -> str | None:
+        """Return a debug reason for the first failed buy condition, or None if all pass."""
+        if row["close"] < row["max_close_10"]:
+            return f"close < max_close_10, close: {row['close']} max_close_10: {row['max_close_10']}"
+
+        if row["ema_10"] < row["ema_20"]:
+            return f"EMA_10 < EMA_20, EMA10: {row['ema_10']} EMA20: {row['ema_20']}"
+
+        if row["consolidation_change"] > 0.12:
+            return f"consolidation_change > 0.12, consolidation_change: {row['consolidation_change']}"
+
+        if (row["close"] - row["hard_stoploss"]) / row["close"] > 0.25:
+            return f"(close - hard_stoploss) / close > 0.25, close: {row['close']} hard_stoploss: {row['hard_stoploss']}"
+
+        return None
+
     def is_buy_signal(self, ticker: str, row: dict[str, Any]) -> bool:
         """Check whether a single row (from iter_rows) satisfies all buy conditions.
 
@@ -74,60 +109,13 @@ class MarsStrategy(TradingStrategy):
         Returns:
             bool: True if all buy conditions are met, False otherwise.
         """
-        if (
-            row["max_close_10"] is None
-            or row["max_box_4"] is None
-            or row["min_box_4"] is None
-            or row["consolidation_change"] is None
-            or row["hard_stoploss"] is None
-            or row["ema_10"] is None
-            or row["ema_20"] is None
-        ):
+        if self._has_missing_indicators(row):
             return False
 
-        # last close > max(close, 10)
-        if row["close"] < row["max_close_10"]:
-            logger.debug(
-                f"{ticker} {row['date'].strftime('%Y-%m-%d')} close < max_close_10, "
-                f"close: {row['close']} max_close_10: {row['max_close_10']}"
-            )
+        rejection = self._buy_rejection_reason(row)
+        if rejection is not None:
+            logger.debug(f"{ticker} {row['date'].strftime('%Y-%m-%d')} {rejection}")
             return False
-
-        # EMA(close, 10) > EMA(close, 20)
-        if row["ema_10"] < row["ema_20"]:
-            logger.debug(f"{ticker} {row['date'].strftime('%Y-%m-%d')} EMA_10 < EMA_20, EMA10: {row['ema_10']} EMA20: {row['ema_20']}")
-            return False
-
-        # MACD or MACD signal is null
-        if row["macd"] is None or row["macd_signal"] is None:
-            logger.debug(f"{ticker} {row['date'].strftime('%Y-%m-%d')} MACD or MACD_signal is null")
-            return False
-
-        # consolidation_change < 0.12
-        if row["consolidation_change"] > 0.12:
-            logger.debug(
-                f"{ticker} {row['date'].strftime('%Y-%m-%d')} consolidation_change > 0.12, "
-                f"consolidation_change: {row['consolidation_change']}"
-            )
-            return False
-
-        # (close - hard_stoploss / close < 0.16
-        if (row["close"] - row["hard_stoploss"]) / row["close"] > 0.25:
-            logger.debug(
-                f"{ticker} {row['date'].strftime('%Y-%m-%d')} (close - (max_box_4 - min_box_4) / 2) / close < 0.16, "
-                f"close: {row['close']} hard_stoploss: {row['hard_stoploss']}"
-            )
-            return False
-
-        """
-        # if last volume < EMA(volume, 4)*1.10
-        if row["volume"] < row["ema_volume_4"] * 0.9:
-            logger.debug(
-                f"{ticker} {row['date'].strftime('%Y-%m-%d')} volume < EMA_volume_4 * 1.10, "
-                f"volume: {row['volume']} EMA_volume_4 * 1.10: {row['ema_volume_4']*1.10}"
-            )
-            return False
-        """
 
         logger.debug(f"{ticker} {row['date'].strftime('%Y-%m-%d')} buy signal")
         return True
