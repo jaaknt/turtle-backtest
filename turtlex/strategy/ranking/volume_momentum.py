@@ -1,5 +1,6 @@
 import logging
 from datetime import date
+from typing import TypeGuard
 
 import polars as pl
 
@@ -14,6 +15,23 @@ _MOMENTUM_10D_BANDS = [(0.08, 40), (0.03, 20)]
 _MA_SEPARATION_BANDS = [(0.02, 40), (0.00, 20)]
 
 logger = logging.getLogger(__name__)
+
+
+def _is_positive(value: float | None) -> TypeGuard[float]:
+    """Return True when value is present and strictly positive."""
+    return value is not None and value > 0
+
+
+def _pct_change(current: float | None, past: float | None) -> float | None:
+    """Return (current - past) / past, or None when either is missing or past is not positive."""
+    if current is None or not _is_positive(past):
+        return None
+    return (current - past) / past
+
+
+def _first_band_above(value: float, bands: list[tuple[float, int]]) -> int:
+    """Return the score of the first band whose threshold value strictly exceeds, else 0."""
+    return next((score for threshold, score in bands if value > threshold), 0)
 
 
 class VolumeMomentumRanking(RankingStrategy):
@@ -43,26 +61,13 @@ class VolumeMomentumRanking(RankingStrategy):
         if filtered_df.height < 21:
             return 0
 
-        current_close = filtered_df["close"][-1]
-        past_close = filtered_df["close"][-21]
-
-        if current_close is None or past_close is None or past_close <= 0:
+        price_momentum = _pct_change(filtered_df["close"][-1], filtered_df["close"][-21])
+        if price_momentum is None:
             return 0
 
-        price_momentum = (current_close - past_close) / past_close
         logger.debug(f"Volume Momentum - Price momentum: {price_momentum}")
 
-        if filtered_df.height >= 60:
-            recent_volume: float | None = filtered_df["volume"][-10:].mean()  # type: ignore[assignment]
-            avg_volume: float | None = filtered_df["volume"][-60:].mean()  # type: ignore[assignment]
-            if recent_volume is None or avg_volume is None or avg_volume <= 0:
-                logger.debug("Volume Momentum - missing/zero avg_volume, using neutral volume_factor=1.0")
-                volume_factor = 1.0
-            else:
-                volume_factor = min(recent_volume / avg_volume, 2.0)
-        else:
-            volume_factor = 1.0
-
+        volume_factor = self._volume_factor(filtered_df)
         logger.debug(f"Volume Momentum - Volume factor: {volume_factor}")
 
         base_score = self._linear_rank(price_momentum, 0.05, 0.20, 25)
@@ -70,9 +75,30 @@ class VolumeMomentumRanking(RankingStrategy):
         if volume_factor < 1.2:
             score = int(base_score * 0.5)
         else:
-            score = int(base_score * min(volume_factor, 2.0))
+            score = int(base_score * volume_factor)
 
         return min(25, max(0, score))
+
+    def _volume_factor(self, filtered_df: pl.DataFrame) -> float:
+        """
+        Ratio of 10-day to 60-day average volume, capped at 2.0.
+
+        Args:
+            filtered_df: Date-filtered OHLCV DataFrame.
+
+        Returns:
+            float: Volume factor (0.0-2.0); neutral 1.0 with fewer than 60 bars or no usable average.
+        """
+        if filtered_df.height < 60:
+            return 1.0
+
+        recent_volume: float | None = filtered_df["volume"][-10:].mean()  # type: ignore[assignment]
+        avg_volume: float | None = filtered_df["volume"][-60:].mean()  # type: ignore[assignment]
+        if recent_volume is None or not _is_positive(avg_volume):
+            logger.debug("Volume Momentum - missing/zero avg_volume, using neutral volume_factor=1.0")
+            return 1.0
+
+        return min(recent_volume / avg_volume, 2.0)
 
     def _volatility_adjusted_strength(self, filtered_df: pl.DataFrame) -> int:
         """
@@ -87,13 +113,9 @@ class VolumeMomentumRanking(RankingStrategy):
         if filtered_df.height < 61:
             return 0
 
-        current_close = filtered_df["close"][-1]
-        past_close = filtered_df["close"][-61]
-
-        if current_close is None or past_close is None or past_close <= 0:
+        stock_return = _pct_change(filtered_df["close"][-1], filtered_df["close"][-61])
+        if stock_return is None:
             return 0
-
-        stock_return = (current_close - past_close) / past_close
 
         close_series = filtered_df["close"]
         prev_close = close_series.shift(1)
@@ -104,7 +126,7 @@ class VolumeMomentumRanking(RankingStrategy):
             return 0
 
         volatility: float | None = daily_returns.std()  # type: ignore[assignment]
-        if volatility is None or volatility <= 0:
+        if not _is_positive(volatility):
             return 0
 
         risk_adjusted_return = stock_return / volatility
@@ -130,14 +152,14 @@ class VolumeMomentumRanking(RankingStrategy):
         avg_volume: float | None = volumes.mean()  # type: ignore[assignment]
         volume_std: float | None = volumes.std()  # type: ignore[assignment]
 
-        if avg_volume is None or volume_std is None or avg_volume <= 0:
+        if volume_std is None or not _is_positive(avg_volume):
             return 0
 
         volume_cv = volume_std / avg_volume
         consistency_score = max(0, 1 - (volume_cv - 0.5))
 
         avg_price: float | None = filtered_df["close"][-60:].mean()  # type: ignore[assignment]
-        if avg_price is None or avg_price <= 0:
+        if not _is_positive(avg_price):
             return 0
 
         dollar_volume = avg_volume * avg_price
@@ -195,6 +217,11 @@ class VolumeMomentumRanking(RankingStrategy):
         rs = avg_gain / avg_loss
         rsi_value = 100.0 - (100.0 / (1.0 + rs))
 
+        return self._rsi_band_score(rsi_value)
+
+    @staticmethod
+    def _rsi_band_score(rsi_value: float) -> int:
+        """Map an RSI value to a score (0-100): 40-65 is best, overbought and oversold decay."""
         if 40 <= rsi_value <= 65:
             return 100
         elif 30 <= rsi_value <= 75:
@@ -214,20 +241,15 @@ class VolumeMomentumRanking(RankingStrategy):
         ema_50 = closes.ewm_mean(span=50, adjust=False)[-1]
         current_price = closes[-1]
 
-        if ema_20 is None or ema_50 is None or current_price is None or ema_50 <= 0 or ema_20 <= 0:
+        price_ema20_momentum = _pct_change(current_price, ema_20)
+        ema_separation = _pct_change(ema_20, ema_50)
+        if price_ema20_momentum is None or ema_separation is None:
             return 0
 
-        score = 0
-
-        if current_price > ema_20 and current_price > ema_50:
-            score += 50
-        else:
+        if not current_price > max(ema_20, ema_50):
             return 0
 
-        ema_separation = (ema_20 - ema_50) / ema_50
-        score += next((s for t, s in _MA_SEPARATION_BANDS if ema_separation > t), 0)
-
-        price_ema20_momentum = (current_price - ema_20) / ema_20
+        score = 50 + _first_band_above(ema_separation, _MA_SEPARATION_BANDS)
         if price_ema20_momentum > 0.01:
             score += 10
 
@@ -239,22 +261,13 @@ class VolumeMomentumRanking(RankingStrategy):
             return 0
 
         current_close = filtered_df["close"][-1]
-        close_5d = filtered_df["close"][-6]
-        close_10d = filtered_df["close"][-11]
+        momentum_5d = _pct_change(current_close, filtered_df["close"][-6])
+        momentum_10d = _pct_change(current_close, filtered_df["close"][-11])
 
-        if current_close is None or close_5d is None or close_10d is None or close_5d <= 0 or close_10d <= 0:
+        if not (_is_positive(momentum_5d) and _is_positive(momentum_10d)):
             return 0
 
-        momentum_5d = (current_close - close_5d) / close_5d
-        momentum_10d = (current_close - close_10d) / close_10d
-
-        score = 0
-
-        if momentum_5d <= 0 or momentum_10d <= 0:
-            return 0
-
-        score += next((s for t, s in _MOMENTUM_5D_BANDS if momentum_5d > t), 0)
-        score += next((s for t, s in _MOMENTUM_10D_BANDS if momentum_10d > t), 0)
+        score = _first_band_above(momentum_5d, _MOMENTUM_5D_BANDS) + _first_band_above(momentum_10d, _MOMENTUM_10D_BANDS)
 
         return min(100, score)
 
