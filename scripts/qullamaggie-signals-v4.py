@@ -36,7 +36,9 @@ by lightyear-import), netted per ticker and marked to the latest raw close. Thei
 Ranking are the newest s12 signal in the SIGNAL_LOOKBACK_CAL calendar days strictly before the
 buy, scored *ungated* — unlike the signal table above, a position bought off a sub-qm.MIN_RANKING
 signal shows that score rather than a "--", which here means only that no signal precedes the buy
-inside the window.
+inside the window. A held symbol the universe no longer contains (its current market cap has fallen
+below qm.MIN_MARKET_CAP since the buy) is loaded separately and run through the same chain, and listed
+under the table.
 
 The whole report — signal table, exclusions, both cohort tables, current investments and the
 benchmark comparison — is printed to stdout; no result doc is written.
@@ -213,14 +215,14 @@ def holding_signal(signals: pl.DataFrame, symbol: str, entry_date: date) -> tupl
     that score, which "--" could not be told apart from having no signal at all.
 
     Args:
-        signals: Ungated, ranked s12 signals over the whole candidate window
+        signals: Ungated, ranked s12 signals over the whole candidate window (symbol, date, ranking)
         symbol: Ticker code in "TICKER.US" format
         entry_date: First buy date for the position
 
     Returns:
         tuple[date, int] | None: (signal date, 0-100 score), or None when no signal precedes the
-            buy within the lookback window — the symbol may also sit outside the universe
-            `qm.load_bars` selects, in which case it never had signals computed at all
+            buy within the lookback window. A symbol outside the universe `qm.load_bars` selects
+            returns None unless `main` added its below-market-cap signals to `signals`
     """
     window = (
         signals.filter(
@@ -464,13 +466,23 @@ def main() -> None:
 
     print("Loading current investments …", flush=True)
     holdings = load_holdings(settings.engine)
+    held = [h["symbol"] for h in holdings]
+    holding_sig = candidate_sig.filter(pl.col("symbol").is_in(held)).select("symbol", "date", "ranking")
+    # held stocks the universe dropped because today's market cap is under the floor
+    below_cap = qm.load_bars(bars_history, CANDIDATE_START, DISPLAY_END, min_market_cap=0, max_market_cap=qm.MIN_MARKET_CAP, symbols=held)
+    outside = sorted(below_cap["symbol"].unique().to_list())
+    if outside:
+        below_cap_sig = qm.add_ranking(qm.get_signals(qm.add_indicators(below_cap), bull_dates, CANDIDATE_START, BASE_SMA_T))
+        holding_sig = pl.concat([holding_sig, below_cap_sig.select("symbol", "date", "ranking")])
     for h in holdings:
         h["sector"] = sectors.get(h["symbol"])
-        match = holding_signal(candidate_sig, h["symbol"], h["entry_date"])
+        match = holding_signal(holding_sig, h["symbol"], h["entry_date"])
         h["signal_date"], h["ranking"] = match if match is not None else (None, None)
     holdings_output = format_holdings_table(holdings)
     print("\n=== Current investments (turtle.lightyear_transaction, marked to latest raw close) ===")
     print(holdings_output)
+    if outside:
+        print(f"Below the ${qm.MIN_MARKET_CAP / 1e9:.1f}B market-cap floor today, scored outside the universe: {', '.join(outside)}")
 
     print("Loading benchmark returns …", flush=True)
     mean_of_means = float(np.mean(cohort_means)) if cohort_means else float("nan")

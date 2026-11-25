@@ -217,3 +217,18 @@ def test_get_qualified_universe_bars_pl_streams_results(mock_engine: MagicMock) 
         _make_repo(mock_engine).get_qualified_universe_bars_pl(date(2024, 1, 2), date(2024, 1, 3))
 
     mock_engine.connect.return_value.execution_options.assert_called_once_with(stream_results=True, max_row_buffer=LOAD_BATCH_ROWS)
+
+
+def test_get_qualified_universe_bars_pl_restricts_to_symbols(mock_engine: MagicMock) -> None:
+    with patch("turtlex.repository.query.daily_bars.pl.read_database", return_value=iter([_sample_universe_pl_df()])) as read_database:
+        _make_repo(mock_engine).get_qualified_universe_bars_pl(
+            date(2024, 1, 2), date(2024, 1, 3), min_market_cap=0, max_market_cap=1_500_000_000, symbols=["GENI.US"]
+        )
+
+    query = read_database.call_args.kwargs["query"]
+    params = query.compile().params
+    assert "GENI.US" in [v for value in params.values() for v in (value if isinstance(value, tuple | list) else [value])]
+    assert 1_500_000_000 in params.values()
+    # The universe filters still apply alongside the symbol list.
+    assert "sector" in str(query)
+    assert "country" in str(query)

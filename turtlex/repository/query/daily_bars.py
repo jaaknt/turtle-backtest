@@ -92,6 +92,7 @@ class DailyBarsQueryRepository:
         min_market_cap: int = 1_500_000_000,
         max_market_cap: int | None = None,
         excluded_sectors: list[str] | None = None,
+        symbols: list[str] | None = None,
     ) -> pl.DataFrame:
         """Return daily bars for every fundamentals-qualified US common stock in one query.
 
@@ -117,6 +118,8 @@ class DailyBarsQueryRepository:
                 per-symbol attribute and the studies' per-symbol logic never crosses symbols,
                 so slabbed reads reproduce a single wide read exactly.
             excluded_sectors: Sectors to exclude; defaults to Communication Services and Real Estate
+            symbols: Optional ticker codes to restrict the read to, still subject to every filter
+                above — for a caller that needs a few named symbols on the universe's terms
 
         Returns:
             Columns: symbol, date, open, high, low, close, adjusted_close, volume — ordered by
@@ -137,6 +140,7 @@ class DailyBarsQueryRepository:
                     c.c.market_cap >= min_market_cap,
                     *([c.c.market_cap < max_market_cap] if max_market_cap is not None else []),
                     c.c.sector.not_in(excluded_sectors),
+                    *([b.c.symbol.in_(symbols)] if symbols is not None else []),
                     b.c.date >= start_date,
                     b.c.date <= end_date,
                 )

@@ -101,7 +101,14 @@ def load_trading_days(bars_history: DailyBarsQueryRepository, start_date: date, 
     return sorted(spy["date"].to_list())
 
 
-def load_bars(bars_history: DailyBarsQueryRepository, start_date: date, end_date: date) -> pl.DataFrame:
+def load_bars(
+    bars_history: DailyBarsQueryRepository,
+    start_date: date,
+    end_date: date,
+    min_market_cap: int = MIN_MARKET_CAP,
+    max_market_cap: int | None = None,
+    symbols: list[str] | None = None,
+) -> pl.DataFrame:
     """Load adjusted daily bars for the whole qualified universe in one query.
 
     Args:
@@ -109,6 +116,11 @@ def load_bars(bars_history: DailyBarsQueryRepository, start_date: date, end_date
         start_date: First date signals may be emitted for; bars are fetched from
             ``WARMUP_DAYS`` before this so indicators are warm
         end_date: Last date to load
+        min_market_cap: Inclusive market-cap floor; the universe's MIN_MARKET_CAP by default
+        max_market_cap: Optional exclusive market-cap ceiling — with ``min_market_cap=0`` and
+            ``max_market_cap=MIN_MARKET_CAP`` it selects the stocks the default universe
+            drops on the current market-cap snapshot alone
+        symbols: Optional ticker codes to restrict the read to
 
     Returns:
         Frame of symbol, date, raw_close, adj_open, adj_close, adj_high, adj_low, volume. A
@@ -121,8 +133,10 @@ def load_bars(bars_history: DailyBarsQueryRepository, start_date: date, end_date
     df = bars_history.get_qualified_universe_bars_pl(
         fetch_start,
         end_date,
-        min_market_cap=MIN_MARKET_CAP,
+        min_market_cap=min_market_cap,
+        max_market_cap=max_market_cap,
         excluded_sectors=list(EXCLUDED_SECTORS),
+        symbols=symbols,
     )
     return prepare_bars(df.rename({"close": "raw_close"}))
 
